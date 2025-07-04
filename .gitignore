@@ -1,0 +1,12 @@
+# ide noise
+.cache/
+.vs/
+.vscode/
+CMakeLists.txt.user
+compile_commands.json
+*.vcxproj.user
+out
+
+# whitelist shared vs code files
+!.vscode/launch.json
+!.vscode/tasks.json
