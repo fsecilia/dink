@@ -17,6 +17,43 @@ endif()
 set(THREADS_PREFER_PTHREAD_FLAG TRUE)
 find_package(Threads REQUIRED)
 
+if (NOT DEFINED dink_enable_testing)
+    set(dink_enable_testing TRUE CACHE BOOL "If true, include tests and a dependency on gtest in the build.")
+endif()
+
+if (dink_enable_testing)
+    if (NOT DEFINED dink_fetch_gtest)
+        set(dink_fetch_gtest TRUE CACHE BOOL "If true, satisfy gtest dependency using cmake's FetchContent, find_package otherwise.")
+    endif()
+
+    if (NOT DEFINED dink_run_tests_after_build)
+        set(dink_run_tests_after_build TRUE CACHE BOOL "If true, automatically run tests after build.")
+    endif()
+endif()
+
+if (dink_enable_testing)
+    if (dink_fetch_gtest)
+        include(FetchContent)
+        FetchContent_Declare(
+            googletest
+            GIT_REPOSITORY https://github.com/google/googletest.git
+            GIT_TAG v1.17.0
+            GIT_PROGRESS TRUE
+            SYSTEM
+        )
+        FetchContent_MakeAvailable(googletest)
+        if (CMAKE_SYSTEM_NAME MATCHES "Windows")
+            set(gtest_force_shared_crt ON CACHE BOOL "prevent googletest from overriding /MDd with /MTd." FORCE)
+        endif()
+        set(INSTALL_GTEST FALSE CACHE BOOL "remove fetched googletest from cmake install" FORCE)
+        include(GoogleTest)
+    else()
+        find_package(GTest REQUIRED)
+    endif()
+
+    enable_testing()
+endif()
+
 set(CMAKE_CXX_EXTENSIONS FALSE)
 set(CMAKE_CXX_SCAN_FOR_MODULES False)
 set(CMAKE_CXX_STANDARD 23)
@@ -90,3 +127,16 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
         /WX
     )
 endif()
+
+function(enable_running_from_build_tree target)
+    if (CMAKE_SYSTEM_NAME MATCHES "Windows")
+        add_custom_command(TARGET ${target}
+            POST_BUILD
+            COMMAND "${CMAKE_COMMAND}" -E echo copy_if_different
+                "$<TARGET_RUNTIME_DLLS:${target}>" "$<TARGET_FILE_DIR:${target}>"
+            COMMAND_EXPAND_LISTS
+        )
+    endif()
+endfunction()
+
+add_subdirectory(src/dink)
