@@ -13,3 +13,6 @@ if (ccache)
     set_property(GLOBAL PROPERTY CMAKE_C_LINKER_LAUNCHER "${ccache}")
     set_property(GLOBAL PROPERTY CMAKE_CXX_LINKER_LAUNCHER "${ccache}")
 endif()
+
+set(THREADS_PREFER_PTHREAD_FLAG TRUE)
+find_package(Threads REQUIRED)
