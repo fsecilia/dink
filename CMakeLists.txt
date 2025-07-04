@@ -25,3 +25,68 @@ set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
 set(CMAKE_POSITION_INDEPENDENT_CODE TRUE)
 set(CMAKE_VISIBILITY_INLINES_HIDDEN TRUE)
+
+if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    add_compile_options(
+        -fstrict-aliasing
+        -fsized-deallocation
+
+        -pedantic
+
+        -Wall
+        -Werror
+        -Wextra
+        -Wstrict-aliasing=2
+        -Wswitch-enum
+        -Wno-invalid-offsetof
+        -Wno-missing-braces
+        -Wno-non-virtual-dtor
+        -Wno-old-style-cast
+        -Wno-sign-compare
+    )
+endif()
+
+if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    add_compile_options(
+        -fsafe-buffer-usage-suggestions
+
+        -Weverything
+        -Wno-bad-function-cast
+        -Wno-c++20-compat
+        -Wno-c++98-compat
+        -Wno-c++98-compat-pedantic
+        -Wno-c99-extensions
+        -Wno-covered-switch-default
+        -Wno-ctad-maybe-unsupported
+        -Wno-declaration-after-statement
+        -Wno-documentation
+        -Wno-exit-time-destructors
+        -Wno-global-constructors
+        -Wno-language-extension-token
+        -Wno-missing-prototypes
+        -Wno-padded
+        -Wno-reserved-identifier
+        -Wno-shadow
+        -Wno-shadow-field
+        -Wno-unused-function
+        -Wno-unused-member-function
+        -Wno-unused-parameter
+        -Wno-unused-variable
+        -Wno-weak-vtables
+   )
+endif()
+
+if (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
+    add_compile_options(
+        "$<$<CONFIG:RELEASE>:/GS;/Gy;/Zc:inline>"
+
+        /WX /W4
+        /wd4201 /wd4250 /wd4251 /wd4275 /wd4459 /wd4576
+        -D_SCL_SECURE_NO_WARNINGS
+        -D_CRT_SECURE_NO_WARNINGS
+    )
+    add_link_options(
+        "$<$<CONFIG:RELEASE>:/LTCG;/OPT:ICF;/OPT:REF>"
+        /WX
+    )
+endif()
