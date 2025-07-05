@@ -23,13 +23,11 @@ struct arg_test_t : Test
 
     struct handler_t
     {
-        auto val(resolved_t resolved) const noexcept -> id_t { return id(resolved); }
-        auto lref(resolved_t& resolved) const noexcept -> id_t { return id(resolved); }
-        auto rref(resolved_t&& resolved) const noexcept -> id_t { return id(resolved); }
-        auto lcref(resolved_t const& resolved) const noexcept -> id_t { return id(resolved); }
-        auto rcref(resolved_t const&& resolved) const noexcept -> id_t { return id(resolved); }
-
-        auto id(resolved_t const& src) const noexcept -> id_t { return src.id; }
+        auto val(resolved_t resolved) const noexcept -> id_t { return resolved.id; }
+        auto lref(resolved_t& resolved) const noexcept -> id_t { return resolved.id; }
+        auto rref(resolved_t&& resolved) const noexcept -> id_t { return resolved.id; }
+        auto lcref(resolved_t const& resolved) const noexcept -> id_t { return resolved.id; }
+        auto rcref(resolved_t const&& resolved) const noexcept -> id_t { return resolved.id; }
     };
 
     struct composer_t
