@@ -7,6 +7,11 @@ list(APPEND dink_files
     dink.hpp
 )
 
+list(APPEND dink_unit_test_files
+    unit_test.hpp
+    unit_test.cpp
+)
+
 set(dink_generated_root "${CMAKE_BINARY_DIR}/gen")
 set(config_file_template config.template.hpp)
 set(config_file_generated "${dink_generated_root}/dink/config.gen.hpp")
@@ -39,9 +44,7 @@ write_basic_package_version_file(
 )
 
 if (dink_enable_testing)
-    add_executable(dink_unit_test
-        unit_test.cpp
-    )
+    add_executable(dink_unit_test ${dink_unit_test_files})
     set_target_properties(dink_unit_test
         PROPERTIES
         VERSION ${dink_version}
