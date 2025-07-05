@@ -24,16 +24,16 @@ set(THREADS_PREFER_PTHREAD_FLAG TRUE)
 find_package(Threads REQUIRED)
 
 if (NOT DEFINED dink_enable_testing)
-    set(dink_enable_testing TRUE CACHE BOOL "If true, include tests and a dependency on gtest in the build.")
+    set(dink_enable_testing TRUE CACHE BOOL "include tests and a dependency on gtest in the build")
 endif()
 
 if (dink_enable_testing)
     if (NOT DEFINED dink_fetch_gtest)
-        set(dink_fetch_gtest TRUE CACHE BOOL "If true, satisfy gtest dependency using cmake's FetchContent, find_package otherwise.")
+        set(dink_fetch_gtest TRUE CACHE BOOL "satisfy gtest dependency using cmake's FetchContent, find_package otherwise")
     endif()
 
     if (NOT DEFINED dink_run_tests_after_build)
-        set(dink_run_tests_after_build TRUE CACHE BOOL "If true, automatically run tests after build.")
+        set(dink_run_tests_after_build TRUE CACHE BOOL "automatically run tests after build")
     endif()
 endif()
 
