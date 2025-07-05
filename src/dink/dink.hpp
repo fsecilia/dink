@@ -5,6 +5,8 @@
 
 #pragma once
 
+#include <cstdint>
+
 namespace dink {
 
 // determine how to express no_unique_address
@@ -20,5 +22,7 @@ namespace dink {
     #define dink_no_unique_address
 #endif
 // clang-format on
+
+using int_t = std::intptr_t;
 
 } // namespace dink
