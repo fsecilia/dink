@@ -29,7 +29,8 @@ endif()
 
 if (dink_enable_testing)
     if (NOT DEFINED dink_fetch_gtest)
-        set(dink_fetch_gtest TRUE CACHE BOOL "satisfy gtest dependency using cmake's FetchContent, find_package otherwise")
+        set(dink_fetch_gtest TRUE CACHE BOOL
+            "satisfy gtest dependency using cmake's FetchContent, find_package otherwise")
     endif()
 
     if (NOT DEFINED dink_run_tests_after_build)
@@ -48,14 +49,15 @@ if (dink_enable_testing)
             SYSTEM
         )
         FetchContent_MakeAvailable(googletest)
-        if (CMAKE_SYSTEM_NAME MATCHES "Windows")
-            set(gtest_force_shared_crt ON CACHE BOOL "prevent googletest from overriding /MDd with /MTd." FORCE)
-        endif()
-        set(INSTALL_GTEST FALSE CACHE BOOL "remove fetched googletest from cmake install" FORCE)
         include(GoogleTest)
     else()
         find_package(GTest REQUIRED)
     endif()
+
+    if (CMAKE_SYSTEM_NAME MATCHES "Windows")
+        set(gtest_force_shared_crt ON CACHE BOOL "prevent googletest from overriding /MDd with /MTd." FORCE)
+    endif()
+    set(INSTALL_GTEST FALSE CACHE BOOL "remove googletest from cmake install" FORCE)
 
     enable_testing()
 endif()
