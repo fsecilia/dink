@@ -12,9 +12,13 @@ namespace {
 struct arg_test_t : Test
 {
     using id_t = int_t;
+
+    static constexpr auto const unexpected_id = id_t{123};
+    static constexpr auto const expected_id = id_t{456};
+
     struct resolved_t
     {
-        id_t id = 123;
+        id_t id = unexpected_id;
     };
 
     struct handler_t
@@ -58,7 +62,6 @@ struct arg_test_t : Test
 
     using sut_t = arg_t<resolved_t, composer_t, 1>;
 
-    id_t expected_id = 456;
     resolved_t resolved{expected_id};
     handler_t handler{};
     StrictMock<composer_t> composer{};
