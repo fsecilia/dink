@@ -10,6 +10,11 @@ list(APPEND dink_files
 add_library(dink INTERFACE ${dink_files})
 target_include_directories(dink INTERFACE $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src>)
 target_link_libraries(dink INTERFACE Threads::Threads)
+set_target_properties(dink
+    PROPERTIES
+    VERSION ${dink_version}
+    SOVERSION ${dink_so_version}
+)
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
@@ -17,8 +22,8 @@ install(FILES ${dink_files} DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/dink")
 install(TARGETS dink EXPORT dink DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/dink")
 install(EXPORT dink NAMESPACE dink:: DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/dink")
 write_basic_package_version_file(
-    "dinkConfigVersion.cmake"
-    VERSION 0.0.1
+    dinkConfigVersion.cmake
+    VERSION ${dink_version}
     COMPATIBILITY AnyNewerVersion
     ARCH_INDEPENDENT
 )
@@ -26,6 +31,11 @@ write_basic_package_version_file(
 if (dink_enable_testing)
     add_executable(dink_unit_test
         unit_test.cpp
+    )
+    set_target_properties(dink_unit_test
+        PROPERTIES
+        VERSION ${dink_version}
+        SOVERSION ${dink_so_version}
     )
 
     target_link_libraries(dink_unit_test PUBLIC
