@@ -7,18 +7,18 @@ list(APPEND dink_files
     dink.hpp
 )
 
-set(dink_generated_root ${CMAKE_BINARY_DIR}/gen)
+set(dink_generated_root "${CMAKE_BINARY_DIR}/gen")
 set(config_file_template config.template.hpp)
-set(config_file_generated ${dink_generated_root}/dink/config.gen.hpp)
-file(MAKE_DIRECTORY ${dink_generated_root})
-configure_file(${config_file_template} ${config_file_generated})
+set(config_file_generated "${dink_generated_root}/dink/config.gen.hpp")
+file(MAKE_DIRECTORY "${dink_generated_root}")
+configure_file("${config_file_template}" "${config_file_generated}")
 
 add_library(dink INTERFACE
     ${dink_files}
     ${config_file_template}
     ${config_file_generated}
 )
-target_include_directories(dink INTERFACE $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src>)
+target_include_directories(dink INTERFACE "$<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src>")
 target_link_libraries(dink INTERFACE Threads::Threads)
 set_target_properties(dink
     PROPERTIES
