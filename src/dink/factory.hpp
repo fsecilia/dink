@@ -93,7 +93,8 @@ struct default_t<resolved_t> : public static_construct_method_t<resolved_t>
     specialized factory_t from these to choose a specific behavior.
 
     During resolution, the instance of this factory is resolved by the composer. The factory type must be either
-    default constructible or resolvable.
+    default-constructible or resolvable. If it is default-constructible, it is default-constructed rather than
+    resolved.
 */
 template <typename resolved_t>
 struct factory_t : factories::default_t<resolved_t>
