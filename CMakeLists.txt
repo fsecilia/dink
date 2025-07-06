@@ -96,6 +96,7 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
         -Weverything
         -Wno-bad-function-cast
         -Wno-c++20-compat
+        -Wno-c++20-extensions
         -Wno-c++98-compat
         -Wno-c++98-compat-pedantic
         -Wno-c99-extensions
