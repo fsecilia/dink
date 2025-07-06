@@ -20,15 +20,18 @@ template <typename deduced_t, typename resolved_t, int num_args>
 concept smf_filter = num_args == 1 && std::is_same_v<std::remove_cvref_t<deduced_t>, resolved_t>;
 
 /*!
-    Resolves individual ctor args.
+    Resolves individual args.
 
-    arg_t deduces the type of particular ctor arg and returns an instance resolved by a composer.
+    arg_t deduces the type of particular arg and returns an instance resolved by a composer.
 
-    Deduction uses a pair of overloaded, implicit conversion templates to determine if it is matching a shared ref or a
-    transient value. It gets by on a technicality: the ref overload must be const. First, this overloads the conversion
-    templates unambiguously. If both were const or neither were const, this wouldn't compile. Second, when called from
-    a mutable arg_t to match a value type, the mutable value overload is a better match than the const ref overload.
-    Otherwise, the ref overload would always be chosen, even for value types.
+    Deduction uses a pair of overloaded, implicit conversion templates to determine if it matched a shared ref or a
+    transient value. It gets by on a technicality: the ref overload must be const, the val overload must not be.
+
+    First, this overloads the conversion templates unambiguously. If both were const or neither were const, they
+    wouldn't compile. Second, when called from a mutable arg_t to match a value type, the mutable value overload is a
+    better match than the const ref overload. Otherwise, the ref overload would always be chosen, even for value types.
+
+    Dispatch is aware of the fact that arg_t must be mutable.
 */
 template <typename resolved_t, typename composer_t, int num_args>
 class arg_t
