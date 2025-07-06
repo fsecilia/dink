@@ -6,10 +6,12 @@
 list(APPEND dink_files
     arg.hpp
     dink.hpp
+    type_map.hpp
 )
 
 list(APPEND dink_unit_test_files
     arg_unit_test.cpp
+    type_map_unit_test.cpp
     unit_test.hpp
 )
 
