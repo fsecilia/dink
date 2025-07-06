@@ -16,7 +16,7 @@ namespace dink {
     If the composer were to try to resolve a copy or move ctor, it would recurse indefinitely and crash. This ignores
     cases where there is 1 deduced arg and its type is the same as the resolved type, mod cv-ref.
 */
-template <typename deduced_t, typename resolved_t, int num_args>
+template <typename deduced_t, typename resolved_t, int_t num_args>
 concept smf_filter = num_args == 1 && std::is_same_v<std::remove_cvref_t<deduced_t>, resolved_t>;
 
 /*!
@@ -33,7 +33,7 @@ concept smf_filter = num_args == 1 && std::is_same_v<std::remove_cvref_t<deduced
 
     Dispatch is aware of the fact that arg_t must be mutable.
 */
-template <typename resolved_t, typename composer_t, int num_args>
+template <typename resolved_t, typename composer_t, int_t num_args>
 class arg_t
 {
 public:
