@@ -7,6 +7,7 @@ list(APPEND dink_files
     arg.hpp
     lib.hpp
     composer.hpp
+    dink.hpp
     dispatcher.hpp
     factory.hpp
     resolver.hpp
