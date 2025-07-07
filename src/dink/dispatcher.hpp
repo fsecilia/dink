@@ -44,7 +44,7 @@ struct dispatcher_t<resolved_t, composer_t, factory_t, arg_t, args_t...>
 public:
     constexpr auto operator()(composer_t& composer) const -> resolved_t
     {
-        auto factory = resolve_factory(composer);
+        auto const factory = resolve_factory(composer);
         return factory(args_t{composer}...);
     }
 
