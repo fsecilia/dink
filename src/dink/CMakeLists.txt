@@ -6,6 +6,7 @@
 list(APPEND dink_files
     arg.hpp
     lib.hpp
+    composer.hpp
     dispatcher.hpp
     factory.hpp
     resolver.hpp
@@ -14,6 +15,7 @@ list(APPEND dink_files
 
 list(APPEND dink_unit_test_files
     arg_unit_test.cpp
+    composer_unit_test.cpp
     dispatcher_unit_test.cpp
     factory_unit_test.cpp
     resolver_unit_test.cpp
