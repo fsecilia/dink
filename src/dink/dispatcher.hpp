@@ -15,7 +15,7 @@ namespace dink {
 
     This value is mostly arbitrary, just higher than the number of parameters likely in generated code.
 */
-constexpr auto const max_deduced_params = 3;
+constexpr auto const max_deduced_params = 10;
 
 //! true when invoking factory with args produces a result convertible to resolved_t
 template <typename resolved_t, typename factory_t, typename... args_t>
