@@ -18,7 +18,7 @@ class transient_t
 {
 public:
     template <typename resolved_t, typename composer_t>
-    auto resolve(composer_t& composer) const -> resolved_t&
+    auto resolve(composer_t& composer) const -> resolved_t
     {
         return dispatcher_t<resolved_t, composer_t, factory_t<resolved_t>, arg_t>{}(composer);
     }
