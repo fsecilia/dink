@@ -5,7 +5,7 @@
 
 list(APPEND dink_files
     arg.hpp
-    dink.hpp
+    lib.hpp
     dispatcher.hpp
     factory.hpp
     type_map.hpp

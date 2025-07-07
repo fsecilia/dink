@@ -3,7 +3,7 @@
     Copyright (C) 2025 Frank Secilia
 */
 
-#include <dink/dink.hpp>
+#include <dink/lib.hpp>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 

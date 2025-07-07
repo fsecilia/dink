@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include <dink/dink.hpp>
+#include <dink/lib.hpp>
 #include <type_traits>
 
 namespace dink {
