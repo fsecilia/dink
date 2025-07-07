@@ -4,7 +4,7 @@
 */
 
 #include <dink/factory.hpp>
-#include <dink/unit_test.hpp>
+#include <dink/test.hpp>
 
 namespace dink {
 namespace factories {

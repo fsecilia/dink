@@ -4,7 +4,7 @@
 */
 
 #include <dink/type_map.hpp>
-#include <dink/unit_test.hpp>
+#include <dink/test.hpp>
 #include <type_traits>
 
 namespace dink {

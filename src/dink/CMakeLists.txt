@@ -21,7 +21,7 @@ list(APPEND dink_unit_test_files
     factory_unit_test.cpp
     resolver_unit_test.cpp
     type_map_unit_test.cpp
-    unit_test.hpp
+    test.hpp
 )
 
 set(dink_generated_root "${CMAKE_BINARY_DIR}/gen")

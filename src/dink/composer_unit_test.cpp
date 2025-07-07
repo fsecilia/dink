@@ -3,7 +3,7 @@
     Copyright (C) 2025 Frank Secilia
 */
 
-#include <dink/unit_test.hpp>
+#include <dink/test.hpp>
 #include <dink/composer.hpp>
 
 namespace dink {
