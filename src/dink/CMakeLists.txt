@@ -8,6 +8,7 @@ list(APPEND dink_files
     lib.hpp
     dispatcher.hpp
     factory.hpp
+    resolver.hpp
     type_map.hpp
 )
 
@@ -15,6 +16,7 @@ list(APPEND dink_unit_test_files
     arg_unit_test.cpp
     dispatcher_unit_test.cpp
     factory_unit_test.cpp
+    resolver_unit_test.cpp
     type_map_unit_test.cpp
     unit_test.hpp
 )
