@@ -35,7 +35,10 @@ add_library(dink INTERFACE
     ${config_file_template}
     ${config_file_generated}
 )
-target_include_directories(dink INTERFACE "$<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src>")
+target_include_directories(dink INTERFACE
+    "$<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src>"
+    "$<BUILD_INTERFACE:${dink_generated_root}>"
+)
 target_link_libraries(dink INTERFACE Threads::Threads)
 set_target_properties(dink
     PROPERTIES
