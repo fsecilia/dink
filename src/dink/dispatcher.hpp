@@ -10,13 +10,6 @@
 
 namespace dink {
 
-/*!
-    max number of params dispatcher will try to deduce before erroring out
-
-    This value is mostly arbitrary, just higher than the number of parameters likely in generated code.
-*/
-constexpr auto const max_deduced_params = 10;
-
 //! true when invoking factory with args produces a result convertible to resolved_t
 template <typename resolved_t, typename factory_t, typename... args_t>
 concept resolvable = requires(factory_t factory, args_t... args) {
@@ -60,7 +53,7 @@ private:
 template <
     typename resolved_t, typename composer_t, typename factory_t, template <typename, typename, int_t> class arg_t,
     typename... args_t>
-requires(!resolvable<resolved_t, factory_t, args_t...> && sizeof...(args_t) <= max_deduced_params)
+requires(!resolvable<resolved_t, factory_t, args_t...> && sizeof...(args_t) <= dink_max_deduced_params)
 struct dispatcher_t<resolved_t, composer_t, factory_t, arg_t, args_t...>
     : dispatcher_t<
           resolved_t, composer_t, factory_t, arg_t, args_t..., arg_t<resolved_t, composer_t, sizeof...(args_t) + 1>>

@@ -24,6 +24,10 @@ list(APPEND dink_unit_test_files
     test.hpp
 )
 
+if (NOT dink_max_deduced_params)
+    set(dink_max_deduced_params 10 CACHE STRING "largest number of arguments dink will try to deduce")
+endif()
+
 set(dink_generated_root "${CMAKE_BINARY_DIR}/gen")
 set(config_file_template config.template.hpp)
 set(config_file_generated "${dink_generated_root}/dink/config.gen.hpp")

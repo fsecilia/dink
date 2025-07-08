@@ -13,4 +13,11 @@
 #define dink_version ${dink_version}
 #define dink_so_version ${dink_so_version}
 
+/*!
+    max number of params dispatcher will try to deduce before erroring out
+
+    This value is mostly arbitrary, just higher than the number of parameters likely in generated code.
+*/
+#define dink_max_deduced_params ${dink_max_deduced_params}
+
 // clang-format on
