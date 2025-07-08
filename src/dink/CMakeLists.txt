@@ -31,7 +31,7 @@ if (NOT dink_max_deduced_params)
     set(dink_max_deduced_params 10 CACHE STRING "largest number of arguments dink will try to deduce")
 endif()
 
-set(dink_generated_root "${CMAKE_BINARY_DIR}/gen")
+set(dink_generated_root "${PROJECT_BINARY_DIR}/gen")
 set(config_file_template config.template.hpp)
 set(config_file_generated "${dink_generated_root}/dink/config.gen.hpp")
 file(MAKE_DIRECTORY "${dink_generated_root}")
@@ -43,7 +43,7 @@ add_library(dink INTERFACE
     ${config_file_generated}
 )
 target_include_directories(dink INTERFACE
-    "$<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src>"
+    "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>"
     "$<BUILD_INTERFACE:${dink_generated_root}>"
 )
 target_link_libraries(dink INTERFACE Threads::Threads)
