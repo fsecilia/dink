@@ -46,7 +46,7 @@ target_include_directories(dink INTERFACE
 target_link_libraries(dink INTERFACE Threads::Threads)
 set_target_properties(dink
     PROPERTIES
-    VERSION ${dink_version}
+    VERSION ${dink_version_string}
     SOVERSION ${dink_so_version}
 )
 
@@ -57,7 +57,7 @@ install(TARGETS dink EXPORT dink DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/dink
 install(EXPORT dink NAMESPACE dink:: DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/dink")
 write_basic_package_version_file(
     dinkConfigVersion.cmake
-    VERSION ${dink_version}
+    VERSION ${dink_version_string}
     COMPATIBILITY AnyNewerVersion
     ARCH_INDEPENDENT
 )
@@ -66,7 +66,7 @@ if (dink_enable_testing)
     add_executable(dink_unit_test ${dink_unit_test_files})
     set_target_properties(dink_unit_test
         PROPERTIES
-        VERSION ${dink_version}
+        VERSION ${dink_version_string}
         SOVERSION ${dink_so_version}
     )
     target_link_libraries(dink_unit_test PUBLIC
@@ -88,7 +88,7 @@ if (dink_enable_testing)
     add_executable(dink_integration_test dink_integration_test.cpp)
     set_target_properties(dink_integration_test
         PROPERTIES
-        VERSION ${dink_version}
+        VERSION ${dink_version_string}
         SOVERSION ${dink_so_version}
     )
     target_link_libraries(dink_integration_test PUBLIC
