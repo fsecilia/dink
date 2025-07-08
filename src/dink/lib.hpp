@@ -9,7 +9,6 @@
 
 namespace dink {
 
-// determine how to express no_unique_address
 // clang-format off
 #if defined __has_cpp_attribute
     #if __has_cpp_attribute(msvc::no_unique_address)
