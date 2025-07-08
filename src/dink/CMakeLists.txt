@@ -62,7 +62,6 @@ if (dink_enable_testing)
         VERSION ${dink_version}
         SOVERSION ${dink_so_version}
     )
-
     target_link_libraries(dink_unit_test PUBLIC
         dink
         GTest::gmock_main
@@ -70,15 +69,34 @@ if (dink_enable_testing)
         GTest::gmock
         GTest::gtest
     )
-
     enable_running_from_build_tree(dink_unit_test)
-
     if (dink_run_tests_after_build)
         add_custom_command(TARGET dink_unit_test
             POST_BUILD
             COMMAND ctest -C "$<CONFIGURATION>" --output-on-failure
         )
     endif()
-
     gtest_discover_tests(dink_unit_test)
+
+    add_executable(dink_integration_test dink_integration_test.cpp)
+    set_target_properties(dink_integration_test
+        PROPERTIES
+        VERSION ${dink_version}
+        SOVERSION ${dink_so_version}
+    )
+    target_link_libraries(dink_integration_test PUBLIC
+        dink
+        GTest::gmock_main
+        GTest::gtest_main
+        GTest::gmock
+        GTest::gtest
+    )
+    enable_running_from_build_tree(dink_integration_test)
+    if (dink_run_tests_after_build)
+        add_custom_command(TARGET dink_integration_test
+            POST_BUILD
+            COMMAND ctest -C "$<CONFIGURATION>" --output-on-failure
+        )
+    endif()
+    gtest_discover_tests(dink_integration_test)
 endif()
