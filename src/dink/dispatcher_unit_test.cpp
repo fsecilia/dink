@@ -40,7 +40,7 @@ struct dispatcher_test_t : Test
 
 TEST_F(dispatcher_test_t, resolve_0_arg)
 {
-    constexpr auto const expected_default_value = int_t{3};
+    static constexpr auto const expected_default_value = int_t{3};
     struct resolved_t
     {
         int_t actual_default_value{expected_default_value};
