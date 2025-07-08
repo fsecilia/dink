@@ -125,7 +125,7 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
         "$<$<CONFIG:RELEASE>:/GS;/Gy;/Zc:inline>"
 
         /WX /W4
-        /wd4201 /wd4250 /wd4251 /wd4275 /wd4459 /wd4576
+        /wd4201 /wd4250 /wd4251 /wd4275 /wd4458 /wd4459 /wd4576
         -D_SCL_SECURE_NO_WARNINGS
         -D_CRT_SECURE_NO_WARNINGS
     )
