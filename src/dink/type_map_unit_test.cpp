@@ -3,8 +3,8 @@
     Copyright (C) 2025 Frank Secilia
 */
 
-#include <dink/type_map.hpp>
 #include <dink/test.hpp>
+#include <dink/type_map.hpp>
 #include <type_traits>
 
 namespace dink {

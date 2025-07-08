@@ -3,8 +3,8 @@
     Copyright (C) 2025 Frank Secilia
 */
 
-#include <dink/factory.hpp>
 #include <dink/test.hpp>
+#include <dink/factory.hpp>
 
 namespace dink {
 namespace factories {

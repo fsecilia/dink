@@ -3,8 +3,8 @@
     Copyright (C) 2025 Frank Secilia
 */
 
-#include <dink/resolver.hpp>
 #include <dink/test.hpp>
+#include <dink/resolver.hpp>
 
 namespace dink::resolvers {
 namespace {

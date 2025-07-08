@@ -3,9 +3,9 @@
     Copyright (C) 2025 Frank Secilia
 */
 
-#include <compare>
-#include <dink/dispatcher.hpp>
 #include <dink/test.hpp>
+#include <dink/dispatcher.hpp>
+#include <compare>
 
 namespace dink {
 namespace {

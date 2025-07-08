@@ -3,8 +3,8 @@
     Copyright (C) 2025 Frank Secilia
 */
 
-#include <dink/arg.hpp>
 #include <dink/test.hpp>
+#include <dink/arg.hpp>
 
 namespace dink {
 namespace {
