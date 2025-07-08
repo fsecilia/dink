@@ -27,8 +27,6 @@ struct dispatcher_test_t : Test
     template <typename resolved_t>
     struct factory_t
     {
-        static_assert(!std::is_aggregate_v<resolved_t>);
-
         template <typename... args_t>
         requires(std::is_constructible_v<resolved_t, args_t...>)
         constexpr auto operator()(args_t&&... args) const -> resolved_t

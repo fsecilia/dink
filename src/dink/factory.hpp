@@ -22,8 +22,6 @@ template <typename resolved_t>
 class direct_ctor_t
 {
 public:
-    static_assert(!std::is_aggregate_v<resolved_t>, "direct ctor deduction does not work on pure aggregates");
-
     template <typename... args_t>
     requires(std::is_constructible_v<resolved_t, args_t...>)
     constexpr auto operator()(args_t&&... args) const -> resolved_t
