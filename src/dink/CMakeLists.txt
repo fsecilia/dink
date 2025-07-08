@@ -12,16 +12,19 @@ list(APPEND dink_files
     factory.hpp
     resolver.hpp
     type_map.hpp
+    version.hpp
 )
 
 list(APPEND dink_unit_test_files
     arg_unit_test.cpp
     composer_unit_test.cpp
+    dink_unit_test.cpp
     dispatcher_unit_test.cpp
     factory_unit_test.cpp
     resolver_unit_test.cpp
-    type_map_unit_test.cpp
     test.hpp
+    type_map_unit_test.cpp
+    version_unit_test.cpp
 )
 
 if (NOT dink_max_deduced_params)
