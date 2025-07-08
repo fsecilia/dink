@@ -11,13 +11,13 @@
 namespace dink {
 namespace factories {
 
-//! true if type has a static construct() method, regardless of signature.
+//! true if type has a static construct() method, regardless of signature
 template <typename type_t>
 concept has_static_construct_method = requires {
     { &std::remove_cvref_t<type_t>::construct };
 };
 
-//! Invokes resolved_t's ctor directly.
+//! invokes resolved_t's ctor directly
 template <typename resolved_t>
 class direct_ctor_t
 {
@@ -30,7 +30,7 @@ public:
     }
 };
 
-//! Invokes static member resolved_t::construct.
+//! invokes static member resolved_t::construct
 template <typename resolved_t>
 class static_construct_method_t;
 
@@ -45,7 +45,7 @@ public:
     }
 };
 
-//! Invokes call operator on a factory supplied by the user.
+//! invokes call operator on a factory supplied by the user
 template <typename resolved_t, typename resolved_factory_t>
 class external_t
 {
@@ -61,12 +61,14 @@ public:
         : resolved_factory_{std::move(resolved_factory)}
     {}
 
+    explicit constexpr external_t() noexcept = default;
+
 private:
     resolved_factory_t resolved_factory_{};
 };
 
 /*!
-    Default factory if none is specified.
+    default factory if none is specified
 
     Chooses static_construct_method_t if resolved_t has a static construct() method, direct_ctor_t otherwise.
 */
@@ -81,7 +83,7 @@ struct default_t<resolved_t> : public static_construct_method_t<resolved_t>
 } // namespace factories
 
 /*!
-    Customization point to instantiate resolved_t.
+    customization point to instantiate resolved_t
 
     The final instantiation of a resolved type happens in this type's call operator. By default, it first tries a
     static "construct" method in resolved_t, then falls back to direct ctor invocation if nothing was found. Users can

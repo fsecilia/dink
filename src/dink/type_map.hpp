@@ -10,7 +10,7 @@
 namespace dink {
 
 /*!
-    Maps from deduced or requested types to resolved types.
+    maps from deduced or requested types to resolved types
 
     type_map_t is a customization point to replace a requested type during resolution. Clients use it to specify which
     concrete implementation should resolve an abstract type.

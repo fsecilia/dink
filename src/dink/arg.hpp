@@ -11,7 +11,7 @@
 namespace dink {
 
 /*!
-    filters matches that would eventually call a copy or move special member function.
+    filters matches that would eventually call a copy or move special member function
 
     If the composer were to try to resolve a copy or move ctor, it would recurse indefinitely and crash. This ignores
     cases where there is 1 deduced arg and its type is the same as the resolved type, mod cv-ref.
@@ -20,7 +20,7 @@ template <typename deduced_t, typename resolved_t, int_t num_args>
 concept smf_filter = !(num_args == 1 && std::is_same_v<std::remove_cv_t<deduced_t>, resolved_t>);
 
 /*!
-    Resolves individual args.
+    resolves individual args
 
     arg_t deduces the type of particular arg and returns an instance resolved by a composer.
 
