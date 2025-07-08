@@ -21,7 +21,7 @@ struct composer_test_t : Test
         static constexpr resolved_t const expected_result{.result = 3};
 
         template <typename resolved_t, typename composer_t>
-        auto resolve(composer_t& composer) const -> resolved_t
+        auto resolve(composer_t&) const -> resolved_t
         {
             return expected_result;
         }
@@ -32,7 +32,7 @@ struct composer_test_t : Test
         inline static resolved_t expected_result{.result = 5};
 
         template <typename resolved_t, typename composer_t>
-        auto resolve(composer_t& composer) const -> resolved_t&
+        auto resolve(composer_t&) const -> resolved_t&
         {
             return expected_result;
         }
