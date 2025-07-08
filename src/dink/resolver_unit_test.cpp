@@ -28,6 +28,8 @@ struct resolver_test_t : Test
     using resolved_t = composer_t;
 };
 
+// ------------------------------------------------------------------------------------------------------------------ //
+
 struct transient_resolver_test_t : resolver_test_t
 {
     template <typename, typename, int_t>
@@ -35,25 +37,17 @@ struct transient_resolver_test_t : resolver_test_t
     {};
 
     template <typename, typename composer_t, typename, template <typename, typename, int_t> class, typename...>
-    struct dispatcher_t;
+    struct dispatcher_t
+    {
+        auto operator()(composer_t& composer) noexcept -> composer_t& { return composer; }
+    };
 
     template <typename>
     struct factory_t
     {};
 
     using sut_t = transient_t<dispatcher_t, factory_t, arg_t>;
-
     sut_t sut{};
-};
-
-// define only the dispatchers we expect
-template <typename... args_t>
-struct transient_resolver_test_t::dispatcher_t<
-    transient_resolver_test_t::resolved_t, transient_resolver_test_t::composer_t,
-    transient_resolver_test_t::factory_t<transient_resolver_test_t::resolved_t>, transient_resolver_test_t::arg_t,
-    args_t...>
-{
-    auto operator()(composer_t& composer) noexcept -> composer_t& { return composer; }
 };
 
 TEST_F(transient_resolver_test_t, expected_result)
