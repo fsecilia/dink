@@ -1,3 +1,3 @@
-[submodule "external/groundwork"]
-	path = external/groundwork
+[submodule "deps/groundwork"]
+	path = deps/groundwork
 	url = git@github.com:fsecilia/groundwork.git

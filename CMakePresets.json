@@ -1,6 +1,6 @@
 {
     "version": 10,
     "include": [
-        "external/groundwork/CMakePresets.json"
+        "deps/groundwork/CMakePresets.json"
     ]
 }

@@ -10,9 +10,9 @@ if (NOT DEFINED dink_enable_testing)
     set(dink_enable_testing TRUE CACHE BOOL "include tests and a dependency on gtest in the build")
 endif()
 
-include(external/groundwork/groundwork.cmake)
+include(deps/groundwork/groundwork.cmake)
 
-add_subdirectory(external/groundwork EXCLUDE_FROM_ALL)
+add_subdirectory(deps/groundwork EXCLUDE_FROM_ALL)
 groundwork_find_ccache()
 groundwork_find_threads()
 groundwork_configure_compilers()
