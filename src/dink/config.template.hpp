@@ -7,9 +7,9 @@
 
 // clang-format off
 
-#define dink_version_major ${dink_version_major}
-#define dink_version_minor ${dink_version_minor}
-#define dink_version_patch ${dink_version_patch}
+#define ${target}_version_major ${major}
+#define ${target}_version_minor ${minor}
+#define ${target}_version_patch ${patch}
 
 /*!
     max number of params dispatcher will try to deduce before erroring out

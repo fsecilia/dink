@@ -11,7 +11,7 @@ namespace {
 
 TEST(dink_test_t, version)
 {
-    ASSERT_EQ((version_t{dink_version_major, dink_version_minor, dink_version_patch}), dink_t{}.version());
+    ASSERT_EQ((groundwork::version_t{dink_version_major, dink_version_minor, dink_version_patch}), version());
 }
 
 } // namespace

@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include <dink/config.gen.hpp>
+#include <dink/config.generated.hpp>
 #include <cstdint>
 
 namespace dink {
