@@ -1,0 +1,3 @@
+[submodule "external/groundwork"]
+	path = external/groundwork
+	url = git@github.com:fsecilia/groundwork.git
