@@ -7,10 +7,9 @@
 
 #include <groundwork/lib.hpp>
 #include <dink/config.generated.hpp>
-#include <cstdint>
 
 namespace dink {
 
-using int_t = std::intptr_t;
+using groundwork::int_t;
 
 } // namespace dink
