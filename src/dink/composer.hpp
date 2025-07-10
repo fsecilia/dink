@@ -56,8 +56,8 @@ public:
     }
 
 private:
-    [[dink_no_unique_address]] transient_resolver_t transient_resolver_{};
-    [[dink_no_unique_address]] shared_resolver_t shared_resolver_{};
+    [[no_unique_address]] transient_resolver_t transient_resolver_{};
+    [[no_unique_address]] shared_resolver_t shared_resolver_{};
 };
 
 } // namespace dink
