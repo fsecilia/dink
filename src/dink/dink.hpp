@@ -17,7 +17,6 @@
 namespace dink {
 
 class dink_t : public composer_t<resolvers::transient_t<dispatcher_t, factory_t, arg_t>, resolvers::shared_t>
-{
-};
+{};
 
 } // namespace dink

@@ -7,7 +7,7 @@ set(dink_major 0)
 set(dink_minor 0)
 set(dink_patch 1)
 
-list(APPEND dink_files
+list(APPEND dink_library_files
     arg.hpp
     lib.hpp
     composer.hpp

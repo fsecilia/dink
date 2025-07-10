@@ -146,8 +146,16 @@ IncludeCategories:
     Priority: 1
     SortPriority: 0
     CaseSensitive: false
-  - Regex: .*
+  - Regex: <dink/
     Priority: 2
+    SortPriority: 0
+    CaseSensitive: false
+  - Regex: <groundwork/
+    Priority: 3
+    SortPriority: 0
+    CaseSensitive: false
+  - Regex: .*
+    Priority: 4
     SortPriority: 0
     CaseSensitive: false
 IncludeIsMainRegex: (_test|_unit_test|_integration_test)?$
