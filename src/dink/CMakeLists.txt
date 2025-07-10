@@ -9,11 +9,11 @@ set(dink_patch 1)
 
 list(APPEND dink_library_files
     arg.hpp
-    lib.hpp
     composer.hpp
     dink.hpp
     dispatcher.hpp
     factory.hpp
+    lib.hpp
     resolver.hpp
     type_map.hpp
     version.hpp
