@@ -7,6 +7,7 @@
 
 #include <dink/lib.hpp>
 #include <dink/arg.hpp>
+#include <dink/bindings.hpp>
 #include <dink/composer.hpp>
 #include <dink/dispatcher.hpp>
 #include <dink/factory.hpp>
@@ -16,7 +17,10 @@
 
 namespace dink {
 
-class dink_t : public composer_t<resolvers::transient_t<dispatcher_t, factory_t, arg_t>, resolvers::shared_t>
+class dink_t
+    : public composer_t<
+          resolvers::transient_t<dispatcher_t, factory_t, bindings::transient_t, arg_t>,
+          resolvers::shared_t<bindings::shared_t>>
 {};
 
 } // namespace dink
