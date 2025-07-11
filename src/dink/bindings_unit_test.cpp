@@ -69,6 +69,11 @@ TEST_F(transient_bindings_test_bound_t, bound)
     ASSERT_EQ(resolved, sut.bound());
 }
 
+TEST_F(transient_bindings_test_bound_t, bound_const)
+{
+    ASSERT_EQ(resolved, static_cast<sut_t const&>(sut).bound());
+}
+
 TEST_F(transient_bindings_test_bound_t, unbind)
 {
     sut.unbind();
@@ -132,7 +137,12 @@ TEST_F(shared_bindings_test_bound_t, bound_bind_replaces)
 
 TEST_F(shared_bindings_test_bound_t, bound)
 {
-    ASSERT_EQ(resolved, sut.bound());
+    ASSERT_EQ(&resolved, &sut.bound());
+}
+
+TEST_F(shared_bindings_test_bound_t, bound_const)
+{
+    ASSERT_EQ(&resolved, &static_cast<sut_t const&>(sut).bound());
 }
 
 TEST_F(shared_bindings_test_bound_t, unbind)

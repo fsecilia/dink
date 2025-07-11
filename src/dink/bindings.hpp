@@ -15,22 +15,12 @@ template <typename resolved_t>
 class transient_t
 {
 public:
-    template <typename forwarded_resolved_t>
-    constexpr auto bind(forwarded_resolved_t&& resolved) -> void
-    {
-        resolved_.emplace(std::forward<forwarded_resolved_t>(resolved));
-    }
+    auto bind(resolved_t resolved) -> void { resolved_ = std::move(resolved); }
 
     constexpr auto unbind() noexcept -> void { resolved_.reset(); }
     constexpr auto is_bound() const noexcept -> bool { return resolved_.has_value(); }
 
-    constexpr auto bound() const noexcept -> resolved_t const&
-    {
-        assert(is_bound());
-        return *resolved_;
-    }
-
-    constexpr auto bound() noexcept -> resolved_t&
+    constexpr auto bound() const noexcept -> resolved_t
     {
         assert(is_bound());
         return *resolved_;
@@ -44,11 +34,7 @@ template <typename resolved_t>
 class shared_t
 {
 public:
-    template <typename forwarded_resolved_t>
-    constexpr auto bind(forwarded_resolved_t&& resolved) -> void
-    {
-        resolved_ = &resolved;
-    }
+    auto bind(resolved_t& resolved) -> void { resolved_ = &resolved; }
 
     constexpr auto unbind() noexcept -> void { resolved_ = nullptr; }
     constexpr auto is_bound() const noexcept -> bool { return resolved_; }

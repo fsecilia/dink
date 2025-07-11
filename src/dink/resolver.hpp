@@ -18,10 +18,18 @@ template <
 class transient_t
 {
 public:
-    template <typename resolved_t>
-    constexpr auto bind(resolved_t&& resolved) -> void
+    template <typename resolved_t, typename composer_t>
+    constexpr auto resolve(composer_t& composer) -> resolved_t
     {
-        bindings_<resolved_t>.bind(std::forward<resolved_t>(resolved));
+        auto& binding = bindings_<resolved_t>;
+        if (binding.is_bound()) return binding.bound();
+        return dispatcher_t<resolved_t, composer_t, factory_t<resolved_t>, arg_t>{}(composer);
+    }
+
+    template <typename resolved_t>
+    constexpr auto bind(resolved_t resolved) -> void
+    {
+        bindings_<resolved_t>.bind(std::move(resolved));
     }
 
     template <typename resolved_t>
@@ -42,14 +50,6 @@ public:
         return bindings_<resolved_t>.bound();
     }
 
-    template <typename resolved_t, typename composer_t>
-    constexpr auto resolve(composer_t& composer) const -> resolved_t
-    {
-        auto& binding = bindings_<resolved_t>;
-        if (binding.is_bound()) return binding.bound();
-        return dispatcher_t<resolved_t, composer_t, factory_t<resolved_t>, arg_t>{}(composer);
-    }
-
 private:
     template <typename resolved_t>
     inline static bindings_t<resolved_t> bindings_{};
@@ -60,10 +60,20 @@ template <template <typename> class bindings_t>
 class shared_t
 {
 public:
-    template <typename resolved_t>
-    constexpr auto bind(resolved_t&& resolved) -> void
+    template <typename resolved_t, typename composer_t>
+    constexpr auto resolve(composer_t& composer) -> resolved_t&
     {
-        bindings_<canonical_t<resolved_t>>.bind(std::forward<resolved_t>(resolved));
+        using canonical_resolved_t = canonical_t<resolved_t>;
+        auto& binding = bindings_<canonical_resolved_t>;
+        if (binding.is_bound()) return binding.bound();
+
+        return shared_instance<canonical_resolved_t>(composer);
+    }
+
+    template <typename resolved_t>
+    constexpr auto bind(resolved_t& resolved) -> void
+    {
+        bindings_<canonical_t<resolved_t>>.bind(resolved);
     }
 
     template <typename resolved_t>
@@ -84,22 +94,12 @@ public:
         return bindings_<canonical_t<resolved_t>>.bound();
     }
 
-    template <typename resolved_t, typename composer_t>
-    auto resolve(composer_t& composer) const -> resolved_t&
-    {
-        using canonical_resolved_t = canonical_t<resolved_t>;
-        auto& binding = bindings_<canonical_resolved_t>;
-        if (binding.is_bound()) return binding.bound();
-
-        return shared_instance<canonical_resolved_t>(composer);
-    }
-
 private:
     template <typename resolved_t>
     using canonical_t = std::remove_cvref_t<resolved_t>;
 
     template <typename canonical_t, typename composer_t>
-    auto shared_instance(composer_t& composer) const -> canonical_t&
+    constexpr auto shared_instance(composer_t& composer) -> canonical_t&
     {
         static auto shared_instance = static_cast<canonical_t>(composer.template resolve<canonical_t>());
         return shared_instance;

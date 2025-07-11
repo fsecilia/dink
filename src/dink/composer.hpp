@@ -61,10 +61,40 @@ public:
         return shared_resolver_.template resolve<mapped_type_t<requested_t>>(*this);
     }
 
-    template <transient requested_t>
-    constexpr auto bind(mapped_type_t<requested_t>) -> void
+    template <transient resolved_t>
+    constexpr auto bind(resolved_t resolved) -> void
     {
-        return transient_resolver_.template bind<mapped_type_t<requested_t>>(*this);
+        return transient_resolver_.bind(std::move(resolved));
+    }
+
+    template <shared resolved_t>
+    constexpr auto bind(resolved_t resolved) -> void
+    {
+        return shared_resolver_.bind(resolved);
+    }
+
+    template <typename resolved_t>
+    constexpr auto bind(std::reference_wrapper<resolved_t> resolved) -> void
+    {
+        return shared_resolver_.bind(resolved.get());
+    }
+
+    template <transient resolved_t>
+    constexpr auto unbind(resolved_t&&) -> void
+    {
+        return transient_resolver_.template unbind<resolved_t>();
+    }
+
+    template <shared resolved_t>
+    constexpr auto unbind(resolved_t) -> void
+    {
+        return shared_resolver_.template unbind<resolved_t>();
+    }
+
+    template <typename resolved_t>
+    constexpr auto unbind(std::reference_wrapper<resolved_t> resolved) -> void
+    {
+        return shared_resolver_.template unbind<typename std::reference_wrapper<resolved_t>::type>();
     }
 
 private:
