@@ -52,7 +52,7 @@ groundwork_configure_target(dink
     "${config_template_file}" "${config_generated_root}" "${config_generated_filename}"
 )
 
-if (PROJECT_IS_TOP_LEVEL AND dink_enable_testing)
+if (dink_enable_testing)
     add_executable(dink_unit_test ${dink_unit_test_files})
     target_link_libraries(dink_unit_test PUBLIC
         dink
