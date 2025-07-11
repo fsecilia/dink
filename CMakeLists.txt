@@ -12,7 +12,7 @@ endif()
 
 include(deps/groundwork/groundwork.cmake)
 
-add_subdirectory(deps/groundwork EXCLUDE_FROM_ALL)
+add_subdirectory(deps/groundwork)
 groundwork_find_ccache()
 groundwork_find_threads()
 groundwork_configure_compilers()
