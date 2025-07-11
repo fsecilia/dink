@@ -5,8 +5,8 @@
 
 #pragma once
 
-#include <groundwork/lib.hpp>
 #include <dink/config.generated.hpp>
+#include <groundwork/lib.hpp>
 
 namespace dink {
 
