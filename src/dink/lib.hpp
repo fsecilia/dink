@@ -11,5 +11,8 @@
 namespace dink {
 
 using groundwork::int_t;
+using groundwork::long_t;
+using groundwork::uint_t;
+using groundwork::ulong_t;
 
 } // namespace dink
