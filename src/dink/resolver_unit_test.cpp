@@ -18,7 +18,6 @@ struct resolver_test_t : Test
         int_t id = default_id;
 
         auto operator<=>(resolved_t const& src) const noexcept -> auto = default;
-        auto operator==(resolved_t const& src) const noexcept -> bool = default;
     };
 
     struct composer_t
