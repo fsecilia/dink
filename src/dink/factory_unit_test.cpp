@@ -294,6 +294,93 @@ TEST(factory_test_t, external_2)
     ASSERT_EQ(expected_1.index, actual.param_1.index);
 }
 
+// ---------------------------------------------------------------------------------------------------------------------
+
+static_assert(
+    !factory_resolvable<
+        static_construct_method_resolved_t<0>, static_construct_method_t<static_construct_method_resolved_t<0>>,
+        param_t<0>, param_t<1>>
+);
+
+static_assert(
+    !factory_resolvable<
+        static_construct_method_resolved_t<0>, static_construct_method_t<static_construct_method_resolved_t<0>>,
+        param_t<1>, param_t<0>>
+);
+
+static_assert(
+    !factory_resolvable<
+        static_construct_method_resolved_t<0>, static_construct_method_t<static_construct_method_resolved_t<0>>,
+        param_t<0>>
+);
+
+static_assert(
+    !factory_resolvable<
+        static_construct_method_resolved_t<0>, static_construct_method_t<static_construct_method_resolved_t<0>>,
+        param_t<1>>
+);
+
+static_assert(factory_resolvable<
+              static_construct_method_resolved_t<0>, static_construct_method_t<static_construct_method_resolved_t<0>>>);
+
+// ---------------------------------------------------------------------------------------------------------------------
+
+static_assert(
+    !factory_resolvable<
+        static_construct_method_resolved_t<1>, static_construct_method_t<static_construct_method_resolved_t<1>>,
+        param_t<0>, param_t<1>>
+);
+
+static_assert(
+    !factory_resolvable<
+        static_construct_method_resolved_t<1>, static_construct_method_t<static_construct_method_resolved_t<1>>,
+        param_t<1>, param_t<0>>
+);
+
+static_assert(
+    factory_resolvable<
+        static_construct_method_resolved_t<1>, static_construct_method_t<static_construct_method_resolved_t<1>>,
+        param_t<0>>
+);
+
+static_assert(
+    !factory_resolvable<
+        static_construct_method_resolved_t<1>, static_construct_method_t<static_construct_method_resolved_t<1>>,
+        param_t<1>>
+);
+
+static_assert(!factory_resolvable<
+              static_construct_method_resolved_t<2>, static_construct_method_t<static_construct_method_resolved_t<1>>>);
+
+// ---------------------------------------------------------------------------------------------------------------------
+
+static_assert(
+    factory_resolvable<
+        static_construct_method_resolved_t<2>, static_construct_method_t<static_construct_method_resolved_t<2>>,
+        param_t<0>, param_t<1>>
+);
+
+static_assert(
+    !factory_resolvable<
+        static_construct_method_resolved_t<2>, static_construct_method_t<static_construct_method_resolved_t<2>>,
+        param_t<1>, param_t<0>>
+);
+
+static_assert(
+    !factory_resolvable<
+        static_construct_method_resolved_t<2>, static_construct_method_t<static_construct_method_resolved_t<2>>,
+        param_t<0>>
+);
+
+static_assert(
+    !factory_resolvable<
+        static_construct_method_resolved_t<2>, static_construct_method_t<static_construct_method_resolved_t<2>>,
+        param_t<1>>
+);
+
+static_assert(!factory_resolvable<
+              static_construct_method_resolved_t<2>, static_construct_method_t<static_construct_method_resolved_t<2>>>);
+
 } // namespace
 } // namespace factories
 } // namespace dink

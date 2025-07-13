@@ -6,15 +6,10 @@
 #pragma once
 
 #include <dink/lib.hpp>
+#include <dink/factory_resolvable.hpp>
 #include <type_traits>
 
 namespace dink {
-
-//! true when invoking factory with args produces a result convertible to resolved_t
-template <typename resolved_t, typename factory_t, typename... args_t>
-concept resolvable = requires(factory_t factory, args_t... args) {
-    { factory(args...) } -> std::convertible_to<resolved_t>;
-};
 
 /*!
     dispatches resolve() to the invocation of a factory that succeeds with the fewest arguments
@@ -31,7 +26,7 @@ struct dispatcher_t;
 template <
     typename resolved_t, typename composer_t, typename factory_t, template <typename, typename, int_t> class arg_t,
     typename... args_t>
-requires(resolvable<resolved_t, factory_t, args_t...>)
+requires(factory_resolvable<resolved_t, factory_t, args_t...>)
 struct dispatcher_t<resolved_t, composer_t, factory_t, arg_t, args_t...>
 {
 public:
@@ -53,7 +48,7 @@ private:
 template <
     typename resolved_t, typename composer_t, typename factory_t, template <typename, typename, int_t> class arg_t,
     typename... args_t>
-requires(!resolvable<resolved_t, factory_t, args_t...> && sizeof...(args_t) <= dink_max_deduced_params)
+requires(!factory_resolvable<resolved_t, factory_t, args_t...> && sizeof...(args_t) <= dink_max_deduced_params)
 struct dispatcher_t<resolved_t, composer_t, factory_t, arg_t, args_t...>
     : dispatcher_t<
           resolved_t, composer_t, factory_t, arg_t, args_t..., arg_t<resolved_t, composer_t, sizeof...(args_t) + 1>>

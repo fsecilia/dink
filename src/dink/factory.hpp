@@ -6,6 +6,8 @@
 #pragma once
 
 #include <dink/lib.hpp>
+#include <dink/factory_resolvable.hpp>
+#include <concepts>
 #include <type_traits>
 
 namespace dink {
@@ -17,11 +19,19 @@ concept has_static_construct_method = requires {
     { &std::remove_cvref_t<type_t>::construct };
 };
 
+//! inverse of has_static_construct_method
+template <typename type_t> concept missing_static_construct_method = !has_static_construct_method<type_t>;
+
 //! invokes resolved_t's ctor directly
 template <typename resolved_t>
 class direct_ctor_t
 {
 public:
+    template <typename... args_t>
+    static constexpr auto resolvable = requires(args_t&&... args) {
+        { resolved_t{std::forward<args_t>(args)...} } -> std::convertible_to<resolved_t>;
+    };
+
     template <typename... args_t>
     requires(std::is_constructible_v<resolved_t, args_t...>)
     constexpr auto operator()(args_t&&... args) const -> resolved_t
@@ -39,6 +49,11 @@ class static_construct_method_t<resolved_t>
 {
 public:
     template <typename... args_t>
+    static constexpr auto resolvable = requires(args_t&&... args) {
+        { resolved_t::construct(std::forward<args_t>(args)...) } -> std::convertible_to<resolved_t>;
+    };
+
+    template <typename... args_t>
     constexpr auto operator()(args_t&&... args) const -> resolved_t
     {
         return resolved_t::construct(std::forward<args_t>(args)...);
@@ -50,6 +65,11 @@ template <typename resolved_t, typename resolved_factory_t>
 class external_t
 {
 public:
+    template <typename... args_t>
+    static constexpr auto resolvable = requires(resolved_factory_t resolved_factory, args_t&&... args) {
+        { resolved_factory(std::forward<args_t>(args)...) } -> std::convertible_to<resolved_t>;
+    };
+
     template <typename... args_t>
     requires(std::is_invocable_v<resolved_factory_t, resolved_factory_t&, args_t...>)
     constexpr auto operator()(args_t&&... args) const -> resolved_t
@@ -73,7 +93,10 @@ private:
     Chooses static_construct_method_t if resolved_t has a static construct() method, direct_ctor_t otherwise.
 */
 template <typename resolved_t>
-struct default_t : public direct_ctor_t<resolved_t>
+struct default_t;
+
+template <missing_static_construct_method resolved_t>
+struct default_t<resolved_t> : public direct_ctor_t<resolved_t>
 {};
 
 template <has_static_construct_method resolved_t>

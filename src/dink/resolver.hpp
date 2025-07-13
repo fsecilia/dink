@@ -6,6 +6,7 @@
 #pragma once
 
 #include <dink/lib.hpp>
+#include <concepts>
 #include <type_traits>
 
 namespace dink::resolvers {
@@ -21,8 +22,11 @@ public:
     template <typename resolved_t, typename composer_t>
     constexpr auto resolve(composer_t& composer) -> resolved_t
     {
-        auto& binding = bindings_<resolved_t>;
-        if (binding.is_bound()) return binding.bound();
+        if constexpr (std::copy_constructible<resolved_t>)
+        {
+            auto& binding = bindings_<resolved_t>;
+            if (binding.is_bound()) return binding.bound();
+        }
         return dispatcher_t<resolved_t, composer_t, factory_t<resolved_t>, arg_t>{}(composer);
     }
 
@@ -101,7 +105,7 @@ private:
     template <typename canonical_t, typename composer_t>
     constexpr auto shared_instance(composer_t& composer) -> canonical_t&
     {
-        static auto shared_instance = static_cast<canonical_t>(composer.template resolve<canonical_t>());
+        static auto shared_instance{static_cast<canonical_t>(composer.template resolve<canonical_t>())};
         return shared_instance;
     }
 

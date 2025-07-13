@@ -28,6 +28,16 @@ struct dispatcher_test_t : Test
     struct factory_t
     {
         template <typename... args_t>
+        static constexpr auto resolvable = requires(args_t&&... args) {
+            {
+                resolved_t
+                {
+                    std::forward<args_t>(args)...
+                }
+            } -> std::convertible_to<resolved_t>;
+        };
+
+        template <typename... args_t>
         requires(std::is_constructible_v<resolved_t, args_t...>)
         constexpr auto operator()(args_t&&... args) const -> resolved_t
         {
