@@ -5,7 +5,6 @@
 
 #include <dink/test.hpp>
 #include <dink/dispatcher.hpp>
-#include <compare>
 
 namespace dink {
 namespace {
