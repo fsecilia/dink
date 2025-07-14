@@ -70,7 +70,6 @@ public:
         using canonical_resolved_t = canonical_t<resolved_t>;
         auto& binding = bindings_<canonical_resolved_t>;
         if (binding.is_bound()) return binding.bound();
-
         return shared_instance<canonical_resolved_t>(composer);
     }
 
