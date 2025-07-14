@@ -25,7 +25,7 @@ struct type_map_t
 template <typename requested_t>
 using mapped_type_t = typename type_map_t<requested_t>::result_t;
 
-// ------------------------------------------------------------------------------------------------------------------ //
+// ---------------------------------------------------------------------------------------------------------------------
 
 /*
     All requests go through the map, so type_map_t is also used to canonicalize refness and constness into either a

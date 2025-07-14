@@ -35,7 +35,7 @@ struct resolver_test_t : Test
     composer_t composer{.resolved = expected_resolved};
 };
 
-// ------------------------------------------------------------------------------------------------------------------ //
+// ---------------------------------------------------------------------------------------------------------------------
 
 struct transient_resolver_test_t : resolver_test_t
 {
@@ -90,7 +90,7 @@ TEST_F(transient_resolver_test_t, resolve_after_unbinding)
     ASSERT_EQ(expected_resolved, sut.template resolve<resolved_t>(composer));
 }
 
-// ------------------------------------------------------------------------------------------------------------------ //
+// ---------------------------------------------------------------------------------------------------------------------
 
 struct shared_resolver_test_t : resolver_test_t
 {
