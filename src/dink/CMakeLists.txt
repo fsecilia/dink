@@ -47,7 +47,7 @@ add_library(dink INTERFACE
 )
 target_include_directories(dink INTERFACE "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>")
 groundwork_install_files(dink "${CMAKE_INSTALL_INCLUDEDIR}" ${dink_library_files})
-groundwork_configure_target(dink
+groundwork_configure_target(dink INTERFACE
     ${dink_major} ${dink_minor} ${dink_patch}
     "${config_template_file}" "${config_generated_root}" "${config_generated_filename}"
 )
