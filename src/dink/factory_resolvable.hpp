@@ -13,4 +13,4 @@ namespace dink {
 template <typename resolved_t, typename factory_t, typename... args_t>
 concept factory_resolvable = factory_t::template resolvable<args_t...>;
 
-} //
+} // namespace dink
