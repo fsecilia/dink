@@ -28,22 +28,6 @@ template <typename requested_t> concept transient = !shared<requested_t>;
     the construction method is determined automatically. If the construction method is overloaded, the shortest
     overload is chosen. Each argument is itself resolved by the composer before being passed to the construction
     method, and this recurses until the graph necessary to create an instance is complete.
-
-              +-----------------------------------------------------------+
-              |                                                           |
-              |          transient_binding                                |
-              |                 ^                                         |
-              |                 |                                         |
-              |       +---->transient<>-->dispatcher<>-->factory<>-->arg--+
-              v       |                                     ^
-          composer<>--+                                     T
-              ^       |                          +----------+---------+
-              |       +----->shared------+       |          |         |
-              |                 |        |    static     direct    external
-              |                 v        |                           < >
-              |          shared_binding  |                            |
-              |                          |                            v
-              +--------------------------+                     resolved_factory
 */
 template <typename transient_resolver_t, typename shared_resolver_t>
 class composer_t

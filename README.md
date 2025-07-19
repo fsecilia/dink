@@ -7,11 +7,31 @@ Deduction uses implicit conversion templates to try and invoke a particular cons
 
 That's it. The mechanism is basic, but it composes to achieve arbitrary complexity.
 
-Given:
+Given an arbitrary type `arbitrary_type_t`:
 ```  
-    auto composer = dink::composer_t{};
-    auto result = composer.template resolve<arbitrary_type_t>();  
+    auto dink = dink{};
+    auto result = dink.template resolve<arbitrary_type_t>();
 ```
-`result` is automatically constructed with literal type `arbitrary_type_t`. If the constructor is overloaded, the overload with the smallest number of parameters is chosen. All parameters are recursively resolved first, then passed to the constructor.
+Here, `result` is automatically constructed with literal type `arbitrary_type_t`. If the type has a static `construct` method, the method is used to construct the instance, otherwise the ctor is used. If the ctor or static construct method is overloaded, the overload with the smallest number of parameters is chosen. All parameters are recursively resolved first, then passed to the constructor or static construct method.
+
+Customization points are supplied for more complex constructions, like types which require factories and when data from outside the graph is required. Factories are associated via specialization, and data is bound by the composer:
+```
+// specialize factory_t to construct arbitrary_factoried_type_t using instance of arbitrary_factory_t
+struct factory_t<arbitrary_factoried_type_t>
+    : factories::external_t<arbitrary_factoried_type_t, arbitrary_factory_t>
+{
+};
+
+auto APIENTRY WinMain(HINSTANCE instance, HINSTANCE, PSTR, int) -> int
+{
+    auto dink = dink{};
+    dink.bind(instance); // binds requests for an HINSTANCE to instance
+    auto result = dink.template resolve<arbitrary_factoried_type_t>();
+    return EXIT_SUCCESS;
+}
+```
+Here, as dink instantiates parts of the graph, any time it encounters a ctor or factory argument of type HINSTANCE, it uses the bound value `instance` instead of default initializing.
 
 This is original work based on a [talk](https://youtu.be/yVogS4NbL6U?si=nmCoA6SG797rT-4m) from [Kris Jusiak](linkedin.com/in/kris-jusiak). The sauce is using implicit conversion templates hooked up to a recursive composer to choose a ctor automatically.
+
+v1.0 works against types, but not templates directly. This means you still have to instantiate all templates you intend to wire. Typically, this means there is a a block of template instantiations near the composition, along with instantiations of their dependencies. This block can be avoided when dink learns how to resolve templates directly. That will be v2.0.
