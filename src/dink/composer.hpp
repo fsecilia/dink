@@ -8,6 +8,7 @@
 #include <dink/lib.hpp>
 #include <dink/type_map.hpp>
 #include <type_traits>
+#include <utility>
 
 namespace dink {
 
@@ -76,7 +77,7 @@ public:
     }
 
     template <typename resolved_t>
-    constexpr auto unbind(std::reference_wrapper<resolved_t> resolved) -> void
+    constexpr auto unbind(std::reference_wrapper<resolved_t>) -> void
     {
         return shared_resolver_.template unbind<typename std::reference_wrapper<resolved_t>::type>();
     }
