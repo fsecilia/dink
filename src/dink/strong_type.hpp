@@ -12,7 +12,18 @@
 
 namespace dink {
 
-//! wraps t_value_t in a type unique to tag_t
+/*!
+    wraps t_value_t in a type unique to tag_t
+
+    Dink resolves by type. When resolving multiple instances of the same type, either they will all resolve with the
+    same value, or the concrete types need to be made distinct. strong_type_t imbues arbitrary types with sufficient
+    uniqueness that it can distingusigh betwen them:
+
+        static_assert(  typeid(strong_type_t<int, struct tag_1>) == typeid(strong_type_t<int, struct tag_1>) );
+        static_assert(!(typeid(strong_type_t<int, struct tag_1>) == typeid(strong_type_t<int, struct tag_2>)));
+
+    Note that tag_t need not actually be defined if you declare it as a struct, as done here.
+*/
 template <typename t_value_t, typename tag_t>
 class strong_type_t
 {
