@@ -16,6 +16,7 @@ list(APPEND dink_library_files
     factory.hpp
     lib.hpp
     resolver.hpp
+    strong_type.hpp
     type_map.hpp
     version.hpp
 )
@@ -28,6 +29,7 @@ list(APPEND dink_unit_test_files
     dispatcher_unit_test.cpp
     factory_unit_test.cpp
     resolver_unit_test.cpp
+    strong_type_unit_test.cpp
     test.hpp
     type_map_unit_test.cpp
     version_unit_test.cpp
