@@ -22,9 +22,9 @@ namespace dink {
         static_assert(  typeid(strong_type_t<int, struct tag_1>) == typeid(strong_type_t<int, struct tag_1>) );
         static_assert(!(typeid(strong_type_t<int, struct tag_1>) == typeid(strong_type_t<int, struct tag_2>)));
 
-    Note that tag_t need not actually be defined if you declare it as a struct, as done here.
+    Note that tags need not actually be defined if you declare them as a struct, as done here.
 */
-template <typename t_value_t, typename tag_t>
+template <typename t_value_t, typename tag_t, typename... additional_tags_t>
 class strong_type_t
 {
 public:
@@ -54,17 +54,17 @@ public:
     {}
 
     // copy conversion
-    template <typename other_value_t, typename other_tag_t>
+    template <typename other_value_t, typename... other_tags_t>
     requires(std::constructible_from<value_t, other_value_t>)
-    explicit constexpr strong_type_t(strong_type_t<other_value_t, other_tag_t> const& src) //
+    explicit constexpr strong_type_t(strong_type_t<other_value_t, other_tags_t...> const& src) //
         noexcept(std::is_nothrow_constructible_v<value_t, other_value_t>)
         : value_{static_cast<value_t>(src.get())}
     {}
 
     // move conversion
-    template <typename other_value_t, typename other_tag_t>
+    template <typename other_value_t, typename... other_tags_t>
     requires(std::constructible_from<value_t, other_value_t>)
-    explicit constexpr strong_type_t(strong_type_t<other_value_t, other_tag_t>&& src) //
+    explicit constexpr strong_type_t(strong_type_t<other_value_t, other_tags_t...>&& src) //
         noexcept(std::is_nothrow_constructible_v<value_t, other_value_t>)
         : value_{static_cast<value_t>(std::move(src).get())}
     {}
