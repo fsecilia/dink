@@ -108,9 +108,9 @@ struct default_t<resolved_t> : public static_construct_method_t<resolved_t>
 /*!
     customization point to instantiate resolved_t
 
-    The final instantiation of a resolved type happens in this type's call operator. By default, it first tries a
-    static "construct" method in resolved_t, then falls back to direct ctor invocation if nothing was found. Users can
-    specialize factory_t to override this behavior, or to use their own external factory.
+    The final instantiation of a resolved type happens in this type's call operator. By default, it first tries a static
+    construct() method in resolved_t, then falls back to direct ctor invocation. Users can specialize factory_t to
+    use their own external factory, or to override this behavior entirely.
 
     To make customization easier, namespace factories has base types for common factory patterns. Users can derive a
     specialized factory_t from these to choose a specific behavior.

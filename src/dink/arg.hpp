@@ -22,7 +22,8 @@ concept smf_filter = !(num_args == 1 && std::same_as<std::remove_cv_t<deduced_t>
 /*!
     resolves individual args
 
-    arg_t deduces the type of particular arg and returns an instance resolved by a composer.
+    When arg_t is passed as an argument to a function, it deduces the expected type of the arg and returns an instance
+    of that type in its place. The instance is resolved by a composer.
 
     Deduction uses a pair of overloaded, implicit conversion templates to determine if it matched a shared ref or a
     transient value. It gets by on a technicality: the ref overload must be const, the val overload must not be.
@@ -31,7 +32,7 @@ concept smf_filter = !(num_args == 1 && std::same_as<std::remove_cv_t<deduced_t>
     wouldn't compile. Second, when called from a mutable arg_t to match a value type, the mutable value overload is a
     better match than the const ref overload. Otherwise, the ref overload would always be chosen, even for value types.
 
-    Dispatch is aware of the fact that arg_t must be mutable.
+    Passing arg_t to ctors and factory functions is the magic behind DI.
 */
 template <typename resolved_t, typename composer_t, int_t num_args>
 class arg_t

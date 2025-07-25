@@ -44,7 +44,7 @@ private:
     }
 };
 
-//! unsuccessful dispatcher tries the next in the chain
+//! unsuccessful dispatcher tries the next in the chain by appending a new arg_t
 template <
     typename resolved_t, typename composer_t, typename factory_t, template <typename, typename, int_t> class arg_t,
     typename... args_t>
@@ -54,13 +54,18 @@ struct dispatcher_t<resolved_t, composer_t, factory_t, arg_t, args_t...>
           resolved_t, composer_t, factory_t, arg_t, args_t..., arg_t<resolved_t, composer_t, sizeof...(args_t) + 1>>
 {};
 
-//! final try must be successful or produce a useful error
+//! running off the end produces an error
 template <
     typename resolved_t, typename composer_t, typename factory_t, template <typename, typename, int_t> class arg_t,
     typename... args_t>
 requires(sizeof...(args_t) == dink_max_deduced_params)
 struct dispatcher_t<resolved_t, composer_t, factory_t, arg_t, args_t...>
 {
+    /*
+        If you've hit this, dispatcher_t could not match a signature when trying to invoke the factory for resolved_t.
+        Some of the parameters may be ambiguous to arg_t, or the number of params may be larger than
+        dink_max_deduced_params. Follow factory_resolvable into the factory to find out why.
+    */
     static_assert(factory_resolvable<resolved_t, factory_t, args_t...>);
 };
 
