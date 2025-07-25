@@ -7,8 +7,8 @@
 
 #include <dink/lib.hpp>
 #include <dink/factory_resolvable.hpp>
-#include <concepts>
 #include <type_traits>
+#include <utility>
 
 namespace dink {
 namespace factories {
