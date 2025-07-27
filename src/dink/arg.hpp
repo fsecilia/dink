@@ -17,7 +17,7 @@ namespace dink {
     cases where there is 1 deduced arg and its type is the same as the resolved type, mod cv-ref.
 */
 template <typename deduced_t, typename resolved_t, int_t num_args>
-concept smf_filter = !(num_args == 1 && std::same_as<std::remove_cv_t<deduced_t>, resolved_t>);
+concept deducible = !(num_args == 1 && std::same_as<std::remove_cv_t<deduced_t>, resolved_t>);
 
 /*!
     resolves individual args
@@ -38,13 +38,13 @@ template <typename resolved_t, typename composer_t, int_t num_args>
 class arg_t
 {
 public:
-    template <smf_filter<resolved_t, num_args> deduced_t>
+    template <deducible<resolved_t, num_args> deduced_t>
     constexpr operator deduced_t()
     {
         return composer_.template resolve<deduced_t>();
     }
 
-    template <smf_filter<resolved_t, num_args> deduced_t>
+    template <deducible<resolved_t, num_args> deduced_t>
     constexpr operator deduced_t&() const
     {
         return composer_.template resolve<deduced_t&>();
