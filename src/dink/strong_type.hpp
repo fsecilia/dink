@@ -13,7 +13,7 @@
 namespace dink {
 
 /*!
-    wraps t_value_t in a type unique to tag_t
+    wraps value_tp in a type unique to tag_t
 
     Dink resolves by type. When resolving multiple instances of the same type, either they will all resolve with the
     same value, or the concrete types need to be made distinct. strong_type_t imbues arbitrary types with sufficient
@@ -24,11 +24,11 @@ namespace dink {
 
     Note that tags need not actually be defined if you declare them as a struct, as done here.
 */
-template <typename t_value_t, typename tag_t, typename... additional_tags_t>
+template <typename value_tp, typename tag_t, typename... additional_tags_t>
 class strong_type_t
 {
 public:
-    using value_t = t_value_t;
+    using value_t = value_tp;
 
     explicit constexpr operator value_t const&() const noexcept { return get(); }
     explicit constexpr operator value_t&() noexcept { return get(); }
