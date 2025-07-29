@@ -71,7 +71,7 @@ public:
     };
 
     template <typename... args_t>
-    requires(std::is_invocable_v<resolved_factory_t, resolved_factory_t&, args_t...>)
+    requires(std::is_invocable_v<resolved_factory_t const&, args_t...>)
     constexpr auto operator()(args_t&&... args) const -> resolved_t
     {
         return resolved_factory_(std::forward<args_t>(args)...);
