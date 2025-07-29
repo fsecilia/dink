@@ -84,7 +84,7 @@ public:
     explicit constexpr external_t() noexcept = default;
 
 private:
-    resolved_factory_t resolved_factory_{};
+    resolved_factory_t resolved_factory_;
 };
 
 /*!
