@@ -105,8 +105,12 @@ struct shared_resolver_test_t : resolver_test_t
 
         constexpr auto unbind() noexcept -> void { resolved = nullptr; }
         constexpr auto is_bound() const noexcept -> bool { return resolved; }
-        constexpr auto bound() const noexcept -> resolved_t const& { return *resolved; }
-        constexpr auto bound() noexcept -> resolved_t& { return *resolved; }
+
+        template <typename immediate_resolved_t>
+        constexpr auto bound() const noexcept -> immediate_resolved_t&
+        {
+            return *resolved;
+        }
     };
 
     using sut_t = shared_t<binding_t>;

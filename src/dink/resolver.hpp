@@ -69,14 +69,14 @@ public:
     {
         using canonical_resolved_t = canonical_t<resolved_t>;
         auto& binding = bindings_<canonical_resolved_t>;
-        if (binding.is_bound()) return binding.bound();
+        if (binding.is_bound()) return binding.template bound<resolved_t>();
         return shared_instance<canonical_resolved_t>(composer);
     }
 
     template <typename resolved_t>
-    constexpr auto bind(resolved_t& resolved) -> void
+    constexpr auto bind(resolved_t&& resolved) -> void
     {
-        bindings_<canonical_t<resolved_t>>.bind(resolved);
+        bindings_<canonical_t<resolved_t>>.bind(std::forward<resolved_t>(resolved));
     }
 
     template <typename resolved_t>

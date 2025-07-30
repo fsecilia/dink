@@ -132,17 +132,17 @@ TEST_F(shared_bindings_test_bound_t, bound_bind_replaces)
 {
     auto replacement = resolved + 1;
     sut.bind(replacement);
-    ASSERT_EQ(replacement, sut.bound());
+    ASSERT_EQ(replacement, sut.template bound<resolved_t>());
 }
 
 TEST_F(shared_bindings_test_bound_t, bound)
 {
-    ASSERT_EQ(&resolved, &sut.bound());
+    ASSERT_EQ(&resolved, &sut.template bound<resolved_t>());
 }
 
 TEST_F(shared_bindings_test_bound_t, bound_const)
 {
-    ASSERT_EQ(&resolved, &static_cast<sut_t const&>(sut).bound());
+    ASSERT_EQ(&resolved, &static_cast<sut_t const&>(sut).template bound<resolved_t>());
 }
 
 TEST_F(shared_bindings_test_bound_t, unbind)
