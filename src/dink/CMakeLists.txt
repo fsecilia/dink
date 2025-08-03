@@ -39,20 +39,14 @@ if (NOT DEFINED dink_max_deduced_params)
     set(dink_max_deduced_params 10 CACHE STRING "largest number of arguments dink will try to deduce")
 endif()
 
-set(config_template_file config.template.hpp)
 set(config_generated_root "${PROJECT_BINARY_DIR}/generated")
 set(config_generated_filename config.generated.hpp)
-add_library(dink INTERFACE
-    ${config_template_file}
-    ${config_generated_file}
-    ${dink_library_files}
-)
+set(config_template_file config.template.hpp)
+add_library(dink INTERFACE ${dink_library_files} "${config_template_file}")
 target_include_directories(dink INTERFACE "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>")
+groundwork_configure_library(dink INTERFACE ${dink_major} ${dink_minor} ${dink_patch}
+    "${config_generated_root}" "${config_generated_filename}" "${config_template_file}")
 groundwork_install_files(dink "${CMAKE_INSTALL_INCLUDEDIR}" ${dink_library_files})
-groundwork_configure_target(dink INTERFACE
-    ${dink_major} ${dink_minor} ${dink_patch}
-    "${config_template_file}" "${config_generated_root}" "${config_generated_filename}"
-)
 
 if (dink_enable_testing)
     add_executable(dink_unit_test ${dink_unit_test_files})
@@ -64,7 +58,6 @@ if (dink_enable_testing)
         GTest::gmock
         GTest::gtest
     )
-    groundwork_set_target_version(dink_unit_test ${dink_major} ${dink_minor} ${dink_patch})
     groundwork_enable_running_from_build_tree(dink_unit_test)
     gtest_discover_tests(dink_unit_test)
 
@@ -77,7 +70,6 @@ if (dink_enable_testing)
         GTest::gmock
         GTest::gtest
     )
-    groundwork_set_target_version(dink_integration_test ${dink_major} ${dink_minor} ${dink_patch})
     groundwork_enable_running_from_build_tree(dink_integration_test)
     gtest_discover_tests(dink_integration_test)
 endif()
