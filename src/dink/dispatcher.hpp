@@ -29,14 +29,12 @@ template <
 requires(factory_resolvable<resolved_t, factory_t, args_t...>)
 struct dispatcher_t<resolved_t, composer_t, factory_t, arg_t, args_t...>
 {
-public:
     constexpr auto operator()(composer_t& composer) const -> resolved_t
     {
         auto const factory = resolve_factory(composer);
         return factory(args_t{composer}...);
     }
 
-private:
     constexpr auto resolve_factory(composer_t& composer) const -> factory_t
     {
         if constexpr (std::is_default_constructible_v<factory_t>) { return factory_t{}; }
