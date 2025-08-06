@@ -48,7 +48,7 @@ private:
 template <
     typename resolved_t, typename composer_t, typename factory_t, template <typename, typename, int_t> class arg_t,
     typename... args_t>
-requires(!factory_resolvable<resolved_t, factory_t, args_t...> && sizeof...(args_t) < dink_max_deduced_params)
+requires(!factory_resolvable<resolved_t, factory_t, args_t...> && sizeof...(args_t) <= dink_max_deduced_params)
 struct dispatcher_t<resolved_t, composer_t, factory_t, arg_t, args_t...>
     : dispatcher_t<
           resolved_t, composer_t, factory_t, arg_t, args_t..., arg_t<resolved_t, composer_t, sizeof...(args_t) + 1>>
@@ -58,7 +58,7 @@ struct dispatcher_t<resolved_t, composer_t, factory_t, arg_t, args_t...>
 template <
     typename resolved_t, typename composer_t, typename factory_t, template <typename, typename, int_t> class arg_t,
     typename... args_t>
-requires(sizeof...(args_t) == dink_max_deduced_params)
+requires(sizeof...(args_t) > dink_max_deduced_params)
 struct dispatcher_t<resolved_t, composer_t, factory_t, arg_t, args_t...>
 {
     /*
