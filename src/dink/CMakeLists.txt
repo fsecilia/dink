@@ -15,6 +15,7 @@ list(APPEND dink_library_files
     dispatcher.hpp
     factory.hpp
     factory_resolvable.hpp
+    has_static_construct_method.hpp
     lib.hpp
     resolver.hpp
     strong_type.hpp
@@ -29,6 +30,7 @@ list(APPEND dink_unit_test_files
     dink_unit_test.cpp
     dispatcher_unit_test.cpp
     factory_unit_test.cpp
+    has_static_construct_method_unit_test.cpp
     resolver_unit_test.cpp
     strong_type_unit_test.cpp
     test.hpp
