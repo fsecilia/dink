@@ -14,6 +14,7 @@ list(APPEND dink_library_files
     dink.hpp
     dispatcher.hpp
     factory.hpp
+    factory_resolvable.hpp
     lib.hpp
     resolver.hpp
     strong_type.hpp
