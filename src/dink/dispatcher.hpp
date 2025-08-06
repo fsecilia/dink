@@ -59,12 +59,6 @@ template <
 requires(sizeof...(args_t) > dink_max_deduced_params)
 struct dispatcher_t<resolved_t, composer_t, factory_t, arg_t, args_t...>
 {
-    /*
-        If you've hit this, dispatcher_t could not match a signature when trying to invoke the factory for resolved_t.
-        Some of the parameters may be ambiguous to arg_t, or the number of params may be larger than
-        dink_max_deduced_params. Follow factory_resolvable into the factory to find out why.
-    */
-    static_assert(factory_resolvable<resolved_t, factory_t, args_t...>);
 };
 
 } // namespace dink
