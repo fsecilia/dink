@@ -34,4 +34,4 @@ Here, as dink instantiates parts of the graph, any time it encounters a ctor or 
 
 This is original work based on a [talk](https://youtu.be/yVogS4NbL6U?si=nmCoA6SG797rT-4m) from [Kris Jusiak](linkedin.com/in/kris-jusiak). The sauce is using implicit conversion templates hooked up to a recursive composer to choose a ctor automatically.
 
-v1.0 works against types, but not templates directly. This means you still have to instantiate all templates you intend to wire. Typically, this means there is a a block of template instantiations near the composition, along with instantiations of their dependencies. This block can be avoided when dink learns how to resolve templates directly. That will be v2.0.
+v1.0 works against types, but not templates directly. This means you still have to instantiate all templates you intend to wire. Typically, this means there is a block of template instantiations near the composition, along with instantiations of their dependencies. This block can be avoided when dink learns how to resolve templates directly. That will be v2.0.
