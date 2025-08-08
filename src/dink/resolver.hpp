@@ -28,7 +28,10 @@ public:
             auto& binding = bindings_<resolved_t>;
             if (binding.is_bound()) return binding.bound();
         }
-        return dispatcher_t<resolved_t, composer_t, factory_t<resolved_t>, arg_t>{}(composer);
+        using resolved_dispatcher_t = dispatcher_t<resolved_t, composer_t, factory_t<resolved_t>, arg_t>;
+        static constexpr auto dispatch_successful = resolved_dispatcher_t::resolved;
+        static_assert(dispatch_successful);
+        return resolved_dispatcher_t{}(composer);
     }
 
     template <typename resolved_t>

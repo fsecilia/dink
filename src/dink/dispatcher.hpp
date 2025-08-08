@@ -29,6 +29,8 @@ template <
 requires(factory_resolvable<resolved_t, factory_t, args_t...>)
 struct dispatcher_t<resolved_t, composer_t, factory_t, arg_t, args_t...>
 {
+    inline static constexpr auto const resolved = true;
+
     constexpr auto operator()(composer_t& composer) const -> resolved_t
     {
         auto const factory = resolve_factory(composer);
@@ -52,13 +54,14 @@ struct dispatcher_t<resolved_t, composer_t, factory_t, arg_t, args_t...>
           resolved_t, composer_t, factory_t, arg_t, args_t..., arg_t<resolved_t, composer_t, sizeof...(args_t) + 1>>
 {};
 
-//! running off the end produces an error
+//! exceeding dink_max_deduced_params fails
 template <
     typename resolved_t, typename composer_t, typename factory_t, template <typename, typename, int_t> class arg_t,
     typename... args_t>
 requires(sizeof...(args_t) > dink_max_deduced_params)
 struct dispatcher_t<resolved_t, composer_t, factory_t, arg_t, args_t...>
 {
+    inline static constexpr auto const resolved = false;
 };
 
 } // namespace dink

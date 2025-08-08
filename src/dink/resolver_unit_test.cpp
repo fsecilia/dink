@@ -46,6 +46,7 @@ struct transient_resolver_test_t : resolver_test_t
     template <typename, typename composer_t, typename, template <typename, typename, int_t> class, typename...>
     struct dispatcher_t
     {
+        inline static constexpr auto const resolved = true;
         auto operator()(composer_t& composer) noexcept -> resolved_t& { return composer.resolved; }
     };
 
