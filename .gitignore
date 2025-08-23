@@ -1,3 +1,7 @@
+# in-tree shadow builds
+build/
+out/
+
 # ide noise
 .cache/
 .vs/
@@ -5,8 +9,10 @@
 CMakeLists.txt.user
 compile_commands.json
 *.vcxproj.user
-out
 
 # whitelist shared vs code files
 !.vscode/launch.json
 !.vscode/tasks.json
+
+# local files
+CMakeUserPresets.json
