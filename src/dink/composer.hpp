@@ -43,13 +43,7 @@ public:
     template <shared requested_t>
     constexpr auto resolve() -> mapped_type_t<requested_t>&
     {
-        using requested_value_t = std::remove_reference_t<requested_t>;
-        using mapped_value_t = std::remove_reference_t<mapped_type_t<requested_t>>;
-        if constexpr (std::is_const_v<requested_value_t>)
-        {
-            return const_cast<mapped_value_t&>(shared_resolver_.template resolve<mapped_value_t const&>(*this));
-        }
-        return shared_resolver_.template resolve<mapped_value_t&>(*this);
+        return shared_resolver_.template resolve<mapped_type_t<requested_t>>(*this);
     }
 
     template <transient resolved_t>
