@@ -73,6 +73,8 @@ struct composer_test_t : Test
 
     struct shared_resolver_t
     {
+        using nested_t = shared_resolver_t;
+
         inline static resolved_t expected_result = 5;
         inline static mock_shared_binding_t* binding{};
 

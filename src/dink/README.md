@@ -5,9 +5,14 @@
               |                 ^                                         |
               |                 |                                         |
               |       +---->transient<>-->dispatcher<>-->factory<>-->arg--+
-              v       |                                     ^
-          composer<>--+                                     T
-              ^       |                          +----------+---------+
+              |       |                                     ^
+              |       |         +-->scope------+-->global   T
+              |       |         |     ^        |            |
+              |       |         |     | parent |            |
+              |       |         |     | scope  |            |
+              v       |         |     |        |            |
+          composer<>--+         |     +--------+            |
+              ^       |         |                +----------+---------+
               |       +----->shared------+       |          |         |
               |                 |        |    static     direct    external
               |                 v        |                           < >

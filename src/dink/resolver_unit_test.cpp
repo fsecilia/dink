@@ -22,10 +22,10 @@ struct resolver_test_t : Test
 
     struct composer_t
     {
-        resolved_t resolved;
+        mutable resolved_t resolved;
 
         template <typename resolved_t>
-        auto resolve() const -> resolved_t
+        auto resolve() const -> resolved_t&
         {
             return resolved;
         }
@@ -114,9 +114,24 @@ struct shared_resolver_test_t : resolver_test_t
         }
     };
 
-    using sut_t = shared_t<binding_t>;
+    struct scope_t
+    {
+        mutable resolved_t resolved;
 
-    sut_t sut{};
+        template <typename resolved_t, typename composer_t>
+        auto resolve(composer_t&) const -> resolved_t&
+        {
+            return resolved;
+        }
+    };
+
+    template <typename parent_t>
+    struct nested_scope_t
+    {};
+
+    using sut_t = shared_t<binding_t, scope_t, nested_scope_t>;
+
+    sut_t sut{scope_t{expected_resolved}};
 };
 
 TEST_F(shared_resolver_test_t, expected_result)

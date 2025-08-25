@@ -18,6 +18,7 @@ list(APPEND dink_library_files
     has_static_construct_method.hpp
     lib.hpp
     resolver.hpp
+    scope.hpp
     strong_type.hpp
     type_map.hpp
     version.hpp
@@ -32,6 +33,7 @@ list(APPEND dink_unit_test_files
     factory_unit_test.cpp
     has_static_construct_method_unit_test.cpp
     resolver_unit_test.cpp
+    scope_unit_test.cpp
     strong_type_unit_test.cpp
     test.hpp
     type_map_unit_test.cpp

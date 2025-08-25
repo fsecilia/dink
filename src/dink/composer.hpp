@@ -30,10 +30,13 @@ template <typename requested_t> concept transient = !shared<requested_t>;
     overload is chosen. Each argument is itself resolved by the composer before being passed to the construction
     method, and this recurses until the graph necessary to create an instance is complete.
 */
-template <typename transient_resolver_t, typename shared_resolver_t>
+template <typename transient_resolver_tp, typename shared_resolver_tp>
 class composer_t
 {
 public:
+    using transient_resolver_t = transient_resolver_tp;
+    using shared_resolver_t = shared_resolver_tp;
+
     template <transient requested_t>
     constexpr auto resolve() -> mapped_type_t<requested_t>
     {
@@ -82,9 +85,20 @@ public:
         return shared_resolver_.template unbind<typename std::reference_wrapper<resolved_t>::type>();
     }
 
+    constexpr auto create_nested_composer() -> composer_t<transient_resolver_t, typename shared_resolver_t::nested_t>
+    {
+        return composer_t{transient_resolver_, shared_resolver_.nest()};
+    }
+
+    constexpr composer_t(transient_resolver_t transient_resolver, shared_resolver_t shared_resolver) noexcept
+        : transient_resolver_{std::move(transient_resolver)}, shared_resolver_{std::move(shared_resolver)}
+    {}
+
+    constexpr composer_t() = default;
+
 private:
     [[no_unique_address]] transient_resolver_t transient_resolver_{};
-    [[no_unique_address]] shared_resolver_t shared_resolver_{};
+    shared_resolver_t shared_resolver_{};
 };
 
 } // namespace dink
