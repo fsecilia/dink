@@ -224,6 +224,49 @@ TEST_F(integration_test_t, constructible_from_rcref_rcref)
 
 // ---------------------------------------------------------------------------------------------------------------------
 
+struct integration_test_nested_composer_t : integration_test_t
+{
+    struct resolved_t
+    {};
+
+    struct nested_resolved_t
+    {};
+};
+
+TEST_F(integration_test_nested_composer_t, parallel_nested_resolve_independently)
+{
+    dink_t::nested_t nested_composer1 = sut.create_nested();
+    dink_t::nested_t nested_composer2 = sut.create_nested();
+    ASSERT_NE(
+        &nested_composer1.template resolve<nested_resolved_t&>(),
+        &nested_composer2.template resolve<nested_resolved_t&>()
+    );
+}
+
+// vvvvvv -- from here and below, nested_resolved in sut stays resolved until program end, not test teardown -- vvvvvv
+TEST_F(integration_test_nested_composer_t, resolve_nested_first_independent_of_parent)
+{
+    dink_t::nested_t nested_composer = sut.create_nested();
+
+    auto& in_nested = nested_composer.template resolve<nested_resolved_t&>();
+    auto& in_sut = sut.template resolve<nested_resolved_t&>();
+
+    ASSERT_NE(&in_nested, &in_sut);
+}
+
+// vvvvvv -- from here and below, resolved in sut stays resolved until program end, not test teardown -- vvvvvv
+TEST_F(integration_test_nested_composer_t, resolve_parent_first_same_for_both)
+{
+    dink_t::nested_t nested_composer = sut.create_nested();
+
+    auto& in_sut = sut.template resolve<resolved_t&>();
+    auto& in_nested = nested_composer.template resolve<resolved_t&>();
+
+    ASSERT_EQ(&in_nested, &in_sut);
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+
 struct integration_test_deep_graph_t : integration_test_t
 {
     template <typename value_t>

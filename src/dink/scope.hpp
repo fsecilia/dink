@@ -63,7 +63,7 @@ public:
             return &instance.template downcast_resolved<resolved_t>();
         }
 
-        return parent_->resolved();
+        return parent_->template resolved<resolved_t>();
     }
 
     //! returns existing, searching locally then in parent, or resolves through composer and saves for future use
@@ -80,6 +80,9 @@ public:
 
     explicit constexpr local_t(parent_t& parent) noexcept : parent_{&parent} {}
     ~local_t() { destroy_in_reverse_order(); }
+
+    local_t(local_t&& src) noexcept = default;
+    auto operator=(local_t&& src) noexcept -> local_t& = default;
 
 private:
     struct instance_t

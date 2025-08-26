@@ -74,7 +74,12 @@ struct resolvers_scope_test_local_t : resolvers_scope_test_t
     struct parent_t
     {
         resolved_t* resolved_result = nullptr;
-        auto resolved() const noexcept -> resolved_t* { return resolved_result; }
+
+        template <typename>
+        auto resolved() const noexcept -> resolved_t*
+        {
+            return resolved_result;
+        }
     };
     parent_t parent;
 
