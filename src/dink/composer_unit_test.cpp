@@ -139,5 +139,66 @@ TEST_F(composer_test_t, resolve_shared)
     ASSERT_EQ(&shared_resolver_t::expected_result, &sut.template resolve<resolved_t&>());
 }
 
+// ---------------------------------------------------------------------------------------------------------------------
+
+struct create_nested_fixture_t
+{
+    inline static constexpr int_t default_id = 3;
+    inline static constexpr int_t expected_id = 5;
+
+    struct transient_resolver_t
+    {
+        int_t id = default_id;
+    };
+
+    struct shared_resolver_t
+    {
+        struct nested_t
+        {
+            int_t id = default_id;
+        };
+
+        auto create_nested() const noexcept -> nested_t { return nested_t{.id = expected_id}; }
+    };
+
+    using sut_t = composer_t<transient_resolver_t, shared_resolver_t>;
+    sut_t sut{transient_resolver_t{.id = expected_id}, shared_resolver_t{}};
+};
+
+} // namespace
+
+template <>
+class composer_t<
+    create_nested_fixture_t::transient_resolver_t, typename create_nested_fixture_t::shared_resolver_t::nested_t>
+{
+public:
+    using transient_resolver_t = create_nested_fixture_t::transient_resolver_t;
+    using shared_resolver_t = create_nested_fixture_t::shared_resolver_t::nested_t;
+
+    transient_resolver_t transient_resolver;
+    shared_resolver_t shared_resolver;
+
+    constexpr composer_t(transient_resolver_t transient_resolver, shared_resolver_t shared_resolver) noexcept
+        : transient_resolver{std::move(transient_resolver)}, shared_resolver{std::move(shared_resolver)}
+    {}
+};
+
+namespace {
+
+struct composer_test_create_nested_t : Test, create_nested_fixture_t
+{
+    sut_t::nested_t nested = sut.create_nested();
+};
+
+TEST_F(composer_test_create_nested_t, transient)
+{
+    ASSERT_EQ(expected_id, nested.transient_resolver.id);
+}
+
+TEST_F(composer_test_create_nested_t, shared)
+{
+    ASSERT_EQ(expected_id, nested.shared_resolver.id);
+}
+
 } // namespace
 } // namespace dink
