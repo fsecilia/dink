@@ -8,8 +8,10 @@
 #include <dink/lib.hpp>
 #include <cassert>
 #include <memory>
+#include <ranges>
 #include <typeindex>
 #include <unordered_map>
+#include <vector>
 
 namespace dink::scope {
 
@@ -50,19 +52,26 @@ template <typename parent_t>
 class local_t
 {
 public:
+    //! returns a previously resolved instance, searching locally then in parent, or nullptr if not found
     template <typename resolved_t>
     auto resolved() const noexcept -> resolved_t*
     {
-        auto result = instances_.find(key<resolved_t>());
-        if (result != instances_.end()) &result->second;
+        auto const result = instance_map_.find(key<resolved_t>());
+        if (result != instance_map_.end())
+        {
+            auto& instance = *result->second;
+            return &instance.template downcast_resolved<resolved_t>();
+        }
+
         return parent_->resolved();
     }
 
+    //! returns existing, searching locally then in parent, or resolves through composer and saves for future use
     template <typename resolved_t, typename composer_t>
     auto resolve(composer_t& composer) -> resolved_t&
     {
-        auto resolved_by_parent_scope = resolved<resolved_t>();
-        if (resolved_by_parent_scope) return *resolved_by_parent_scope;
+        auto const result = resolved<resolved_t>();
+        if (result) return *result;
         return resolve_locally<resolved_t>(composer);
     }
 
@@ -70,10 +79,17 @@ public:
     constexpr auto parent() noexcept -> parent_t& { return *parent_; }
 
     explicit constexpr local_t(parent_t& parent) noexcept : parent_{&parent} {}
+    ~local_t() { destroy_in_reverse_order(); }
 
 private:
     struct instance_t
     {
+        template <typename resolved_t>
+        auto downcast_resolved() noexcept -> resolved_t&
+        {
+            return static_cast<resolved_instance_t<resolved_t>&>(*this).resolved;
+        }
+
         virtual ~instance_t() = default;
     };
 
@@ -81,6 +97,7 @@ private:
     struct resolved_instance_t : instance_t
     {
         resolved_t resolved;
+        resolved_instance_t(resolved_t resolved) noexcept : resolved{std::move(resolved)} {}
         ~resolved_instance_t() override = default;
     };
 
@@ -95,13 +112,40 @@ private:
     template <typename resolved_t, typename composer_t>
     auto resolve_locally(composer_t& composer) -> resolved_t&
     {
-        return std::get<resolved_t>(instances_.emplace(
-            key<resolved_t>(),
-            resolved_instance_t{.resolved = static_cast<resolved_t>(composer.template resolve<resolved_t>())}
-        ));
+        // append new instance to vector
+        auto resolved_instance
+            = std::make_unique<resolved_instance_t<resolved_t>>(composer.template resolve<resolved_t>());
+        auto& instance = *instances_.emplace_back(std::move(resolved_instance)).get();
+
+        // insert into map or roll back vector
+        try
+        {
+            instance_map_.emplace(key<resolved_t>(), &instance);
+        }
+        catch (...)
+        {
+            instances_.pop_back();
+            throw;
+        }
+
+        return instance.template downcast_resolved<resolved_t>();
     }
 
-    std::unordered_map<key_t, std::unique_ptr<instance_t>> instances_{};
+    /*!
+        destroys elements from back to front
+
+        Astonishingly, circa 2025q3, I cannot find a guarantee that vector specifically, or sequence containers in
+        general, must destroy elements in reverse order from their destructors. It seems this would be guaranteed by
+        the standard, but there is nothing specific to be found there. Internet searches, forum posts, and AI are all
+        inconclusive. This is easy enough to enforce here manually, though, so we just do it.
+    */
+    auto destroy_in_reverse_order() noexcept -> void
+    {
+        for (auto& instance : instances_ | std::views::reverse) instance.reset();
+    }
+
+    std::unordered_map<key_t, instance_t*> instance_map_{};
+    std::vector<std::unique_ptr<instance_t>> instances_{};
     parent_t* parent_;
 };
 
