@@ -85,9 +85,10 @@ public:
         return shared_resolver_.template unbind<typename std::reference_wrapper<resolved_t>::type>();
     }
 
-    constexpr auto create_nested_composer() -> composer_t<transient_resolver_t, typename shared_resolver_t::nested_t>
+    using nested_t = composer_t<transient_resolver_t, typename shared_resolver_t::nested_t>;
+    constexpr auto create_nested() -> nested_t
     {
-        return composer_t{transient_resolver_, shared_resolver_.nest()};
+        return nested_t{transient_resolver_, shared_resolver_.create_nested()};
     }
 
     constexpr composer_t(transient_resolver_t transient_resolver, shared_resolver_t shared_resolver) noexcept

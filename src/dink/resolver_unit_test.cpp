@@ -18,6 +18,7 @@ struct resolver_test_t : Test
         int_t id = default_id;
 
         auto operator<=>(resolved_t const& src) const noexcept -> auto = default;
+        auto operator==(resolved_t const& src) const noexcept -> bool = default;
     };
 
     struct composer_t
@@ -116,32 +117,33 @@ struct shared_resolver_test_t : resolver_test_t
 
     struct scope_t
     {
-        mutable resolved_t resolved;
+        resolved_t* resolved = nullptr;
 
         template <typename resolved_t, typename composer_t>
-        auto resolve(composer_t&) const -> resolved_t&
+        auto resolve(composer_t& composer) const -> resolved_t&
         {
-            return resolved;
+            return *resolved;
         }
     };
 
     template <typename parent_t>
-    struct nested_scope_t
-    {};
+    struct nested_scope_t : scope_t
+    {
+        parent_t* parent;
+        nested_scope_t(parent_t& parent) noexcept : parent{&parent} {}
+    };
 
     using sut_t = shared_t<binding_t, scope_t, nested_scope_t>;
 
-    sut_t sut{scope_t{expected_resolved}};
+    resolved_t mutable_resolved = expected_resolved;
+    sut_t sut{scope_t{&mutable_resolved}};
+
+    ~shared_resolver_test_t() override { sut.template unbind<resolved_t>(); }
 };
 
-TEST_F(shared_resolver_test_t, expected_result)
+TEST_F(shared_resolver_test_t, resolve)
 {
-    ASSERT_EQ(expected_resolved, sut.template resolve<resolved_t>(composer));
-}
-
-TEST_F(shared_resolver_test_t, result_is_stored_locally)
-{
-    ASSERT_NE(&expected_resolved, &sut.template resolve<resolved_t>(composer));
+    ASSERT_EQ(&mutable_resolved, &sut.template resolve<resolved_t>(composer));
 }
 
 TEST_F(shared_resolver_test_t, result_is_repeatable)
@@ -167,7 +169,6 @@ TEST_F(shared_resolver_test_t, resolve_after_unbinding)
 TEST_F(shared_resolver_test_t, bound_instances_are_mutable_references)
 {
     // bind initial
-    auto mutable_resolved = expected_resolved;
     sut.bind(mutable_resolved);
 
     // returns initial
@@ -179,6 +180,32 @@ TEST_F(shared_resolver_test_t, bound_instances_are_mutable_references)
 
     // new is reflected in result
     ASSERT_EQ(expected_id, sut.template resolve<resolved_t>(composer).id);
+}
+
+TEST_F(shared_resolver_test_t, scope)
+{
+    ASSERT_EQ(&sut.scope(), &const_cast<sut_t const&>(sut).scope());
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+
+struct shared_resolver_nested_test_t : shared_resolver_test_t
+{
+    sut_t::nested_t nested = sut.create_nested();
+};
+
+TEST_F(shared_resolver_nested_test_t, scope_parent)
+{
+    ASSERT_EQ(&sut.scope(), nested.scope().parent);
+}
+
+TEST_F(shared_resolver_nested_test_t, resolve)
+{
+    auto nested_resolved = resolved_t{};
+    nested.scope().resolved = &nested_resolved;
+
+    auto& nested_result = nested.template resolve<resolved_t>(composer);
+    ASSERT_EQ(&nested_resolved, &nested_result);
 }
 
 } // namespace

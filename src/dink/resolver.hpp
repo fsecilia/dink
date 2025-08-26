@@ -64,12 +64,11 @@ private:
 };
 
 //! shared requests remove refness, resolve via the composer, store the result in a scope, then return scoped
-template <template <typename> class bindings_t, typename scope_t, template <typename> class nested_scope_tp>
+template <template <typename> class bindings_t, typename scope_tp, template <typename> class nested_scope_tp>
 class shared_t
 {
 public:
-    using nested_t = shared_t<bindings_t, nested_scope_tp<scope_t>, nested_scope_tp>;
-    constexpr auto nest() -> nested_t { return nested_t{scope_}; }
+    using scope_t = scope_tp;
 
     template <typename resolved_t, typename composer_t>
     constexpr auto resolve(composer_t& composer) -> resolved_t&
@@ -77,7 +76,7 @@ public:
         using canonical_resolved_t = canonical_t<resolved_t>;
         auto& binding = bindings_<canonical_resolved_t>;
         if (binding.is_bound()) return binding.template bound<resolved_t>();
-        return shared_instance<canonical_resolved_t>(composer);
+        return scope_.template resolve<canonical_resolved_t>(composer);
     }
 
     template <typename resolved_t>
@@ -104,17 +103,21 @@ public:
         return bindings_<canonical_t<resolved_t>>.bound();
     }
 
+    constexpr auto scope() const noexcept -> scope_t const& { return scope_; }
+    constexpr auto scope() noexcept -> scope_t& { return scope_; }
+
+    using nested_t = shared_t<bindings_t, nested_scope_tp<scope_t>, nested_scope_tp>;
+    constexpr auto create_nested() -> nested_t
+    {
+        using nested_scope_t = nested_t::scope_t;
+        return nested_t{nested_scope_t{scope_}};
+    }
+
     explicit constexpr shared_t(scope_t scope) : scope_{std::move(scope)} {}
 
 private:
     template <typename resolved_t>
     using canonical_t = std::remove_cvref_t<resolved_t>;
-
-    template <typename canonical_t, typename composer_t>
-    constexpr auto shared_instance(composer_t& composer) -> canonical_t&
-    {
-        return scope_.template resolve<canonical_t>(composer);
-    }
 
     template <typename resolved_t>
     inline static bindings_t<resolved_t> bindings_{};
