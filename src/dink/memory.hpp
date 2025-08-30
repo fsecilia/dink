@@ -120,8 +120,9 @@ struct api_t
 
 } // namespace posix
 
-using cache_line_size_t = posix::cache_line_size_t<posix::api_t, fallback::cache_line_size_t>;
-using page_size_t = posix::page_size_t<posix::api_t, fallback::page_size_t>;
+using api_t = posix::api_t;
+using cache_line_size_t = posix::cache_line_size_t<api_t, fallback::cache_line_size_t>;
+using page_size_t = posix::page_size_t<api_t, fallback::page_size_t>;
 
 #endif
 
