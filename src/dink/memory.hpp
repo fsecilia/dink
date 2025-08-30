@@ -45,6 +45,9 @@ public:
         binary on more recent hardware with a larger cache.
     */
     auto cache_line_size() const noexcept -> std::size_t { return std::hardware_destructive_interference_size; }
+
+    // Page size does not have a stdlib constant, so we default to 4k.
+    auto page_size() const noexcept -> std::size_t { return 4096; }
 };
 
 } // namespace fallback
@@ -64,14 +67,22 @@ template <typename api_t, typename fallback_t>
 class impl_t
 {
 public:
-    static constexpr auto const sysconf_name = _SC_LEVEL1_DCACHE_LINESIZE;
+    static constexpr auto const sysconf_cache_line_size_name = _SC_LEVEL1_DCACHE_LINESIZE;
+    static constexpr auto const sysconf_page_size_name = _SC_PAGESIZE;
 
     //! The posix implementation gets the level 1 data cache line size directly from sysconf.
     auto cache_line_size() const noexcept -> std::size_t
     {
-        auto result = api_.sysconf(sysconf_name);
+        auto result = api_.sysconf(sysconf_cache_line_size_name);
         if (result > 0) return static_cast<size_t>(result);
         return fallback_.cache_line_size();
+    }
+
+    auto page_size() const noexcept -> std::size_t
+    {
+        auto result = api_.sysconf(sysconf_page_size_name);
+        if (result > 0) return static_cast<size_t>(result);
+        return fallback_.page_size();
     }
 
     impl_t(api_t api, fallback_t fallback) noexcept : api_{std::move(api)}, fallback_{std::move(fallback)} {}
