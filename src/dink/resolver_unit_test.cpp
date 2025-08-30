@@ -120,7 +120,7 @@ struct shared_resolver_test_t : resolver_test_t
         resolved_t* resolved = nullptr;
 
         template <typename resolved_t, typename composer_t>
-        auto resolve(composer_t& composer) const -> resolved_t&
+        auto resolve(composer_t&) const -> resolved_t&
         {
             return *resolved;
         }
