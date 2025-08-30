@@ -76,7 +76,7 @@ public:
     //! gets level 1 data cache line size directly from sysconf
     auto cache_line_size() const noexcept -> std::size_t
     {
-        auto result = api_.sysconf(sysconf_cache_line_size_name);
+        auto const result = api_.sysconf(sysconf_cache_line_size_name);
         if (result > 0) return static_cast<size_t>(result);
         return fallback_.cache_line_size();
     }
@@ -84,7 +84,7 @@ public:
     //! gets page size directly from sysconf
     auto page_size() const noexcept -> std::size_t
     {
-        auto result = api_.sysconf(sysconf_page_size_name);
+        auto const result = api_.sysconf(sysconf_page_size_name);
         if (result > 0) return static_cast<size_t>(result);
         return fallback_.page_size();
     }
