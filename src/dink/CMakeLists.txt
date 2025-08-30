@@ -10,6 +10,7 @@ set(dink_patch 1)
 list(APPEND dink_library_files
     arg.hpp
     bindings.hpp
+    cache_line_size.hpp
     composer.hpp
     dink.hpp
     dispatcher.hpp
@@ -27,6 +28,7 @@ list(APPEND dink_library_files
 list(APPEND dink_unit_test_files
     arg_unit_test.cpp
     bindings_unit_test.cpp
+    cache_line_size_unit_test.cpp
     composer_unit_test.cpp
     dink_unit_test.cpp
     dispatcher_unit_test.cpp
