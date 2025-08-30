@@ -10,7 +10,6 @@ set(dink_patch 1)
 list(APPEND dink_library_files
     arg.hpp
     bindings.hpp
-    cache_line_size.hpp
     composer.hpp
     dink.hpp
     dispatcher.hpp
@@ -18,6 +17,7 @@ list(APPEND dink_library_files
     factory_resolvable.hpp
     has_static_construct_method.hpp
     lib.hpp
+    memory.hpp
     resolver.hpp
     scope.hpp
     strong_type.hpp
@@ -28,12 +28,12 @@ list(APPEND dink_library_files
 list(APPEND dink_unit_test_files
     arg_unit_test.cpp
     bindings_unit_test.cpp
-    cache_line_size_unit_test.cpp
     composer_unit_test.cpp
     dink_unit_test.cpp
     dispatcher_unit_test.cpp
     factory_unit_test.cpp
     has_static_construct_method_unit_test.cpp
+    memory_unit_test.cpp
     resolver_unit_test.cpp
     scope_unit_test.cpp
     strong_type_unit_test.cpp

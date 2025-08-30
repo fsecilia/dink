@@ -3,7 +3,7 @@
     Copyright (C) 2025 Frank Secilia
 */
 
-#include "cache_line_size.hpp"
+#include "memory.hpp"
 #include <dink/test.hpp>
 
 namespace dink::cache_line_size {
