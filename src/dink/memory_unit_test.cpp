@@ -55,7 +55,7 @@ struct memory_test_t : Test
 
 #if groundwork_memory_impl == groundwork_memory_impl_posix
 
-struct posix_memory_test_t : memory_test_t
+struct memory_posix_test_t : memory_test_t
 {
     struct mock_api_t
     {
@@ -75,7 +75,7 @@ struct posix_memory_test_t : memory_test_t
     sut_t sut{api, fallback};
 };
 
-TEST_F(posix_memory_test_t, cache_line_size_succeed)
+TEST_F(memory_posix_test_t, cache_line_size_succeed)
 {
     auto const expected = std::size_t{128};
     EXPECT_CALL(mock_api, sysconf(sut_t::sysconf_cache_line_size_name)).WillOnce(Return(static_cast<int>(expected)));
@@ -84,7 +84,7 @@ TEST_F(posix_memory_test_t, cache_line_size_succeed)
     ASSERT_EQ(expected, actual);
 }
 
-TEST_F(posix_memory_test_t, cache_line_size_failed_sysconf_uses_fallback)
+TEST_F(memory_posix_test_t, cache_line_size_failed_sysconf_uses_fallback)
 {
     auto const expected = std::size_t{64};
     EXPECT_CALL(mock_api, sysconf(sut_t::sysconf_cache_line_size_name)).WillOnce(Return(static_cast<int>(0)));
@@ -94,7 +94,7 @@ TEST_F(posix_memory_test_t, cache_line_size_failed_sysconf_uses_fallback)
     ASSERT_EQ(expected, actual);
 }
 
-TEST_F(posix_memory_test_t, page_size_succeed)
+TEST_F(memory_posix_test_t, page_size_succeed)
 {
     auto const expected = std::size_t{4096};
     EXPECT_CALL(mock_api, sysconf(sut_t::sysconf_page_size_name)).WillOnce(Return(static_cast<int>(expected)));
@@ -103,7 +103,7 @@ TEST_F(posix_memory_test_t, page_size_succeed)
     ASSERT_EQ(expected, actual);
 }
 
-TEST_F(posix_memory_test_t, page_size_failed_sysconf_uses_fallback)
+TEST_F(memory_posix_test_t, page_size_failed_sysconf_uses_fallback)
 {
     auto const expected = std::size_t{1024};
     EXPECT_CALL(mock_api, sysconf(sut_t::sysconf_page_size_name)).WillOnce(Return(static_cast<int>(0)));
