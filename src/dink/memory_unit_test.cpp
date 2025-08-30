@@ -9,6 +9,24 @@
 namespace dink::memory {
 namespace {
 
+struct memory_fallback_test_t : Test
+{
+    using sut_t = fallback::impl_t;
+    sut_t sut{};
+
+    static constexpr auto is_nonzero_power_of_two(auto value) noexcept -> bool
+    {
+        return value && !(value & (value - 1));
+    }
+};
+
+TEST_F(memory_fallback_test_t, cache_line_size_is_power_of_two)
+{
+    ASSERT_TRUE(is_nonzero_power_of_two(sut.cache_line_size()));
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+
 struct memory_test_t : Test
 {
     struct mock_fallback_t
