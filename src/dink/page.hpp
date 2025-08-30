@@ -13,30 +13,7 @@
 #include <new>
 #include <vector>
 
-#include <unistd.h>
-
 namespace dink {
-
-//! provides page size from os
-class os_page_size_t
-{
-public:
-    //! returns os page size
-    auto operator()() const noexcept -> std::size_t
-    {
-        static auto const result = calc_page_size();
-        return result;
-    }
-
-private:
-    //! gets page size directly from sysconf or from fallback
-    auto calc_page_size() const noexcept -> std::size_t
-    {
-        auto const result = sysconf(_SC_PAGESIZE);
-        if (result > 0) return static_cast<size_t>(result);
-        return 4096;
-    }
-};
 
 //! move-only composition of an owning pointer and its size
 struct owned_buffer_t
@@ -110,7 +87,7 @@ concept array_allocator = requires(type_t const& instance, size_t size, std::ali
 };
 
 //! provides owned buffers from the heap, aligned to and in power of two multiples of the os page size
-template <array_allocator array_allocator_t, typename os_page_size_t>
+template <array_allocator array_allocator_t, typename page_size_t>
 class heap_page_buffer_source_t
 {
 public:
@@ -124,7 +101,7 @@ public:
         return owned_buffer_t{array_allocator_(size_, std::align_val_t{alignment_}), size_};
     }
 
-    explicit heap_page_buffer_source_t(array_allocator_t array_allocator, os_page_size_t os_page_size) noexcept
+    explicit heap_page_buffer_source_t(array_allocator_t array_allocator, page_size_t os_page_size) noexcept
         : array_allocator_{std::move(array_allocator)}, alignment_{os_page_size()}, size_{alignment_ * pages_per_buffer}
     {}
 
