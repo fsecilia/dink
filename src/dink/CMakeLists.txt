@@ -22,6 +22,7 @@ list(APPEND dink_library_files
     memory/owned_buffer.hpp
     memory/page.hpp
     memory/page_buffer_source.hpp
+    memory/page_factory.hpp
     memory/page_size.hpp
     resolver.hpp
     scope.hpp
@@ -39,6 +40,7 @@ list(APPEND dink_unit_test_files
     factory_unit_test.cpp
     has_static_construct_method_unit_test.cpp
     memory/heap_page_buffer_source_unit_test.cpp
+    memory/page_factory_unit_test.cpp
     memory/page_size_unit_test.cpp
     memory/page_unit_test.cpp
     resolver_unit_test.cpp
