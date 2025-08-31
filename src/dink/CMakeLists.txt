@@ -39,8 +39,8 @@ list(APPEND dink_unit_test_files
     factory_unit_test.cpp
     has_static_construct_method_unit_test.cpp
     memory/heap_page_buffer_source_unit_test.cpp
-    memory/page_unit_test.cpp
     memory/page_size_unit_test.cpp
+    memory/page_unit_test.cpp
     resolver_unit_test.cpp
     scope_unit_test.cpp
     strong_type_unit_test.cpp
