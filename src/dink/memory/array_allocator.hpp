@@ -6,6 +6,7 @@
 #pragma once
 
 #include <dink/lib.hpp>
+#include <concepts>
 #include <cstddef>
 #include <memory>
 #include <new>
