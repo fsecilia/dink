@@ -17,7 +17,7 @@ list(APPEND dink_library_files
     factory_resolvable.hpp
     has_static_construct_method.hpp
     lib.hpp
-    memory.hpp
+    memory/page_size.hpp
     resolver.hpp
     scope.hpp
     strong_type.hpp
@@ -33,7 +33,7 @@ list(APPEND dink_unit_test_files
     dispatcher_unit_test.cpp
     factory_unit_test.cpp
     has_static_construct_method_unit_test.cpp
-    memory_unit_test.cpp
+    memory/page_size_unit_test.cpp
     resolver_unit_test.cpp
     scope_unit_test.cpp
     strong_type_unit_test.cpp
