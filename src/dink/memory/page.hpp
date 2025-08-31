@@ -9,9 +9,17 @@
 #include <dink/memory/owned_buffer.hpp>
 #include <algorithm>
 #include <cassert>
+#include <concepts>
 #include <cstddef>
+#include <new>
 
 namespace dink {
+
+//! const callable that returns owned buffers, has size() and alignment()
+template <typename page_t>
+concept page = requires(page_t page, size_t size, std::align_val_t alignment) {
+    { page.try_allocate(size, alignment) } -> std::same_as<void*>;
+};
 
 //! memory page for paged allocator
 class page_t
