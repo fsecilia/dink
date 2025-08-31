@@ -3,13 +3,13 @@
     Copyright (C) 2025 Frank Secilia
 */
 
-#include "paged_arena.hpp"
+#include "paged_arena_allocator.hpp"
 #include <dink/test.hpp>
 
 namespace dink {
 namespace {
 
-struct paged_arena_test_t : Test
+struct paged_arena_allocator_test_t : Test
 {
     struct mock_page_t
     {
@@ -64,7 +64,7 @@ struct paged_arena_test_t : Test
 
     auto expect_allocation_fails(mock_page_t& mock_page) -> void { expect_try_allocate(mock_page, nullptr); }
 
-    using sut_t = paged_arena_t<page_t, page_factory_t>;
+    using sut_t = paged_arena_allocator_t<page_t, page_factory_t>;
     auto create_sut() -> sut_t
     {
         expect_add_page(mock_page_1);
@@ -76,7 +76,7 @@ struct paged_arena_test_t : Test
     std::align_val_t const expected_alignment = std::align_val_t{16};
 };
 
-TEST_F(paged_arena_test_t, try_allocate_succeeds_on_first_page)
+TEST_F(paged_arena_allocator_test_t, try_allocate_succeeds_on_first_page)
 {
     expect_allocation_succeeds(mock_page, expected_allocation);
 
@@ -85,7 +85,7 @@ TEST_F(paged_arena_test_t, try_allocate_succeeds_on_first_page)
     ASSERT_EQ(expected_allocation, actual_allocation);
 }
 
-TEST_F(paged_arena_test_t, try_allocate_multiple_from_same_page)
+TEST_F(paged_arena_allocator_test_t, try_allocate_multiple_from_same_page)
 {
     auto seq = InSequence{}; // ordered
 
@@ -99,7 +99,7 @@ TEST_F(paged_arena_test_t, try_allocate_multiple_from_same_page)
     ASSERT_EQ(expected_allocation_2, actual_allocation2);
 }
 
-TEST_F(paged_arena_test_t, try_allocate_creates_new_page_when_current_is_full)
+TEST_F(paged_arena_allocator_test_t, try_allocate_creates_new_page_when_current_is_full)
 {
     auto seq = InSequence{}; // ordered
 
@@ -119,7 +119,7 @@ TEST_F(paged_arena_test_t, try_allocate_creates_new_page_when_current_is_full)
     ASSERT_EQ(expected_allocation, actual_allocation);
 }
 
-TEST_F(paged_arena_test_t, try_allocate_fails_when_new_page_is_still_too_small)
+TEST_F(paged_arena_allocator_test_t, try_allocate_fails_when_new_page_is_still_too_small)
 {
     auto seq = InSequence{}; // ordered
 

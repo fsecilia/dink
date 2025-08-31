@@ -32,7 +32,7 @@ namespace dink {
     heap directly anyway, but that must be handled at an implementation level above this allocator.
 */
 template <page page_t, page_factory<page_t> page_factory_t>
-class paged_arena_t
+class paged_arena_allocator_t
 {
 public:
     //! allocates from leaf page, tries allocating from new page if that fails; returns nullptr if allocation fails
@@ -57,7 +57,7 @@ public:
         return result;
     }
 
-    paged_arena_t(page_factory_t page_factory) noexcept : page_factory_{std::move(page_factory)}
+    paged_arena_allocator_t(page_factory_t page_factory) noexcept : page_factory_{std::move(page_factory)}
     {
         pages_.emplace_back(page_factory_());
     }
