@@ -13,8 +13,9 @@
 
 namespace dink {
 
+//! callable that returns pages
 template <typename page_factory_t, typename page_t>
-concept page_factory = requires(page_factory_t const& page_factory) {
+concept page_factory = requires(page_factory_t page_factory) {
     { page_factory() } -> std::same_as<page_t>;
 };
 

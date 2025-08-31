@@ -15,7 +15,7 @@
 
 namespace dink {
 
-//! const callable that returns owned buffers, has size() and alignment()
+//! callable that returns owned buffers, has size() and alignment()
 template <typename page_t>
 concept page = requires(page_t page, size_t size, std::align_val_t alignment) {
     { page.try_allocate(size, alignment) } -> std::same_as<void*>;

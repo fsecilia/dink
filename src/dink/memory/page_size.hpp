@@ -38,9 +38,9 @@ namespace dink {
 //! fallback page size used if os query fails
 constexpr auto const fallback_page_size = 4096; // 4k pages
 
-//! const callable that returns size_t
+//! callable that returns size_t
 template <typename page_size_t>
-concept page_size = requires(page_size_t const& page_size) {
+concept page_size = requires(page_size_t page_size) {
     { page_size() } -> std::same_as<std::size_t>;
 };
 
