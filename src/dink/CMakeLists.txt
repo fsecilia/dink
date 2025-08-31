@@ -17,6 +17,7 @@ list(APPEND dink_library_files
     factory_resolvable.hpp
     has_static_construct_method.hpp
     lib.hpp
+    memory/array_allocator.hpp
     memory/owned_buffer.hpp
     memory/page.hpp
     memory/page_size.hpp
