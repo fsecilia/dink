@@ -11,14 +11,11 @@ namespace {
 
 struct page_test_t : Test
 {
-    inline static constexpr auto const page_size = 1024;
+    inline static constexpr std::size_t const page_size = 1024;
+    std::array<std::byte, page_size> buffer;
 
     using sut_t = page_t;
-    auto create_sut() -> sut_t
-    {
-        auto buffer = std::make_unique<std::byte[]>(page_size);
-        return sut_t{owned_buffer_t{std::move(buffer), page_size}};
-    }
+    auto create_sut() -> sut_t { return sut_t{buffer.data(), buffer.size()}; }
     sut_t sut = create_sut();
 
     auto expect_allocation_succeeded(void* allocation) const noexcept -> void { ASSERT_NE(allocation, nullptr); }
@@ -27,21 +24,21 @@ struct page_test_t : Test
 
 TEST_F(page_test_t, allocate_succeeds_on_new_page)
 {
-    auto const allocation = sut.try_allocate(page_size / 4, 16);
+    auto const allocation = sut.try_allocate(page_size / 4, std::align_val_t{16});
 
     expect_allocation_succeeded(allocation);
 }
 
 TEST_F(page_test_t, allocate_succeeds_when_filling_page_exactly)
 {
-    auto const allocation = sut.try_allocate(page_size, 1);
+    auto const allocation = sut.try_allocate(page_size, std::align_val_t{1});
 
     expect_allocation_succeeded(allocation);
 }
 
 TEST_F(page_test_t, allocate_fails_when_size_exceeds_remaining_capacity)
 {
-    auto const allocation = sut.try_allocate(page_size + 1, 1);
+    auto const allocation = sut.try_allocate(page_size + 1, std::align_val_t{1});
 
     expect_allocation_failed(allocation);
 }
@@ -49,11 +46,11 @@ TEST_F(page_test_t, allocate_fails_when_size_exceeds_remaining_capacity)
 TEST_F(page_test_t, allocation_is_correctly_aligned)
 {
     // deliberately misalign internal pointer
-    sut.try_allocate(1, 1);
+    sut.try_allocate(1, std::align_val_t{1});
 
     // allocate with specific alignment
     constexpr std::size_t alignment = 64;
-    auto allocation = sut.try_allocate(128, alignment);
+    auto allocation = sut.try_allocate(128, std::align_val_t{alignment});
 
     // allocation succeeds
     expect_allocation_succeeded(allocation);
@@ -65,10 +62,10 @@ TEST_F(page_test_t, allocation_is_correctly_aligned)
 TEST_F(page_test_t, allocate_zero_bytes_succeeds_and_advances_pointer)
 {
     // allocate zero bytes
-    auto zero_byte_allocation = sut.try_allocate(0, 1);
+    auto zero_byte_allocation = sut.try_allocate(0, std::align_val_t{1});
 
     // allocate again; beginning of next allocation is end of previous
-    auto next_allocation = sut.try_allocate(1, 1);
+    auto next_allocation = sut.try_allocate(1, std::align_val_t{1});
 
     // both allocations succeed
     expect_allocation_succeeded(zero_byte_allocation);
@@ -83,8 +80,8 @@ TEST_F(page_test_t, sequential_allocations_are_contiguous)
     constexpr auto size = std::size_t{32};
 
     // make two sequential allocations
-    auto allocation1 = sut.try_allocate(size, 8);
-    auto allocation2 = sut.try_allocate(size * 2, 8);
+    auto allocation1 = sut.try_allocate(size, std::align_val_t{8});
+    auto allocation2 = sut.try_allocate(size * 2, std::align_val_t{8});
 
     // both allocations succeed
     expect_allocation_succeeded(allocation1);

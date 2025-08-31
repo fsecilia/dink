@@ -6,7 +6,6 @@
 #pragma once
 
 #include <dink/lib.hpp>
-#include <dink/memory/owned_buffer.hpp>
 #include <algorithm>
 #include <cassert>
 #include <concepts>
@@ -21,13 +20,19 @@ concept page = requires(page_t page, size_t size, std::align_val_t alignment) {
     { page.try_allocate(size, alignment) } -> std::same_as<void*>;
 };
 
-//! memory page for paged allocator
+/*!
+    memory page for paged allocator
+    
+    page_t does not own the memory range it allocates from. 
+*/
 class page_t
 {
 public:
     //! allocates range from within page; returns nullptr if allocation doesn't fit
-    auto try_allocate(std::size_t size, std::size_t alignment) -> void*
+    auto try_allocate(std::size_t size, std::align_val_t alignment_val) -> void*
     {
+        auto const alignment = static_cast<std::size_t>(alignment_val);
+
         // alignment must be a nonzero power of two
         assert(alignment && !(alignment & (alignment - 1)));
 
@@ -47,9 +52,8 @@ public:
         return reinterpret_cast<void*>(aligned_begin);
     }
 
-    explicit page_t(owned_buffer_t&& buffer) noexcept
-        : allocation_{std::move(buffer.allocation)}, cur_{reinterpret_cast<uintptr_t>(allocation_.get())},
-          end_{cur_ + buffer.size}
+    explicit page_t(void* begin, std::size_t size) noexcept
+        : cur_{reinterpret_cast<uintptr_t>(begin)}, end_{cur_ + size}
     {}
 
     page_t(page_t const&) = delete;
@@ -59,7 +63,6 @@ public:
     auto operator=(page_t&&) -> page_t& = default;
 
 private:
-    owned_buffer_t::allocation_t allocation_;
     uintptr_t cur_;
     uintptr_t end_;
 };

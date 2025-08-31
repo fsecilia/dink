@@ -6,6 +6,7 @@
 #pragma once
 
 #include <dink/lib.hpp>
+#include <dink/memory/page.hpp>
 #include <dink/memory/page_factory.hpp>
 #include <cstddef>
 #include <new>

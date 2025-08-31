@@ -44,6 +44,8 @@ struct paged_arena_allocator_test_t : Test
 
     struct page_factory_t
     {
+        auto size() const noexcept -> std::size_t;
+        auto alignment() const noexcept -> std::size_t;
         auto operator()() const -> page_t { return mock->call_operator(); }
         mock_page_factory_t* mock = nullptr;
     };

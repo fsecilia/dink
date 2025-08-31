@@ -5,7 +5,6 @@
 
 #include "page_factory.hpp"
 #include <dink/test.hpp>
-#include <dink/memory/owned_buffer.hpp>
 
 namespace dink {
 namespace {
@@ -16,38 +15,59 @@ struct page_factory_test_t : Test
     {
         auto try_allocate(std::size_t size, std::align_val_t alignment) -> void*;
 
-        owned_buffer_t owned_buffer;
-
-        page_t(owned_buffer_t&& owned_buffer) : owned_buffer{std::move(owned_buffer)} {}
+        void* begin;
+        std::size_t size;
     };
 
-    struct buffer_source_t
+    struct mock_heap_allocator_t
     {
-        auto size() const noexcept -> std::size_t;
-        auto alignment() const noexcept -> std::size_t;
+        MOCK_METHOD(void*, allocate, (std::size_t size, std::align_val_t alignment), (const));
+        virtual ~mock_heap_allocator_t() = default;
+    };
+    StrictMock<mock_heap_allocator_t> mock_heap_allocator;
 
-        mutable owned_buffer_t owned_buffer;
-        auto operator()() const noexcept -> owned_buffer_t { return std::move(owned_buffer); }
+    struct heap_allocator_t
+    {
+        auto allocate(std::size_t size, std::align_val_t alignment) const -> void*
+        {
+            return mock->allocate(size, alignment);
+        }
+        mock_heap_allocator_t* mock = nullptr;
     };
 
-    using sut_t = page_factory_t<page_t, buffer_source_t>;
+    inline static auto const os_page_size = std::size_t{1024};
+    struct os_page_size_t
+    {
+        auto operator()() const noexcept -> std::size_t { return os_page_size; }
+    };
 
-    inline static auto const expected_size = 1024;
+    using sut_t = page_factory_t<page_t, heap_allocator_t, os_page_size_t>;
+    sut_t sut{heap_allocator_t{&mock_heap_allocator}, os_page_size_t{}};
+
+    std::size_t const expected_size = os_page_size * sut_t::pages_per_buffer;
+    std::size_t const expected_alignment = os_page_size;
+    void* const expected_allocation = reinterpret_cast<void*>(0x1000);
 };
+
+TEST_F(page_factory_test_t, size)
+{
+    ASSERT_EQ(expected_size, sut.size());
+}
+
+TEST_F(page_factory_test_t, alignment)
+{
+    ASSERT_EQ(expected_alignment, sut.alignment());
+}
 
 TEST_F(page_factory_test_t, call_operator)
 {
-    // arrange for owned_buffer with expected address and expected size
-    auto allocation = std::make_unique<std::byte[]>(expected_size);
-    auto const expected_address = allocation.get();
-    sut_t sut{buffer_source_t{owned_buffer_t{std::move(allocation), expected_size}}};
+    EXPECT_CALL(mock_heap_allocator, allocate(expected_size, std::align_val_t{expected_alignment}))
+        .WillOnce(Return(std::move(expected_allocation)));
 
-    // get page
     auto page = sut();
 
-    // check page contents
-    ASSERT_EQ(expected_address, page.owned_buffer.allocation.get());
-    ASSERT_EQ(expected_size, page.owned_buffer.size);
+    ASSERT_EQ(expected_allocation, page.begin);
+    ASSERT_EQ(expected_size, page.size);
 }
 
 } // namespace
