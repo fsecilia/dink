@@ -18,7 +18,7 @@ list(APPEND dink_library_files
     has_static_construct_method.hpp
     lib.hpp
     memory/array_allocator.hpp
-    memory/heap_page_buffer_source.hpp
+    memory/page_allocator.hpp
     memory/owned_buffer.hpp
     memory/page.hpp
     memory/page_buffer_source.hpp
@@ -40,7 +40,7 @@ list(APPEND dink_unit_test_files
     dispatcher_unit_test.cpp
     factory_unit_test.cpp
     has_static_construct_method_unit_test.cpp
-    memory/heap_page_buffer_source_unit_test.cpp
+    memory/page_allocator_unit_test.cpp
     memory/page_factory_unit_test.cpp
     memory/page_size_unit_test.cpp
     memory/page_unit_test.cpp

@@ -15,7 +15,7 @@ namespace dink {
 
 //! provides heap buffers sized and aligned to a power of two multiple of the os page size
 template <array_allocator array_allocator_t, page_size os_page_size_t>
-class heap_page_buffer_source_t
+class page_allocator_t
 {
 public:
     //! power of two os page size multiplier
@@ -33,8 +33,8 @@ public:
         return owned_buffer_t{array_allocator_(size_, std::align_val_t{alignment_}), size_};
     }
 
-    heap_page_buffer_source_t(array_allocator_t array_allocator, os_page_size_t os_page_size) noexcept
-        : heap_page_buffer_source_t{std::move(array_allocator), os_page_size()}
+    page_allocator_t(array_allocator_t array_allocator, os_page_size_t os_page_size) noexcept
+        : page_allocator_t{std::move(array_allocator), os_page_size()}
     {}
 
 private:
@@ -42,7 +42,7 @@ private:
     std::size_t size_;
     std::size_t alignment_;
 
-    heap_page_buffer_source_t(array_allocator_t array_allocator, size_t os_page_size) noexcept
+    page_allocator_t(array_allocator_t array_allocator, size_t os_page_size) noexcept
         : array_allocator_{std::move(array_allocator)}, size_{os_page_size * pages_per_buffer}, alignment_{os_page_size}
     {}
 };

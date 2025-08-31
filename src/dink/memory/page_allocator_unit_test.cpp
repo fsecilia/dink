@@ -3,13 +3,13 @@
     Copyright (C) 2025 Frank Secilia
 */
 
-#include "heap_page_buffer_source.hpp"
+#include "page_allocator.hpp"
 #include <dink/test.hpp>
 
 namespace dink {
 namespace {
 
-struct heap_page_buffer_source_test_t : Test
+struct page_allocator_test_t : Test
 {
     using dynamic_array_t = std::unique_ptr<std::byte[]>;
 
@@ -43,24 +43,24 @@ struct heap_page_buffer_source_test_t : Test
         auto operator()() const noexcept -> std::size_t { return os_page_size; }
     };
 
-    using sut_t = heap_page_buffer_source_t<array_allocator_t, os_page_size_t>;
+    using sut_t = page_allocator_t<array_allocator_t, os_page_size_t>;
     sut_t sut{array_allocator_t{&mock_array_allocator}, os_page_size_t{}};
 
     inline static auto const expected_size = os_page_size * sut_t::pages_per_buffer;
     inline static auto const expected_alignment = os_page_size;
 };
 
-TEST_F(heap_page_buffer_source_test_t, size)
+TEST_F(page_allocator_test_t, size)
 {
     ASSERT_EQ(expected_size, sut.size());
 }
 
-TEST_F(heap_page_buffer_source_test_t, alignment)
+TEST_F(page_allocator_test_t, alignment)
 {
     ASSERT_EQ(expected_alignment, sut.alignment());
 }
 
-TEST_F(heap_page_buffer_source_test_t, call_operator)
+TEST_F(page_allocator_test_t, call_operator)
 {
     // arrange for owned_buffer with expected address and expected size
     auto expected_allocation = std::make_unique<std::byte[]>(expected_size);
