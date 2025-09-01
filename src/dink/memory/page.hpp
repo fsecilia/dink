@@ -22,8 +22,8 @@ concept page = requires(page_t page, size_t size, std::align_val_t alignment) {
 
 /*!
     memory page for paged allocator
-    
-    page_t does not own the memory range it allocates from. 
+
+    page_t does not own the memory range it allocates from.
 */
 class page_t
 {

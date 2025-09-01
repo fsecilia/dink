@@ -13,12 +13,12 @@
 namespace dink {
 namespace factories {
 
-/*! 
+/*!
     true if type has a static construct() method, regardless of signature
-    
+
     This concept is greedy. It will detect a static construct() from a base class if even if the leaf does define one.
     Preventing this case is... nontrivial. Member access is checked after template resolution. The solution will likely
-    require a new version of c++ with reflection.       
+    require a new version of c++ with reflection.
 */
 template <typename type_t>
 concept has_static_construct_method = requires {
