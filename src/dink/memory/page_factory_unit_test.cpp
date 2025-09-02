@@ -22,6 +22,7 @@ struct page_factory_test_t : Test
     struct mock_heap_allocator_t
     {
         MOCK_METHOD(void*, allocate, (std::size_t size, std::align_val_t alignment), (const));
+        MOCK_METHOD(void, roll_back, (), (noexcept));
         virtual ~mock_heap_allocator_t() = default;
     };
     StrictMock<mock_heap_allocator_t> mock_heap_allocator;
@@ -32,6 +33,9 @@ struct page_factory_test_t : Test
         {
             return mock->allocate(size, alignment);
         }
+
+        auto roll_back() -> void { mock->roll_back(); }
+
         mock_heap_allocator_t* mock = nullptr;
     };
 

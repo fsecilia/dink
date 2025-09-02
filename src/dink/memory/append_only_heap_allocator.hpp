@@ -20,6 +20,7 @@ concept append_only_heap_allocator = requires(
     heap_allocator_t heap_allocator, size_t size, std::align_val_t alignment
 ) {
     { heap_allocator.allocate(size, alignment) } -> std::same_as<void*>;
+    { heap_allocator.roll_back() };
 };
 
 //! heap allocator that supports allocate, but manages lifetimes internally, so results should not be deallocated
@@ -40,6 +41,15 @@ public:
             heap_allocator_.deallocate(allocation);
             throw;
         }
+    }
+
+    //! rolls back last allocation, if any
+    auto roll_back() noexcept -> void
+    {
+        if (allocations_.empty()) return;
+
+        heap_allocator_.deallocate(allocations_.back());
+        allocations_.pop_back();
     }
 
     explicit append_only_heap_allocator_t(

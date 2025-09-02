@@ -53,6 +53,16 @@ struct append_only_heap_allocator_test_t : Test
             .WillOnce(Return(expected_allocation_3));
     }
 
+    auto allocate_all() -> void
+    {
+        EXPECT_CALL(mock_heap_allocator, allocate(expected_size_1, expected_alignment_1))
+            .WillOnce(Return(expected_allocation_1));
+        EXPECT_CALL(mock_heap_allocator, allocate(expected_size_2, expected_alignment_2))
+            .WillOnce(Return(expected_allocation_2));
+        EXPECT_CALL(mock_heap_allocator, allocate(expected_size_3, expected_alignment_3))
+            .WillOnce(Return(expected_allocation_3));
+    }
+
     auto expect_all_deallocate() -> void
     {
         EXPECT_CALL(mock_heap_allocator, deallocate(expected_allocation_1));
@@ -80,6 +90,28 @@ TEST_F(append_only_heap_allocator_test_default_container_t, allocate_tracks_poin
     ASSERT_EQ(expected_allocation_3, actual_allocation_3);
 
     expect_all_deallocate();
+}
+
+TEST_F(append_only_heap_allocator_test_default_container_t, roll_back_without_allocation_is_noop)
+{
+    sut.roll_back();
+}
+
+TEST_F(append_only_heap_allocator_test_default_container_t, roll_back_after_allocation)
+{
+    expect_all_allocate();
+
+    sut.allocate(expected_size_1, expected_alignment_1);
+    sut.allocate(expected_size_2, expected_alignment_2);
+    sut.allocate(expected_size_3, expected_alignment_3);
+
+    {
+        EXPECT_CALL(mock_heap_allocator, deallocate(expected_allocation_3));
+        sut.roll_back();
+    }
+
+    EXPECT_CALL(mock_heap_allocator, deallocate(expected_allocation_1));
+    EXPECT_CALL(mock_heap_allocator, deallocate(expected_allocation_2));
 }
 
 TEST_F(append_only_heap_allocator_test_default_container_t, move)
