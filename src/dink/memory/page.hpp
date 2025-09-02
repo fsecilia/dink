@@ -18,6 +18,7 @@ namespace dink {
 template <typename page_t>
 concept page = requires(page_t page, size_t size, std::align_val_t alignment) {
     { page.try_allocate(size, alignment) } -> std::same_as<void*>;
+    { page.roll_back() } -> std::same_as<bool>;
 };
 
 /*!
@@ -48,12 +49,27 @@ public:
         if (!fits) return nullptr;
 
         // commit allocation
+        prev_ = cur_;
         cur_ = aligned_end;
         return reinterpret_cast<void*>(aligned_begin);
     }
 
+    /*!
+        rolls back last allocation, if possible
+
+        This rolls back only the final, most recent allocation. Rolling back more than one allocation does nothing.
+
+        \returns true if the page is empty
+    */
+    auto roll_back() noexcept -> bool
+    {
+        cur_ = prev_;
+        auto const empty = cur_ == begin_;
+        return empty;
+    }
+
     explicit page_t(void* begin, std::size_t size) noexcept
-        : cur_{reinterpret_cast<uintptr_t>(begin)}, end_{cur_ + size}
+        : begin_{reinterpret_cast<uintptr_t>(begin)}, cur_{begin_}, prev_{cur_}, end_{begin_ + size}
     {}
 
     page_t(page_t const&) = delete;
@@ -63,7 +79,9 @@ public:
     auto operator=(page_t&&) -> page_t& = default;
 
 private:
+    uintptr_t begin_;
     uintptr_t cur_;
+    uintptr_t prev_;
     uintptr_t end_;
 };
 

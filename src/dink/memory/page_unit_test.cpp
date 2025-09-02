@@ -80,8 +80,8 @@ TEST_F(page_test_t, sequential_allocations_are_contiguous)
     constexpr auto size = std::size_t{32};
 
     // make two sequential allocations
-    auto allocation1 = sut.try_allocate(size, std::align_val_t{8});
-    auto allocation2 = sut.try_allocate(size * 2, std::align_val_t{8});
+    auto allocation1 = sut.try_allocate(size, std::align_val_t{1});
+    auto allocation2 = sut.try_allocate(size * 2, std::align_val_t{1});
 
     // both allocations succeed
     expect_allocation_succeeded(allocation1);
@@ -90,6 +90,64 @@ TEST_F(page_test_t, sequential_allocations_are_contiguous)
     // allocations are directly adjacent; second pointer immediately follows first
     auto const expected = reinterpret_cast<uintptr_t>(allocation1) + size;
     ASSERT_EQ(reinterpret_cast<uintptr_t>(allocation2), expected);
+}
+
+TEST_F(page_test_t, roll_back_without_allocation_is_noop)
+{
+    ASSERT_TRUE(sut.roll_back());
+}
+
+TEST_F(page_test_t, roll_back_after_one_allocation)
+{
+    constexpr auto size = std::size_t{32};
+
+    // allocate
+    auto expected = sut.try_allocate(size, std::align_val_t{1});
+
+    // roll back second allocation
+    auto empty_after_rollback = sut.roll_back();
+
+    // repeating allocation with same parameters should have same location
+    auto actual = sut.try_allocate(size, std::align_val_t{1});
+
+    ASSERT_TRUE(empty_after_rollback);
+    ASSERT_EQ(expected, actual);
+}
+
+TEST_F(page_test_t, roll_back_after_two_allocations)
+{
+    constexpr auto size = std::size_t{32};
+
+    // make two sequential allocations
+    sut.try_allocate(size * 2, std::align_val_t{1});
+    auto expected = sut.try_allocate(size, std::align_val_t{1});
+
+    // roll back second allocation
+    auto empty_after_rollback = sut.roll_back();
+
+    // repeating allocation with same parameters should have same location
+    auto actual = sut.try_allocate(size, std::align_val_t{1});
+
+    ASSERT_FALSE(empty_after_rollback);
+    ASSERT_EQ(expected, actual);
+}
+
+TEST_F(page_test_t, subsequent_rollbacks_are_noop)
+{
+    constexpr auto size = std::size_t{32};
+
+    // make two sequential allocations
+    sut.try_allocate(size, std::align_val_t{1});
+    auto expected = sut.try_allocate(size * 2, std::align_val_t{1});
+
+    // roll back second allocation twice
+    sut.roll_back();
+    sut.roll_back();
+
+    // repeating allocation with same parameters should have same location
+    auto actual = sut.try_allocate(size * 2, std::align_val_t{1});
+
+    ASSERT_EQ(expected, actual);
 }
 
 } // namespace

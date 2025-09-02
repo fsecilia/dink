@@ -31,6 +31,8 @@ struct paged_sub_allocator_test_t : Test
             return mock->try_allocate(size, alignment);
         }
 
+        auto roll_back() noexcept -> bool;
+
         mock_page_t* mock = nullptr;
     };
 

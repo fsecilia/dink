@@ -14,6 +14,7 @@ struct page_factory_test_t : Test
     struct page_t
     {
         auto try_allocate(std::size_t size, std::align_val_t alignment) -> void*;
+        auto roll_back() noexcept -> bool;
 
         void* begin;
         std::size_t size;
