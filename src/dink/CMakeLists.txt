@@ -18,6 +18,7 @@ list(APPEND dink_library_files
     has_static_construct_method.hpp
     lib.hpp
     memory/append_only_heap_allocator.hpp
+    memory/arena_allocator.hpp
     memory/heap_allocator.hpp
     memory/page.hpp
     memory/page_factory.hpp
@@ -39,6 +40,7 @@ list(APPEND dink_unit_test_files
     factory_unit_test.cpp
     has_static_construct_method_unit_test.cpp
     memory/append_only_heap_allocator_unit_test.cpp
+    memory/arena_allocator_unit_test.cpp
     memory/page_factory_unit_test.cpp
     memory/page_size_unit_test.cpp
     memory/page_unit_test.cpp

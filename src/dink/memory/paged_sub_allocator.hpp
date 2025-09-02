@@ -33,6 +33,14 @@ struct paged_sub_allocator_ctor_params_t
     page_t initial_page = page_factory();
 };
 
+template <typename paged_sub_allocator_t>
+concept paged_sub_allocator = requires(
+    paged_sub_allocator_t paged_sub_allocator, size_t size, std::align_val_t alignment
+) {
+    { paged_sub_allocator.max_allocation_size() } -> std::convertible_to<std::size_t>;
+    { paged_sub_allocator.allocate(size, alignment) } -> std::convertible_to<void*>;
+};
+
 /*!
     manages a collection of pages for small object allocations
     
