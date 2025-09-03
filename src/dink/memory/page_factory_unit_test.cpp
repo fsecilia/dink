@@ -35,7 +35,7 @@ struct page_factory_test_t : Test
             return mock->allocate(size, alignment);
         }
 
-        auto roll_back() -> void { mock->roll_back(); }
+        auto roll_back() noexcept -> void { mock->roll_back(); }
 
         mock_heap_allocator_t* mock = nullptr;
     };
