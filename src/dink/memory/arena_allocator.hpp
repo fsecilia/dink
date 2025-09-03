@@ -7,15 +7,14 @@
 
 #include <dink/lib.hpp>
 #include <dink/memory/append_only_heap_allocator.hpp>
-#include <dink/memory/paged_sub_allocator.hpp>
+#include <dink/memory/paged_allocator.hpp>
 
 namespace dink {
 
 template <typename large_object_allocator_t>
 concept large_object_allocator = append_only_heap_allocator<large_object_allocator_t>;
 
-template <typename large_object_allocator_t>
-concept small_object_allocator = paged_sub_allocator<large_object_allocator_t>;
+template <typename large_object_allocator_t> concept small_object_allocator = paged_allocator<large_object_allocator_t>;
 
 //! append-only arena allocator with small object optimization
 template <large_object_allocator large_object_allocator_t, small_object_allocator small_object_allocator_t>

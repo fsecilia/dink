@@ -3,13 +3,13 @@
     Copyright (C) 2025 Frank Secilia
 */
 
-#include "paged_sub_allocator.hpp"
+#include "paged_allocator.hpp"
 #include <dink/test.hpp>
 
 namespace dink {
 namespace {
 
-struct paged_sub_allocator_test_t : Test
+struct paged_allocator_test_t : Test
 {
     struct mock_page_t
     {
@@ -69,8 +69,8 @@ struct paged_sub_allocator_test_t : Test
 
     auto expect_allocation_fails(mock_page_t& mock_page) -> void { expect_try_allocate(mock_page, nullptr); }
 
-    using ctor_params_t = paged_sub_allocator_ctor_params_t<page_t, page_factory_t>;
-    using sut_t = paged_sub_allocator_t<page_t, page_factory_t, ctor_params_t>;
+    using ctor_params_t = paged_allocator_ctor_params_t<page_t, page_factory_t>;
+    using sut_t = paged_allocator_t<page_t, page_factory_t, ctor_params_t>;
     auto create_sut() -> sut_t
     {
         return sut_t{ctor_params_t{page_factory_t{page_factory_t{&mock_page_factory}}, page_t{&mock_page_1}}};
@@ -81,12 +81,12 @@ struct paged_sub_allocator_test_t : Test
     inline static std::align_val_t const expected_alignment = std::align_val_t{16};
 };
 
-TEST_F(paged_sub_allocator_test_t, max_allocation_size)
+TEST_F(paged_allocator_test_t, max_allocation_size)
 {
     ASSERT_EQ(expected_max_allocation_size, sut.max_allocation_size());
 }
 
-TEST_F(paged_sub_allocator_test_t, allocate_preconditions_met)
+TEST_F(paged_allocator_test_t, allocate_preconditions_met)
 {
     ASSERT_TRUE(sut.allocate_preconditions_met(expected_max_allocation_size, std::align_val_t{1}));
     ASSERT_FALSE(sut.allocate_preconditions_met(expected_max_allocation_size + 1, std::align_val_t{1}));
@@ -100,7 +100,7 @@ TEST_F(paged_sub_allocator_test_t, allocate_preconditions_met)
     ));
 }
 
-TEST_F(paged_sub_allocator_test_t, allocate_succeeds_on_first_page)
+TEST_F(paged_allocator_test_t, allocate_succeeds_on_first_page)
 {
     expect_allocation_succeeds(mock_page_1, expected_allocation_1);
 
@@ -109,7 +109,7 @@ TEST_F(paged_sub_allocator_test_t, allocate_succeeds_on_first_page)
     ASSERT_EQ(expected_allocation_1, actual_allocation);
 }
 
-TEST_F(paged_sub_allocator_test_t, allocate_multiple_from_same_page)
+TEST_F(paged_allocator_test_t, allocate_multiple_from_same_page)
 {
     auto seq = InSequence{}; // ordered
 
@@ -123,7 +123,7 @@ TEST_F(paged_sub_allocator_test_t, allocate_multiple_from_same_page)
     ASSERT_EQ(expected_allocation_2, actual_allocation2);
 }
 
-TEST_F(paged_sub_allocator_test_t, allocate_creates_new_page_when_current_is_full)
+TEST_F(paged_allocator_test_t, allocate_creates_new_page_when_current_is_full)
 {
     auto seq = InSequence{}; // ordered
 
@@ -143,9 +143,11 @@ TEST_F(paged_sub_allocator_test_t, allocate_creates_new_page_when_current_is_ful
     ASSERT_EQ(expected_allocation_1, actual_allocation);
 }
 
-TEST_F(paged_sub_allocator_test_t, roll_back_to_empty_first_page_does_not_pop_page)
+TEST_F(paged_allocator_test_t, roll_back_to_empty_first_page_does_not_pop_page)
 {
+    // page is empty after rollback
     EXPECT_CALL(mock_page_1, roll_back()).WillOnce(Return(true));
+
     sut.roll_back();
 
     // next allocation comes from first page
@@ -154,9 +156,11 @@ TEST_F(paged_sub_allocator_test_t, roll_back_to_empty_first_page_does_not_pop_pa
     ASSERT_EQ(expected_allocation_1, actual_allocation_1);
 }
 
-TEST_F(paged_sub_allocator_test_t, roll_back_to_nonempty_first_page_does_not_pop_page)
+TEST_F(paged_allocator_test_t, roll_back_to_nonempty_first_page_does_not_pop_page)
 {
+    // page is not empty after rollback
     EXPECT_CALL(mock_page_1, roll_back()).WillOnce(Return(false));
+
     sut.roll_back();
 
     // next allocation comes from first page
@@ -165,7 +169,7 @@ TEST_F(paged_sub_allocator_test_t, roll_back_to_nonempty_first_page_does_not_pop
     ASSERT_EQ(expected_allocation_1, actual_allocation_1);
 }
 
-TEST_F(paged_sub_allocator_test_t, roll_back_to_nonempty_second_page_does_not_pop_page)
+TEST_F(paged_allocator_test_t, roll_back_to_nonempty_second_page_does_not_pop_page)
 {
     auto seq = InSequence{}; // ordered
 
@@ -185,7 +189,7 @@ TEST_F(paged_sub_allocator_test_t, roll_back_to_nonempty_second_page_does_not_po
     ASSERT_EQ(expected_allocation_2, actual_allocation_2);
 }
 
-TEST_F(paged_sub_allocator_test_t, roll_back_to_empty_second_page_pops_page)
+TEST_F(paged_allocator_test_t, roll_back_to_empty_second_page_pops_page)
 {
     auto seq = InSequence{}; // ordered
 
