@@ -23,15 +23,13 @@ class arena_allocator_t
 public:
     /*!
         threshold to choose when to fall back to the large object allocator
-        
+
         Allocations with effective sizes greater than this are serviced by the large object allocator. The rest use the
         faster small object allocator.
     */
     std::size_t const small_object_threshold = small_object_allocator_.max_allocation_size();
 
-    /*!
-        /pre alignment is nonzero power of two
-    */
+    //! /pre alignment is nonzero power of two
     auto allocate(std::size_t size, std::align_val_t alignment) -> void*
     {
         // enforce alignment precondition
@@ -45,21 +43,38 @@ public:
         // delegate based on effective allocation size
         if (effective_allocation_size > small_object_threshold)
         {
+            prev_allocation_was_large_ = true;
             return large_object_allocator_.allocate(size, alignment);
         }
-        return small_object_allocator_.allocate(size, alignment);
+        else
+        {
+            prev_allocation_was_large_ = false;
+            return small_object_allocator_.allocate(size, alignment);
+        }
+    }
+
+    /*!
+        rolls back last allocation, if possible
+
+        This rolls back only the final, most recent allocation. Rolling back more than one allocation does nothing.
+    */
+    auto roll_back() noexcept -> void
+    {
+        if (prev_allocation_was_large_) large_object_allocator_.roll_back();
+        else small_object_allocator_.roll_back();
     }
 
     arena_allocator_t(
         large_object_allocator_t large_object_allocator, small_object_allocator_t small_object_allocator
     ) noexcept
         : large_object_allocator_{std::move(large_object_allocator)},
-          small_object_allocator_{std::move(small_object_allocator)}
+          small_object_allocator_{std::move(small_object_allocator)}, prev_allocation_was_large_{false}
     {}
 
 private:
     large_object_allocator_t large_object_allocator_{};
     small_object_allocator_t small_object_allocator_{};
+    bool prev_allocation_was_large_{false};
 };
 
 } // namespace dink
