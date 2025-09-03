@@ -13,7 +13,8 @@ struct paged_sub_allocator_test_t : Test
 {
     struct mock_page_t
     {
-        MOCK_METHOD(void*, try_allocate, (std::size_t size, std::align_val_t alignment), (const));
+        MOCK_METHOD(void*, try_allocate, (std::size_t size, std::align_val_t alignment), ());
+        MOCK_METHOD(bool, roll_back, (), (noexcept));
         virtual ~mock_page_t() = default;
     };
     StrictMock<mock_page_t> mock_page_1{};
@@ -31,7 +32,7 @@ struct paged_sub_allocator_test_t : Test
             return mock->try_allocate(size, alignment);
         }
 
-        auto roll_back() noexcept -> bool;
+        auto roll_back() noexcept -> bool { return mock->roll_back(); }
 
         mock_page_t* mock = nullptr;
     };
@@ -49,7 +50,7 @@ struct paged_sub_allocator_test_t : Test
     {
         auto size() const noexcept -> std::size_t { return page_size; }
         auto alignment() const noexcept -> std::size_t;
-        auto operator()() const -> page_t { return mock->call_operator(); }
+        auto operator()() -> page_t { return mock->call_operator(); }
         mock_page_factory_t* mock = nullptr;
     };
 
@@ -68,12 +69,7 @@ struct paged_sub_allocator_test_t : Test
 
     auto expect_allocation_fails(mock_page_t& mock_page) -> void { expect_try_allocate(mock_page, nullptr); }
 
-    struct ctor_params_t
-    {
-        page_factory_t page_factory;
-        page_t initial_page;
-    };
-
+    using ctor_params_t = paged_sub_allocator_ctor_params_t<page_t, page_factory_t>;
     using sut_t = paged_sub_allocator_t<page_t, page_factory_t, ctor_params_t>;
     auto create_sut() -> sut_t
     {
@@ -140,11 +136,73 @@ TEST_F(paged_sub_allocator_test_t, allocate_creates_new_page_when_current_is_ful
     // allocation from new page succeeds
     expect_allocation_succeeds(mock_page_2, expected_allocation_1);
 
-    // try allocate
+    // allocate
     auto const actual_allocation = sut.allocate(expected_size, expected_alignment);
 
     // result is from new page
     ASSERT_EQ(expected_allocation_1, actual_allocation);
+}
+
+TEST_F(paged_sub_allocator_test_t, roll_back_to_empty_first_page_does_not_pop_page)
+{
+    EXPECT_CALL(mock_page_1, roll_back()).WillOnce(Return(true));
+    sut.roll_back();
+
+    // next allocation comes from first page
+    expect_allocation_succeeds(mock_page_1, expected_allocation_1);
+    auto const actual_allocation_1 = sut.allocate(expected_size, expected_alignment);
+    ASSERT_EQ(expected_allocation_1, actual_allocation_1);
+}
+
+TEST_F(paged_sub_allocator_test_t, roll_back_to_nonempty_first_page_does_not_pop_page)
+{
+    EXPECT_CALL(mock_page_1, roll_back()).WillOnce(Return(false));
+    sut.roll_back();
+
+    // next allocation comes from first page
+    expect_allocation_succeeds(mock_page_1, expected_allocation_1);
+    auto const actual_allocation_1 = sut.allocate(expected_size, expected_alignment);
+    ASSERT_EQ(expected_allocation_1, actual_allocation_1);
+}
+
+TEST_F(paged_sub_allocator_test_t, roll_back_to_nonempty_second_page_does_not_pop_page)
+{
+    auto seq = InSequence{}; // ordered
+
+    // drive sut into state with an allocation on second page
+    expect_allocation_fails(mock_page_1);
+    expect_add_page(mock_page_2);
+    expect_allocation_succeeds(mock_page_2, expected_allocation_1);
+    sut.allocate(expected_size, expected_alignment);
+
+    // page is not empty after rollback
+    EXPECT_CALL(mock_page_2, roll_back()).WillOnce(Return(false));
+    sut.roll_back();
+
+    // next allocation still comes from second page
+    expect_allocation_succeeds(mock_page_2, expected_allocation_2);
+    auto const actual_allocation_2 = sut.allocate(expected_size, expected_alignment);
+    ASSERT_EQ(expected_allocation_2, actual_allocation_2);
+}
+
+TEST_F(paged_sub_allocator_test_t, roll_back_to_empty_second_page_pops_page)
+{
+    auto seq = InSequence{}; // ordered
+
+    // drive sut into state with an allocation on second page
+    expect_allocation_fails(mock_page_1);
+    expect_add_page(mock_page_2);
+    expect_allocation_succeeds(mock_page_2, expected_allocation_1);
+    sut.allocate(expected_size, expected_alignment);
+
+    // page is empty after rollback
+    EXPECT_CALL(mock_page_2, roll_back()).WillOnce(Return(true));
+    sut.roll_back();
+
+    // next allocation comes from first page
+    expect_allocation_succeeds(mock_page_1, expected_allocation_2);
+    auto const actual_allocation_2 = sut.allocate(expected_size, expected_alignment);
+    ASSERT_EQ(expected_allocation_2, actual_allocation_2);
 }
 
 } // namespace

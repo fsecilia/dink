@@ -23,8 +23,9 @@ concept paged_sub_allocator_ctor_params = requires(params_t params) {
 
 /*!
     Parameter type used to construct paged_sub_allocator_t.
-    
-    This parameter type contains both a page factory, and the initial page from that factory.
+
+    This parameter type contains both a page factory and an initial page. The initial page comes from that factory by
+    default.
 */
 template <page page_t, page_factory<page_t> page_factory_t>
 struct paged_sub_allocator_ctor_params_t
@@ -39,20 +40,21 @@ concept paged_sub_allocator = requires(
 ) {
     { paged_sub_allocator.max_allocation_size() } -> std::convertible_to<std::size_t>;
     { paged_sub_allocator.allocate(size, alignment) } -> std::convertible_to<void*>;
+    { paged_sub_allocator.roll_back() };
 };
 
 /*!
     manages a collection of pages for small object allocations
-    
+
     The paged sub-allocator is a subcomponent of a larger allocator. It satisfies allocation requests by returning
     memory views into a set of managed pages. The pages themselves own the allocations, making this type append-only.
-    
+
     \note This is not a general-purpose allocator. It operates under a narrow contract, only asserting its
     preconditions, expecting its owner to enforce them.
-    
-    \invariant An instance always contains at least one page. This is a contract enforced by the constructor, which
-    allows the allocation path to be simplified by safely accessing the tail page without an empty check.
-    
+
+    \invariant An instance always contains at least one page. This allows the allocation path to be simplified by
+    safely accessing the tail page without an empty check. The contract is enforced by the constructor's parameter type.
+
     \tparam page_t The type of page object to manage.
     \tparam page_factory_t The type of factory used to create new pages.
 */
@@ -62,6 +64,8 @@ template <
 class paged_sub_allocator_t
 {
 public:
+    using pages_t = std::vector<page_t>;
+
     //! maximum effective allocation size supported (`size + alignment - 1`)
     auto max_allocation_size() const noexcept -> std::size_t
     {
@@ -71,17 +75,17 @@ public:
 
     /*!
         verifies if a given size and alignment satisfy preconditions for allocation
-        
-        This function encapsulates the logic for the two primary rules that an allocation request must follow:        
-            1. The alignment must be a non-zero power of two.            
+
+        This function encapsulates the logic for the two primary rules that an allocation request must follow:
+            1. The alignment must be a non-zero power of two.
             2. The worst-case effective size (`size + alignment - 1`) must not exceed the maximum supported by this
             allocator.
-        
+
         \note This method is public primarily for testing purposes, allowing the precondition logic to be verified
         independently of whether assertions are enabled. It is used internally by the `allocate()` method's assert.
-        
+
         \param size The number of bytes for the proposed allocation.
-        \param alignment The required alignment for the proposed allocation.        
+        \param alignment The required alignment for the proposed allocation.
         \returns True if the preconditions are met and a call to `allocate()` is safe, false otherwise.
     */
     auto allocate_preconditions_met(std::size_t size, std::align_val_t alignment) const noexcept -> bool
@@ -97,20 +101,20 @@ public:
 
     /*!
         allocates a memory view from its managed pages
-        
+
         Attempts to allocate from the most recently created page. If that page is full, a new page is created and the
         memory view is allocated from it.
-        
+
         \pre Alignment must be a non-zero power of two.
         \pre The worst-case effective size of the allocation (`size + alignment - 1`) must be less than or equal to the
         value returned by `max_allocation_size()`.
-        
+
         \param size The number of bytes to allocate.
         \param alignment The required alignment for the allocation.
-        
-        \throws std::bad_alloc if a new page is needed and the page factory fails to allocate its memory, or if 
+
+        \throws std::bad_alloc if a new page is needed and the page factory fails to allocate its memory, or if
         appending to the vector of pages fails.
-                
+
         \returns A non-null pointer to the allocated memory.
     */
     //! tries allocating from leaf page, allocates from new page if full
@@ -132,6 +136,20 @@ public:
         return result;
     }
 
+    /*! 
+        rolls back last allocation, if possible
+
+        This rolls back only the final, most recent allocation. Rolling back more than one allocation does nothing.
+    */
+    auto roll_back() noexcept -> void
+    {
+        // roll back on current page
+        auto last_page_now_empty = pages_.back().roll_back();
+
+        // pop if the current page is now empty and there would still be one page after popping
+        if (last_page_now_empty && pages_.size() > 1) pages_.pop_back();
+    }
+
     //! constructs with factory and initial page
     paged_sub_allocator_t(ctor_params_t ctor_params) noexcept
         : page_factory_{std::move(ctor_params).page_factory}, pages_{std::move(ctor_params).initial_page}
@@ -140,7 +158,7 @@ public:
 
 private:
     page_factory_t page_factory_{};
-    std::vector<page_t> pages_{};
+    pages_t pages_{};
 };
 
 } // namespace dink
