@@ -24,6 +24,7 @@ list(APPEND dink_library_files
     memory/page_factory.hpp
     memory/page_size.hpp
     memory/paged_allocator.hpp
+    memory/type_erased_storage.hpp
     resolver.hpp
     scope.hpp
     strong_type.hpp
@@ -45,6 +46,7 @@ list(APPEND dink_unit_test_files
     memory/page_size_unit_test.cpp
     memory/page_unit_test.cpp
     memory/paged_allocator_unit_test.cpp
+    memory/type_erased_storage_unit_test.cpp
     resolver_unit_test.cpp
     scope_unit_test.cpp
     strong_type_unit_test.cpp
