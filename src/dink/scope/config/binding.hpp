@@ -6,8 +6,6 @@
 #pragma once
 
 #include <dink/lib.hpp>
-#include <dink/scope/config/detail/tuple.hpp>
-#include <tuple>
 
 namespace dink {
 

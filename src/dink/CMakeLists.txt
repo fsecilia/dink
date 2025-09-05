@@ -27,7 +27,6 @@ list(APPEND dink_library_files
     memory/type_erased_storage.hpp
     resolver.hpp
     scope/config/binding.hpp
-    scope/config/detail/tuple.hpp
     scope.hpp
     strong_type.hpp
     type_map.hpp
@@ -51,7 +50,6 @@ list(APPEND dink_unit_test_files
     memory/type_erased_storage_unit_test.cpp
     resolver_unit_test.cpp
     scope/config/binding_unit_test.cpp
-    scope/config/detail/tuple_unit_test.cpp
     scope_unit_test.cpp
     strong_type_unit_test.cpp
     test.hpp
