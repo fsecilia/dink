@@ -11,6 +11,7 @@ list(APPEND dink_library_files
     arg.hpp
     bindings.hpp
     composer.hpp
+    config/binding.hpp
     config/flatten.hpp
     dink.hpp
     dispatcher.hpp
@@ -37,6 +38,7 @@ list(APPEND dink_unit_test_files
     arg_unit_test.cpp
     bindings_unit_test.cpp
     composer_unit_test.cpp
+    config/binding_unit_test.cpp
     config/flatten_unit_test.cpp
     dink_unit_test.cpp
     dispatcher_unit_test.cpp
