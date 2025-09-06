@@ -11,6 +11,7 @@ list(APPEND dink_library_files
     arg.hpp
     bindings.hpp
     composer.hpp
+    config/flatten.hpp
     dink.hpp
     dispatcher.hpp
     factory.hpp
@@ -26,7 +27,6 @@ list(APPEND dink_library_files
     memory/paged_allocator.hpp
     memory/type_erased_storage.hpp
     resolver.hpp
-    scope/config/binding.hpp
     scope.hpp
     strong_type.hpp
     type_map.hpp
@@ -37,6 +37,7 @@ list(APPEND dink_unit_test_files
     arg_unit_test.cpp
     bindings_unit_test.cpp
     composer_unit_test.cpp
+    config/flatten_unit_test.cpp
     dink_unit_test.cpp
     dispatcher_unit_test.cpp
     factory_unit_test.cpp
@@ -49,7 +50,6 @@ list(APPEND dink_unit_test_files
     memory/paged_allocator_unit_test.cpp
     memory/type_erased_storage_unit_test.cpp
     resolver_unit_test.cpp
-    scope/config/binding_unit_test.cpp
     scope_unit_test.cpp
     strong_type_unit_test.cpp
     test.hpp
