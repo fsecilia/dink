@@ -51,6 +51,7 @@ list(APPEND dink_unit_test_files
     memory/page_unit_test.cpp
     memory/paged_allocator_unit_test.cpp
     memory/type_erased_storage_unit_test.cpp
+    poc.cpp
     resolver_unit_test.cpp
     scope_unit_test.cpp
     strong_type_unit_test.cpp
