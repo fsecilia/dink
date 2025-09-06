@@ -21,14 +21,6 @@ template <large_object_allocator large_object_allocator_t, small_object_allocato
 class arena_allocator_t
 {
 public:
-    /*!
-        threshold to choose when to fall back to the large object allocator
-
-        Allocations with effective sizes greater than this are serviced by the large object allocator. The rest use the
-        faster small object allocator.
-    */
-    std::size_t const small_object_threshold = small_object_allocator_.max_allocation_size();
-
     //! /pre alignment is nonzero power of two
     auto allocate(std::size_t size, std::align_val_t alignment) -> void*
     {
@@ -75,6 +67,15 @@ private:
     large_object_allocator_t large_object_allocator_{};
     small_object_allocator_t small_object_allocator_{};
     bool prev_allocation_was_large_{false};
+
+public:
+    /*!
+        threshold to choose when to fall back to the large object allocator
+
+        Allocations with effective sizes greater than this are serviced by the large object allocator. The rest use the
+        faster small object allocator.
+    */
+    std::size_t const small_object_threshold = small_object_allocator_.max_allocation_size();
 };
 
 } // namespace dink

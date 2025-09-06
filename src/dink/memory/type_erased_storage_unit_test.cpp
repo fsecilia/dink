@@ -99,7 +99,7 @@ TEST_F(type_erased_storage_test_construction_t, throw_on_ctor_rolls_back)
 
     struct throwing_instance_t
     {
-        throwing_instance_t() { throw std::runtime_error(""); }
+        [[noreturn]] throwing_instance_t() { throw std::runtime_error(""); }
     };
 
     EXPECT_THROW(sut.template create<throwing_instance_t>(), std::runtime_error);
