@@ -64,7 +64,7 @@ if (NOT DEFINED dink_max_deduced_params)
     set(dink_max_deduced_params 10 CACHE STRING "largest number of arguments dink will try to deduce")
 endif()
 
-set(config_generated_root "${PROJECT_BINARY_DIR}/generated")
+set(config_generated_root "${CMAKE_BINARY_DIR}/generated")
 set(config_generated_filenamxe config.generated.hpp)
 set(config_template_file config.template.hpp)
 add_library(dink_v001 INTERFACE ${dink_library_files} "${config_template_file}")
