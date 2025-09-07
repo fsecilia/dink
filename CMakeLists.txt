@@ -17,4 +17,4 @@ groundwork_find_ccache()
 groundwork_find_threads()
 groundwork_configure_compilers()
 
-add_subdirectory(src/dink)
+add_subdirectory(src)
