@@ -9,7 +9,7 @@
 namespace dink {
 namespace {
 
-struct arg_test_t : Test
+struct fixture_t
 {
     using id_t = int_t;
     static constexpr auto const unexpected_id = id_t{123};
@@ -64,6 +64,7 @@ struct arg_test_t : Test
             return dispatch_resolve(tag_t<deduced_t>{});
         }
 
+        auto dispatch_resolve(tag_t<id_t>) -> id_t { return resolve_id(); }
         auto dispatch_resolve(tag_t<deduced_t>) -> deduced_t { return resolve_val(); }
         auto dispatch_resolve(tag_t<deduced_t&>) -> deduced_t& { return resolve_ref(); }
         auto dispatch_resolve(tag_t<deduced_t&&>) -> deduced_t { return resolve_val(); }
@@ -83,6 +84,7 @@ struct arg_test_t : Test
             return resolve_arr_ref();
         }
 
+        MOCK_METHOD(id_t, resolve_id, (), ());
         MOCK_METHOD(deduced_t, resolve_val, (), ());
         MOCK_METHOD(deduced_t&, resolve_ref, (), ());
         MOCK_METHOD(deduced_t*, resolve_ptr, (), ());
@@ -96,111 +98,217 @@ struct arg_test_t : Test
     };
     StrictMock<container_t> container{};
 
-    auto expect_ref() -> void { EXPECT_CALL(container, resolve_ref()).WillOnce(ReturnRef(deduced)); }
-    auto expect_val() -> void { EXPECT_CALL(container, resolve_val()).WillOnce(Return(deduced)); }
-    auto expect_ptr() -> void { EXPECT_CALL(container, resolve_ptr()).WillOnce(Return(deduced_ptr)); }
-    auto expect_ptr_ref() -> void { EXPECT_CALL(container, resolve_ptr_ref()).WillOnce(ReturnRef(deduced_ptr)); }
-    auto expect_cptr_ref() -> void { EXPECT_CALL(container, resolve_cptr_ref()).WillOnce(ReturnRef(deduced_cptr)); }
-    auto expect_arr_ref() -> void { EXPECT_CALL(container, resolve_arr_ref()).WillOnce(ReturnRef(deduced_array)); }
+    auto expect_id() noexcept -> void { EXPECT_CALL(container, resolve_id()).WillOnce(Return(expected_id)); }
+    auto expect_val() noexcept -> void { EXPECT_CALL(container, resolve_val()).WillOnce(Return(deduced)); }
+    auto expect_ref() noexcept -> void { EXPECT_CALL(container, resolve_ref()).WillOnce(ReturnRef(deduced)); }
+    auto expect_ptr() noexcept -> void { EXPECT_CALL(container, resolve_ptr()).WillOnce(Return(deduced_ptr)); }
 
-    using sut_t = arg_t<container_t>;
-    sut_t sut{container};
+    auto expect_ptr_ref() noexcept -> void
+    {
+        EXPECT_CALL(container, resolve_ptr_ref()).WillOnce(ReturnRef(deduced_ptr));
+    }
+
+    auto expect_cptr_ref() noexcept -> void
+    {
+        EXPECT_CALL(container, resolve_cptr_ref()).WillOnce(ReturnRef(deduced_cptr));
+    }
+
+    auto expect_arr_ref() noexcept -> void
+    {
+        EXPECT_CALL(container, resolve_arr_ref()).WillOnce(ReturnRef(deduced_array));
+    }
 };
 
-TEST_F(arg_test_t, val)
+template <typename dispatcher_t>
+struct arg_test_t : fixture_t, Test
 {
-    expect_val();
-    ASSERT_EQ(expected_id, handler.val(sut));
+    using sut_t = typename dispatcher_t::sut_t;
+    sut_t sut = dispatcher_t{}.create_sut(fixture_t::container);
+
+    auto test_val() noexcept -> void
+    {
+        expect_val();
+        ASSERT_EQ(expected_id, handler.val(sut));
+    }
+
+    auto test_lref() noexcept -> void
+    {
+        expect_ref();
+        ASSERT_EQ(expected_id, handler.lref(sut));
+    }
+
+    auto test_rref() noexcept -> void
+    {
+        expect_val();
+        ASSERT_EQ(expected_id, handler.rref(sut));
+    }
+
+    auto test_lcref() noexcept -> void
+    {
+        expect_ref();
+        ASSERT_EQ(expected_id, handler.lcref(sut));
+    }
+
+    auto test_rcref() noexcept -> void
+    {
+        expect_val();
+        ASSERT_EQ(expected_id, handler.rcref(sut));
+    }
+
+    auto test_ptr() noexcept -> void
+    {
+        expect_ptr();
+        ASSERT_EQ(expected_id, handler.ptr(sut));
+    }
+
+    auto test_cptr() noexcept -> void
+    {
+        expect_ptr();
+        ASSERT_EQ(expected_id, handler.cptr(sut));
+    }
+
+    auto test_lrefptr() noexcept -> void
+    {
+        expect_ptr_ref();
+        ASSERT_EQ(expected_id, handler.lrefptr(sut));
+    }
+
+    auto test_lrefcptr() noexcept -> void
+    {
+        expect_cptr_ref();
+        ASSERT_EQ(expected_id, handler.lrefcptr(sut));
+    }
+
+    auto test_rrefptr() noexcept -> void
+    {
+        expect_ptr();
+        ASSERT_EQ(expected_id, handler.rrefptr(sut));
+    }
+
+    auto test_rrefcptr() noexcept -> void
+    {
+        expect_ptr();
+        ASSERT_EQ(expected_id, handler.rrefcptr(sut));
+    }
+
+    auto test_lcrefptr() noexcept -> void
+    {
+        expect_ptr_ref();
+        ASSERT_EQ(expected_id, handler.lcrefptr(sut));
+    }
+
+    auto test_lcrefcptr() noexcept -> void
+    {
+        expect_ptr_ref();
+        ASSERT_EQ(expected_id, handler.lcrefcptr(sut));
+    }
+
+    auto test_rcrefptr() noexcept -> void
+    {
+        expect_ptr();
+        ASSERT_EQ(expected_id, handler.rcrefptr(sut));
+    }
+
+    auto test_rcrefcptr() noexcept -> void
+    {
+        expect_ptr();
+        ASSERT_EQ(expected_id, handler.rcrefcptr(sut));
+    }
+
+    auto test_arr_ref() noexcept -> void
+    {
+        expect_arr_ref();
+        ASSERT_EQ(expected_id + deduced_array_size, handler.arr_ref(sut));
+    }
+};
+
+struct arg_test_dispatcher_t
+{
+    using sut_t = arg_t<fixture_t::container_t>;
+    auto create_sut(fixture_t::container_t& container) const noexcept -> sut_t { return sut_t{container}; }
+};
+
+using types_t = ::testing::Types<arg_test_dispatcher_t>;
+TYPED_TEST_SUITE(arg_test_t, types_t);
+
+TYPED_TEST(arg_test_t, val)
+{
+    this->test_val();
 }
 
-TEST_F(arg_test_t, lref)
+TYPED_TEST(arg_test_t, lref)
 {
-    expect_ref();
-    ASSERT_EQ(expected_id, handler.lref(sut));
+    this->test_lref();
 }
 
-TEST_F(arg_test_t, rref)
+TYPED_TEST(arg_test_t, rref)
 {
-    expect_val();
-    ASSERT_EQ(expected_id, handler.rref(sut));
+    this->test_rref();
 }
 
-TEST_F(arg_test_t, lcref)
+TYPED_TEST(arg_test_t, lcref)
 {
-    expect_ref();
-    ASSERT_EQ(expected_id, handler.lcref(sut));
+    this->test_lcref();
 }
 
-TEST_F(arg_test_t, rcref)
+TYPED_TEST(arg_test_t, rcref)
 {
-    expect_val();
-    ASSERT_EQ(expected_id, handler.rcref(sut));
+    this->test_rcref();
 }
 
-TEST_F(arg_test_t, ptr)
+TYPED_TEST(arg_test_t, ptr)
 {
-    expect_ptr();
-    ASSERT_EQ(expected_id, handler.ptr(sut));
+    this->test_ptr();
 }
 
-TEST_F(arg_test_t, cptr)
+TYPED_TEST(arg_test_t, cptr)
 {
-    expect_ptr();
-    ASSERT_EQ(expected_id, handler.cptr(sut));
+    this->test_cptr();
 }
 
-TEST_F(arg_test_t, lrefptr)
+TYPED_TEST(arg_test_t, lrefptr)
 {
-    expect_ptr_ref();
-    ASSERT_EQ(expected_id, handler.lrefptr(sut));
+    this->test_lrefptr();
 }
 
-TEST_F(arg_test_t, lrefcptr)
+TYPED_TEST(arg_test_t, lrefcptr)
 {
-    expect_cptr_ref();
-    ASSERT_EQ(expected_id, handler.lrefcptr(sut));
+    this->test_lrefcptr();
 }
 
-TEST_F(arg_test_t, rrefptr)
+TYPED_TEST(arg_test_t, rrefptr)
 {
-    expect_ptr();
-    ASSERT_EQ(expected_id, handler.rrefptr(sut));
+    this->test_rrefptr();
 }
 
-TEST_F(arg_test_t, rrefcptr)
+TYPED_TEST(arg_test_t, rrefcptr)
 {
-    expect_ptr();
-    ASSERT_EQ(expected_id, handler.rrefcptr(sut));
+    this->test_rrefcptr();
 }
 
-TEST_F(arg_test_t, lcrefptr)
+TYPED_TEST(arg_test_t, lcrefptr)
 {
-    expect_ptr_ref();
-    ASSERT_EQ(expected_id, handler.lcrefptr(sut));
+    this->test_lcrefptr();
 }
 
-TEST_F(arg_test_t, lcrefcptr)
+TYPED_TEST(arg_test_t, lcrefcptr)
 {
-    expect_ptr_ref();
-    ASSERT_EQ(expected_id, handler.lcrefcptr(sut));
+    this->test_lcrefcptr();
 }
 
-TEST_F(arg_test_t, rcrefptr)
+TYPED_TEST(arg_test_t, rcrefptr)
 {
-    expect_ptr();
-    ASSERT_EQ(expected_id, handler.rcrefptr(sut));
+    this->test_rcrefptr();
 }
 
-TEST_F(arg_test_t, rcrefcptr)
+TYPED_TEST(arg_test_t, rcrefcptr)
 {
-    expect_ptr();
-    ASSERT_EQ(expected_id, handler.rcrefcptr(sut));
+    this->test_rcrefcptr();
 }
 
-TEST_F(arg_test_t, arr_ref)
+TYPED_TEST(arg_test_t, arr_ref)
 {
-    expect_arr_ref();
-    ASSERT_EQ(expected_id + deduced_array_size, handler.arr_ref(sut));
+    this->test_arr_ref();
 }
 
 } // namespace
