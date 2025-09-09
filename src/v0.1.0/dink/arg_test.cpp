@@ -18,6 +18,11 @@ struct fixture_t
     struct deduced_t
     {
         id_t id = unexpected_id;
+
+        // this type must have at least a copy ctor to test single_arg_t, though a move ctor is also useful
+        deduced_t(id_t id) noexcept : id{id} {}
+        deduced_t(deduced_t const&) = default;
+        deduced_t(deduced_t&&) = default;
     };
     deduced_t deduced{expected_id};
     deduced_t* deduced_ptr{&deduced};
@@ -228,7 +233,16 @@ struct arg_test_dispatcher_t
     auto create_sut(fixture_t::container_t& container) const noexcept -> sut_t { return sut_t{container}; }
 };
 
-using types_t = ::testing::Types<arg_test_dispatcher_t>;
+struct single_arg_test_dispatcher_t
+{
+    using sut_t = single_arg_t<fixture_t::handler_t, arg_t<fixture_t::container_t>>;
+    auto create_sut(fixture_t::container_t& container) const noexcept -> sut_t
+    {
+        return sut_t{arg_t<fixture_t::container_t>{container}};
+    }
+};
+
+using types_t = ::testing::Types<arg_test_dispatcher_t, single_arg_test_dispatcher_t>;
 TYPED_TEST_SUITE(arg_test_t, types_t);
 
 TYPED_TEST(arg_test_t, val)
@@ -309,6 +323,38 @@ TYPED_TEST(arg_test_t, rcrefcptr)
 TYPED_TEST(arg_test_t, arr_ref)
 {
     this->test_arr_ref();
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+
+/*
+    The typed tests above pass arg_t or single_arg_t to named methods in handler_t to check they deduce parameters
+    correctly and return a properly-typed instance of deduced_t. This test tries to instantiate deduced_t itself
+    directly calling its single-argument ctor with arg_t or single_arg_t. The behavior is very different between them.
+*/
+struct single_arg_test_t : fixture_t, Test
+{};
+
+TEST_F(single_arg_test_t, arg_matches_smf_ctor)
+{
+    using sut_t = arg_t<fixture_t::container_t>;
+    sut_t sut = sut_t{container};
+
+    // arg_t matches deduced_t's move ctor first, copy ctor second, id ctor third, but this is not useful
+    expect_val();
+    auto result = deduced_t{sut};
+    ASSERT_EQ(expected_id, result.id);
+}
+
+TEST_F(single_arg_test_t, single_arg_does_not_match_smf)
+{
+    using sut_t = single_arg_t<deduced_t, arg_t<fixture_t::container_t>>;
+    sut_t sut = sut_t{arg_t<fixture_t::container_t>{container}};
+
+    // single_arg_t prevents matching the smf ctors, correctly selecting the id_t ctor instead
+    expect_id();
+    auto result = deduced_t{sut};
+    ASSERT_EQ(expected_id, result.id);
 }
 
 } // namespace
