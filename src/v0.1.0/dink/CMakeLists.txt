@@ -8,12 +8,14 @@ set(dink_minor 1)
 set(dink_patch 0)
 
 list(APPEND dink_library_files
+    arg.hpp
     dink.hpp
     lib.hpp
     version.hpp
 )
 
 list(APPEND dink_unit_test_files
+    arg_test.cpp
     dink_test.cpp
     version_test.cpp
 )
