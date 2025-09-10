@@ -10,6 +10,7 @@ set(dink_patch 0)
 list(APPEND dink_library_files
     arg.hpp
     dink.hpp
+    exceptions.hpp
     lib.hpp
     version.hpp
 )
