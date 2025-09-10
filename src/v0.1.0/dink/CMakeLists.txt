@@ -12,12 +12,15 @@ list(APPEND dink_library_files
     dink.hpp
     exceptions.hpp
     lib.hpp
+    lifetime.hpp
+    lifetime_registry.hpp
     version.hpp
 )
 
 list(APPEND dink_unit_test_files
     arg_test.cpp
     dink_test.cpp
+    lifetime_registry_test.cpp
     version_test.cpp
 )
 
