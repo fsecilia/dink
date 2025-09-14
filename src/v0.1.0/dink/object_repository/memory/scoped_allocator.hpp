@@ -15,7 +15,7 @@
 
 namespace dink {
 
-//! provides allocate(), returns member type allocation_t, throws bad_alloc on failure
+//! provides allocate(), which returns an instance of member allocation_t and throws bad_alloc on failure
 template <typename allocator_t>
 concept allocator = requires(allocator_t allocator, std::size_t size, std::align_val_t align_val) {
     { allocator.allocate(size, align_val) } -> std::same_as<typename allocator_t::allocation_t>;
