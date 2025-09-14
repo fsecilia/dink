@@ -7,7 +7,6 @@
 
 #include <dink/lib.hpp>
 #include <dink/object_repository/memory/alignment.hpp>
-#include <bit>
 #include <cassert>
 #include <memory>
 
