@@ -30,7 +30,7 @@ struct scoped_allocator_t
 
     /*!
         allocates and tracks pointers internally; underlying throws std::bad_alloc if allocation fails
-        
+
         \pre align_val is nonzero power of two
         \pre size is multiple of align_val
     */

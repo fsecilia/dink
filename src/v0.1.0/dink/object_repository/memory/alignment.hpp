@@ -20,7 +20,7 @@ namespace dink {
 
 /*!
     checks if size is a multiple of align_val
-    
+
     \pre align_val is a nonzero power of two
 */
 [[nodiscard]] constexpr auto is_multiple_of_alignment(std::size_t size, std::align_val_t align_val) noexcept -> bool
@@ -31,10 +31,10 @@ namespace dink {
 
 /*!
     checks if a size and alignment pair form a valid request for an aligned allocation
-    
+
     The strictest alignment requirement comes from std::aligned_alloc, which requires alignment to be a nonzero power
-    of two, and size to be a multiple of alignment. 
-    
+    of two, and size to be a multiple of alignment.
+
     \pre align_val is a nonzero power of two
 */
 [[nodiscard]] constexpr auto is_properly_aligned(std::size_t size, std::align_val_t align_val) noexcept -> bool

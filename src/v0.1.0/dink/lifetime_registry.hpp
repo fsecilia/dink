@@ -27,7 +27,7 @@ struct lifetime_mismatch_x : dink_x
 
 /*!
     tracks and enforces the "first use locks lifetime" rule to ensure consistent object lifetimes
-    
+
     This type is used to prevent cases where a user initially resolves a type with one lifetime, then later tries to
     resolve it with a different lifetime. That can lead to a whole class of bugs where state changes in one part of the
     application don't appear in another, or do appear unexpectedly, which are difficult to track down.
