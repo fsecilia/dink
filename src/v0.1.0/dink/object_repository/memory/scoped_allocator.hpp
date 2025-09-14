@@ -33,7 +33,7 @@ struct scoped_allocator_t
         \pre align_val is nonzero power of two
         \pre size is multiple of align_val
     */
-    auto allocate(std::size_t size, std::align_val_t align_val) -> void*
+    auto allocate(std::size_t size, std::align_val_t align_val) -> allocation_t
     {
         assert(is_properly_aligned(size, align_val));
         return allocations_.emplace_back(allocator_.allocate(size, align_val)).get();
