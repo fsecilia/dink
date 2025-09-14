@@ -6,6 +6,7 @@
 #pragma once
 
 #include <dink/lib.hpp>
+#include <dink/object_repository/memory/alignment.hpp>
 #include <bit>
 #include <cassert>
 #include <memory>
@@ -34,12 +35,8 @@ struct heap_allocator_t
     */
     auto allocate(std::size_t size, std::align_val_t align_val) const -> allocation_t
     {
-        auto const alignment = static_cast<std::size_t>(align_val);
-
-        assert(std::has_single_bit(alignment));
-        assert(size == ((size + alignment - 1) & -alignment));
-
-        return allocation_t{std::aligned_alloc(size, alignment)};
+        assert(is_properly_aligned(size, align_val));
+        return allocation_t{std::aligned_alloc(size, static_cast<std::size_t>(align_val))};
     }
 };
 
