@@ -7,19 +7,13 @@
 
 #include <dink/lib.hpp>
 #include <dink/object_repository/memory/alignment.hpp>
+#include <dink/object_repository/memory/allocator.hpp>
 #include <cassert>
-#include <concepts>
 #include <cstddef>
 #include <utility>
 #include <vector>
 
 namespace dink {
-
-//! provides allocate(), which returns an instance of member allocation_t and throws bad_alloc on failure
-template <typename allocator_t>
-concept allocator = requires(allocator_t allocator, std::size_t size, std::align_val_t align_val) {
-    { allocator.allocate(size, align_val) } -> std::same_as<typename allocator_t::allocation_t>;
-};
 
 //! decorates an allocator to manage lifetimes internally
 template <allocator allocator_t, typename allocations_t = std::vector<typename allocator_t::allocation_t>>

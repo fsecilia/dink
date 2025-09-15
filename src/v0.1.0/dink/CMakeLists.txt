@@ -14,6 +14,7 @@ list(APPEND dink_library_files
     lib.hpp
     lifetime.hpp
     lifetime_registry.hpp
+    object_repository/memory/allocator.hpp
     object_repository/memory/alignment.hpp
     object_repository/memory/heap_allocator.hpp
     object_repository/memory/page_size.hpp
