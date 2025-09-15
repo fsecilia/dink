@@ -18,6 +18,7 @@ list(APPEND dink_library_files
     object_repository/memory/alignment.hpp
     object_repository/memory/heap_allocator.hpp
     object_repository/memory/page_size.hpp
+    object_repository/memory/poc.cpp
     object_repository/memory/scoped_allocator.hpp
     version.hpp
 )
