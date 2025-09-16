@@ -3,8 +3,9 @@
     Copyright (C) 2025 Frank Secilia
 */
 
-#include <dink/test.hpp>
 #include <algorithm>
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
 #include <new>
 #include <optional>
 #include <utility>
@@ -14,20 +15,13 @@
 namespace dink {
 namespace {
 
-template <typename allocation_t>
-struct arena_t
+//! standin for more complex, platform-specific implementation; returns 4k pages
+struct page_size_t
 {
-    allocation_t allocation;
-    std::size_t size;
-
-    arena_t(allocation_t allocation, std::size_t size) : allocation{std::move(allocation)}, size{size} {}
-
-    arena_t(arena_t const&) = delete;
-    auto operator=(arena_t const&) -> arena_t& = delete;
-    arena_t(arena_t&&) = default;
-    auto operator=(arena_t&&) -> arena_t& = default;
+    auto operator()() const noexcept -> std::size_t { return 4096; }
 };
 
+//! aligned heap allocator that returns a unique_ptr with a stateless deleter
 struct heap_allocator_t
 {
     struct deleter_t
@@ -42,11 +36,22 @@ struct heap_allocator_t
     }
 };
 
-struct page_size_t
+//! region of memory
+template <typename allocation_t>
+struct arena_t
 {
-    auto operator()() const noexcept -> std::size_t { return 4096; }
+    allocation_t allocation;
+    std::size_t size;
+
+    arena_t(allocation_t allocation, std::size_t size) : allocation{std::move(allocation)}, size{size} {}
+
+    arena_t(arena_t const&) = delete;
+    auto operator=(arena_t const&) -> arena_t& = delete;
+    arena_t(arena_t&&) = default;
+    auto operator=(arena_t&&) -> arena_t& = default;
 };
 
+//! allocates arenas aligned to the os page size, in multiples of the os page size, using given allocator
 template <typename arena_t, typename allocator_t, typename page_size_t>
 class arena_factory_t
 {
@@ -66,6 +71,7 @@ private:
     std::size_t arena_size_{page_size_ * 16};
 };
 
+//! allocates from within given arena
 template <typename arena_t>
 class arena_allocator_t
 {
@@ -111,6 +117,7 @@ private:
     address_t end_{cur_ + arena_.size};
 };
 
+//! creates arena allocators using an arena factory
 template <typename arena_allocator_t, typename arena_factory_t>
 class arena_allocator_factory_t
 {
@@ -125,6 +132,7 @@ private:
     arena_factory_t arena_factory_;
 };
 
+//! configures types and ctor parameters for a pooled arena allocator
 template <typename arena_allocator_p, typename arena_allocator_factory_p>
 struct pooled_arena_allocator_config_t
 {
@@ -141,6 +149,7 @@ struct pooled_arena_allocator_config_t
     }();
 };
 
+//! allocates from a pool of managed arena allocators
 template <typename pooled_arena_allocator_config_t>
 class pooled_arena_allocator_t
 {
@@ -209,6 +218,7 @@ private:
     auto arena_allocator() noexcept -> arena_allocator_t& { return arena_allocators_.back(); }
 };
 
+//! decorates allocator to track allocations internally
 template <typename allocator_t, typename allocations_t = std::vector<typename allocator_t::allocation_t>>
 class scoped_allocator_t
 {
@@ -256,6 +266,7 @@ private:
     allocations_t allocations_{};
 };
 
+//! dispatches to one of two allocators based on requested allocation size
 template <typename small_object_allocator_t, typename large_object_allocator_t>
 class thresholding_allocator_t
 {
