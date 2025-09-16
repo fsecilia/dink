@@ -43,6 +43,10 @@ struct arena_t
     allocation_t allocation;
     std::size_t size;
 
+    using address_t = uintptr_t;
+    address_t cur{reinterpret_cast<address_t>(std::to_address(allocation))};
+    address_t end{cur + size};
+
     arena_t(allocation_t allocation, std::size_t size) : allocation{std::move(allocation)}, size{size} {}
 
     arena_t(arena_t const&) = delete;
@@ -77,7 +81,6 @@ class arena_allocator_t
 {
 public:
     using allocation_t = void*;
-    using address_t = uintptr_t;
 
     struct pending_allocation_t
     {
@@ -95,14 +98,14 @@ public:
         auto const alignment = static_cast<std::size_t>(align_val);
         size = std::max(size, std::size_t{1});
 
-        auto const next = (cur_ + alignment - 1) & -alignment;
-        auto const fits = next + size <= end_;
+        auto const next = (arena_.cur + alignment - 1) & -alignment;
+        auto const fits = next + size <= arena_.end;
         if (!fits) return pending_allocation_t{this, nullptr};
 
         return pending_allocation_t{this, reinterpret_cast<allocation_t>(next)};
     }
 
-    auto commit(allocation_t allocation) noexcept -> void { cur_ = reinterpret_cast<address_t>(allocation); }
+    auto commit(allocation_t allocation) noexcept -> void { arena_.cur = reinterpret_cast<address_t>(allocation); }
 
     arena_allocator_t(arena_t arena) noexcept : arena_{std::move(arena)} {}
 
@@ -112,9 +115,8 @@ public:
     auto operator=(arena_allocator_t&&) -> arena_allocator_t& = default;
 
 private:
+    using address_t = arena_t::address_t;
     arena_t arena_;
-    address_t cur_{reinterpret_cast<address_t>(std::to_address(arena_.allocation))};
-    address_t end_{cur_ + arena_.size};
 };
 
 //! creates arena allocators using an arena factory
