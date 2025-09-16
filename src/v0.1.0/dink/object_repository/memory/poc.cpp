@@ -36,23 +36,52 @@ struct heap_allocator_t
     }
 };
 
-//! region of memory
-template <typename allocation_t>
-struct arena_t
+//! allocates from within a region of memory
+template <typename storage_t>
+class arena_t
 {
-    allocation_t allocation;
-    std::size_t size;
+public:
+    using allocation_t = void*;
 
-    using address_t = uintptr_t;
-    address_t cur{reinterpret_cast<address_t>(std::to_address(allocation))};
-    address_t end{cur + size};
+    struct pending_allocation_t
+    {
+        arena_t* allocator;
+        allocation_t allocation;
 
-    arena_t(allocation_t allocation, std::size_t size) : allocation{std::move(allocation)}, size{size} {}
+        auto result() const noexcept -> allocation_t { return allocation; }
+        auto commit() noexcept -> void { allocator->commit(allocation); }
+    };
+
+    auto max_allocation_size() const noexcept -> std::size_t { return size_ / 8; }
+
+    auto reserve(std::size_t size, std::align_val_t align_val) noexcept -> pending_allocation_t
+    {
+        auto const alignment = static_cast<std::size_t>(align_val);
+        size = std::max(size, std::size_t{1});
+
+        auto const next = (cur_ + alignment - 1) & -alignment;
+        auto const fits = next + size <= end_;
+        if (!fits) return pending_allocation_t{this, nullptr};
+
+        return pending_allocation_t{this, reinterpret_cast<allocation_t>(next)};
+    }
+
+    auto commit(allocation_t allocation) noexcept -> void { cur_ = reinterpret_cast<address_t>(allocation); }
+
+    arena_t(storage_t storage, std::size_t size) : storage_{std::move(storage)}, size_{size} {}
 
     arena_t(arena_t const&) = delete;
     auto operator=(arena_t const&) -> arena_t& = delete;
     arena_t(arena_t&&) = default;
     auto operator=(arena_t&&) -> arena_t& = default;
+
+private:
+    storage_t storage_;
+    std::size_t size_;
+
+    using address_t = uintptr_t;
+    address_t cur_{reinterpret_cast<address_t>(std::to_address(storage_))};
+    address_t end_{cur_ + size_};
 };
 
 //! allocates arenas aligned to the os page size, in multiples of the os page size, using given allocator
@@ -75,149 +104,87 @@ private:
     std::size_t arena_size_{page_size_ * 16};
 };
 
-//! allocates from within given arena
-template <typename arena_t>
-class arena_allocator_t
-{
-public:
-    using allocation_t = void*;
-
-    struct pending_allocation_t
-    {
-        arena_allocator_t* allocator;
-        allocation_t allocation;
-
-        auto result() const noexcept -> allocation_t { return allocation; }
-        auto commit() noexcept -> void { allocator->commit(allocation); }
-    };
-
-    auto max_allocation_size() const noexcept -> std::size_t { return arena_.size / 8; }
-
-    auto reserve(std::size_t size, std::align_val_t align_val) noexcept -> pending_allocation_t
-    {
-        auto const alignment = static_cast<std::size_t>(align_val);
-        size = std::max(size, std::size_t{1});
-
-        auto const next = (arena_.cur + alignment - 1) & -alignment;
-        auto const fits = next + size <= arena_.end;
-        if (!fits) return pending_allocation_t{this, nullptr};
-
-        return pending_allocation_t{this, reinterpret_cast<allocation_t>(next)};
-    }
-
-    auto commit(allocation_t allocation) noexcept -> void { arena_.cur = reinterpret_cast<address_t>(allocation); }
-
-    arena_allocator_t(arena_t arena) noexcept : arena_{std::move(arena)} {}
-
-    arena_allocator_t(arena_allocator_t const&) = delete;
-    auto operator=(arena_allocator_t const&) -> arena_allocator_t& = delete;
-    arena_allocator_t(arena_allocator_t&&) = default;
-    auto operator=(arena_allocator_t&&) -> arena_allocator_t& = default;
-
-private:
-    using address_t = arena_t::address_t;
-    arena_t arena_;
-};
-
-//! creates arena allocators using an arena factory
-template <typename arena_allocator_t, typename arena_factory_t>
-class arena_allocator_factory_t
-{
-public:
-    auto operator()() -> arena_allocator_t { return arena_allocator_t{arena_factory_()}; }
-
-    explicit arena_allocator_factory_t(arena_factory_t arena_factory) noexcept
-        : arena_factory_{std::move(arena_factory)}
-    {}
-
-private:
-    arena_factory_t arena_factory_;
-};
-
 //! configures types and ctor parameters for a pooled arena allocator
-template <typename arena_allocator_p, typename arena_allocator_factory_p>
+template <typename arena_p, typename arena_factory_p>
 struct pooled_arena_allocator_config_t
 {
-    using arena_allocator_t = arena_allocator_p;
-    using arena_allocator_factory_t = arena_allocator_factory_p;
+    using arena_t = arena_p;
+    using arena_factory_t = arena_factory_p;
 
-    using arena_allocators_t = std::vector<arena_allocator_t>;
+    using arenas_t = std::vector<arena_t>;
 
-    arena_allocator_factory_t arena_allocator_factory;
-    arena_allocators_t arena_allocators = [this]() {
-        auto result = arena_allocators_t{};
-        result.emplace_back(arena_allocator_factory());
+    arena_factory_t arena_factory;
+    arenas_t arenas = [this]() {
+        auto result = arenas_t{};
+        result.emplace_back(arena_factory());
         return result;
     }();
 };
 
-//! allocates from a pool of managed arena allocators
+//! allocates from a pool of managed arenas
 template <typename pooled_arena_allocator_config_t>
 class pooled_arena_allocator_t
 {
 public:
-    using arena_allocator_t = pooled_arena_allocator_config_t::arena_allocator_t;
-    using arena_allocator_factory_t = pooled_arena_allocator_config_t::arena_allocator_factory_t;
-    using arena_allocators_t = pooled_arena_allocator_config_t::arena_allocators_t;
+    using arena_t = pooled_arena_allocator_config_t::arena_t;
+    using arena_factory_t = pooled_arena_allocator_config_t::arena_factory_t;
+    using arenas_t = pooled_arena_allocator_config_t::arenas_t;
 
-    using allocation_t = arena_allocator_t::allocation_t;
+    using allocation_t = arena_t::allocation_t;
 
     struct pending_allocation_t
     {
         pooled_arena_allocator_t* allocator;
-        arena_allocator_t::pending_allocation_t arena_pending_allocation;
-        std::optional<arena_allocator_t> new_arena_allocator;
+        arena_t::pending_allocation_t arena_pending_allocation;
+        std::optional<arena_t> new_arena;
 
         auto result() const noexcept -> allocation_t { return arena_pending_allocation.result(); }
         auto commit() noexcept -> void
         {
-            allocator->commit(std::move(new_arena_allocator));
+            allocator->commit(std::move(new_arena));
             arena_pending_allocation.commit();
         }
     };
 
-    auto max_allocation_size() const noexcept -> std::size_t { return arena_allocators_.back().max_allocation_size(); }
+    auto max_allocation_size() const noexcept -> std::size_t { return arenas_.back().max_allocation_size(); }
 
     auto reserve(std::size_t size, std::align_val_t align_val) -> pending_allocation_t
     {
-        auto arena_pending_allocation = arena_allocator().reserve(size, align_val);
+        auto arena_pending_allocation = arena().reserve(size, align_val);
         if (arena_pending_allocation.allocation)
         {
             return pending_allocation_t{this, std::move(arena_pending_allocation), std::nullopt};
         }
 
         // grow vector capacity here so commit can be noexcept
-        if (arena_allocators_.size() == arena_allocators_.capacity())
-        {
-            arena_allocators_.reserve(std::max(std::size_t{1}, arena_allocators_.size() * 2));
-        }
+        if (arenas_.size() == arenas_.capacity()) { arenas_.reserve(std::max(std::size_t{1}, arenas_.size() * 2)); }
 
-        auto new_arena_allocator = arena_allocator_factory_();
-        arena_pending_allocation = new_arena_allocator.reserve(size, align_val);
-        return pending_allocation_t{this, std::move(arena_pending_allocation), std::move(new_arena_allocator)};
+        auto new_arena = arena_factory_();
+        arena_pending_allocation = new_arena.reserve(size, align_val);
+        return pending_allocation_t{this, std::move(arena_pending_allocation), std::move(new_arena)};
     }
 
-    auto commit(std::optional<arena_allocator_t> new_arena_allocator) noexcept -> void
+    auto commit(std::optional<arena_t> new_arena) noexcept -> void
     {
-        if (new_arena_allocator)
+        if (new_arena)
         {
-            assert(arena_allocators_.size() < arena_allocators_.capacity());
-            arena_allocators_.emplace_back(std::move(*new_arena_allocator));
+            assert(arenas_.size() < arenas_.capacity());
+            arenas_.emplace_back(std::move(*new_arena));
         }
     }
 
     explicit pooled_arena_allocator_t(pooled_arena_allocator_config_t pooled_arena_allocator_config)
-        : arena_allocator_factory_{std::move(pooled_arena_allocator_config).arena_allocator_factory},
-          arena_allocators_{std::move(pooled_arena_allocator_config).arena_allocators}
+        : arena_factory_{std::move(pooled_arena_allocator_config).arena_factory},
+          arenas_{std::move(pooled_arena_allocator_config).arenas}
     {
-        assert(!arena_allocators_.empty());
+        assert(!arenas_.empty());
     }
 
 private:
-    arena_allocator_factory_t arena_allocator_factory_;
-    arena_allocators_t arena_allocators_;
+    arena_factory_t arena_factory_;
+    arenas_t arenas_;
 
-    auto arena_allocator() noexcept -> arena_allocator_t& { return arena_allocators_.back(); }
+    auto arena() noexcept -> arena_t& { return arenas_.back(); }
 };
 
 //! decorates allocator to track allocations internally
@@ -323,11 +290,8 @@ private:
 TEST(thresholding_allocator_test, example)
 {
     using arena_t = dink::arena_t<heap_allocator_t::allocation_t>;
-    using arena_allocator_t = dink::arena_allocator_t<arena_t>;
     using arena_factory_t = dink::arena_factory_t<arena_t, heap_allocator_t, page_size_t>;
-    using arena_allocator_factory_t = dink::arena_allocator_factory_t<arena_allocator_t, arena_factory_t>;
-    using pooled_arena_allocator_config_t
-        = dink::pooled_arena_allocator_config_t<arena_allocator_t, arena_allocator_factory_t>;
+    using pooled_arena_allocator_config_t = dink::pooled_arena_allocator_config_t<arena_t, arena_factory_t>;
     using pooled_arena_allocator_t = dink::pooled_arena_allocator_t<pooled_arena_allocator_config_t>;
     using scoped_allocator_t = dink::scoped_allocator_t<heap_allocator_t>;
 
@@ -336,9 +300,9 @@ TEST(thresholding_allocator_test, example)
     using thresholding_allocator_t = dink::thresholding_allocator_t<small_object_allocator_t, large_object_allocator_t>;
 
     auto allocator = thresholding_allocator_t{
-        small_object_allocator_t{pooled_arena_allocator_t{pooled_arena_allocator_config_t{
-            arena_allocator_factory_t{arena_factory_t{arena_factory_t{heap_allocator_t{}, page_size_t{}}}}
-        }}},
+        small_object_allocator_t{pooled_arena_allocator_t{
+            pooled_arena_allocator_config_t{arena_factory_t{heap_allocator_t{}, page_size_t{}}}
+        }},
         large_object_allocator_t{heap_allocator_t()}
     };
 
