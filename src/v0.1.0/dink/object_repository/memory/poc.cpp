@@ -4,10 +4,16 @@
 */
 
 #include <algorithm>
+#include <cassert>
+#include <cstddef>
+#include <cstdint>
+#include <cstdlib>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <memory>
 #include <new>
 #include <utility>
+#include <variant>
 
 #include <iostream>
 
@@ -91,15 +97,21 @@ struct arena_node_t
     arena_t arena;
 };
 
-//! deletes a single node
+//! deletes a single node by destroying it and freeing its underlying allocation
 template <typename node_t, typename allocation_deleter_t>
 struct arena_node_deleter_t
 {
     auto operator()(node_t* node) const noexcept -> void
     {
         if (!node) return;
+
+        // save pointer to allocation before destroying node and losing it
         auto const allocation = node->arena.allocation();
+
+        // destroy instance
         node->~node_t();
+
+        // free allocation
         allocation_deleter(allocation);
     }
 
@@ -130,6 +142,7 @@ public:
         size = std::max(size, std::size_t{1});
 
         auto const next = (cur_ + alignment - 1) & -alignment;
+
         auto const fits = next + size <= end_;
         if (!fits) return pending_allocation_t{this, nullptr};
 
@@ -152,8 +165,17 @@ private:
     std::size_t max_allocation_size_;
 };
 
+template <typename page_size_t>
+struct arena_sizing_params_t
+{
+    std::size_t page_size;
+    std::size_t num_pages = 16;
+    std::size_t max_allocation_size = page_size * num_pages / 8;
+    arena_sizing_params_t(page_size_t page_size) noexcept : page_size{page_size()} {}
+};
+
 //! allocates arena nodes aligned to the os page size, in multiples of the os page size, using given allocator
-template <typename node_p, typename node_deleter_p, typename allocator_t, typename page_size_t>
+template <typename node_p, typename node_deleter_p, typename allocator_t, typename sizing_params_t>
 class arena_node_factory_t
 {
 public:
@@ -163,79 +185,66 @@ public:
 
     auto operator()() -> allocated_node_t
     {
+        // The total allocation is the arena space plus the node space, aligned to the page size.
         auto const total_allocation_size = arena_size_ + page_size_;
         auto allocation = allocator_.allocate(total_allocation_size, std::align_val_t{page_size_});
 
-        auto const allocation_begin = std::to_address(allocation);
+        auto const allocation_begin = allocation.get();
         auto const node_location = static_cast<std::byte*>(allocation_begin) + arena_size_;
 
+        // transfer ownership from allocation to node, using allocation's deleter
         auto node = new (node_location)
             node_t{nullptr, typename node_t::arena_t{allocation_begin, arena_size_, arena_max_allocation_size_}};
-        auto result = allocated_node_t{node, node_deleter_t{std::move(allocation.get_deleter())}};
 
+        auto result = allocated_node_t{node, node_deleter_t{std::move(allocation.get_deleter())}};
         allocation.release();
+
         return result;
     }
 
-    arena_node_factory_t(allocator_t allocator, page_size_t page_size) noexcept
-        : allocator_{std::move(allocator)}, page_size_{page_size()}
+    arena_node_factory_t(allocator_t allocator, sizing_params_t sizing_params) noexcept
+        : allocator_{std::move(allocator)}, page_size_{sizing_params.page_size},
+          arena_size_{sizing_params.page_size * sizing_params.num_pages},
+          arena_max_allocation_size_{sizing_params.max_allocation_size}
     {}
 
 private:
     allocator_t allocator_;
     std::size_t page_size_;
-    std::size_t arena_size_{page_size_ * 16};
-    std::size_t arena_max_allocation_size_{arena_size_ / 8};
+    std::size_t arena_size_;
+    std::size_t arena_max_allocation_size_;
 };
 
-//! configures dependent types for a pooled arena allocator
-template <typename node_factory_p>
-struct pooled_arena_allocator_policy_t
-{
-    using node_factory_t = node_factory_p;
-
-    using node_t = node_factory_t::node_t;
-    using node_deleter_t = node_factory_t::node_deleter_t;
-    using node_list_deleter_t = node_list_deleter_t<node_t, node_deleter_t>;
-
-    using allocation_list_t = allocation_list_t<node_t, node_deleter_t, node_list_deleter_t>;
-    using allocated_node_t = allocation_list_t::allocated_node_t;
-    using allocated_node_list_t = allocation_list_t::allocated_node_list_t;
-
-    using arena_t = node_t::arena_t;
-};
-
-/*!
-    nontrivial ctor params for a pooled arena allocator
-
-    pooled_arena_allocator_t takes both a node factory and the initial node. This forms an awkward dependency between
-    the constructor parameters itself. This type handles that dependency between parameters in an injectable way.
-*/
-template <typename pooled_arena_allocator_policy_t>
+template <typename node_factory_t>
 struct pooled_arena_allocator_ctor_params_t
 {
-    pooled_arena_allocator_policy_t::node_factory_t node_factory;
-    pooled_arena_allocator_policy_t::allocated_node_t initial_node{node_factory()};
+    using allocated_node_t = node_factory_t::allocated_node_t;
+
+    node_factory_t node_factory;
+    allocated_node_t initial_node{node_factory()};
 };
 
 //! allocates from a pool of managed arenas
-template <typename pooled_arena_allocator_policy_t>
+template <typename node_factory_p>
 class pooled_arena_allocator_t
 {
 public:
-    using arena_t = pooled_arena_allocator_policy_t::arena_t;
-    using allocation_list_t = pooled_arena_allocator_policy_t::allocation_list_t;
-    using allocated_node_t = pooled_arena_allocator_policy_t::allocated_node_t;
-    using allocated_node_list_t = pooled_arena_allocator_policy_t::allocated_node_list_t;
-    using factory_t = pooled_arena_allocator_policy_t::node_factory_t;
-    using node_list_deleter_t = pooled_arena_allocator_policy_t::node_list_deleter_t;
+    using node_factory_t = node_factory_p;
+    using node_t = node_factory_t::node_t;
+    using node_deleter_t = node_factory_t::node_deleter_t;
+    using node_list_deleter_t = dink::node_list_deleter_t<node_t, node_deleter_t>;
+    using allocation_list_t = dink::allocation_list_t<node_t, node_deleter_t, node_list_deleter_t>;
 
+    using allocated_node_t = allocation_list_t::allocated_node_t;
+    using allocated_node_list_t = allocation_list_t::allocated_node_list_t;
+    using arena_t = node_t::arena_t;
     using allocation_t = arena_t::allocation_t;
+    using ctor_params_t = pooled_arena_allocator_ctor_params_t<node_factory_t>;
 
     struct pending_allocation_t
     {
         pooled_arena_allocator_t* allocator;
-        arena_t::pending_allocation_t arena_pending_allocation;
+        typename arena_t::pending_allocation_t arena_pending_allocation;
         allocated_node_t new_node;
 
         auto result() const noexcept -> allocation_t { return arena_pending_allocation.result(); }
@@ -251,11 +260,12 @@ public:
     auto reserve(std::size_t size, std::align_val_t align_val) -> pending_allocation_t
     {
         auto arena_pending_allocation = arena().reserve(size, align_val);
-        if (arena_pending_allocation.allocation)
+        if (arena_pending_allocation.result())
         {
             return pending_allocation_t{this, std::move(arena_pending_allocation), nullptr};
         }
 
+        // arena is full; create another and allocate from that
         auto new_node = node_factory_();
         arena_pending_allocation = new_node->arena.reserve(size, align_val);
         return pending_allocation_t{this, std::move(arena_pending_allocation), std::move(new_node)};
@@ -266,17 +276,15 @@ public:
         if (new_arena) allocation_list_.push(std::move(new_arena));
     }
 
-    using ctor_params_t = pooled_arena_allocator_ctor_params_t<pooled_arena_allocator_policy_t>;
     explicit pooled_arena_allocator_t(ctor_params_t params)
         : node_factory_{std::move(params.node_factory)},
           allocation_list_{allocated_node_list_t{
-              params.initial_node.release(), node_list_deleter_t{std::move(params.initial_node.get_deleter())}
+              params.initial_node.release(), node_list_deleter_t{params.initial_node.get_deleter()}
           }}
-    {
-    }
+    {}
 
 private:
-    factory_t node_factory_;
+    node_factory_t node_factory_;
     allocation_list_t allocation_list_;
 
     auto arena() const noexcept -> arena_t& { return allocation_list_.top().arena; }
@@ -300,7 +308,7 @@ struct scoped_node_deleter_t
     [[no_unique_address]] allocation_deleter_t allocation_deleter;
 };
 
-//! decorates allocator to track allocations internally
+//! decorates an allocator to track its allocations internally, freeing them on destruction
 template <typename node_t, typename allocator_t, typename allocation_list_t>
 class scoped_allocator_t
 {
@@ -325,15 +333,18 @@ public:
             = ((size + sizeof(node_t)) + (alignment - 1) + (alignof(node_t) - 1)) & -alignment;
         auto allocation = allocator_.allocate(total_allocation_size, align_val);
 
+        // find aligned location to append node
         auto const allocation_begin = std::to_address(allocation);
         auto const allocation_end = reinterpret_cast<std::uintptr_t>(allocation_begin) + size;
         auto const node_location = reinterpret_cast<void*>((allocation_end + alignof(node_t) - 1) & -alignof(node_t));
 
+        // append node and transfer ownership into it using allocation's deleter
         auto allocated_node = allocated_node_t{
             new (node_location) node_t{nullptr, allocation_begin},
             typename allocated_node_t::deleter_type{std::move(allocation.get_deleter())}
         };
         allocation.release();
+
         return pending_allocation_t{this, std::move(allocated_node)};
     }
 
@@ -345,7 +356,6 @@ public:
 
     scoped_allocator_t(scoped_allocator_t const&) = delete;
     auto operator=(scoped_allocator_t const&) -> scoped_allocator_t& = delete;
-
     scoped_allocator_t(scoped_allocator_t&&) = default;
     auto operator=(scoped_allocator_t&&) -> scoped_allocator_t& = default;
 
@@ -363,8 +373,6 @@ public:
 
     struct pending_allocation_t
     {
-        thresholding_allocator_t* allocator;
-
         std::variant<
             typename small_object_allocator_t::pending_allocation_t,
             typename large_object_allocator_t::pending_allocation_t>
@@ -388,11 +396,13 @@ public:
         auto const worst_case_alignment_total_allocation_size = size + static_cast<std::size_t>(align_val) - 1;
         if (worst_case_alignment_total_allocation_size <= small_object_allocator_.max_allocation_size())
         {
-            return pending_allocation_t{this, small_object_allocator_.reserve(size, align_val)};
+            return pending_allocation_t{small_object_allocator_.reserve(size, align_val)};
         }
 
-        return pending_allocation_t{this, large_object_allocator_.reserve(size, align_val)};
+        return pending_allocation_t{large_object_allocator_.reserve(size, align_val)};
     }
+
+    auto threshold() const noexcept -> std::size_t { return small_object_allocator_.max_allocation_size(); }
 
     thresholding_allocator_t(
         small_object_allocator_t small_object_allocator, large_object_allocator_t large_object_allocator
@@ -408,37 +418,46 @@ private:
 
 TEST(thresholding_allocator_test, example)
 {
-    using heap_allocator_t = dink::heap_allocator_t<heap_allocation_deleter_t>;
-    using arena_node_t = dink::arena_node_t<dink::arena_t>;
-    using arena_node_factory_t = dink::arena_node_factory_t<
-        arena_node_t, dink::arena_node_deleter_t<arena_node_t, heap_allocation_deleter_t>, heap_allocator_t,
-        page_size_t>;
-    using pooled_arena_allocator_policy_t = dink::pooled_arena_allocator_policy_t<arena_node_factory_t>;
-    using pooled_arena_allocator_t = dink::pooled_arena_allocator_t<pooled_arena_allocator_policy_t>;
-    using pooled_arena_allocator_ctor_params_t = pooled_arena_allocator_t ::ctor_params_t;
-    using scoped_node_deleter_t = scoped_node_deleter_t<scoped_node_t, heap_allocation_deleter_t>;
-    using scoped_allocator_t = dink::scoped_allocator_t<
-        scoped_node_t, heap_allocator_t,
-        allocation_list_t<
-            scoped_node_t, scoped_node_deleter_t, node_list_deleter_t<scoped_node_t, scoped_node_deleter_t>>>;
+    // composition root
 
-    using small_object_allocator_t = pooled_arena_allocator_t;
-    using large_object_allocator_t = scoped_allocator_t;
+    // common allocator (heap)
+    using heap_deleter_t = dink::heap_allocation_deleter_t;
+    using heap_allocator_t = dink::heap_allocator_t<heap_deleter_t>;
+
+    // small object allocator (pooled arena)
+    using arena_node_t = dink::arena_node_t<dink::arena_t>;
+    using arena_node_deleter_t = dink::arena_node_deleter_t<arena_node_t, heap_deleter_t>;
+    using arena_sizing_params_t = arena_sizing_params_t<page_size_t>;
+    using arena_node_factory_t
+        = dink::arena_node_factory_t<arena_node_t, arena_node_deleter_t, heap_allocator_t, arena_sizing_params_t>;
+
+    using small_object_allocator_t = dink::pooled_arena_allocator_t<arena_node_factory_t>;
+    using small_object_ctor_params_t = small_object_allocator_t::ctor_params_t;
+
+    // large object allocator (scoped)
+    using scoped_node_t = dink::scoped_node_t;
+    using scoped_node_deleter_t = dink::scoped_node_deleter_t<scoped_node_t, heap_deleter_t>;
+    using scoped_node_list_deleter_t = node_list_deleter_t<scoped_node_t, scoped_node_deleter_t>;
+    using scoped_allocation_list_t
+        = allocation_list_t<scoped_node_t, scoped_node_deleter_t, scoped_node_list_deleter_t>;
+
+    using large_object_allocator_t = scoped_allocator_t<scoped_node_t, heap_allocator_t, scoped_allocation_list_t>;
+
+    // final composed allocator type
     using thresholding_allocator_t = dink::thresholding_allocator_t<small_object_allocator_t, large_object_allocator_t>;
 
+    // instantiate and inject dependencies
     auto allocator = thresholding_allocator_t{
-        small_object_allocator_t{pooled_arena_allocator_t{
-            pooled_arena_allocator_ctor_params_t{arena_node_factory_t{heap_allocator_t{}, page_size_t{}}}
-        }},
-        large_object_allocator_t{heap_allocator_t()}
+        small_object_allocator_t{small_object_ctor_params_t{arena_node_factory_t{heap_allocator_t{}, page_size_t{}}}},
+        large_object_allocator_t{heap_allocator_t{}}
     };
 
-    // successful case via small allocator
+    // usage
     std::cout << "testing allocations\n";
     try
     {
         std::cout << "reserve small allocation: ";
-        auto pending_small_allocation = allocator.reserve(10, std::align_val_t{4});
+        auto pending_small_allocation = allocator.reserve(allocator.threshold() - 1, std::align_val_t{4});
         std::cout << "succeeded\n";
 
         std::cout << "commit small allocation: ";
@@ -446,7 +465,8 @@ TEST(thresholding_allocator_test, example)
         std::cout << "succeeded\n";
 
         std::cout << "reserve large allocation: ";
-        auto pending_large_allocation = allocator.reserve(4096 * 32, std::align_val_t{4});
+        auto pending_large_allocation
+            = allocator.reserve(allocator.threshold() * 2, std::align_val_t{allocator.threshold()});
         std::cout << "succeeded\n";
 
         std::cout << "commit large allocation: ";
