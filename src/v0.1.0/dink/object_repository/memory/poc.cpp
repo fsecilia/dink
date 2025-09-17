@@ -329,8 +329,13 @@ public:
     auto reserve(std::size_t size, std::align_val_t align_val) -> pending_allocation_t
     {
         auto const alignment = static_cast<std::size_t>(align_val);
-        auto const total_allocation_size
-            = ((size + sizeof(node_t)) + (alignment - 1) + (alignof(node_t) - 1)) & -alignment;
+
+        /*
+            allocator_.allocate() requires allocation size be a multiple of the alignment. Pad the allocation size with
+            the size and worst-case alignment of the node, then align *that* to a multiple of the requested alignment.
+        */
+        auto const worst_case_node_allocation_size = sizeof(node_t) + alignof(node_t) - 1;
+        auto const total_allocation_size = (size + worst_case_node_allocation_size + alignment - 1) & -alignment;
         auto allocation = allocator_.allocate(total_allocation_size, align_val);
 
         // find aligned location to append node
