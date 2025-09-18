@@ -56,7 +56,8 @@ struct heap_allocator_t
 };
 
 namespace detail {
-//! constructs a specific type in an untyped allocation and transfers ownership
+
+//! cpo for cast_allocation
 template <typename dst_t, typename dst_deleter_t>
 struct allocation_caster_t
 {
@@ -79,6 +80,7 @@ struct allocation_caster_t
 
 } // namespace detail
 
+//! constructs a specific type in an untyped allocation and transfers ownership
 template <typename dst_t, typename dst_deleter_t>
 inline constexpr auto cast_allocation = detail::allocation_caster_t<dst_t, dst_deleter_t>{};
 
@@ -128,11 +130,9 @@ private:
 };
 
 //! intrusive list node with an arena as a payload
-template <typename arena_p>
+template <typename arena_t>
 struct arena_node_t
 {
-    using arena_t = arena_p;
-
     arena_node_t* next;
     arena_t arena;
 };
@@ -194,12 +194,10 @@ struct arena_sizing_params_t
 };
 
 //! allocates arena nodes aligned to the os page size, in multiples of the os page size, using given allocator
-template <typename node_p, typename node_deleter_p, typename allocator_t, typename sizing_params_t>
+template <typename arena_t, typename node_t, typename node_deleter_t, typename allocator_t, typename sizing_params_t>
 class arena_node_factory_t
 {
 public:
-    using node_t = node_p;
-    using node_deleter_t = node_deleter_p;
     using allocated_node_t = std::unique_ptr<node_t, node_deleter_t>;
 
     auto operator()() -> allocated_node_t
@@ -215,7 +213,7 @@ public:
         // construct node in allocation
         return cast_allocation<node_t, node_deleter_t>(
             std::move(allocation), nullptr,
-            typename node_t::arena_t{remaining_arena_begin, remaining_arena_size, arena_max_allocation_size_}
+            arena_t{remaining_arena_begin, remaining_arena_size, arena_max_allocation_size_}
         );
     }
 
@@ -233,14 +231,14 @@ private:
 };
 
 template <
-    typename node_p, typename arena_p, typename node_deleter_p, typename node_factory_p,
+    typename arena_p, typename node_p, typename node_deleter_p, typename node_factory_p,
     template <typename, typename> class allocation_list_p>
 struct pooled_arena_allocator_policy_t
 {
-    using node_t = node_p;
     using arena_t = arena_p;
     using node_deleter_t = node_deleter_p;
     using node_factory_t = node_factory_p;
+    using node_t = node_p;
 
     using allocated_node_t = std::unique_ptr<node_t, node_deleter_t>;
     using allocation_list_t = allocation_list_p<node_t, node_deleter_t>;
@@ -252,8 +250,8 @@ struct pooled_arena_allocator_ctor_params_t
 {
     using allocated_node_t = policy_t::allocated_node_t;
     using allocation_list_t = policy_t::allocation_list_t;
-    using node_factory_t = policy_t::node_factory_t;
     using node_deleter_t = policy_t::node_deleter_t;
+    using node_factory_t = policy_t::node_factory_t;
 
     explicit pooled_arena_allocator_ctor_params_t(node_factory_t node_factory) noexcept
         : node_factory{std::move(node_factory)}, allocation_list{this->node_factory()}
@@ -268,11 +266,11 @@ template <typename policy_t>
 class pooled_arena_allocator_t
 {
 public:
-    using node_factory_t = policy_t::node_factory_t;
     using allocated_node_t = policy_t::allocated_node_t;
     using allocation_list_t = policy_t::allocation_list_t;
     using allocation_t = policy_t::allocation_t;
     using ctor_params_t = pooled_arena_allocator_ctor_params_t<policy_t>;
+    using node_factory_t = policy_t::node_factory_t;
 
     struct pending_allocation_t
     {
@@ -463,10 +461,10 @@ TEST(thresholding_allocator_test, example)
     using arena_node_t = dink::arena_node_t<dink::arena_t>;
     using arena_node_deleter_t = dink::node_deleter_t<arena_node_t, heap_deleter_t>;
     using arena_sizing_params_t = arena_sizing_params_t<page_size_t>;
-    using arena_node_factory_t
-        = dink::arena_node_factory_t<arena_node_t, arena_node_deleter_t, heap_allocator_t, arena_sizing_params_t>;
+    using arena_node_factory_t = dink::arena_node_factory_t<
+        arena_t, arena_node_t, arena_node_deleter_t, heap_allocator_t, arena_sizing_params_t>;
     using pooled_arena_allocator_policy_t = dink::pooled_arena_allocator_policy_t<
-        arena_node_t, arena_t, arena_node_deleter_t, arena_node_factory_t, allocation_list_t>;
+        arena_t, arena_node_t, arena_node_deleter_t, arena_node_factory_t, allocation_list_t>;
 
     using small_object_allocator_t = dink::pooled_arena_allocator_t<pooled_arena_allocator_policy_t>;
     using small_object_ctor_params_t = dink::pooled_arena_allocator_ctor_params_t<pooled_arena_allocator_policy_t>;
