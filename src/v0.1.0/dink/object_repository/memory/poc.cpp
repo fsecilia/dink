@@ -194,7 +194,7 @@ struct arena_sizing_params_t
 };
 
 //! allocates arena nodes aligned to the os page size, in multiples of the os page size, using given allocator
-template <typename arena_t, typename node_t, typename node_deleter_t, typename allocator_t, typename sizing_params_t>
+template <typename node_t, typename node_deleter_t, typename allocator_t, typename arena_t, typename sizing_params_t>
 class arena_node_factory_t
 {
 public:
@@ -269,6 +269,7 @@ public:
     using allocated_node_t = policy_t::allocated_node_t;
     using allocation_list_t = policy_t::allocation_list_t;
     using allocation_t = policy_t::allocation_t;
+    using arena_t = policy_t::arena_t;
     using ctor_params_t = pooled_arena_allocator_ctor_params_t<policy_t>;
     using node_factory_t = policy_t::node_factory_t;
 
@@ -462,7 +463,7 @@ TEST(thresholding_allocator_test, example)
     using arena_node_deleter_t = dink::node_deleter_t<arena_node_t, heap_deleter_t>;
     using arena_sizing_params_t = arena_sizing_params_t<page_size_t>;
     using arena_node_factory_t = dink::arena_node_factory_t<
-        arena_t, arena_node_t, arena_node_deleter_t, heap_allocator_t, arena_sizing_params_t>;
+        arena_node_t, arena_node_deleter_t, heap_allocator_t, arena_t, arena_sizing_params_t>;
     using pooled_arena_allocator_policy_t = dink::pooled_arena_allocator_policy_t<
         arena_t, arena_node_t, arena_node_deleter_t, arena_node_factory_t, allocation_list_t>;
 
