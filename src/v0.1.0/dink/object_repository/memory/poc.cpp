@@ -55,6 +55,7 @@ struct heap_allocator_t
     }
 };
 
+namespace detail {
 //! constructs a specific type in an untyped allocation and transfers ownership
 template <typename dst_t, typename dst_deleter_t>
 struct allocation_caster_t
@@ -75,6 +76,11 @@ struct allocation_caster_t
         return result;
     }
 };
+
+} // namespace detail
+
+template <typename dst_t, typename dst_deleter_t>
+inline constexpr auto cast_allocation = detail::allocation_caster_t<dst_t, dst_deleter_t>{};
 
 //! deletes a list of nodes, destroying each and freeing its underlying allocation
 template <typename node_t, typename allocation_deleter_t>
@@ -207,7 +213,7 @@ public:
         auto const remaining_arena_size = arena_size_ - sizeof(node_t);
 
         // construct node in allocation
-        return allocation_caster_(
+        return cast_allocation<node_t, node_deleter_t>(
             std::move(allocation), nullptr,
             typename node_t::arena_t{remaining_arena_begin, remaining_arena_size, arena_max_allocation_size_}
         );
@@ -221,7 +227,6 @@ public:
 
 private:
     allocator_t allocator_;
-    allocation_caster_t<node_t, node_deleter_t> allocation_caster_;
     std::size_t page_size_;
     std::size_t arena_size_;
     std::size_t arena_max_allocation_size_;
@@ -345,14 +350,13 @@ public:
         );
 
         // construct node in allocation
-        return allocation_caster_(std::move(allocation), nullptr, aligned_allocation);
+        return cast_allocation<node_t, node_deleter_t>(std::move(allocation), nullptr, aligned_allocation);
     }
 
     explicit scoped_node_factory_t(allocator_t allocator) noexcept : allocator_{std::move(allocator)} {}
 
 private:
     allocator_t allocator_;
-    allocation_caster_t<node_t, node_deleter_t> allocation_caster_;
 };
 
 //! tracks allocations internally, freeing them on destruction
