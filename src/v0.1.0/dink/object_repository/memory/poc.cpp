@@ -55,22 +55,21 @@ struct heap_allocator_t
     }
 };
 
-//! placement news a node into an untyped allocation unique_ptr, then transfers ownership to a new, typed unique_ptr
-template <typename node_t, typename node_deleter_t>
-struct placing_node_factory_t
+//! constructs a specific type in an untyped allocation and transfers ownership
+template <typename dst_t, typename dst_deleter_t>
+struct allocation_caster_t
 {
-    template <typename allocation_deleter_t, typename... ctor_args_t>
-    auto operator()(std::unique_ptr<void, allocation_deleter_t>&& allocation, ctor_args_t&&... ctor_args) const noexcept
-        -> std::unique_ptr<node_t, node_deleter_t>
+    template <typename allocation_deleter_t, typename... dst_ctor_args_t>
+    auto operator()(std::unique_ptr<void, allocation_deleter_t>&& allocation, dst_ctor_args_t&&... ctor_args) const
+        -> std::unique_ptr<dst_t, dst_deleter_t>
     {
         if (!allocation) return nullptr;
 
         // perfect forward ctor args to placement new
-        auto* node = new (allocation.get()) node_t{std::forward<ctor_args_t>(ctor_args)...};
+        auto* node = new (allocation.get()) dst_t{std::forward<dst_ctor_args_t>(ctor_args)...};
 
         // transfer ownership, wrapping the allocation's original deleter
-        auto result
-            = std::unique_ptr<node_t, node_deleter_t>{node, node_deleter_t{std::move(allocation.get_deleter())}};
+        auto result = std::unique_ptr<dst_t, dst_deleter_t>{node, dst_deleter_t{std::move(allocation.get_deleter())}};
         allocation.release();
 
         return result;
@@ -207,8 +206,8 @@ public:
         auto const remaining_arena_begin = node_address + sizeof(node_t);
         auto const remaining_arena_size = arena_size_ - sizeof(node_t);
 
-        // construct node
-        return placing_factory_(
+        // construct node in allocation
+        return allocation_caster_(
             std::move(allocation), nullptr,
             typename node_t::arena_t{remaining_arena_begin, remaining_arena_size, arena_max_allocation_size_}
         );
@@ -222,21 +221,21 @@ public:
 
 private:
     allocator_t allocator_;
-    placing_node_factory_t<node_t, node_deleter_t> placing_factory_;
+    allocation_caster_t<node_t, node_deleter_t> allocation_caster_;
     std::size_t page_size_;
     std::size_t arena_size_;
     std::size_t arena_max_allocation_size_;
 };
 
 template <
-    typename node_p, typename arena_p, typename node_deleter_p, typename factory_p,
+    typename node_p, typename arena_p, typename node_deleter_p, typename node_factory_p,
     template <typename, typename> class allocation_list_p>
 struct pooled_arena_allocator_policy_t
 {
     using node_t = node_p;
     using arena_t = arena_p;
     using node_deleter_t = node_deleter_p;
-    using node_factory_t = factory_p;
+    using node_factory_t = node_factory_p;
 
     using allocated_node_t = std::unique_ptr<node_t, node_deleter_t>;
     using allocation_list_t = allocation_list_p<node_t, node_deleter_t>;
@@ -345,15 +344,15 @@ public:
             (reinterpret_cast<uintptr_t>(node_address) + sizeof(node_t) + alignment - 1) & -alignment
         );
 
-        // construct node
-        return placing_factory_(std::move(allocation), nullptr, aligned_allocation);
+        // construct node in allocation
+        return allocation_caster_(std::move(allocation), nullptr, aligned_allocation);
     }
 
     explicit scoped_node_factory_t(allocator_t allocator) noexcept : allocator_{std::move(allocator)} {}
 
 private:
     allocator_t allocator_;
-    placing_node_factory_t<node_t, node_deleter_t> placing_factory_;
+    allocation_caster_t<node_t, node_deleter_t> allocation_caster_;
 };
 
 //! tracks allocations internally, freeing them on destruction
