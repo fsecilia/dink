@@ -55,6 +55,13 @@ struct heap_allocator_t
 {
     using allocation_t = std::unique_ptr<void, allocation_deleter_t>;
 
+    auto allocate(std::size_t size) const -> allocation_t
+    {
+        auto result = allocation_t{std::malloc(size)};
+        if (!result) throw std::bad_alloc{};
+        return result;
+    }
+
     auto allocate(std::size_t size, std::align_val_t align_val) const -> allocation_t
     {
         assert(!(size % static_cast<std::size_t>(align_val)));
@@ -63,6 +70,24 @@ struct heap_allocator_t
         if (!result) throw std::bad_alloc{};
         return result;
     }
+};
+
+//! deletes a single node by destroying it and freeing its underlying allocation
+template <typename node_t, typename allocation_deleter_t>
+struct node_deleter_t
+{
+    auto operator()(node_t* node) const noexcept -> void
+    {
+        if (!node) return;
+
+        // destroy instance
+        node->~node_t();
+
+        // free allocation
+        allocation_deleter(node);
+    }
+
+    [[no_unique_address]] allocation_deleter_t allocation_deleter;
 };
 
 //! deletes a list of nodes
@@ -96,7 +121,8 @@ public:
         head_.reset(node.release());
     }
 
-    auto top() const noexcept -> node_t& { return *head_; }
+    auto top() const noexcept -> node_t const& { return *head_; }
+    auto top() noexcept -> node_t& { return const_cast<node_t&>(static_cast<allocation_list_t const&>(*this).top()); }
 
     explicit allocation_list_t(allocated_node_list_t head = nullptr) noexcept : head_{std::move(head)} {}
 
@@ -112,27 +138,6 @@ struct arena_node_t
 
     arena_node_t* next;
     arena_t arena;
-};
-
-//! deletes a single node by destroying it and freeing its underlying allocation
-template <typename node_t, typename allocation_deleter_t>
-struct arena_node_deleter_t
-{
-    auto operator()(node_t* node) const noexcept -> void
-    {
-        if (!node) return;
-
-        // save pointer to allocation before destroying node and losing it
-        auto const allocation = node->arena.allocation();
-
-        // destroy instance
-        node->~node_t();
-
-        // free allocation
-        allocation_deleter(allocation);
-    }
-
-    [[no_unique_address]] allocation_deleter_t allocation_deleter;
 };
 
 //! allocates from within a region of memory
@@ -202,21 +207,13 @@ public:
 
     auto operator()() -> allocated_node_t
     {
-        // The total allocation is the arena space plus the node space, aligned to the page size.
-        auto const total_allocation_size = arena_size_ + page_size_;
-        auto allocation = allocator_.allocate(total_allocation_size, std::align_val_t{page_size_});
-
-        auto const allocation_begin = allocation.get();
-        auto const node_location = static_cast<std::byte*>(allocation_begin) + arena_size_;
-
-        // transfer ownership from allocation to node, using allocation's deleter
-        auto node = new (node_location)
-            node_t{nullptr, typename node_t::arena_t{allocation_begin, arena_size_, arena_max_allocation_size_}};
-
-        auto result = allocated_node_t{node, node_deleter_t{std::move(allocation.get_deleter())}};
-        allocation.release();
-
-        return result;
+        auto allocation = allocator_.allocate(arena_size_, std::align_val_t{page_size_});
+        auto const node_address = reinterpret_cast<std::byte*>(std::to_address(allocation));
+        using arena_t = typename node_t::arena_t;
+        return emplace_in_allocation<node_t, node_deleter_t>(
+            std::move(allocation), nullptr,
+            arena_t{node_address + sizeof(node_t), arena_size_ - sizeof(node_t), arena_max_allocation_size_}
+        );
     }
 
     arena_node_factory_t(allocator_t allocator, sizing_params_t sizing_params) noexcept
@@ -232,31 +229,75 @@ private:
     std::size_t arena_max_allocation_size_;
 };
 
-template <typename node_factory_t>
+template <
+    typename node_p, typename arena_p, typename node_deleter_p, typename node_list_deleter_p, typename factory_p,
+    template <typename, typename, typename> class allocation_list_p>
+struct pooled_arena_allocator_policy_t
+{
+    using node_t = node_p;
+    using arena_t = arena_p;
+    using node_deleter_t = node_deleter_p;
+    using node_list_deleter_t = node_list_deleter_p;
+    using node_factory_t = factory_p;
+
+    using allocated_node_list_t = std::unique_ptr<node_t, node_list_deleter_t>;
+    using allocated_node_t = std::unique_ptr<node_t, node_deleter_t>;
+    using allocation_list_t = allocation_list_p<node_t, node_deleter_t, node_list_deleter_t>;
+    using allocation_t = arena_t::allocation_t;
+};
+
+template <typename policy_t>
 struct pooled_arena_allocator_ctor_params_t
 {
+    using allocated_node_list_t = policy_t::allocated_node_list_t;
+    using allocation_list_t = policy_t::allocation_list_t;
+    using node_factory_t = policy_t::node_factory_t;
+    using node_list_deleter_t = policy_t::node_list_deleter_t;
+
+    explicit pooled_arena_allocator_ctor_params_t(node_factory_t node_factory) noexcept
+        : node_factory{std::move(node_factory)}, allocation_list{create_allocation_list(this->node_factory)}
+    {}
+
     using allocated_node_t = node_factory_t::allocated_node_t;
 
     node_factory_t node_factory;
-    allocated_node_t initial_node{node_factory()};
+    allocation_list_t allocation_list;
+
+private:
+    static auto create_allocation_list(node_factory_t& factory) -> allocation_list_t
+    {
+        /*
+            The factory returns allocated_node_t to make sure the allocation is protected, but pooled_arena_allocator_t
+            takes an allocation_list_t, and its elements are allocated_node_list_t, not allocated_node_t. These have
+            the same value but a different deleter type. Here, we transfer ownership of the node out of an
+            allocated_node_t and into an allocated_node_list_t, essentially promoting the node to a single-element
+            list. We're really just swapping the deleter type, with the new deleter taking the old as a ctor param, but
+            to do that, you need to create a new unique_ptr and transfer ownership because the types don't match.
+        */
+
+        // create single node
+        auto allocated_node = factory();
+
+        // promote to single list element
+        auto allocated_node_list
+            = allocated_node_list_t{allocated_node.get(), node_list_deleter_t{std::move(allocated_node.get_deleter())}};
+        allocated_node.release();
+
+        // return single-element list
+        return allocation_list_t{std::move(allocated_node_list)};
+    }
 };
 
 //! allocates from a pool of managed arenas
-template <typename node_factory_p>
+template <typename policy_t>
 class pooled_arena_allocator_t
 {
 public:
-    using node_factory_t = node_factory_p;
-    using node_t = node_factory_t::node_t;
-    using node_deleter_t = node_factory_t::node_deleter_t;
-    using node_list_deleter_t = dink::node_list_deleter_t<node_t, node_deleter_t>;
-    using allocation_list_t = dink::allocation_list_t<node_t, node_deleter_t, node_list_deleter_t>;
-
-    using allocated_node_t = allocation_list_t::allocated_node_t;
-    using allocated_node_list_t = allocation_list_t::allocated_node_list_t;
-    using arena_t = node_t::arena_t;
-    using allocation_t = arena_t::allocation_t;
-    using ctor_params_t = pooled_arena_allocator_ctor_params_t<node_factory_t>;
+    using node_factory_t = policy_t::node_factory_t;
+    using allocated_node_t = policy_t::allocated_node_t;
+    using allocation_list_t = policy_t::allocation_list_t;
+    using allocation_t = policy_t::allocation_t;
+    using ctor_params_t = pooled_arena_allocator_ctor_params_t<policy_t>;
 
     struct pending_allocation_t
     {
@@ -293,36 +334,25 @@ public:
         if (new_arena) allocation_list_.push(std::move(new_arena));
     }
 
-    explicit pooled_arena_allocator_t(ctor_params_t params)
-        : node_factory_{std::move(params.node_factory)},
-          allocation_list_{allocated_node_list_t{
-              params.initial_node.release(), node_list_deleter_t{params.initial_node.get_deleter()}
-          }}
+    explicit pooled_arena_allocator_t(ctor_params_t params) noexcept
+        : node_factory_{std::move(params).node_factory}, allocation_list_{std::move(params).allocation_list}
     {}
 
 private:
     node_factory_t node_factory_;
     allocation_list_t allocation_list_;
 
-    auto arena() const noexcept -> arena_t& { return allocation_list_.top().arena; }
+    auto arena() const noexcept -> arena_t const& { return allocation_list_.top().arena; }
+    auto arena() noexcept -> arena_t&
+    {
+        return const_cast<arena_t&>(static_cast<pooled_arena_allocator_t const&>(*this).arena());
+    }
 };
 
 struct scoped_node_t
 {
     scoped_node_t* next;
     void* allocation;
-};
-
-template <typename node_t, typename allocation_deleter_t>
-struct scoped_node_deleter_t
-{
-    auto operator()(node_t* node) const noexcept -> void
-    {
-        if (!node) return;
-        allocation_deleter(node->allocation);
-    }
-
-    [[no_unique_address]] allocation_deleter_t allocation_deleter;
 };
 
 //! decorates an allocator to track its allocations internally, freeing them on destruction
@@ -339,7 +369,7 @@ public:
         scoped_allocator_t* allocator;
         allocated_node_t new_node;
 
-        auto result() const noexcept -> allocation_t { return std::to_address(new_node); }
+        auto result() const noexcept -> allocation_t { return new_node->allocation; }
         auto commit() noexcept -> void { allocator->commit(std::move(new_node)); }
     };
 
@@ -347,27 +377,23 @@ public:
     {
         auto const alignment = static_cast<std::size_t>(align_val);
 
-        /*
-            allocator_.allocate() requires allocation size be a multiple of the alignment. Pad the allocation size with
-            the size and worst-case alignment of the node, then align *that* to a multiple of the requested alignment.
-        */
-        auto const worst_case_node_allocation_size = sizeof(node_t) + alignof(node_t) - 1;
-        auto const total_allocation_size = (size + worst_case_node_allocation_size + alignment - 1) & -alignment;
-        auto allocation = allocator_.allocate(total_allocation_size, align_val);
+        auto allocation = allocator_.allocate(size + sizeof(node_t) + alignment - 1);
 
-        // find aligned location to append node
-        auto const allocation_begin = std::to_address(allocation);
-        auto const allocation_end = reinterpret_cast<std::uintptr_t>(allocation_begin) + size;
-        auto const node_location = reinterpret_cast<void*>((allocation_end + alignof(node_t) - 1) & -alignof(node_t));
+        auto const node_address = reinterpret_cast<std::byte*>(std::to_address(allocation));
+        auto const node_offset = reinterpret_cast<uintptr_t>(node_address);
+        auto const aligned_allocation
+            = reinterpret_cast<void*>((node_offset + sizeof(node_t) + alignment - 1) & -alignment);
 
-        // append node and transfer ownership into it using allocation's deleter
-        auto allocated_node = allocated_node_t{
-            new (node_location) node_t{nullptr, allocation_begin},
-            typename allocated_node_t::deleter_type{std::move(allocation.get_deleter())}
+        // transfer ownership from allocation to node, using allocation's deleter
+        auto result = pending_allocation_t{
+            this,
+            allocated_node_t{
+                new (node_address) node_t{.next = nullptr, .allocation = aligned_allocation},
+                typename allocated_node_t::deleter_type{std::move(allocation.get_deleter())}
+            }
         };
         allocation.release();
-
-        return pending_allocation_t{this, std::move(allocated_node)};
+        return result;
     }
 
     auto commit(allocated_node_t new_node) noexcept -> void { allocation_list_.push(std::move(new_node)); }
@@ -415,8 +441,8 @@ public:
 
     auto reserve(std::size_t size, std::align_val_t align_val) -> pending_allocation_t
     {
-        auto const worst_case_alignment_total_allocation_size = size + static_cast<std::size_t>(align_val) - 1;
-        if (worst_case_alignment_total_allocation_size <= small_object_allocator_.max_allocation_size())
+        auto const total_allocation_size = size + static_cast<std::size_t>(align_val) - 1;
+        if (total_allocation_size <= small_object_allocator_.max_allocation_size())
         {
             return pending_allocation_t{small_object_allocator_.reserve(size, align_val)};
         }
@@ -448,17 +474,21 @@ TEST(thresholding_allocator_test, example)
 
     // small object allocator (pooled arena)
     using arena_node_t = dink::arena_node_t<dink::arena_t>;
-    using arena_node_deleter_t = dink::arena_node_deleter_t<arena_node_t, heap_deleter_t>;
+    using arena_node_deleter_t = dink::node_deleter_t<arena_node_t, heap_deleter_t>;
+    using arena_node_list_deleter_t = dink::node_list_deleter_t<arena_node_t, arena_node_deleter_t>;
     using arena_sizing_params_t = arena_sizing_params_t<page_size_t>;
     using arena_node_factory_t
         = dink::arena_node_factory_t<arena_node_t, arena_node_deleter_t, heap_allocator_t, arena_sizing_params_t>;
+    using pooled_arena_allocator_policy_t = dink::pooled_arena_allocator_policy_t<
+        arena_node_t, arena_t, arena_node_deleter_t, arena_node_list_deleter_t, arena_node_factory_t,
+        allocation_list_t>;
 
-    using small_object_allocator_t = dink::pooled_arena_allocator_t<arena_node_factory_t>;
-    using small_object_ctor_params_t = small_object_allocator_t::ctor_params_t;
+    using small_object_allocator_t = dink::pooled_arena_allocator_t<pooled_arena_allocator_policy_t>;
+    using small_object_ctor_params_t = dink::pooled_arena_allocator_ctor_params_t<pooled_arena_allocator_policy_t>;
 
     // large object allocator (scoped)
     using scoped_node_t = dink::scoped_node_t;
-    using scoped_node_deleter_t = dink::scoped_node_deleter_t<scoped_node_t, heap_deleter_t>;
+    using scoped_node_deleter_t = dink::node_deleter_t<scoped_node_t, heap_deleter_t>;
     using scoped_node_list_deleter_t = node_list_deleter_t<scoped_node_t, scoped_node_deleter_t>;
     using scoped_allocation_list_t
         = allocation_list_t<scoped_node_t, scoped_node_deleter_t, scoped_node_list_deleter_t>;
