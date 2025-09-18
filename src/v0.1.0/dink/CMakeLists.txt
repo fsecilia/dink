@@ -16,6 +16,7 @@ list(APPEND dink_library_files
     lifetime_registry.hpp
     object_repository/memory/alignment.hpp
     object_repository/memory/allocator.hpp
+    object_repository/memory/cast_allocation.hpp
     object_repository/memory/heap_allocator.hpp
     object_repository/memory/page_size.hpp
     object_repository/memory/scoped_allocator.hpp
@@ -27,6 +28,7 @@ list(APPEND dink_unit_test_files
     dink_test.cpp
     lifetime_registry_test.cpp
     object_repository/memory/alignment_test.cpp
+    object_repository/memory/cast_allocation_test.cpp
     object_repository/memory/heap_allocator_test.cpp
     object_repository/memory/page_size_test.cpp
     object_repository/memory/scoped_allocator_test.cpp
