@@ -20,6 +20,23 @@
 namespace dink {
 namespace {
 
+//! placement news directly into an allocation, then promotes the unique_ptr to the constructed type
+template <typename dst_t, typename dst_deleter_t, typename allocation_deleter_t, typename... ctor_args_t>
+auto emplace_in_allocation(std::unique_ptr<void, allocation_deleter_t>&& allocation, ctor_args_t&&... ctor_args)
+    -> std::unique_ptr<dst_t, dst_deleter_t>
+{
+    if (!allocation) return nullptr;
+
+    // perfect forward ctor args to placement new
+    auto* node = new (allocation.get()) dst_t{std::forward<ctor_args_t>(ctor_args)...};
+
+    // transfer ownership from allocation to node using allocation's original deleter
+    auto result = std::unique_ptr<dst_t, dst_deleter_t>{node, dst_deleter_t{std::move(allocation.get_deleter())}};
+    allocation.release();
+
+    return result;
+}
+
 //! standin for more complex, platform-specific implementation; returns 4k pages
 struct page_size_t
 {
