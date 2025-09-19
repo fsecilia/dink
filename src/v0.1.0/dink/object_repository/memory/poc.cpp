@@ -251,12 +251,13 @@ template <typename policy_t>
 class pooled_arena_allocator_t
 {
 public:
-    using allocated_node_t = policy_t::allocated_node_t;
     using allocation_list_t = policy_t::allocation_list_t;
+    using allocated_node_t = policy_t::allocated_node_t;
     using allocation_t = policy_t::allocation_t;
+    using node_factory_t = policy_t::node_factory_t;
+
     using arena_t = policy_t::arena_t;
     using ctor_params_t = pooled_arena_allocator_ctor_params_t<policy_t>;
-    using node_factory_t = policy_t::node_factory_t;
 
     struct pending_allocation_t
     {
@@ -344,12 +345,14 @@ private:
 };
 
 //! tracks allocations internally, freeing them on destruction
-template <typename node_factory_t, typename allocation_list_t>
+template <typename policy_t>
 class scoped_allocator_t
 {
 public:
-    using allocation_t = void*;
-    using allocated_node_t = allocation_list_t::allocated_node_t;
+    using allocation_list_t = policy_t::allocation_list_t;
+    using allocated_node_t = policy_t::allocated_node_t;
+    using allocation_t = policy_t::allocation_t;
+    using node_factory_t = policy_t::node_factory_t;
 
     struct pending_allocation_t
     {
@@ -444,38 +447,48 @@ TEST(thresholding_allocator_test, example)
     using heap_allocator_t = dink::heap_allocator_t<heap_deleter_t>;
 
     // small object allocator (pooled arena)
-    struct pooled_arena_allocator_policy_t
+    struct small_object_allocator_policy_t
     {
         using arena_t = dink::arena_t;
+        using sizing_params_t = arena_sizing_params_t<page_size_t>;
+
         using node_t = arena_node_t<arena_t>;
         using node_deleter_t = dink::node_deleter_t<node_t, heap_deleter_t>;
-        using allocated_node_t = std::unique_ptr<node_t, node_deleter_t>;
 
-        using sizing_params_t = arena_sizing_params_t<page_size_t>;
-        using node_factory_t = arena_node_factory_t<node_t, node_deleter_t, heap_allocator_t, arena_t, sizing_params_t>;
-
-        using allocation_t = arena_t::allocation_t;
         using allocation_list_t = dink::allocation_list_t<node_t, node_deleter_t>;
+        using allocated_node_t = allocation_list_t::allocated_node_t;
+        using allocation_t = arena_t::allocation_t;
+        using node_factory_t = arena_node_factory_t<node_t, node_deleter_t, heap_allocator_t, arena_t, sizing_params_t>;
     };
-    using arena_node_factory_t = pooled_arena_allocator_policy_t::node_factory_t;
-    using small_object_allocator_t = dink::pooled_arena_allocator_t<pooled_arena_allocator_policy_t>;
-    using small_object_ctor_params_t = dink::pooled_arena_allocator_ctor_params_t<pooled_arena_allocator_policy_t>;
+    using small_object_node_factory_t = small_object_allocator_policy_t::node_factory_t;
+    using small_object_ctor_params_t = dink::pooled_arena_allocator_ctor_params_t<small_object_allocator_policy_t>;
+
+    using small_object_allocator_t = dink::pooled_arena_allocator_t<small_object_allocator_policy_t>;
 
     // large object allocator (scoped)
-    using scoped_node_t = dink::scoped_node_t;
-    using scoped_node_deleter_t = dink::node_deleter_t<scoped_node_t, heap_deleter_t>;
-    using scoped_node_factory_t = dink::scoped_node_factory_t<scoped_node_t, scoped_node_deleter_t, heap_allocator_t>;
-    using scoped_allocation_list_t = allocation_list_t<scoped_node_t, scoped_node_deleter_t>;
+    struct large_object_allocator_policy_t
+    {
+        using node_t = dink::scoped_node_t;
+        using node_deleter_t = dink::node_deleter_t<node_t, heap_deleter_t>;
 
-    using large_object_allocator_t = scoped_allocator_t<scoped_node_factory_t, scoped_allocation_list_t>;
+        using allocation_list_t = allocation_list_t<node_t, node_deleter_t>;
+        using allocated_node_t = allocation_list_t::allocated_node_t;
+        using allocation_t = void*;
+        using node_factory_t = dink::scoped_node_factory_t<node_t, node_deleter_t, heap_allocator_t>;
+    };
+    using large_object_node_factory_t = large_object_allocator_policy_t::node_factory_t;
+
+    using large_object_allocator_t = scoped_allocator_t<large_object_allocator_policy_t>;
 
     // final composed allocator type
     using thresholding_allocator_t = dink::thresholding_allocator_t<small_object_allocator_t, large_object_allocator_t>;
 
     // instantiate and inject dependencies
     auto allocator = thresholding_allocator_t{
-        small_object_allocator_t{small_object_ctor_params_t{arena_node_factory_t{heap_allocator_t{}, page_size_t{}}}},
-        large_object_allocator_t{scoped_node_factory_t{heap_allocator_t{}}}
+        small_object_allocator_t{
+            small_object_ctor_params_t{small_object_node_factory_t{heap_allocator_t{}, page_size_t{}}}
+        },
+        large_object_allocator_t{large_object_node_factory_t{heap_allocator_t{}}}
     };
 
     // usage
