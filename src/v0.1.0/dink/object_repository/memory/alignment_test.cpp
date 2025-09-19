@@ -89,27 +89,27 @@ static_assert(is_multiple_of_alignment(1025, std::align_val_t{1}));
 
 } // namespace is_multiple_of_alignment_tests
 
-namespace is_properly_aligned_tests {
+namespace is_valid_aligned_request_tests {
 
-// valid alignment, is multiple
-static_assert(is_properly_aligned(0, static_cast<std::align_val_t>(1)));
-static_assert(is_properly_aligned(7, static_cast<std::align_val_t>(1)));
-static_assert(is_properly_aligned(8, static_cast<std::align_val_t>(8)));
-static_assert(is_properly_aligned(32, static_cast<std::align_val_t>(16)));
+// valid request, is power of two and is multiple
+static_assert(is_valid_aligned_request(0, static_cast<std::align_val_t>(1)));
+static_assert(is_valid_aligned_request(7, static_cast<std::align_val_t>(1)));
+static_assert(is_valid_aligned_request(8, static_cast<std::align_val_t>(8)));
+static_assert(is_valid_aligned_request(32, static_cast<std::align_val_t>(16)));
 
-// invalid alignment, is multiple
-static_assert(!is_properly_aligned(6, static_cast<std::align_val_t>(3)));
-static_assert(!is_properly_aligned(30, static_cast<std::align_val_t>(15)));
+// invalid alignment, is not power of two but is multiple
+static_assert(!is_valid_aligned_request(6, static_cast<std::align_val_t>(3)));
+static_assert(!is_valid_aligned_request(30, static_cast<std::align_val_t>(15)));
 
-// valid alignment, is not multiple
-static_assert(!is_properly_aligned(9, static_cast<std::align_val_t>(8)));
-static_assert(!is_properly_aligned(63, static_cast<std::align_val_t>(32)));
+// invalid alignment, is power of two but is not multiple
+static_assert(!is_valid_aligned_request(9, static_cast<std::align_val_t>(8)));
+static_assert(!is_valid_aligned_request(63, static_cast<std::align_val_t>(32)));
 
-// invalid alignment, is not multiple
-static_assert(!is_properly_aligned(10, static_cast<std::align_val_t>(6)));
-static_assert(!is_properly_aligned(20, static_cast<std::align_val_t>(7)));
+// invalid alignment, is not power of two and is not multiple
+static_assert(!is_valid_aligned_request(10, static_cast<std::align_val_t>(6)));
+static_assert(!is_valid_aligned_request(20, static_cast<std::align_val_t>(7)));
 
-} // namespace is_properly_aligned_tests
+} // namespace is_valid_aligned_request_tests
 
 } // namespace
 } // namespace dink

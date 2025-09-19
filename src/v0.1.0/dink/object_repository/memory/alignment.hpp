@@ -37,7 +37,7 @@ namespace dink {
 
     \pre align_val is a nonzero power of two
 */
-[[nodiscard]] constexpr auto is_properly_aligned(std::size_t size, std::align_val_t align_val) noexcept -> bool
+[[nodiscard]] constexpr auto is_valid_aligned_request(std::size_t size, std::align_val_t align_val) noexcept -> bool
 {
     return is_valid_alignment(align_val) && is_multiple_of_alignment(size, align_val);
 }

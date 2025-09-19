@@ -46,7 +46,7 @@ public:
         std::size_t size, std::align_val_t align_val, allocation_deleter_t allocation_deleter = {}
     ) const -> allocation_t
     {
-        assert(is_properly_aligned(size, align_val));
+        assert(is_valid_aligned_request(size, align_val));
 
         auto result = allocation_t{
             api_.aligned_alloc(static_cast<std::size_t>(align_val), size), std::move(allocation_deleter)

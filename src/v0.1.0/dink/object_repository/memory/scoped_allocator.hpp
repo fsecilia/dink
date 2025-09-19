@@ -29,7 +29,7 @@ struct scoped_allocator_t
     */
     auto allocate(std::size_t size, std::align_val_t align_val) -> allocation_t
     {
-        assert(is_properly_aligned(size, align_val));
+        assert(is_valid_aligned_request(size, align_val));
         return allocations_.emplace_back(allocator_.allocate(size, align_val)).get();
     }
 
