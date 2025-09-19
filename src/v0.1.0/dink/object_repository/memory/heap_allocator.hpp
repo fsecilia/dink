@@ -55,7 +55,7 @@ public:
         return result;
     }
 
-    heap_allocator_t(api_t api) noexcept : api_{std::move(api)} {}
+    explicit heap_allocator_t(api_t api) noexcept : api_{std::move(api)} {}
 
 private:
     [[no_unique_address]] api_t api_{};
