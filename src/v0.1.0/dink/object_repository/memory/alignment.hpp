@@ -14,7 +14,7 @@
 namespace dink {
 
 //! checks if align_val is a nonzero power of two
-[[nodiscard]] constexpr auto is_valid_alignment(std::align_val_t align_val) noexcept -> bool
+constexpr auto is_valid_alignment(std::align_val_t align_val) noexcept -> bool
 {
     return std::has_single_bit(static_cast<std::size_t>(align_val));
 }
@@ -24,7 +24,7 @@ namespace dink {
 
     \pre align_val is a nonzero power of two
 */
-[[nodiscard]] constexpr auto is_multiple_of_alignment(std::size_t size, std::align_val_t align_val) noexcept -> bool
+constexpr auto is_multiple_of_alignment(std::size_t size, std::align_val_t align_val) noexcept -> bool
 {
     assert(is_valid_alignment(align_val));
     return (size & (static_cast<std::size_t>(align_val) - 1)) == 0;
@@ -38,7 +38,7 @@ namespace dink {
 
     \pre align_val is a nonzero power of two
 */
-[[nodiscard]] constexpr auto is_valid_aligned_request(std::size_t size, std::align_val_t align_val) noexcept -> bool
+constexpr auto is_valid_aligned_request(std::size_t size, std::align_val_t align_val) noexcept -> bool
 {
     return is_valid_alignment(align_val) && is_multiple_of_alignment(size, align_val);
 }
@@ -48,7 +48,7 @@ namespace dink {
 
     \pre align_val is a nonzero power of two
 */
-[[nodiscard]] constexpr auto is_aligned(uintptr_t offset, std::align_val_t align_val) noexcept -> bool
+constexpr auto is_aligned(uintptr_t offset, std::align_val_t align_val) noexcept -> bool
 {
     assert(is_valid_alignment(align_val));
     auto const alignment = static_cast<uintptr_t>(align_val);
@@ -60,7 +60,7 @@ namespace dink {
 
     \pre align_val is a nonzero power of two
 */
-[[nodiscard]] auto is_aligned(auto* address, std::align_val_t align_val) noexcept -> bool
+auto is_aligned(auto* address, std::align_val_t align_val) noexcept -> bool
 {
     return is_aligned(reinterpret_cast<uintptr_t>(address), align_val);
 }
