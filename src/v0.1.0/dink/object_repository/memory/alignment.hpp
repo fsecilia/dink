@@ -65,4 +65,26 @@ namespace dink {
     return is_aligned(reinterpret_cast<uintptr_t>(address), align_val);
 }
 
+/*!
+    aligns offset to align_val
+
+    \pre align_val is a nonzero power of two
+*/
+[[nodiscard]] constexpr auto align(uintptr_t offset, std::align_val_t align_val) noexcept -> uintptr_t
+{
+    assert(is_valid_alignment(align_val));
+    auto const alignment = static_cast<uintptr_t>(align_val);
+    return (offset + alignment - 1) & -alignment;
+}
+
+/*!
+    aligns address to align_val
+
+    \pre align_val is a nonzero power of two
+*/
+[[nodiscard]] auto align(auto* address, std::align_val_t align_val) noexcept -> decltype(address)
+{
+    return reinterpret_cast<decltype(address)>(align(reinterpret_cast<uintptr_t>(address), align_val));
+}
+
 } // namespace dink
