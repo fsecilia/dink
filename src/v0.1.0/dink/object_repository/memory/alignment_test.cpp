@@ -111,5 +111,53 @@ static_assert(!is_valid_aligned_request(20, static_cast<std::align_val_t>(7)));
 
 } // namespace is_valid_aligned_request_tests
 
+namespace is_aligned_tests {
+
+// zero is valid for all alignments
+static_assert(is_aligned(0, std::align_val_t{1}));
+static_assert(is_aligned(0, std::align_val_t{2}));
+static_assert(is_aligned(0, std::align_val_t{16}));
+
+// all values are valid when alignment is 1
+static_assert(is_aligned(1, std::align_val_t{1}));
+static_assert(is_aligned(2, std::align_val_t{1}));
+static_assert(is_aligned(3, std::align_val_t{1}));
+
+// aligned values
+static_assert(is_aligned(2, std::align_val_t{2}));
+static_assert(is_aligned(4, std::align_val_t{2}));
+static_assert(is_aligned(16, std::align_val_t{16}));
+static_assert(is_aligned(32, std::align_val_t{16}));
+
+// unaligned values
+static_assert(!is_aligned(1, std::align_val_t{2}));
+static_assert(!is_aligned(3, std::align_val_t{2}));
+static_assert(!is_aligned(1, std::align_val_t{16}));
+static_assert(!is_aligned(8, std::align_val_t{16}));
+static_assert(!is_aligned(15, std::align_val_t{16}));
+static_assert(!is_aligned(17, std::align_val_t{16}));
+static_assert(!is_aligned(31, std::align_val_t{16}));
+static_assert(!is_aligned(33, std::align_val_t{16}));
+
+} // namespace is_aligned_tests
+
+// the address version is implemented in terms of the offset version, so this just tests that it converts correctly
+struct is_aligned_test_t : Test
+{
+    // guarantee offset of data is aligned
+    static inline constexpr auto const alignment = 2;
+    alignas(alignment) char data[2];
+};
+
+TEST_F(is_aligned_test_t, aligned)
+{
+    ASSERT_TRUE(is_aligned(&data[0], std::align_val_t{alignment}));
+}
+
+TEST_F(is_aligned_test_t, unaligned)
+{
+    ASSERT_FALSE(is_aligned(&data[1], std::align_val_t{alignment}));
+}
+
 } // namespace
 } // namespace dink
