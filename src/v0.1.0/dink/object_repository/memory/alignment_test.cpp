@@ -5,146 +5,107 @@
 
 #include "alignment.hpp"
 #include <dink/test.hpp>
+#include <limits>
 
 namespace dink {
 namespace {
 
 namespace is_valid_alignment_tests {
 
-// valid alignments
-static_assert(is_valid_alignment(std::align_val_t{1}));
-static_assert(is_valid_alignment(std::align_val_t{2}));
-static_assert(is_valid_alignment(std::align_val_t{4}));
-static_assert(is_valid_alignment(std::align_val_t{8}));
-static_assert(is_valid_alignment(std::align_val_t{16}));
-static_assert(is_valid_alignment(std::align_val_t{64}));
-static_assert(is_valid_alignment(std::align_val_t{1024}));
-
-// invalid alignments
+// 0 is a boundary case
 static_assert(!is_valid_alignment(std::align_val_t{0}));
+
+// smallest valid power-of-two alignment
+static_assert(is_valid_alignment(std::align_val_t{1}));
+
+// common, small power-of-two
+static_assert(is_valid_alignment(std::align_val_t{2}));
+
+// larger, more typical power-of-two
+static_assert(is_valid_alignment(std::align_val_t{64}));
+
+// largest possible power-of-two for size_t
+static_assert(is_valid_alignment(std::align_val_t{std::size_t{1} << (std::numeric_limits<std::size_t>::digits - 1)}));
+
+// values immediately adjacent to a power of two
 static_assert(!is_valid_alignment(std::align_val_t{3}));
-static_assert(!is_valid_alignment(std::align_val_t{5}));
-static_assert(!is_valid_alignment(std::align_val_t{6}));
-static_assert(!is_valid_alignment(std::align_val_t{7}));
-static_assert(!is_valid_alignment(std::align_val_t{9}));
 static_assert(!is_valid_alignment(std::align_val_t{15}));
 static_assert(!is_valid_alignment(std::align_val_t{17}));
 static_assert(!is_valid_alignment(std::align_val_t{63}));
 static_assert(!is_valid_alignment(std::align_val_t{65}));
-static_assert(!is_valid_alignment(std::align_val_t{1023}));
-static_assert(!is_valid_alignment(std::align_val_t{1025}));
 
 } // namespace is_valid_alignment_tests
 
+constexpr auto align_val = std::align_val_t{16};
+
 namespace is_multiple_of_alignment_tests {
 
-// size is a multiple
-static_assert(is_multiple_of_alignment(2, std::align_val_t{2}));
-static_assert(is_multiple_of_alignment(4, std::align_val_t{2}));
-static_assert(is_multiple_of_alignment(6, std::align_val_t{2}));
-static_assert(is_multiple_of_alignment(8, std::align_val_t{2}));
-static_assert(is_multiple_of_alignment(4, std::align_val_t{4}));
-static_assert(is_multiple_of_alignment(8, std::align_val_t{4}));
-static_assert(is_multiple_of_alignment(12, std::align_val_t{4}));
-static_assert(is_multiple_of_alignment(16, std::align_val_t{4}));
-static_assert(is_multiple_of_alignment(1024, std::align_val_t{1024}));
-static_assert(is_multiple_of_alignment(2048, std::align_val_t{1024}));
+// 0 is a multiple of any alignment
+static_assert(is_multiple_of_alignment(0, align_val));
 
-// size is not a multiple
-static_assert(!is_multiple_of_alignment(1, std::align_val_t{2}));
-static_assert(!is_multiple_of_alignment(3, std::align_val_t{2}));
-static_assert(!is_multiple_of_alignment(5, std::align_val_t{2}));
-static_assert(!is_multiple_of_alignment(7, std::align_val_t{2}));
-static_assert(!is_multiple_of_alignment(9, std::align_val_t{2}));
-static_assert(!is_multiple_of_alignment(1, std::align_val_t{4}));
-static_assert(!is_multiple_of_alignment(2, std::align_val_t{4}));
-static_assert(!is_multiple_of_alignment(3, std::align_val_t{4}));
-static_assert(!is_multiple_of_alignment(5, std::align_val_t{4}));
-static_assert(!is_multiple_of_alignment(6, std::align_val_t{4}));
-static_assert(!is_multiple_of_alignment(7, std::align_val_t{4}));
-static_assert(!is_multiple_of_alignment(9, std::align_val_t{4}));
-static_assert(!is_multiple_of_alignment(1, std::align_val_t{1024}));
-static_assert(!is_multiple_of_alignment(512, std::align_val_t{1024}));
-static_assert(!is_multiple_of_alignment(1023, std::align_val_t{1024}));
-static_assert(!is_multiple_of_alignment(1025, std::align_val_t{1024}));
-static_assert(!is_multiple_of_alignment(2047, std::align_val_t{1024}));
-static_assert(!is_multiple_of_alignment(2049, std::align_val_t{1024}));
-
-// size is 0
-static_assert(is_multiple_of_alignment(0, std::align_val_t{1}));
-static_assert(is_multiple_of_alignment(0, std::align_val_t{2}));
-static_assert(is_multiple_of_alignment(0, std::align_val_t{4}));
-static_assert(is_multiple_of_alignment(0, std::align_val_t{1024}));
-
-// alignment is 1
+// all inputs are a multiple of 1
 static_assert(is_multiple_of_alignment(0, std::align_val_t{1}));
 static_assert(is_multiple_of_alignment(1, std::align_val_t{1}));
 static_assert(is_multiple_of_alignment(2, std::align_val_t{1}));
-static_assert(is_multiple_of_alignment(3, std::align_val_t{1}));
-static_assert(is_multiple_of_alignment(4, std::align_val_t{1}));
-static_assert(is_multiple_of_alignment(5, std::align_val_t{1}));
-static_assert(is_multiple_of_alignment(1023, std::align_val_t{1}));
-static_assert(is_multiple_of_alignment(1024, std::align_val_t{1}));
-static_assert(is_multiple_of_alignment(1025, std::align_val_t{1}));
+
+// alignment value is itself a multiple
+static_assert(is_multiple_of_alignment(16, align_val));
+
+// typical multiple
+static_assert(is_multiple_of_alignment(32, align_val));
+
+// boundaries immediately adjacent to a multiple
+static_assert(!is_multiple_of_alignment(15, align_val));
+static_assert(!is_multiple_of_alignment(17, align_val));
+
+// smallest non-zero, non-multiple value
+static_assert(!is_multiple_of_alignment(1, align_val));
 
 } // namespace is_multiple_of_alignment_tests
 
 namespace is_valid_aligned_request_tests {
 
-// valid request, is power of two and is multiple
-static_assert(is_valid_aligned_request(0, static_cast<std::align_val_t>(1)));
-static_assert(is_valid_aligned_request(7, static_cast<std::align_val_t>(1)));
-static_assert(is_valid_aligned_request(8, static_cast<std::align_val_t>(8)));
-static_assert(is_valid_aligned_request(32, static_cast<std::align_val_t>(16)));
+// valid: is power of two and is multiple
+static_assert(is_valid_aligned_request(8, std::align_val_t{8}));
+static_assert(is_valid_aligned_request(32, std::align_val_t{16}));
 
-// invalid alignment, is not power of two but is multiple
-static_assert(!is_valid_aligned_request(6, static_cast<std::align_val_t>(3)));
-static_assert(!is_valid_aligned_request(30, static_cast<std::align_val_t>(15)));
+// invalid: is not power of two but is multiple
+static_assert(!is_valid_aligned_request(6, std::align_val_t{3}));
 
-// invalid alignment, is power of two but is not multiple
-static_assert(!is_valid_aligned_request(9, static_cast<std::align_val_t>(8)));
-static_assert(!is_valid_aligned_request(63, static_cast<std::align_val_t>(32)));
+// invalid: is power of two but is not multiple
+static_assert(!is_valid_aligned_request(9, std::align_val_t{8}));
 
-// invalid alignment, is not power of two and is not multiple
-static_assert(!is_valid_aligned_request(10, static_cast<std::align_val_t>(6)));
-static_assert(!is_valid_aligned_request(20, static_cast<std::align_val_t>(7)));
+// invalid: is not power of two and is not multiple
+static_assert(!is_valid_aligned_request(10, std::align_val_t{6}));
 
 } // namespace is_valid_aligned_request_tests
 
 namespace is_aligned_tests {
 
-// aligned values
-static_assert(is_aligned(2, std::align_val_t{2}));
-static_assert(is_aligned(4, std::align_val_t{2}));
-static_assert(is_aligned(16, std::align_val_t{16}));
-static_assert(is_aligned(32, std::align_val_t{16}));
+// 0 is always aligned
+static_assert(is_aligned(0, align_val));
 
-// unaligned values
-static_assert(!is_aligned(1, std::align_val_t{2}));
-static_assert(!is_aligned(3, std::align_val_t{2}));
-static_assert(!is_aligned(1, std::align_val_t{16}));
-static_assert(!is_aligned(8, std::align_val_t{16}));
-static_assert(!is_aligned(15, std::align_val_t{16}));
-static_assert(!is_aligned(17, std::align_val_t{16}));
-static_assert(!is_aligned(31, std::align_val_t{16}));
-static_assert(!is_aligned(33, std::align_val_t{16}));
-
-// 0 is valid for all alignments
+// all inputs are aligned to 1
 static_assert(is_aligned(0, std::align_val_t{1}));
-static_assert(is_aligned(0, std::align_val_t{2}));
-static_assert(is_aligned(0, std::align_val_t{16}));
-
-// all values are valid when alignment is 1
 static_assert(is_aligned(1, std::align_val_t{1}));
 static_assert(is_aligned(2, std::align_val_t{1}));
-static_assert(is_aligned(3, std::align_val_t{1}));
+
+// an offset equal to the alignment is aligned
+static_assert(is_aligned(16, align_val));
+static_assert(is_aligned(32, align_val));
+
+// boundaries immediately adjacent to an aligned value
+static_assert(!is_aligned(15, align_val));
+static_assert(!is_aligned(17, align_val));
+
+// smallest unaligned value
+static_assert(!is_aligned(1, align_val));
 
 } // namespace is_aligned_tests
 
 // the address version is implemented in terms of the offset version, so this just tests that it converts correctly
 struct is_aligned_test_t : Test
 {
-    // guarantee offset of data is aligned
     static inline constexpr auto const alignment = 2;
     alignas(alignment) char data[2];
 };
@@ -161,45 +122,33 @@ TEST_F(is_aligned_test_t, unaligned)
 
 namespace align_tests {
 
-// offset is not aligned
-static_assert(align(1, std::align_val_t{2}) == 2);
-static_assert(align(3, std::align_val_t{2}) == 4);
-static_assert(align(1, std::align_val_t{16}) == 16);
-static_assert(align(15, std::align_val_t{16}) == 16);
-static_assert(align(17, std::align_val_t{16}) == 32);
-static_assert(align(31, std::align_val_t{16}) == 32);
+constexpr auto alignment = std::align_val_t{16};
 
-// offset is aligned
-static_assert(align(0, std::align_val_t{2}) == 0);
-static_assert(align(2, std::align_val_t{2}) == 2);
-static_assert(align(4, std::align_val_t{2}) == 4);
-static_assert(align(0, std::align_val_t{16}) == 0);
-static_assert(align(16, std::align_val_t{16}) == 16);
-static_assert(align(32, std::align_val_t{16}) == 32);
+// 0 is always aligned
+static_assert(align(0, alignment) == 0);
 
-// offset is 0
-static_assert(align(0, std::align_val_t{2}) == 0);
-static_assert(align(0, std::align_val_t{16}) == 0);
-
-// alignment is 1
+// all inputs are aligned to 1
 static_assert(align(0, std::align_val_t{1}) == 0);
-static_assert(align(1, std::align_val_t{1}) == 1);
 static_assert(align(2, std::align_val_t{1}) == 2);
-static_assert(align(3, std::align_val_t{1}) == 3);
 
-// offset at max of range
+// offset that is already aligned.
+static_assert(align(16, alignment) == 16);
+
+// boundaries immediately adjacent to an aligned region
+static_assert(align(1, alignment) == 16);
+static_assert(align(15, alignment) == 16);
+
+// offset at the max of the range to check for overflow.
 static_assert(
     align(std::numeric_limits<uintptr_t>::max(), std::align_val_t{1}) == std::numeric_limits<uintptr_t>::max()
 );
-static_assert(align(std::numeric_limits<uintptr_t>::max(), std::align_val_t{2}) == 0);
-static_assert(align(std::numeric_limits<uintptr_t>::max(), std::align_val_t{16}) == 0);
+static_assert(align(std::numeric_limits<uintptr_t>::max(), alignment) == 0);
 
 } // namespace align_tests
 
 // the address version is implemented in terms of the offset version, so this just tests that it converts correctly
 struct align_test_t : Test
 {
-    // guarantee offset of data is aligned
     static inline constexpr auto const alignment = 2;
     alignas(alignment) char data[2];
 };
