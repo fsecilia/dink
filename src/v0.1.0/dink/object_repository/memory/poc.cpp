@@ -230,21 +230,6 @@ private:
     std::size_t arena_max_allocation_size_;
 };
 
-template <
-    typename arena_p, typename node_p, typename node_deleter_p, typename node_factory_p,
-    template <typename, typename> class allocation_list_p>
-struct pooled_arena_allocator_policy_t
-{
-    using arena_t = arena_p;
-    using node_deleter_t = node_deleter_p;
-    using node_factory_t = node_factory_p;
-    using node_t = node_p;
-
-    using allocated_node_t = std::unique_ptr<node_t, node_deleter_t>;
-    using allocation_list_t = allocation_list_p<node_t, node_deleter_t>;
-    using allocation_t = arena_t::allocation_t;
-};
-
 template <typename policy_t>
 struct pooled_arena_allocator_ctor_params_t
 {
@@ -459,14 +444,20 @@ TEST(thresholding_allocator_test, example)
     using heap_allocator_t = dink::heap_allocator_t<heap_deleter_t>;
 
     // small object allocator (pooled arena)
-    using arena_node_t = dink::arena_node_t<dink::arena_t>;
-    using arena_node_deleter_t = dink::node_deleter_t<arena_node_t, heap_deleter_t>;
-    using arena_sizing_params_t = arena_sizing_params_t<page_size_t>;
-    using arena_node_factory_t = dink::arena_node_factory_t<
-        arena_node_t, arena_node_deleter_t, heap_allocator_t, arena_t, arena_sizing_params_t>;
-    using pooled_arena_allocator_policy_t = dink::pooled_arena_allocator_policy_t<
-        arena_t, arena_node_t, arena_node_deleter_t, arena_node_factory_t, allocation_list_t>;
+    struct pooled_arena_allocator_policy_t
+    {
+        using arena_t = dink::arena_t;
+        using node_t = arena_node_t<arena_t>;
+        using node_deleter_t = dink::node_deleter_t<node_t, heap_deleter_t>;
+        using allocated_node_t = std::unique_ptr<node_t, node_deleter_t>;
 
+        using sizing_params_t = arena_sizing_params_t<page_size_t>;
+        using node_factory_t = arena_node_factory_t<node_t, node_deleter_t, heap_allocator_t, arena_t, sizing_params_t>;
+
+        using allocation_t = arena_t::allocation_t;
+        using allocation_list_t = dink::allocation_list_t<node_t, node_deleter_t>;
+    };
+    using arena_node_factory_t = pooled_arena_allocator_policy_t::node_factory_t;
     using small_object_allocator_t = dink::pooled_arena_allocator_t<pooled_arena_allocator_policy_t>;
     using small_object_ctor_params_t = dink::pooled_arena_allocator_ctor_params_t<pooled_arena_allocator_policy_t>;
 
