@@ -7,6 +7,7 @@
 
 #include <dink/lib.hpp>
 #include <concepts>
+#include <cstddef>
 #include <new>
 
 namespace dink {

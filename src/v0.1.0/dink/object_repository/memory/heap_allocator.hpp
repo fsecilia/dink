@@ -8,6 +8,7 @@
 #include <dink/lib.hpp>
 #include <dink/object_repository/memory/alignment.hpp>
 #include <cassert>
+#include <cstddef>
 #include <memory>
 #include <new>
 
