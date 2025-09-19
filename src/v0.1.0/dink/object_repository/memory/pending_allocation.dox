@@ -1,0 +1,14 @@
+/**
+\page pending_allocation Pending Allocations
+
+\brief two-phase allocation strategy to ensure commit-or-rollback semantics
+
+**Pending allocations** are used to reserve memory from an allocator without immediately committing the allocation. This is a two-step process:
+
+1. **reserve**: The user requests a block of memory by calling `reserve()` on an allocator. The allocator finds a suitable location and returns a `pending_allocation_t` handle, but does **not** advance its internal pointers.
+2. **commit**: If the user decides to proceed, they call `commit()` on the returned handle. Only then is the allocator's state changed.
+
+This pattern is important for operations that might fail after memory has been notionally allocated, like a constructor throwing during placement. This allows rollback without complex cleanup post hoc.
+
+Nominally, the pending allocation is an inner class of the allocator. Since this is a user-facing type, it must be an opaque class type with private members, which makes testing difficult, especially since an inner class is not substitutable. Instead, it is a separate class on which the allocator parameterizes. It still needs to call back into the allocator, though, so it must also parameterize on the allocator. To resolve this circular parameterization, the allocator takes the pending allocation by template template parameter and specializes it locally. This allows both to be substituted during testing.
+*/
