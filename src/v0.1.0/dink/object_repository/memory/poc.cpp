@@ -152,7 +152,6 @@ public:
         auto commit() noexcept -> void { allocator->commit(allocation); }
     };
 
-    auto allocation() const noexcept -> void* { return allocation_; }
     auto max_allocation_size() const noexcept -> std::size_t { return max_allocation_size_; }
 
     auto reserve(std::size_t size, std::align_val_t align_val) noexcept -> pending_allocation_t
@@ -171,13 +170,10 @@ public:
     auto commit(allocation_t allocation) noexcept -> void { cur_ = reinterpret_cast<address_t>(allocation); }
 
     arena_t(void* begin, std::size_t size, std::size_t max_allocation_size)
-        : allocation_{begin}, cur_{reinterpret_cast<address_t>(begin)}, end_{cur_ + size},
-          max_allocation_size_{max_allocation_size}
+        : cur_{reinterpret_cast<address_t>(begin)}, end_{cur_ + size}, max_allocation_size_{max_allocation_size}
     {}
 
 private:
-    void* allocation_;
-
     using address_t = uintptr_t;
     address_t cur_;
     address_t end_;
