@@ -68,30 +68,28 @@ public:
     [[nodiscard]] auto operator()() -> allocated_node_t
     {
         // allocate aligned page
-        auto allocation = allocator_.allocate(page_size_, std::align_val_t{page_alignment_});
+        auto allocation
+            = allocator_.allocate(page_size_config_.page_size, std::align_val_t{page_size_config_.os_page_size});
 
         // lay out node as first allocation in page
         auto const node_address = reinterpret_cast<std::byte*>(std::to_address(allocation));
         auto const remaining_page_begin = node_address + sizeof(node_t);
-        auto const remaining_page_size = page_size_ - sizeof(node_t);
+        auto const remaining_page_size = page_size_config_.page_size - sizeof(node_t);
 
         // construct node in allocation
         return cast_allocation<node_t, node_deleter_t>(
-            std::move(allocation), nullptr, page_t{remaining_page_begin, remaining_page_size, page_max_allocation_size_}
+            std::move(allocation), nullptr,
+            page_t{remaining_page_begin, remaining_page_size, page_size_config_.max_allocation_size}
         );
     }
 
     page_node_factory_t(allocator_t allocator, page_size_config_t page_size_config) noexcept
-        : allocator_{std::move(allocator)}, page_size_{page_size_config.page_size},
-          page_alignment_{page_size_config.os_page_size},
-          page_max_allocation_size_{page_size_config.max_allocation_size}
+        : allocator_{std::move(allocator)}, page_size_config_{page_size_config}
     {}
 
 private:
     allocator_t allocator_;
-    std::size_t page_size_;
-    std::size_t page_alignment_;
-    std::size_t page_max_allocation_size_;
+    page_size_config_t page_size_config_;
 };
 
 } // namespace dink
