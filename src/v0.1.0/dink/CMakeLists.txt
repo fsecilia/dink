@@ -21,6 +21,7 @@ list(APPEND dink_library_files
     object_repository/memory/heap_allocator.hpp
     object_repository/memory/os_page_size_provider.hpp
     object_repository/memory/page.hpp
+    object_repository/memory/paged_allocator.hpp
     object_repository/memory/scoped_allocator.hpp
     version.hpp
 )
@@ -35,6 +36,7 @@ list(APPEND dink_unit_test_files
     object_repository/memory/heap_allocator_test.cpp
     object_repository/memory/os_page_size_provider_test.cpp
     object_repository/memory/page_test.cpp
+    object_repository/memory/paged_allocator_test.cpp
     object_repository/memory/scoped_allocator_test.cpp
     version_test.cpp
 )

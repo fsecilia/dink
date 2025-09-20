@@ -1,0 +1,97 @@
+/*!
+    \file
+    Copyright (C) 2025 Frank Secilia
+*/
+
+#include <dink/lib.hpp>
+#include <dink/object_repository/memory/alignment.hpp>
+#include <dink/object_repository/memory/cast_allocation.hpp>
+#include <algorithm>
+#include <cassert>
+#include <memory>
+#include <new>
+#include <ratio>
+
+namespace dink {
+
+//! intrusive list node with a page as a payload
+template <typename page_t>
+struct page_node_t
+{
+    page_node_t* next;
+    page_t page;
+};
+
+/*!
+    defines the memory sizing and layout for page nodes
+
+    This configuration object is typically provided to a `page_node_factory_t` to determine the size and allocation
+    rules for the memory pages it creates.
+
+    \tparam os_page_size_provider_t callable that returns the operating system's physical memory page size
+*/
+template <typename os_page_size_provider_t>
+struct page_size_config_t
+{
+    //! number of physical os pages in one logical page
+    static inline auto constexpr const os_pages_per_logical_page = std::size_t{16};
+
+    //! ratio applied to logical page size to derive the maximum allocation size
+    using max_allocation_size_scale = std::ratio<1, 8>;
+
+    //! size, in bytes, of a physical memory page from the os
+    std::size_t os_page_size;
+
+    //! total size, in bytes, of one logical page
+    std::size_t page_size = os_page_size * os_pages_per_logical_page;
+
+    //! threshold for the largest single allocation allowed from a page
+    std::size_t max_allocation_size = (page_size / max_allocation_size_scale::den) * max_allocation_size_scale::num;
+
+    page_size_config_t(os_page_size_provider_t os_page_size_provider) noexcept : os_page_size{os_page_size_provider()}
+    {}
+};
+
+//! allocates page nodes aligned to the os page size, in multiples of the that page size, using given allocator
+template <typename policy_t>
+class page_node_factory_t
+{
+public:
+    using allocator_t = policy_t::allocator_t;
+    using node_deleter_t = policy_t::node_deleter_t;
+    using node_t = policy_t::node_t;
+    using page_size_config_t = policy_t::page_size_config_t;
+    using page_t = policy_t::page_t;
+
+    using allocated_node_t = std::unique_ptr<node_t, node_deleter_t>;
+
+    [[nodiscard]] auto operator()() -> allocated_node_t
+    {
+        // allocate aligned page
+        auto allocation = allocator_.allocate(page_size_, std::align_val_t{page_alignment_});
+
+        // lay out node as first allocation in page
+        auto const node_address = reinterpret_cast<std::byte*>(std::to_address(allocation));
+        auto const remaining_page_begin = node_address + sizeof(node_t);
+        auto const remaining_page_size = page_size_ - sizeof(node_t);
+
+        // construct node in allocation
+        return cast_allocation<node_t, node_deleter_t>(
+            std::move(allocation), nullptr, page_t{remaining_page_begin, remaining_page_size, page_max_allocation_size_}
+        );
+    }
+
+    page_node_factory_t(allocator_t allocator, page_size_config_t page_size_config) noexcept
+        : allocator_{std::move(allocator)}, page_size_{page_size_config.page_size},
+          page_alignment_{page_size_config.os_page_size},
+          page_max_allocation_size_{page_size_config.max_allocation_size}
+    {}
+
+private:
+    allocator_t allocator_;
+    std::size_t page_size_;
+    std::size_t page_alignment_;
+    std::size_t page_max_allocation_size_;
+};
+
+} // namespace dink
