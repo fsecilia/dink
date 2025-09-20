@@ -6,7 +6,7 @@
 #include "page.hpp"
 #include <dink/test.hpp>
 
-namespace dink {
+namespace dink::page {
 namespace {
 
 struct page_pending_allocation_test_t : Test
@@ -28,7 +28,7 @@ struct page_pending_allocation_test_t : Test
     void* const allocation_begin = this;
     void* const allocation_end = this + 1;
 
-    using sut_t = page_pending_allocation_t<page_t>;
+    using sut_t = pending_allocation_t<page_t>;
     sut_t sut{page, allocation_begin, allocation_end};
 };
 
@@ -46,7 +46,7 @@ TEST_F(page_pending_allocation_test_t, commit)
 
 // ---------------------------------------------------------------------------------------------------------------------
 
-struct page_test_t : Test
+struct page_allocator_test_t : Test
 {
     template <typename page_t>
     struct pending_allocation_t
@@ -68,16 +68,16 @@ struct page_test_t : Test
     std::align_val_t const align_val = static_cast<std::align_val_t>(alignment);
 
     alignas(alignment) std::array<std::byte, region_size> region;
-    using sut_t = page_t<pending_allocation_t>;
+    using sut_t = allocator_t<pending_allocation_t>;
     sut_t sut{std::data(region), region_size, max_allocation_size};
 };
 
-TEST_F(page_test_t, max_allocation_size_returns_constructed_value)
+TEST_F(page_allocator_test_t, max_allocation_size_returns_constructed_value)
 {
     ASSERT_EQ(max_allocation_size, sut.max_allocation_size());
 }
 
-TEST_F(page_test_t, commit_sets_cur)
+TEST_F(page_allocator_test_t, commit_sets_cur)
 {
     auto const expected_cur = std::data(region) + 1;
 
@@ -88,13 +88,13 @@ TEST_F(page_test_t, commit_sets_cur)
     ASSERT_EQ(expected_cur, actual_cur);
 }
 
-TEST_F(page_test_t, reserve_sets_page_field_in_pending_allocation)
+TEST_F(page_allocator_test_t, reserve_sets_page_field_in_pending_allocation)
 {
     auto const result = sut.reserve(size, align_val);
     ASSERT_EQ(&sut, result.page);
 }
 
-TEST_F(page_test_t, reserve_returns_current_address_when_current_address_is_already_aligned)
+TEST_F(page_allocator_test_t, reserve_returns_current_address_when_current_address_is_already_aligned)
 {
     // start at first aligned location after beginning
     auto const expected_begin = std::data(region) + alignment;
@@ -107,7 +107,7 @@ TEST_F(page_test_t, reserve_returns_current_address_when_current_address_is_alre
     ASSERT_EQ(expected_begin + size, result.allocation_end);
 }
 
-TEST_F(page_test_t, reserve_returns_next_aligned_address_when_current_address_is_misaligned)
+TEST_F(page_allocator_test_t, reserve_returns_next_aligned_address_when_current_address_is_misaligned)
 {
     // misalign allocation end by one
     sut.commit(std::data(region) + 1);
@@ -121,7 +121,7 @@ TEST_F(page_test_t, reserve_returns_next_aligned_address_when_current_address_is
     ASSERT_EQ(expected_begin + size, result.allocation_end);
 }
 
-TEST_F(page_test_t, reserve_succeeds_when_worst_case_is_exactly_max_allocation_size)
+TEST_F(page_allocator_test_t, reserve_succeeds_when_worst_case_is_exactly_max_allocation_size)
 {
     // set up worst-case alignment where size + padding equals the limit: size + (alignment - 1) == max_allocation_size
     auto const exact_size = max_allocation_size - (alignment - 1);
@@ -135,7 +135,7 @@ TEST_F(page_test_t, reserve_succeeds_when_worst_case_is_exactly_max_allocation_s
     ASSERT_EQ(expected_begin, pending_allocation.allocation_begin);
 }
 
-TEST_F(page_test_t, reserve_returns_nullptr_when_size_exceeds_max_allocation_size)
+TEST_F(page_allocator_test_t, reserve_returns_nullptr_when_size_exceeds_max_allocation_size)
 {
     // request exceeds limit, but would fit otherwise
     auto pending_allocation = sut.reserve(max_allocation_size + 1, std::align_val_t{1});
@@ -143,13 +143,13 @@ TEST_F(page_test_t, reserve_returns_nullptr_when_size_exceeds_max_allocation_siz
     ASSERT_EQ(nullptr, pending_allocation.allocation_begin);
 }
 
-TEST_F(page_test_t, reserve_returns_nonempty_allocation_when_size_is_zero)
+TEST_F(page_allocator_test_t, reserve_returns_nonempty_allocation_when_size_is_zero)
 {
     auto pending_allocation = sut.reserve(0, align_val);
     ASSERT_LT(pending_allocation.allocation_begin, pending_allocation.allocation_end);
 }
 
-TEST_F(page_test_t, reserve_succeeds_when_size_exactly_fits_region)
+TEST_F(page_allocator_test_t, reserve_succeeds_when_size_exactly_fits_region)
 {
     // commit end of allocation near end of region
     auto const expected_allocation_begin = std::data(region) + region_size - size;
@@ -162,7 +162,7 @@ TEST_F(page_test_t, reserve_succeeds_when_size_exactly_fits_region)
     ASSERT_EQ(expected_allocation_begin + size, pending_allocation.allocation_end);
 }
 
-TEST_F(page_test_t, reserve_returns_nullptr_when_worst_case_alignment_forces_size_past_max_allocation_size)
+TEST_F(page_allocator_test_t, reserve_returns_nullptr_when_worst_case_alignment_forces_size_past_max_allocation_size)
 {
     // allocation size is small enough, but total requested size request exceeds limit
     auto pending_allocation = sut.reserve(max_allocation_size, align_val);
@@ -170,7 +170,7 @@ TEST_F(page_test_t, reserve_returns_nullptr_when_worst_case_alignment_forces_siz
     ASSERT_EQ(nullptr, pending_allocation.allocation_begin);
 }
 
-TEST_F(page_test_t, reserve_returns_nullptr_when_size_doesnt_fit_at_end_of_region)
+TEST_F(page_allocator_test_t, reserve_returns_nullptr_when_size_doesnt_fit_at_end_of_region)
 {
     // commit end of allocation near end of region, leaving less room than size requires
     sut.commit(std::data(region) + region_size - (size - 1));
@@ -182,7 +182,7 @@ TEST_F(page_test_t, reserve_returns_nullptr_when_size_doesnt_fit_at_end_of_regio
     ASSERT_EQ(nullptr, pending_allocation.allocation_end);
 }
 
-TEST_F(page_test_t, reserve_returns_nullptr_when_alignment_doesnt_fit_at_end_of_region)
+TEST_F(page_allocator_test_t, reserve_returns_nullptr_when_alignment_doesnt_fit_at_end_of_region)
 {
     // commit end of allocation near end of region, leaving less room than alignment requires
     sut.commit(std::data(region) + region_size - (alignment - 1));
@@ -195,4 +195,4 @@ TEST_F(page_test_t, reserve_returns_nullptr_when_alignment_doesnt_fit_at_end_of_
 }
 
 } // namespace
-} // namespace dink
+} // namespace dink::page
