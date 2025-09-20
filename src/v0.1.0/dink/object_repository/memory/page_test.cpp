@@ -77,6 +77,17 @@ TEST_F(page_test_t, max_allocation_size_returns_constructed_value)
     ASSERT_EQ(max_allocation_size, sut.max_allocation_size());
 }
 
+TEST_F(page_test_t, commit_sets_cur)
+{
+    auto const expected_cur = std::data(region) + 1;
+
+    sut.commit(expected_cur);
+
+    // infer location of cur by the address of the next reserve
+    auto const actual_cur = sut.reserve(1, std::align_val_t{1}).allocation_begin;
+    ASSERT_EQ(expected_cur, actual_cur);
+}
+
 TEST_F(page_test_t, reserve_sets_page_field_in_pending_allocation)
 {
     auto const result = sut.reserve(size, align_val);
