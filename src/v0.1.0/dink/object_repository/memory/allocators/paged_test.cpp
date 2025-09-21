@@ -95,16 +95,16 @@ TEST_F(paged_node_factory_test_t, construction_succeeds)
             ByMove(allocation_t{expected_allocation_value, allocation_deleter_t{expected_allocation_deleter_id}})
         ));
 
-    auto const paged_node = sut(page_size, page_align_val);
+    auto const allocated_node = sut(page_size, page_align_val);
 
-    ASSERT_EQ(expected_allocation_value, static_cast<void*>(paged_node.get()));
-    ASSERT_EQ(expected_allocation_deleter_id, paged_node.get_deleter().allocation_deleter.id);
-    ASSERT_EQ(nullptr, paged_node->next);
+    ASSERT_EQ(expected_allocation_value, static_cast<void*>(allocated_node.get()));
+    ASSERT_EQ(expected_allocation_deleter_id, allocated_node.get_deleter().allocation_deleter.id);
+    ASSERT_EQ(nullptr, allocated_node->next);
 
     auto const expected_page_begin = expected_allocation_value + sizeof(node_t);
     auto const expected_page_size = page_size - sizeof(node_t);
-    ASSERT_EQ(expected_page_begin, paged_node->page.begin);
-    ASSERT_EQ(expected_page_size, paged_node->page.size);
+    ASSERT_EQ(expected_page_begin, allocated_node->page.begin);
+    ASSERT_EQ(expected_page_size, allocated_node->page.size);
 }
 
 TEST_F(paged_node_factory_test_t, construction_fails_when_allocation_throws)
