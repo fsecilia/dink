@@ -58,7 +58,7 @@ public:
         );
     }
 
-    node_factory_t(node_allocator_t node_allocator) noexcept : node_allocator_{std::move(node_allocator)} {}
+    explicit node_factory_t(node_allocator_t node_allocator) noexcept : node_allocator_{std::move(node_allocator)} {}
 
 private:
     node_allocator_t node_allocator_;
