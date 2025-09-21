@@ -115,12 +115,8 @@ TEST_F(paged_node_factory_test_t, construction_fails_when_allocation_throws)
 
 TEST_F(paged_node_factory_test_t, construction_fails_when_ctor_throws)
 {
-    auto const expected_allocation_deleter_id = allocation_deleter_t::default_id + 1;
-    auto const expected_allocation_value = static_cast<void*>(std::data(page_allocation));
     EXPECT_CALL(mock_node_allocator, allocate(page_size, page_align_val))
-        .WillOnce(Return(
-            ByMove(allocation_t{expected_allocation_value, allocation_deleter_t{expected_allocation_deleter_id}})
-        ));
+        .WillOnce(Return(ByMove(allocation_t{std::data(page_allocation), allocation_deleter_t{}})));
 
     page_t::throw_exception = true;
     EXPECT_THROW((void)sut(page_size, page_align_val), page_ctor_x);
