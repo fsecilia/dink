@@ -17,6 +17,9 @@ namespace dink::paged {
 /*!
     defines the memory sizing and layout for pages
 
+    The maximum allocation size is chosen to balance amortization vs internal fragmentation. It is a large integer
+    fraction of the total page size.
+
     \tparam os_page_size_provider_t callable that returns the operating system's physical memory page size
 */
 template <typename os_page_size_provider_t>
@@ -49,7 +52,15 @@ struct node_t
     page_t page;
 };
 
-//! allocates page nodes aligned to the os page size, in multiples of the that page size, using given allocator
+/*!
+    allocates page nodes aligned to the os page size, in multiples of the that page size, using given allocator
+
+    This factory is responsible for acquiring a memory page from the OS and constructing a `page_node_t` within it. The
+    node's metadata (e.g., the `next` pointer) is placed at the very start of the page, and the `page_t` member, which
+    manages the rest of the memory, immediately follows. This "in-band" metadata strategy ensures that an entire OS
+    page is not wasted on bookkeeping, because placing this data out-of-band would require allocating an additional
+    aligned OS page.
+*/
 template <typename policy_t>
 class node_factory_t
 {
