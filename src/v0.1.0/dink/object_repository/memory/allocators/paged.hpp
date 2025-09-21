@@ -5,7 +5,7 @@
 
 #include <dink/lib.hpp>
 #include <dink/object_repository/memory/alignment.hpp>
-#include <dink/object_repository/memory/cast_allocation.hpp>
+#include <dink/object_repository/memory/construct_in_allocation.hpp>
 #include <algorithm>
 #include <cassert>
 #include <memory>
@@ -74,7 +74,7 @@ public:
         auto const remaining_page_size = page_size_config_.page_size - sizeof(node_t);
 
         // construct node in allocation
-        return cast_allocation<node_t, node_deleter_t>(
+        return construct_in_allocation<node_t, node_deleter_t>(
             std::move(allocation), nullptr,
             page_t{remaining_page_begin, remaining_page_size, page_size_config_.max_allocation_size}
         );

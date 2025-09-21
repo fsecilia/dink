@@ -13,7 +13,7 @@ namespace dink {
 
 //! constructs a specific type in an untyped allocation, then transfers ownership and the original deleter
 template <typename dst_t, typename dst_deleter_t, typename allocation_deleter_t, typename... dst_ctor_args_t>
-[[nodiscard]] auto cast_allocation(
+[[nodiscard]] auto construct_in_allocation(
     std::unique_ptr<void, allocation_deleter_t>&& allocation, dst_ctor_args_t&&... ctor_args
 ) -> std::unique_ptr<dst_t, dst_deleter_t>
 {
