@@ -12,11 +12,11 @@
 #include <memory>
 #include <new>
 
-namespace dink {
+namespace dink::heap {
 
 //! aligned heap allocator; returns unique_ptrs
 template <typename allocation_deleter_t, typename api_t>
-class heap_allocator_t
+class allocator_t
 {
 public:
     //! unique_ptr with custom deleter
@@ -56,20 +56,20 @@ public:
         return result;
     }
 
-    explicit heap_allocator_t(api_t api) noexcept : api_{std::move(api)} {}
+    explicit allocator_t(api_t api) noexcept : api_{std::move(api)} {}
 
 private:
     [[no_unique_address]] api_t api_{};
 };
 
 //! deletes a heap allocation using free; stateless
-struct heap_allocation_deleter_t
+struct allocation_deleter_t
 {
     auto operator()(void* allocation) const noexcept { std::free(allocation); }
 };
 
 //! default api for heap_allocator_t
-struct heap_allocator_api_t
+struct allocator_api_t
 {
     [[nodiscard]] auto malloc(std::size_t size) const noexcept -> void* { return std::malloc(size); }
     [[nodiscard]] auto aligned_alloc(std::size_t alignment, std::size_t size) const noexcept -> void*
@@ -78,4 +78,4 @@ struct heap_allocator_api_t
     }
 };
 
-} // namespace dink
+} // namespace dink::heap

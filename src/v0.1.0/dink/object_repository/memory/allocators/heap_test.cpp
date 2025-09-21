@@ -6,7 +6,7 @@
 #include "heap.hpp"
 #include <dink/test.hpp>
 
-namespace dink {
+namespace dink::heap {
 namespace {
 
 struct heap_allocator_test_t : Test
@@ -36,7 +36,7 @@ struct heap_allocator_test_t : Test
         mock_api_t* mock = nullptr;
     };
 
-    using sut_t = heap_allocator_t<deleter_t, api_t>;
+    using sut_t = allocator_t<deleter_t, api_t>;
     sut_t sut{api_t{&mock_api}};
 
     std::size_t expected_size = 1024;
@@ -77,4 +77,4 @@ TEST_F(heap_allocator_test_t, aligned_allocate_throws_on_failed_alloc)
 }
 
 } // namespace
-} // namespace dink
+} // namespace dink::heap
