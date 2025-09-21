@@ -139,5 +139,68 @@ TEST_F(paged_node_factory_test_t, construction_fails_when_ctor_throws)
     EXPECT_THROW((void)sut(), page_ctor_x);
 }
 
+// ---------------------------------------------------------------------------------------------------------------------
+
+struct paged_allocator_reservation_test_t : Test
+{
+    using allocated_node_t = int_t;
+    static inline allocated_node_t expected_allocated_node = 3;
+
+    struct mock_allocator_t
+    {
+        MOCK_METHOD(void, commit, (allocated_node_t&&), (noexcept));
+        virtual ~mock_allocator_t() = default;
+    };
+    StrictMock<mock_allocator_t> mock_allocator;
+
+    struct allocator_t
+    {
+        auto commit(allocated_node_t&& allocated_node) noexcept -> void { mock->commit(std::move(allocated_node)); }
+        mock_allocator_t* mock = nullptr;
+    };
+    allocator_t allocator{&mock_allocator};
+
+    struct mock_page_reservation_t
+    {
+        MOCK_METHOD(void*, allocation, (), (const, noexcept));
+        MOCK_METHOD(void, commit, (), (noexcept));
+        virtual ~mock_page_reservation_t() = default;
+    };
+    StrictMock<mock_page_reservation_t> mock_page_reservation;
+
+    struct page_reservation_t
+    {
+        auto allocation() const noexcept -> void* { return mock->allocation(); }
+        auto commit() noexcept -> void { mock->commit(); }
+        mock_page_reservation_t* mock = nullptr;
+    };
+
+    struct policy_t
+    {
+        using allocated_node_t = allocated_node_t;
+        using allocator_t = allocator_t;
+        using page_reservation_t = page_reservation_t;
+    };
+    using sut_t = reservation_t<policy_t>;
+    sut_t sut{allocator, page_reservation_t{&mock_page_reservation}, expected_allocated_node};
+};
+
+TEST_F(paged_allocator_reservation_test_t, allocation_returns_page_reservation_allocation)
+{
+    auto const expected_allocation = this;
+    EXPECT_CALL(mock_page_reservation, allocation()).WillOnce(Return(expected_allocation));
+
+    auto actual_allocation = sut.allocation();
+
+    ASSERT_EQ(expected_allocation, actual_allocation);
+}
+
+TEST_F(paged_allocator_reservation_test_t, commit_forwards_to_allocation_and_page_reservation)
+{
+    EXPECT_CALL(mock_allocator, commit(Eq(expected_allocated_node)));
+    EXPECT_CALL(mock_page_reservation, commit());
+    sut.commit();
+}
+
 } // namespace
 } // namespace dink::paged

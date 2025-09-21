@@ -89,4 +89,34 @@ private:
     page_size_config_t page_size_config_;
 };
 
+/*!
+    command to commit paged allocation after reserving it
+
+    This type is the \ref reservation for the paged allocator.
+*/
+template <typename policy_t>
+class reservation_t
+{
+public:
+    using allocated_node_t = policy_t::allocated_node_t;
+    using allocator_t = policy_t::allocator_t;
+    using page_reservation_t = policy_t::page_reservation_t;
+
+    auto allocation() const noexcept -> void* { return page_reservation_.allocation(); }
+    auto commit() noexcept -> void
+    {
+        allocator_->commit(std::move(new_node_));
+        page_reservation_.commit();
+    }
+
+    reservation_t(allocator_t& allocator, page_reservation_t page_reservation, allocated_node_t new_node) noexcept
+        : allocator_{&allocator}, page_reservation_{std::move(page_reservation)}, new_node_{std::move(new_node)}
+    {}
+
+private:
+    allocator_t* allocator_;
+    page_reservation_t page_reservation_;
+    allocated_node_t new_node_;
+};
+
 } // namespace dink::paged
