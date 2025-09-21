@@ -16,19 +16,19 @@ namespace dink::page {
 
     This type is the \ref pending_allocation for the page allocator.
 */
-template <typename page_t>
+template <typename allocator_t>
 class pending_allocation_t
 {
 public:
     auto allocation() const noexcept -> void* { return allocation_begin_; }
-    auto commit() noexcept -> void { page_->commit(allocation_end_); }
+    auto commit() noexcept -> void { allocator_->commit(allocation_end_); }
 
-    pending_allocation_t(page_t& page, void* allocation_begin, void* allocation_end) noexcept
-        : page_{&page}, allocation_begin_{std::move(allocation_begin)}, allocation_end_{allocation_end}
+    pending_allocation_t(allocator_t& allocator, void* allocation_begin, void* allocation_end) noexcept
+        : allocator_{&allocator}, allocation_begin_{std::move(allocation_begin)}, allocation_end_{allocation_end}
     {}
 
 private:
-    page_t* page_;
+    allocator_t* allocator_;
     void* allocation_begin_;
     void* allocation_end_;
 };

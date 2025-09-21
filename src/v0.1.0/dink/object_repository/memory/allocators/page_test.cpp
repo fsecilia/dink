@@ -11,25 +11,25 @@ namespace {
 
 struct page_pending_allocation_test_t : Test
 {
-    struct mock_page_t
+    struct mock_allocator_t
     {
         MOCK_METHOD(void, commit, (void*), (noexcept));
-        virtual ~mock_page_t() = default;
+        virtual ~mock_allocator_t() = default;
     };
-    StrictMock<mock_page_t> mock_page;
+    StrictMock<mock_allocator_t> mock_allocator;
 
-    struct page_t
+    struct allocator_t
     {
         auto commit(void* allocation) noexcept -> void { mock->commit(allocation); }
-        mock_page_t* mock = nullptr;
+        mock_allocator_t* mock = nullptr;
     };
-    page_t page{&mock_page};
+    allocator_t allocator{&mock_allocator};
 
     void* const allocation_begin = this;
     void* const allocation_end = this + 1;
 
-    using sut_t = pending_allocation_t<page_t>;
-    sut_t sut{page, allocation_begin, allocation_end};
+    using sut_t = pending_allocation_t<allocator_t>;
+    sut_t sut{allocator, allocation_begin, allocation_end};
 };
 
 TEST_F(page_pending_allocation_test_t, allocation)
@@ -39,7 +39,7 @@ TEST_F(page_pending_allocation_test_t, allocation)
 
 TEST_F(page_pending_allocation_test_t, commit)
 {
-    EXPECT_CALL(mock_page, commit(allocation_end));
+    EXPECT_CALL(mock_allocator, commit(allocation_end));
 
     sut.commit();
 }
@@ -48,15 +48,15 @@ TEST_F(page_pending_allocation_test_t, commit)
 
 struct page_allocator_test_t : Test
 {
-    template <typename page_t>
+    template <typename allocator_t>
     struct pending_allocation_t
     {
-        page_t* page;
+        allocator_t* allocator;
         void* allocation_begin;
         void* allocation_end;
 
-        pending_allocation_t(page_t& page, void* allocation_begin, void* allocation_end) noexcept
-            : page{&page}, allocation_begin{allocation_begin}, allocation_end{allocation_end}
+        pending_allocation_t(allocator_t& allocator, void* allocation_begin, void* allocation_end) noexcept
+            : allocator{&allocator}, allocation_begin{allocation_begin}, allocation_end{allocation_end}
         {}
     };
 
@@ -91,7 +91,7 @@ TEST_F(page_allocator_test_t, commit_sets_cur)
 TEST_F(page_allocator_test_t, reserve_sets_page_field_in_pending_allocation)
 {
     auto const result = sut.reserve(size, align_val);
-    ASSERT_EQ(&sut, result.page);
+    ASSERT_EQ(&sut, result.allocator);
 }
 
 TEST_F(page_allocator_test_t, reserve_returns_current_address_when_current_address_is_already_aligned)
