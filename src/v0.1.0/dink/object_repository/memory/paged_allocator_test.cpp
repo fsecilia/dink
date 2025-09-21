@@ -7,10 +7,10 @@
 #include <dink/test.hpp>
 #include <array>
 
-namespace dink {
+namespace dink::paged {
 namespace {
 
-struct page_node_factory_test_t : Test
+struct paged_node_factory_test_t : Test
 {
     struct allocation_deleter_t
     {
@@ -79,9 +79,9 @@ struct page_node_factory_test_t : Test
 
     struct page_size_config_t
     {
-        std::size_t os_page_size = page_node_factory_test_t::os_page_size;
-        std::size_t page_size = page_node_factory_test_t::page_size;
-        std::size_t max_allocation_size = page_node_factory_test_t::max_allocation_size;
+        std::size_t os_page_size = paged_node_factory_test_t::os_page_size;
+        std::size_t page_size = paged_node_factory_test_t::page_size;
+        std::size_t max_allocation_size = paged_node_factory_test_t::max_allocation_size;
     };
 
     struct policy_t
@@ -93,11 +93,11 @@ struct page_node_factory_test_t : Test
         using page_t = page_t;
     };
 
-    using sut_t = page_node_factory_t<policy_t>;
+    using sut_t = node_factory_t<policy_t>;
     sut_t sut{allocator_t{&mock_allocator}, page_size_config_t{}};
 };
 
-TEST_F(page_node_factory_test_t, construction_succeeds)
+TEST_F(paged_node_factory_test_t, construction_succeeds)
 {
     auto const expected_allocation_deleter_id = allocation_deleter_t::default_id + 1;
     auto const expected_allocation_value = std::data(page_allocation);
@@ -106,26 +106,26 @@ TEST_F(page_node_factory_test_t, construction_succeeds)
             ByMove(allocation_t{expected_allocation_value, allocation_deleter_t{expected_allocation_deleter_id}})
         ));
 
-    auto const page_node = sut();
+    auto const paged_node = sut();
 
-    ASSERT_EQ(expected_allocation_value, static_cast<void*>(page_node.get()));
-    ASSERT_EQ(expected_allocation_deleter_id, page_node.get_deleter().allocation_deleter.id);
-    ASSERT_EQ(nullptr, page_node->next);
+    ASSERT_EQ(expected_allocation_value, static_cast<void*>(paged_node.get()));
+    ASSERT_EQ(expected_allocation_deleter_id, paged_node.get_deleter().allocation_deleter.id);
+    ASSERT_EQ(nullptr, paged_node->next);
 
     auto const expected_page_begin = expected_allocation_value + sizeof(node_t);
     auto const expected_page_size = page_size - sizeof(node_t);
-    ASSERT_EQ(expected_page_begin, page_node->page.begin);
-    ASSERT_EQ(expected_page_size, page_node->page.size);
-    ASSERT_EQ(max_allocation_size, page_node->page.max_allocation_size);
+    ASSERT_EQ(expected_page_begin, paged_node->page.begin);
+    ASSERT_EQ(expected_page_size, paged_node->page.size);
+    ASSERT_EQ(max_allocation_size, paged_node->page.max_allocation_size);
 }
 
-TEST_F(page_node_factory_test_t, construction_fails_when_allocation_throws)
+TEST_F(paged_node_factory_test_t, construction_fails_when_allocation_throws)
 {
     EXPECT_CALL(mock_allocator, allocate(page_size, std::align_val_t{os_page_size})).WillOnce(Throw(std::bad_alloc{}));
     EXPECT_THROW((void)sut(), std::bad_alloc);
 }
 
-TEST_F(page_node_factory_test_t, construction_fails_when_ctor_throws)
+TEST_F(paged_node_factory_test_t, construction_fails_when_ctor_throws)
 {
     auto const expected_allocation_deleter_id = allocation_deleter_t::default_id + 1;
     auto const expected_allocation_value = static_cast<void*>(std::data(page_allocation));
@@ -139,4 +139,4 @@ TEST_F(page_node_factory_test_t, construction_fails_when_ctor_throws)
 }
 
 } // namespace
-} // namespace dink
+} // namespace dink::paged

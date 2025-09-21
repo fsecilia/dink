@@ -12,15 +12,7 @@
 #include <new>
 #include <ratio>
 
-namespace dink {
-
-//! intrusive list node with a page as a payload
-template <typename page_t>
-struct page_node_t
-{
-    page_node_t* next;
-    page_t page;
-};
+namespace dink::paged {
 
 /*!
     defines the memory sizing and layout for page nodes
@@ -52,9 +44,17 @@ struct page_size_config_t
     {}
 };
 
+//! intrusive list node with a page as a payload
+template <typename page_t>
+struct node_t
+{
+    node_t* next;
+    page_t page;
+};
+
 //! allocates page nodes aligned to the os page size, in multiples of the that page size, using given allocator
 template <typename policy_t>
-class page_node_factory_t
+class node_factory_t
 {
 public:
     using allocator_t = policy_t::allocator_t;
@@ -83,7 +83,7 @@ public:
         );
     }
 
-    page_node_factory_t(allocator_t allocator, page_size_config_t page_size_config) noexcept
+    node_factory_t(allocator_t allocator, page_size_config_t page_size_config) noexcept
         : allocator_{std::move(allocator)}, page_size_config_{page_size_config}
     {}
 
@@ -92,4 +92,4 @@ private:
     page_size_config_t page_size_config_;
 };
 
-} // namespace dink
+} // namespace dink::paged
