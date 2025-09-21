@@ -16,13 +16,13 @@ list(APPEND dink_library_files
     lifetime_registry.hpp
     object_repository/memory/alignment.hpp
     object_repository/memory/allocation_list.hpp
-    object_repository/memory/allocator.hpp
+    object_repository/memory/allocators/allocator.hpp
+    object_repository/memory/allocators/heap_allocator.hpp
+    object_repository/memory/allocators/page.hpp
+    object_repository/memory/allocators/paged_allocator.hpp
+    object_repository/memory/allocators/scoped_allocator.hpp
     object_repository/memory/cast_allocation.hpp
-    object_repository/memory/heap_allocator.hpp
     object_repository/memory/os_page_size_provider.hpp
-    object_repository/memory/page.hpp
-    object_repository/memory/paged_allocator.hpp
-    object_repository/memory/scoped_allocator.hpp
     version.hpp
 )
 
@@ -32,12 +32,12 @@ list(APPEND dink_unit_test_files
     lifetime_registry_test.cpp
     object_repository/memory/alignment_test.cpp
     object_repository/memory/allocation_list_test.cpp
+    object_repository/memory/allocators/heap_allocator_test.cpp
+    object_repository/memory/allocators/page_test.cpp
+    object_repository/memory/allocators/paged_allocator_test.cpp
+    object_repository/memory/allocators/scoped_allocator_test.cpp
     object_repository/memory/cast_allocation_test.cpp
-    object_repository/memory/heap_allocator_test.cpp
     object_repository/memory/os_page_size_provider_test.cpp
-    object_repository/memory/page_test.cpp
-    object_repository/memory/paged_allocator_test.cpp
-    object_repository/memory/scoped_allocator_test.cpp
     version_test.cpp
 )
 

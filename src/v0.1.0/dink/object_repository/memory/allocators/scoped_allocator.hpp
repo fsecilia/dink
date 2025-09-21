@@ -7,7 +7,7 @@
 
 #include <dink/lib.hpp>
 #include <dink/object_repository/memory/alignment.hpp>
-#include <dink/object_repository/memory/allocator.hpp>
+#include <dink/object_repository/memory/allocators/allocator.hpp>
 #include <cassert>
 #include <cstddef>
 #include <utility>
