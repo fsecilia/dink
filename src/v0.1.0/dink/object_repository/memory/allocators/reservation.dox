@@ -1,0 +1,12 @@
+/**
+\page reservation reservations
+
+\brief two-phase allocation strategy to ensure commit-or-rollback semantics
+
+**Reservations** are used to reserve memory from an allocator without immediately committing the allocation. This is a two-step process:
+
+1. **reserve**: The user requests a block of memory by calling `reserve()` on an allocator. The allocator finds a suitable location and returns a `reservation_t`, but does **not** advance its internal pointers.
+2. **commit**: If the user decides to proceed, they call `commit()` on the reservation. Only then is the allocator's state changed.
+
+This pattern is important for operations that might fail after memory has been notionally allocated, like a constructor throwing during placement. This allows rollback without complex cleanup post hoc.
+*/
