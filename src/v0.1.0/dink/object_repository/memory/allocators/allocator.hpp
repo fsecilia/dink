@@ -20,7 +20,21 @@ namespace dink {
 */
 template <typename allocator_t>
 concept allocator = requires(allocator_t allocator, std::size_t size, std::align_val_t align_val) {
-    { allocator.allocate(size, align_val) } -> std::same_as<typename allocator_t::allocation_t>;
+    { allocator.allocate(size, align_val) } -> std::convertible_to<typename allocator_t::allocation_t>;
 };
 
+/*!
+    provides reserve(), which returns a command to optionally commit() the allocation
+
+    These allocators use the \ref pending_allocation pattern.
+*/
+template <typename allocator_t>
+concept reservable_allocator = requires(allocator_t allocator, std::size_t size, std::align_val_t align_val) {
+    { allocator.reserve(size, align_val) } -> std::destructible;
+
+    requires requires(decltype(allocator.reserve(size, align_val)) reservation) {
+        { reservation.allocation() } -> std::convertible_to<typename allocator_t::allocation_t>;
+        { reservation.commit() } -> std::same_as<void>;
+    };
+};
 } // namespace dink
