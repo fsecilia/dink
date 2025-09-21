@@ -189,5 +189,170 @@ TEST_F(paged_allocator_reservation_test_t, commit_forwards_to_allocation_and_pag
     sut.commit();
 }
 
+// ---------------------------------------------------------------------------------------------------------------------
+
+struct paged_allocator_test_t : Test
+{
+    struct page_reservation_t
+    {
+        void* expected_allocation;
+        auto allocation() const noexcept -> void* { return expected_allocation; }
+    };
+
+    struct mock_page_t
+    {
+        MOCK_METHOD(page_reservation_t, reserve, (std::size_t size, std::align_val_t alignment), (noexcept));
+        MOCK_METHOD(void, commit, (), (noexcept));
+
+        virtual ~mock_page_t() = default;
+    };
+    StrictMock<mock_page_t> initial_mock_page;
+    StrictMock<mock_page_t> new_mock_page;
+
+    struct page_t
+    {
+        auto reserve(std::size_t size, std::align_val_t alignment) noexcept -> page_reservation_t
+        {
+            return mock->reserve(size, alignment);
+        }
+
+        auto commit() noexcept -> void { mock->commit(); }
+        mock_page_t* mock = nullptr;
+    };
+
+    struct node_t
+    {
+        page_t page;
+    };
+    node_t initial_node = node_t{page_t{&initial_mock_page}};
+    node_t new_node = node_t{page_t{&new_mock_page}};
+
+    using allocated_node_t = node_t*;
+
+    struct allocation_list_t
+    {
+        allocated_node_t tail;
+        auto back() const noexcept -> node_t& { return pushed ? *pushed : *tail; }
+
+        allocated_node_t pushed = nullptr;
+        auto push(allocated_node_t new_node) noexcept -> void { pushed = new_node; }
+    };
+
+    struct mock_node_factory_t
+    {
+        MOCK_METHOD(allocated_node_t, call, (std::size_t page_size, std::align_val_t page_alignment));
+
+        virtual ~mock_node_factory_t() = default;
+    };
+    StrictMock<mock_node_factory_t> mock_node_factory;
+
+    struct node_factory_t
+    {
+        auto operator()(std::size_t page_size, std::align_val_t page_alignment) -> allocated_node_t
+        {
+            return mock->call(page_size, page_alignment);
+        }
+
+        mock_node_factory_t* mock = nullptr;
+    };
+
+    static inline constexpr auto const os_page_size = std::size_t{512};
+    static inline constexpr auto const page_size = std::size_t{1024};
+    static inline constexpr auto const max_allocation_size = std::size_t{256};
+    struct page_size_config_t
+    {
+        std::size_t os_page_size = paged_allocator_test_t::os_page_size;
+        std::size_t page_size = paged_allocator_test_t::page_size;
+        std::size_t max_allocation_size = paged_allocator_test_t::max_allocation_size;
+    };
+
+    struct policy_t;
+    using sut_t = allocator_t<policy_t>;
+
+    struct reservation_t
+    {
+        sut_t* allocator;
+        page_reservation_t page_reservation;
+        allocated_node_t new_node;
+    };
+
+    struct policy_t
+    {
+        using allocated_node_t = allocated_node_t;
+        using allocation_list_t = allocation_list_t;
+        using node_t = node_t;
+        using node_factory_t = node_factory_t;
+        using page_t = page_t;
+        using page_size_config_t = page_size_config_t;
+        using reservation_t = reservation_t;
+    };
+
+    sut_t sut = [this]() {
+        EXPECT_CALL(mock_node_factory, call(page_size, std::align_val_t{os_page_size})).WillOnce(Return(&initial_node));
+        return sut_t{node_factory_t{&mock_node_factory}, page_size_config_t{}};
+    }();
+
+    void* const expected_allocation = this;
+    std::size_t const expected_reserve_size{53};
+    std::align_val_t const expected_reserve_alignment{16};
+};
+
+TEST_F(paged_allocator_test_t, max_allocation_size)
+{
+    ASSERT_EQ(max_allocation_size, sut.max_allocation_size());
+}
+
+TEST_F(paged_allocator_test_t, reserve_from_current_page_succeeds)
+{
+    EXPECT_CALL(initial_mock_page, reserve(expected_reserve_size, expected_reserve_alignment))
+        .WillOnce(Return(page_reservation_t{expected_allocation}));
+
+    auto const result = sut.reserve(expected_reserve_size, expected_reserve_alignment);
+
+    ASSERT_EQ(&sut, result.allocator);
+    ASSERT_EQ(expected_allocation, result.page_reservation.allocation());
+    ASSERT_EQ(nullptr, result.new_node);
+}
+
+TEST_F(paged_allocator_test_t, reserve_from_current_page_fails_then_from_new_page_succeeds)
+{
+    EXPECT_CALL(initial_mock_page, reserve(expected_reserve_size, expected_reserve_alignment))
+        .WillOnce(Return(page_reservation_t{nullptr}));
+    EXPECT_CALL(mock_node_factory, call(page_size, std::align_val_t{os_page_size})).WillOnce(Return(&new_node));
+    EXPECT_CALL(new_mock_page, reserve(expected_reserve_size, expected_reserve_alignment))
+        .WillOnce(Return(page_reservation_t{expected_allocation}));
+
+    auto const result = sut.reserve(expected_reserve_size, expected_reserve_alignment);
+
+    ASSERT_EQ(&sut, result.allocator);
+    ASSERT_EQ(expected_allocation, result.page_reservation.allocation());
+    ASSERT_EQ(&new_node, result.new_node);
+}
+
+TEST_F(paged_allocator_test_t, reserve_from_current_page_fails_then_create_node_throws_exception)
+{
+    EXPECT_CALL(initial_mock_page, reserve(expected_reserve_size, expected_reserve_alignment))
+        .WillOnce(Return(page_reservation_t{nullptr}));
+    EXPECT_CALL(mock_node_factory, call(page_size, std::align_val_t{os_page_size})).WillOnce(Throw(std::bad_alloc{}));
+
+    EXPECT_THROW((void)sut.reserve(expected_reserve_size, expected_reserve_alignment), std::bad_alloc);
+}
+
+TEST_F(paged_allocator_test_t, commit_pushes_new_page_onto_allocation_list)
+{
+    sut.commit(&new_node);
+
+    // the only way to observe the result of commit is to try and allocate and see that it comes from the new node
+    EXPECT_CALL(new_mock_page, reserve(expected_reserve_size, expected_reserve_alignment))
+        .WillOnce(Return(page_reservation_t{expected_allocation}));
+
+    (void)sut.reserve(expected_reserve_size, expected_reserve_alignment);
+}
+
+TEST_F(paged_allocator_test_t, commit_empty_page_is_no_op)
+{
+    sut.commit(allocated_node_t{nullptr});
+}
+
 } // namespace
 } // namespace dink::paged
