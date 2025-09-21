@@ -15,10 +15,7 @@
 namespace dink::paged {
 
 /*!
-    defines the memory sizing and layout for page nodes
-
-    This configuration object is typically provided to a `page_node_factory_t` to determine the size and allocation
-    rules for the memory pages it creates.
+    defines the memory sizing and layout for pages
 
     \tparam os_page_size_provider_t callable that returns the operating system's physical memory page size
 */
@@ -44,7 +41,7 @@ struct page_size_config_t
     {}
 };
 
-//! intrusive list node with a page as a payload
+//! intrusive list node with a page as payload
 template <typename page_t>
 struct node_t
 {
