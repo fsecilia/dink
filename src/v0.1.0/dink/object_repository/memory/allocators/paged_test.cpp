@@ -120,6 +120,7 @@ TEST_F(paged_node_factory_test_t, construction_fails_when_ctor_throws)
 
     page_t::throw_exception = true;
     EXPECT_THROW((void)sut(page_size, page_align_val), page_ctor_x);
+    page_t::throw_exception = false;
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
