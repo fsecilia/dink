@@ -23,13 +23,11 @@ struct node_t
 };
 
 /*!
-    allocates page nodes aligned to the os page size, in multiples of the that page size, using given allocator
+    creates a paged node constructed in an aligned page
 
-    This factory is responsible for acquiring a memory page from the OS and constructing a `page_node_t` within it. The
-    node's metadata (e.g., the `next` pointer) is placed at the very start of the page, and the `page_t` member, which
-    manages the rest of the memory, immediately follows. This "in-band" metadata strategy ensures that an entire OS
-    page is not wasted on bookkeeping, because placing this data out-of-band would require allocating an additional
-    aligned OS page.
+    This factory is responsible for acquiring a page of memory aligned to the os page size, sized in multiples of the
+    os page size, and constructing a `page_node_t` within it at the beginning of the page. This is in-band because
+    placing this data out-of-band would require allocating an additional os page.
 */
 template <typename policy_t>
 class node_factory_t
@@ -127,7 +125,7 @@ private:
 /*!
     allocates from a pool of managed pages
 
-    This type uses a \ref reservation.
+    This type uses a \ref reservation. \sa reservation_t
 
     \warning memory layout trade-off
     To avoid allocating an entire OS page (e.g., 4KiB) for a few tracking pointers, this allocator places its internal
