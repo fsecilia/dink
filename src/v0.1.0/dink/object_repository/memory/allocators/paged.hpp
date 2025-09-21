@@ -54,7 +54,7 @@ template <typename policy_t>
 class node_factory_t
 {
 public:
-    using allocator_t = policy_t::allocator_t;
+    using node_allocator_t = policy_t::node_allocator_t;
     using node_deleter_t = policy_t::node_deleter_t;
     using node_t = policy_t::node_t;
     using page_size_config_t = policy_t::page_size_config_t;
@@ -66,7 +66,7 @@ public:
     {
         // allocate aligned page
         auto allocation
-            = allocator_.allocate(page_size_config_.page_size, std::align_val_t{page_size_config_.os_page_size});
+            = node_allocator_.allocate(page_size_config_.page_size, std::align_val_t{page_size_config_.os_page_size});
 
         // lay out node as first allocation in page
         auto const node_address = reinterpret_cast<std::byte*>(std::to_address(allocation));
@@ -80,12 +80,12 @@ public:
         );
     }
 
-    node_factory_t(allocator_t allocator, page_size_config_t page_size_config) noexcept
-        : allocator_{std::move(allocator)}, page_size_config_{page_size_config}
+    node_factory_t(node_allocator_t node_allocator, page_size_config_t page_size_config) noexcept
+        : node_allocator_{std::move(node_allocator)}, page_size_config_{page_size_config}
     {}
 
 private:
-    allocator_t allocator_;
+    node_allocator_t node_allocator_;
     page_size_config_t page_size_config_;
 };
 

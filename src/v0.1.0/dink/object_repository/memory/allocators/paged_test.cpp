@@ -21,21 +21,21 @@ struct paged_node_factory_test_t : Test
     };
     using allocation_t = std::unique_ptr<void, allocation_deleter_t>;
 
-    struct mock_allocator_t
+    struct mock_node_allocator_t
     {
         MOCK_METHOD(allocation_t, allocate, (std::size_t size, std::align_val_t align_val));
-        virtual ~mock_allocator_t() = default;
+        virtual ~mock_node_allocator_t() = default;
     };
-    StrictMock<mock_allocator_t> mock_allocator;
+    StrictMock<mock_node_allocator_t> mock_node_allocator;
 
-    struct allocator_t
+    struct node_allocator_t
     {
         auto allocate(std::size_t size, std::align_val_t align_val) -> allocation_t
         {
-            return mock_allocator->allocate(size, align_val);
+            return mock_node_allocator->allocate(size, align_val);
         }
 
-        mock_allocator_t* mock_allocator = nullptr;
+        mock_node_allocator_t* mock_node_allocator = nullptr;
     };
 
     struct page_ctor_x
@@ -86,7 +86,7 @@ struct paged_node_factory_test_t : Test
 
     struct policy_t
     {
-        using allocator_t = allocator_t;
+        using node_allocator_t = node_allocator_t;
         using node_deleter_t = node_deleter_t;
         using node_t = node_t;
         using page_size_config_t = page_size_config_t;
@@ -94,14 +94,14 @@ struct paged_node_factory_test_t : Test
     };
 
     using sut_t = node_factory_t<policy_t>;
-    sut_t sut{allocator_t{&mock_allocator}, page_size_config_t{}};
+    sut_t sut{node_allocator_t{&mock_node_allocator}, page_size_config_t{}};
 };
 
 TEST_F(paged_node_factory_test_t, construction_succeeds)
 {
     auto const expected_allocation_deleter_id = allocation_deleter_t::default_id + 1;
     auto const expected_allocation_value = std::data(page_allocation);
-    EXPECT_CALL(mock_allocator, allocate(page_size, std::align_val_t{os_page_size}))
+    EXPECT_CALL(mock_node_allocator, allocate(page_size, std::align_val_t{os_page_size}))
         .WillOnce(Return(
             ByMove(allocation_t{expected_allocation_value, allocation_deleter_t{expected_allocation_deleter_id}})
         ));
@@ -121,7 +121,8 @@ TEST_F(paged_node_factory_test_t, construction_succeeds)
 
 TEST_F(paged_node_factory_test_t, construction_fails_when_allocation_throws)
 {
-    EXPECT_CALL(mock_allocator, allocate(page_size, std::align_val_t{os_page_size})).WillOnce(Throw(std::bad_alloc{}));
+    EXPECT_CALL(mock_node_allocator, allocate(page_size, std::align_val_t{os_page_size}))
+        .WillOnce(Throw(std::bad_alloc{}));
     EXPECT_THROW((void)sut(), std::bad_alloc);
 }
 
@@ -129,7 +130,7 @@ TEST_F(paged_node_factory_test_t, construction_fails_when_ctor_throws)
 {
     auto const expected_allocation_deleter_id = allocation_deleter_t::default_id + 1;
     auto const expected_allocation_value = static_cast<void*>(std::data(page_allocation));
-    EXPECT_CALL(mock_allocator, allocate(page_size, std::align_val_t{os_page_size}))
+    EXPECT_CALL(mock_node_allocator, allocate(page_size, std::align_val_t{os_page_size}))
         .WillOnce(Return(
             ByMove(allocation_t{expected_allocation_value, allocation_deleter_t{expected_allocation_deleter_id}})
         ));
