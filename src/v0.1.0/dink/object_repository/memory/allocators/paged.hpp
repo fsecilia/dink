@@ -57,36 +57,30 @@ public:
     using node_allocator_t = policy_t::node_allocator_t;
     using node_deleter_t = policy_t::node_deleter_t;
     using node_t = policy_t::node_t;
-    using page_size_config_t = policy_t::page_size_config_t;
     using page_t = policy_t::page_t;
 
     using allocated_node_t = std::unique_ptr<node_t, node_deleter_t>;
 
-    [[nodiscard]] auto operator()() -> allocated_node_t
+    [[nodiscard]] auto operator()(std::size_t page_size, std::align_val_t page_alignment) -> allocated_node_t
     {
         // allocate aligned page
-        auto allocation
-            = node_allocator_.allocate(page_size_config_.page_size, std::align_val_t{page_size_config_.os_page_size});
+        auto allocation = node_allocator_.allocate(page_size, page_alignment);
 
         // lay out node as first allocation in page
         auto const node_address = reinterpret_cast<std::byte*>(std::to_address(allocation));
         auto const remaining_page_begin = node_address + sizeof(node_t);
-        auto const remaining_page_size = page_size_config_.page_size - sizeof(node_t);
+        auto const remaining_page_size = page_size - sizeof(node_t);
 
         // construct node in allocation
         return construct_in_allocation<node_t, node_deleter_t>(
-            std::move(allocation), nullptr,
-            page_t{remaining_page_begin, remaining_page_size, page_size_config_.max_allocation_size}
+            std::move(allocation), nullptr, page_t{remaining_page_begin, remaining_page_size}
         );
     }
 
-    node_factory_t(node_allocator_t node_allocator, page_size_config_t page_size_config) noexcept
-        : node_allocator_{std::move(node_allocator)}, page_size_config_{page_size_config}
-    {}
+    node_factory_t(node_allocator_t node_allocator) noexcept : node_allocator_{std::move(node_allocator)} {}
 
 private:
     node_allocator_t node_allocator_;
-    page_size_config_t page_size_config_;
 };
 
 /*!
