@@ -61,7 +61,6 @@ struct page_allocator_test_t : Test
     };
 
     static inline constexpr auto const region_size = 1024;
-    std::size_t const max_allocation_size = region_size / 4;
     std::size_t const size = alignment * 2;
 
     static inline constexpr auto const alignment = 16;
@@ -69,13 +68,8 @@ struct page_allocator_test_t : Test
 
     alignas(alignment) std::array<std::byte, region_size> region;
     using sut_t = allocator_t<reservation_t>;
-    sut_t sut{std::data(region), region_size, max_allocation_size};
+    sut_t sut{std::data(region), region_size};
 };
-
-TEST_F(page_allocator_test_t, max_allocation_size_returns_constructed_value)
-{
-    ASSERT_EQ(max_allocation_size, sut.max_allocation_size());
-}
 
 TEST_F(page_allocator_test_t, commit_sets_cur)
 {
@@ -121,28 +115,6 @@ TEST_F(page_allocator_test_t, reserve_returns_next_aligned_address_when_current_
     ASSERT_EQ(expected_begin + size, result.allocation_end);
 }
 
-TEST_F(page_allocator_test_t, reserve_succeeds_when_worst_case_is_exactly_max_allocation_size)
-{
-    // set up worst-case alignment where size + padding equals the limit: size + (alignment - 1) == max_allocation_size
-    auto const exact_size = max_allocation_size - (alignment - 1);
-
-    // misalign cur_ by 1 to force the maximum padding
-    sut.commit(std::data(region) + 1);
-    auto const expected_begin = std::data(region) + alignment;
-
-    auto reservation = sut.reserve(exact_size, align_val);
-
-    ASSERT_EQ(expected_begin, reservation.allocation_begin);
-}
-
-TEST_F(page_allocator_test_t, reserve_returns_nullptr_when_size_exceeds_max_allocation_size)
-{
-    // request exceeds limit, but would fit otherwise
-    auto reservation = sut.reserve(max_allocation_size + 1, std::align_val_t{1});
-
-    ASSERT_EQ(nullptr, reservation.allocation_begin);
-}
-
 TEST_F(page_allocator_test_t, reserve_returns_nonempty_allocation_when_size_is_zero)
 {
     auto reservation = sut.reserve(0, align_val);
@@ -160,14 +132,6 @@ TEST_F(page_allocator_test_t, reserve_succeeds_when_size_exactly_fits_region)
 
     ASSERT_EQ(expected_allocation_begin, reservation.allocation_begin);
     ASSERT_EQ(expected_allocation_begin + size, reservation.allocation_end);
-}
-
-TEST_F(page_allocator_test_t, reserve_returns_nullptr_when_worst_case_alignment_forces_size_past_max_allocation_size)
-{
-    // allocation size is small enough, but total requested size request exceeds limit
-    auto reservation = sut.reserve(max_allocation_size, align_val);
-
-    ASSERT_EQ(nullptr, reservation.allocation_begin);
 }
 
 TEST_F(page_allocator_test_t, reserve_returns_nullptr_when_size_doesnt_fit_at_end_of_region)

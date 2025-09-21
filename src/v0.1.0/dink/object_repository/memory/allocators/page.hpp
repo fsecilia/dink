@@ -44,9 +44,6 @@ class allocator_t
 public:
     using reservation_t = reservation_p<allocator_t>;
 
-    //! maximum allocation size to balance amortization against internal fragmentation
-    auto max_allocation_size() const noexcept -> std::size_t { return max_allocation_size_; }
-
     //! \pre align_val is nonzero power of two
     [[nodiscard]] auto reserve(std::size_t size, std::align_val_t align_val) noexcept -> reservation_t
     {
@@ -54,11 +51,6 @@ public:
 
         // round empty requests up to 1-byte requests so they still get unique addresses
         size = std::max(size, std::size_t{1});
-
-        // make sure worst-case alignment is smaller than limit
-        auto const alignment = static_cast<size_t>(align_val);
-        auto const total_size_exceeds_limit = size + alignment - 1 > max_allocation_size_;
-        if (total_size_exceeds_limit) return reservation_t{*this, nullptr, nullptr};
 
         // find next aligned location
         auto const allocation_begin = align(cur_, align_val);
@@ -74,14 +66,11 @@ public:
 
     auto commit(void* allocation_end) noexcept -> void { cur_ = static_cast<std::byte*>(allocation_end); }
 
-    allocator_t(void* begin, std::size_t size, std::size_t max_allocation_size) noexcept
-        : cur_{static_cast<std::byte*>(begin)}, end_{cur_ + size}, max_allocation_size_{max_allocation_size}
-    {}
+    allocator_t(void* begin, std::size_t size) noexcept : cur_{static_cast<std::byte*>(begin)}, end_{cur_ + size} {}
 
 private:
     std::byte* cur_;
     std::byte* end_;
-    std::size_t max_allocation_size_;
 };
 
 } // namespace dink::page
