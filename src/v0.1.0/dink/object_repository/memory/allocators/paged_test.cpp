@@ -3,7 +3,7 @@
     Copyright (C) 2025 Frank Secilia
 */
 
-#include "paged_allocator.hpp"
+#include "paged.hpp"
 #include <dink/test.hpp>
 #include <array>
 

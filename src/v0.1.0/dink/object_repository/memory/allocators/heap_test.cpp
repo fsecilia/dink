@@ -3,7 +3,7 @@
     Copyright (C) 2025 Frank Secilia
 */
 
-#include "heap_allocator.hpp"
+#include "heap.hpp"
 #include <dink/test.hpp>
 
 namespace dink {

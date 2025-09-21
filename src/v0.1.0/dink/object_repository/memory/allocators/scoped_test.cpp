@@ -3,7 +3,7 @@
     Copyright (C) 2025 Frank Secilia
 */
 
-#include "scoped_allocator.hpp"
+#include "scoped.hpp"
 #include <dink/test.hpp>
 
 namespace dink {
