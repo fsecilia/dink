@@ -81,4 +81,30 @@ private:
     allocated_node_t allocated_node_;
 };
 
+//! tracks allocations internally, freeing them on destruction
+template <typename policy_t>
+class allocator_t
+{
+public:
+    using allocation_list_t = policy_t::allocation_list_t;
+    using allocated_node_t = policy_t::allocated_node_t;
+    using node_factory_t = policy_t::node_factory_t;
+    using reservation_t = policy_t::reservation_t;
+
+    auto reserve(std::size_t size, std::align_val_t align_val) -> reservation_t
+    {
+        return reservation_t{this, node_factory_(size, align_val)};
+    }
+
+    auto commit(allocated_node_t allocated_node) noexcept -> void { allocation_list_.push(std::move(allocated_node)); }
+
+    explicit allocator_t(node_factory_t node_factory, allocation_list_t allocation_list = allocation_list_t{}) noexcept
+        : node_factory_{std::move(node_factory)}, allocation_list_{std::move(allocation_list)}
+    {}
+
+private:
+    node_factory_t node_factory_;
+    allocation_list_t allocation_list_{};
+};
+
 } // namespace dink::scoped

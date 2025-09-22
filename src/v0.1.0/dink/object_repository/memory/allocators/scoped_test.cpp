@@ -164,5 +164,82 @@ TEST_F(scoped_allocator_reservation_test_t, commit_forwards_to_allocattor)
     sut.commit();
 }
 
+// ---------------------------------------------------------------------------------------------------------------------
+
+struct scoped_allocator_test_t : Test
+{
+    using allocated_node_t = int_t;
+
+    struct mock_allocation_list_t
+    {
+        MOCK_METHOD(void, push, (allocated_node_t && allocated_node), (noexcept));
+        virtual ~mock_allocation_list_t() = default;
+    };
+    StrictMock<mock_allocation_list_t> mock_allocation_list;
+
+    struct allocation_list_t
+    {
+        auto push(allocated_node_t&& allocated_node) noexcept -> void { return mock->push(std::move(allocated_node)); }
+
+        mock_allocation_list_t* mock = nullptr;
+    };
+
+    struct mock_node_factory_t
+    {
+        MOCK_METHOD(allocated_node_t, call, (std::size_t, std::align_val_t));
+        virtual ~mock_node_factory_t() = default;
+    };
+    StrictMock<mock_node_factory_t> mock_node_factory;
+
+    struct node_factory_t
+    {
+        auto operator()(std::size_t size, std::align_val_t align_val) -> allocated_node_t
+        {
+            return mock->call(size, align_val);
+        }
+
+        mock_node_factory_t* mock = nullptr;
+    };
+
+    struct policy_t;
+    using sut_t = allocator_t<policy_t>;
+
+    struct reservation_t
+    {
+        sut_t* allocator;
+        allocated_node_t allocated_node;
+    };
+
+    struct policy_t
+    {
+        using allocation_list_t = allocation_list_t;
+        using allocated_node_t = allocated_node_t;
+        using node_factory_t = node_factory_t;
+        using reservation_t = reservation_t;
+    };
+
+    sut_t sut{node_factory_t{&mock_node_factory}, allocation_list_t{&mock_allocation_list}};
+
+    allocated_node_t const expected_allocated_node = 3;
+};
+
+TEST_F(scoped_allocator_test_t, reserve_forwards_to_node_factory)
+{
+    auto const expected_size = std::size_t{128};
+    auto const expected_align_val = std::align_val_t{16};
+    EXPECT_CALL(mock_node_factory, call(expected_size, expected_align_val)).WillOnce(Return(expected_allocated_node));
+
+    auto const reservation = sut.reserve(expected_size, expected_align_val);
+
+    ASSERT_EQ(&sut, reservation.allocator);
+    ASSERT_EQ(expected_allocated_node, reservation.allocated_node);
+}
+
+TEST_F(scoped_allocator_test_t, commit_pushes_onto_allocation_list)
+{
+    EXPECT_CALL(mock_allocation_list, push(Eq(expected_allocated_node)));
+    sut.commit(expected_allocated_node);
+}
+
 } // namespace
 } // namespace dink::scoped
