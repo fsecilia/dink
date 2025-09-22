@@ -54,6 +54,12 @@ public:
 
     auto threshold() const noexcept -> std::size_t { return small_object_allocator_.max_allocation_size(); }
 
+    /*!
+        Reserves an allocation, delegating small requests to the small object allocator and large requests to the large
+        object allocator. The threshold is the reported max_allocation_size() from the small allocator.
+
+        \pre align_val is a nonzero power of two
+    */
     auto reserve(std::size_t size, std::align_val_t align_val) -> reservation_t
     {
         auto const total_allocation_size = size + static_cast<std::size_t>(align_val) - 1;
