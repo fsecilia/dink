@@ -3,7 +3,7 @@
     Copyright (C) 2025 Frank Secilia
 */
 
-#include "allocation_list.hpp"
+#include "intrusive_list.hpp"
 #include <dink/test.hpp>
 
 namespace dink {
@@ -64,7 +64,7 @@ TEST_F(node_deleter_test_t, three_nodes)
 
 // ---------------------------------------------------------------------------------------------------------------------
 
-struct allocation_list_test_t : Test
+struct intrusive_list_test_t : Test
 {
     struct node_t
     {
@@ -90,18 +90,18 @@ struct allocation_list_test_t : Test
         mock_node_deleter_t* mock = nullptr;
     };
 
-    using sut_t = allocation_list_t<node_t, node_deleter_t>;
+    using sut_t = intrusive_list_t<node_t, node_deleter_t>;
     using allocated_node_t = sut_t::allocated_node_t;
 };
 
 // ---------------------------------------------------------------------------------------------------------------------
 
-struct allocation_list_test_empty_t : allocation_list_test_t
+struct intrusive_list_test_empty_t : intrusive_list_test_t
 {
     sut_t sut{};
 };
 
-TEST_F(allocation_list_test_empty_t, push)
+TEST_F(intrusive_list_test_empty_t, push)
 {
     sut.push(allocated_node_t{&nodes[0], node_deleter_t{&mock_node_deleter}});
 
@@ -112,26 +112,26 @@ TEST_F(allocation_list_test_empty_t, push)
 
 // ---------------------------------------------------------------------------------------------------------------------
 
-struct allocation_list_test_populated_t : allocation_list_test_t
+struct intrusive_list_test_populated_t : intrusive_list_test_t
 {
     sut_t sut{allocated_node_t{&nodes[0], node_deleter_t{&mock_node_deleter}}};
 };
 
-TEST_F(allocation_list_test_populated_t, back)
+TEST_F(intrusive_list_test_populated_t, back)
 {
     ASSERT_EQ(&nodes[0], &sut.back());
 
     EXPECT_CALL(mock_node_deleter, call(&nodes[0]));
 }
 
-TEST_F(allocation_list_test_populated_t, back_const)
+TEST_F(intrusive_list_test_populated_t, back_const)
 {
     ASSERT_EQ(&nodes[0], &static_cast<sut_t const&>(sut).back());
 
     EXPECT_CALL(mock_node_deleter, call(&nodes[0]));
 }
 
-TEST_F(allocation_list_test_populated_t, push)
+TEST_F(intrusive_list_test_populated_t, push)
 {
     sut.push(allocated_node_t{&nodes[1], node_deleter_t{&mock_node_deleter}});
 

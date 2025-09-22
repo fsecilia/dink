@@ -14,8 +14,8 @@ list(APPEND dink_library_files
     lib.hpp
     lifetime.hpp
     lifetime_registry.hpp
+    object_repository/intrusive_list.hpp
     object_repository/memory/alignment.hpp
-    object_repository/memory/allocation_list.hpp
     object_repository/memory/allocators/allocators.hpp
     object_repository/memory/allocators/heap.hpp
     object_repository/memory/allocators/page.hpp
@@ -31,8 +31,8 @@ list(APPEND dink_unit_test_files
     arg_test.cpp
     dink_test.cpp
     lifetime_registry_test.cpp
+    object_repository/intrusive_list_test.cpp
     object_repository/memory/alignment_test.cpp
-    object_repository/memory/allocation_list_test.cpp
     object_repository/memory/allocators/heap_test.cpp
     object_repository/memory/allocators/page_test.cpp
     object_repository/memory/allocators/paged_test.cpp

@@ -34,9 +34,9 @@ struct node_deleter_t
     [[no_unique_address]] allocation_deleter_t allocation_deleter;
 };
 
-//! append-only, node-based, intrusive list of owned allocations
+//! append-only, intrusive list of owned nodes
 template <typename node_t, typename node_deleter_t>
-class allocation_list_t
+class intrusive_list_t
 {
 public:
     using allocated_node_t = std::unique_ptr<node_t, node_deleter_t>;
@@ -54,11 +54,11 @@ public:
         return *tail_;
     }
 
-    auto back() noexcept -> node_t& { return const_cast<node_t&>(static_cast<allocation_list_t const&>(*this).back()); }
+    auto back() noexcept -> node_t& { return const_cast<node_t&>(static_cast<intrusive_list_t const&>(*this).back()); }
 
-    explicit allocation_list_t(allocated_node_t&& tail) noexcept : tail_{std::move(tail)} {}
+    explicit intrusive_list_t(allocated_node_t&& tail) noexcept : tail_{std::move(tail)} {}
 
-    allocation_list_t() = default;
+    intrusive_list_t() = default;
 
 private:
     allocated_node_t tail_{nullptr, node_deleter_t{}};
