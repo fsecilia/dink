@@ -179,7 +179,7 @@ TEST_F(paged_allocator_reservation_test_t, allocation_returns_page_reservation_a
     ASSERT_EQ(expected_allocation, actual_allocation);
 }
 
-TEST_F(paged_allocator_reservation_test_t, commit_forwards_to_allocation_and_page_reservation)
+TEST_F(paged_allocator_reservation_test_t, commit_forwards_to_allocator_and_page_reservation)
 {
     EXPECT_CALL(mock_allocator, commit(Eq(expected_allocated_node)));
     EXPECT_CALL(mock_page_reservation, commit());
