@@ -21,6 +21,7 @@ list(APPEND dink_library_files
     object_repository/memory/allocators/page.hpp
     object_repository/memory/allocators/paged.hpp
     object_repository/memory/allocators/scoped.hpp
+    object_repository/memory/allocators/thresholding.hpp
     object_repository/memory/construct_in_allocation.hpp
     object_repository/memory/os_page_size_provider.hpp
     version.hpp
@@ -36,6 +37,7 @@ list(APPEND dink_unit_test_files
     object_repository/memory/allocators/page_test.cpp
     object_repository/memory/allocators/paged_test.cpp
     object_repository/memory/allocators/scoped_test.cpp
+    object_repository/memory/allocators/thresholding_test.cpp
     object_repository/memory/construct_in_allocation_test.cpp
     object_repository/memory/os_page_size_provider_test.cpp
     version_test.cpp
