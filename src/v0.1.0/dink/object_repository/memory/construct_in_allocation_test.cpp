@@ -5,7 +5,6 @@
 
 #include "construct_in_allocation.hpp"
 #include <dink/test.hpp>
-
 #include <stdexcept>
 #include <string>
 
