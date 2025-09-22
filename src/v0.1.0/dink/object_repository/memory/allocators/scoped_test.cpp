@@ -62,9 +62,9 @@ struct scoped_node_factory_test_t : Test
 
     static inline constexpr auto const requested_allocation_size = std::size_t{2048};
     static inline constexpr auto const requested_allocation_align_val = std::align_val_t{512};
-    static inline constexpr auto const allocation_size
+    static inline constexpr auto const expected_allocation_size
         = requested_allocation_size + sizeof(node_t) + static_cast<std::size_t>(requested_allocation_align_val) - 1;
-    std::array<std::byte, allocation_size> allocation{};
+    std::array<std::byte, expected_allocation_size> allocation{};
 
     struct policy_t
     {
@@ -81,7 +81,7 @@ TEST_F(scoped_node_factory_test_t, construction_succeeds)
 {
     auto const expected_allocation_deleter_id = allocation_deleter_t::default_id + 1;
     auto const expected_allocation_value = std::data(allocation);
-    EXPECT_CALL(mock_node_allocator, allocate(allocation_size))
+    EXPECT_CALL(mock_node_allocator, allocate(expected_allocation_size))
         .WillOnce(Return(
             ByMove(allocation_t{expected_allocation_value, allocation_deleter_t{expected_allocation_deleter_id}})
         ));
@@ -99,13 +99,13 @@ TEST_F(scoped_node_factory_test_t, construction_succeeds)
 
 TEST_F(scoped_node_factory_test_t, construction_fails_when_allocation_throws)
 {
-    EXPECT_CALL(mock_node_allocator, allocate(allocation_size)).WillOnce(Throw(std::bad_alloc{}));
+    EXPECT_CALL(mock_node_allocator, allocate(expected_allocation_size)).WillOnce(Throw(std::bad_alloc{}));
     EXPECT_THROW((void)sut(requested_allocation_size, requested_allocation_align_val), std::bad_alloc);
 }
 
 TEST_F(scoped_node_factory_test_t, construction_fails_when_ctor_throws)
 {
-    EXPECT_CALL(mock_node_allocator, allocate(allocation_size))
+    EXPECT_CALL(mock_node_allocator, allocate(expected_allocation_size))
         .WillOnce(Return(ByMove(allocation_t{std::data(allocation), allocation_deleter_t{}})));
 
     node_t::throw_exception = true;
