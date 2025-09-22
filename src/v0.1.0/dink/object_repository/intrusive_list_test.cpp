@@ -30,8 +30,8 @@ struct node_deleter_test_t : Test
         mock_allocation_deleter_t* mock = nullptr;
     };
 
-    using sut_t = node_deleter_t<node_t, allocation_deleter_t>;
-    sut_t sut{allocation_deleter_t{&mock_allocation_deleter}};
+    using sut_t = allocated_node_deleter_t<node_t, allocation_deleter_t>;
+    sut_t sut{{{}, allocation_deleter_t{&mock_allocation_deleter}}};
 
     InSequence seq; // all tests here are ordered
 };
