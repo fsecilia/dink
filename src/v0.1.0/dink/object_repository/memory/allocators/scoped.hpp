@@ -39,7 +39,7 @@ public:
         auto const alignment = static_cast<std::size_t>(align_val);
         auto allocation = node_allocator_.allocate(size + sizeof(node_t) + alignment - 1);
 
-        // lay out node and then manually aligned request
+        // lay out node followed by manually aligned request
         auto const node_address = reinterpret_cast<std::byte*>(std::to_address(allocation));
         auto const aligned_allocation = reinterpret_cast<void*>(
             (reinterpret_cast<uintptr_t>(node_address) + sizeof(node_t) + alignment - 1) & -alignment
