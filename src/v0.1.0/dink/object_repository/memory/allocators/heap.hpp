@@ -37,7 +37,10 @@ public:
 
     /*!
         allocates from heap using std::aligned_alloc
-
+    
+        std::aligned_alloc has fairly strict preconditions. The requested alignment must be a nonzero power of two and the
+        requested size must be a multiple of the alignment. They are reflected here.
+        
         \pre align_val is nonzero power of two
         \pre size is multiple of align_val
         \returns unique_ptr with stateless deleter
@@ -47,7 +50,8 @@ public:
         std::size_t size, std::align_val_t align_val, allocation_deleter_t allocation_deleter = {}
     ) const -> allocation_t
     {
-        assert(is_valid_aligned_request(size, align_val));
+        assert(is_valid_alignment(align_val));
+        assert(!(size & (static_cast<std::size_t>(align_val) - 1))); // size is multiple of align val
 
         auto result = allocation_t{
             api_.aligned_alloc(static_cast<std::size_t>(align_val), size), std::move(allocation_deleter)
