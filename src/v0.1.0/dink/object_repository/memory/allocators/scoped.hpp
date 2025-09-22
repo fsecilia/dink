@@ -57,4 +57,28 @@ private:
     node_allocator_t node_allocator_;
 };
 
+/*!
+    command to commit scoped allocation after reserving it
+
+    This type is the \ref reservation for the scoped allocator.
+*/
+template <typename policy_t>
+class reservation_t
+{
+public:
+    using allocated_node_t = policy_t::allocated_node_t;
+    using allocator_t = policy_t::allocator_t;
+
+    auto allocation() const noexcept -> void* { return allocated_node_->allocation; }
+    auto commit() noexcept -> void { allocator_->commit(std::move(allocated_node_)); }
+
+    reservation_t(allocator_t& allocator, allocated_node_t allocated_node) noexcept
+        : allocator_{&allocator}, allocated_node_{std::move(allocated_node)}
+    {}
+
+private:
+    allocator_t* allocator_;
+    allocated_node_t allocated_node_;
+};
+
 } // namespace dink::scoped

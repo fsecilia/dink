@@ -113,5 +113,56 @@ TEST_F(scoped_node_factory_test_t, construction_fails_when_ctor_throws)
     node_t::throw_exception = false;
 }
 
+// ---------------------------------------------------------------------------------------------------------------------
+
+struct scoped_allocator_reservation_test_t : Test
+{
+    void* const expected_allocation = this;
+
+    struct node_t
+    {
+        void* allocation;
+    };
+    node_t expected_node{expected_allocation};
+
+    using allocated_node_t = node_t*;
+    allocated_node_t expected_allocated_node = &expected_node;
+
+    struct mock_allocator_t
+    {
+        MOCK_METHOD(void, commit, (allocated_node_t&&), (noexcept));
+        virtual ~mock_allocator_t() = default;
+    };
+    StrictMock<mock_allocator_t> mock_allocator;
+
+    struct allocator_t
+    {
+        auto commit(allocated_node_t&& allocated_node) noexcept -> void { mock->commit(std::move(allocated_node)); }
+        mock_allocator_t* mock = nullptr;
+    };
+    allocator_t allocator{&mock_allocator};
+
+    struct policy_t
+    {
+        using allocated_node_t = node_t*;
+        using allocator_t = allocator_t;
+    };
+    using sut_t = reservation_t<policy_t>;
+    sut_t sut{allocator, expected_allocated_node};
+};
+
+TEST_F(scoped_allocator_reservation_test_t, allocation_returns_allocation_from_allocated_node)
+{
+    auto actual_allocation = sut.allocation();
+
+    ASSERT_EQ(expected_allocation, actual_allocation);
+}
+
+TEST_F(scoped_allocator_reservation_test_t, commit_forwards_to_allocattor)
+{
+    EXPECT_CALL(mock_allocator, commit(Eq(expected_allocated_node)));
+    sut.commit();
+}
+
 } // namespace
 } // namespace dink::scoped
