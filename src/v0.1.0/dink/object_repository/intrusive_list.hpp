@@ -57,14 +57,14 @@ public:
 
     auto back() noexcept -> node_t& { return const_cast<node_t&>(static_cast<intrusive_list_t const&>(*this).back()); }
 
-    explicit intrusive_list_t(node_deleter_t node_deleter = {}) noexcept
+    explicit intrusive_list_t(node_deleter_t node_deleter) noexcept
         : tail_{nullptr, chained_node_deleter_t{std::move(node_deleter)}}
     {}
 
 private:
     using chained_node_deleter_t = chained_node_deleter_t<node_t, node_deleter_t>;
     using chained_node_t = std::unique_ptr<node_t, chained_node_deleter_t>;
-    chained_node_t tail_{nullptr, chained_node_deleter_t{}};
+    chained_node_t tail_;
 };
 
 } // namespace dink

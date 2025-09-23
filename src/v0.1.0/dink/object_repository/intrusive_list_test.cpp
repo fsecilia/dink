@@ -88,7 +88,9 @@ struct intrusive_list_test_t : Test
             mock->call(node);
         }
 
-        mock_node_deleter_t* mock = nullptr;
+        mock_node_deleter_t* mock;
+
+        node_deleter_t(mock_node_deleter_t* mock = nullptr) : mock{mock} {}
     };
 
     using sut_t = intrusive_list_t<node_t, node_deleter_t>;
@@ -99,7 +101,7 @@ struct intrusive_list_test_t : Test
 
 struct intrusive_list_test_empty_t : intrusive_list_test_t
 {
-    sut_t sut{};
+    sut_t sut{node_deleter_t{&mock_node_deleter}};
 };
 
 TEST_F(intrusive_list_test_empty_t, push_adds_initial_node_which_becomes_new_back)
@@ -115,7 +117,7 @@ TEST_F(intrusive_list_test_empty_t, push_adds_initial_node_which_becomes_new_bac
 
 struct intrusive_list_test_populated_t : intrusive_list_test_t
 {
-    sut_t sut{};
+    sut_t sut{node_deleter_t{&mock_node_deleter}};
 
     intrusive_list_test_populated_t() noexcept
     {
