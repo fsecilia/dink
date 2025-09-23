@@ -42,6 +42,7 @@ list(APPEND dink_unit_test_files
     object_repository/memory/construct_in_allocation_test.cpp
     object_repository/memory/deleters_test.cpp
     object_repository/memory/os_page_size_provider_test.cpp
+    object_repository/poc.cpp
     version_test.cpp
 )
 
