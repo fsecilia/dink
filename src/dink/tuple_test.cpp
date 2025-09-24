@@ -356,6 +356,49 @@ static_assert(index_of_v<t<v2, v1, v0>, v0> == 2);
 static_assert(index_of_v<t<v2, v1, v0>, v1> == 1);
 static_assert(index_of_v<t<v2, v1, v0>, v2> == 0);
 
+// ---------------------------------------------------------------------------------------------------------------------
+
+static_assert(std::is_same_v<unique_t<t<>>, t<>>);
+static_assert(std::is_same_v<unique_t<t<v0>>, t<v0>>);
+static_assert(std::is_same_v<unique_t<t<v1>>, t<v1>>);
+static_assert(std::is_same_v<unique_t<t<v2>>, t<v2>>);
+static_assert(std::is_same_v<unique_t<t<v0, v0>>, t<v0>>);
+static_assert(std::is_same_v<unique_t<t<v0, v1>>, t<v0, v1>>);
+static_assert(std::is_same_v<unique_t<t<v0, v2>>, t<v0, v2>>);
+static_assert(std::is_same_v<unique_t<t<v1, v0>>, t<v1, v0>>);
+static_assert(std::is_same_v<unique_t<t<v1, v1>>, t<v1>>);
+static_assert(std::is_same_v<unique_t<t<v1, v2>>, t<v1, v2>>);
+static_assert(std::is_same_v<unique_t<t<v2, v0>>, t<v2, v0>>);
+static_assert(std::is_same_v<unique_t<t<v2, v1>>, t<v2, v1>>);
+static_assert(std::is_same_v<unique_t<t<v2, v2>>, t<v2>>);
+static_assert(std::is_same_v<unique_t<t<v0, v0, v0>>, t<v0>>);
+static_assert(std::is_same_v<unique_t<t<v0, v0, v1>>, t<v0, v1>>);
+static_assert(std::is_same_v<unique_t<t<v0, v0, v2>>, t<v0, v2>>);
+static_assert(std::is_same_v<unique_t<t<v0, v1, v0>>, t<v0, v1>>);
+static_assert(std::is_same_v<unique_t<t<v0, v1, v1>>, t<v0, v1>>);
+static_assert(std::is_same_v<unique_t<t<v0, v1, v2>>, t<v0, v1, v2>>);
+static_assert(std::is_same_v<unique_t<t<v0, v2, v0>>, t<v0, v2>>);
+static_assert(std::is_same_v<unique_t<t<v0, v2, v1>>, t<v0, v2, v1>>);
+static_assert(std::is_same_v<unique_t<t<v0, v2, v2>>, t<v0, v2>>);
+static_assert(std::is_same_v<unique_t<t<v1, v0, v0>>, t<v1, v0>>);
+static_assert(std::is_same_v<unique_t<t<v1, v0, v1>>, t<v1, v0>>);
+static_assert(std::is_same_v<unique_t<t<v1, v0, v2>>, t<v1, v0, v2>>);
+static_assert(std::is_same_v<unique_t<t<v1, v1, v0>>, t<v1, v0>>);
+static_assert(std::is_same_v<unique_t<t<v1, v1, v1>>, t<v1>>);
+static_assert(std::is_same_v<unique_t<t<v1, v1, v2>>, t<v1, v2>>);
+static_assert(std::is_same_v<unique_t<t<v1, v2, v0>>, t<v1, v2, v0>>);
+static_assert(std::is_same_v<unique_t<t<v1, v2, v1>>, t<v1, v2>>);
+static_assert(std::is_same_v<unique_t<t<v1, v2, v2>>, t<v1, v2>>);
+static_assert(std::is_same_v<unique_t<t<v2, v0, v0>>, t<v2, v0>>);
+static_assert(std::is_same_v<unique_t<t<v2, v0, v1>>, t<v2, v0, v1>>);
+static_assert(std::is_same_v<unique_t<t<v2, v0, v2>>, t<v2, v0>>);
+static_assert(std::is_same_v<unique_t<t<v2, v1, v0>>, t<v2, v1, v0>>);
+static_assert(std::is_same_v<unique_t<t<v2, v1, v1>>, t<v2, v1>>);
+static_assert(std::is_same_v<unique_t<t<v2, v1, v2>>, t<v2, v1>>);
+static_assert(std::is_same_v<unique_t<t<v2, v2, v0>>, t<v2, v0>>);
+static_assert(std::is_same_v<unique_t<t<v2, v2, v1>>, t<v2, v1>>);
+static_assert(std::is_same_v<unique_t<t<v2, v2, v2>>, t<v2>>);
+
 // clang-format on
 
 } // namespace

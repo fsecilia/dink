@@ -81,4 +81,28 @@ struct index_of_f<std::tuple<>, element_t, index>
 template <typename tuple_t, typename element_t>
 inline constexpr auto const index_of_v = index_of_f<tuple_t, element_t, 0>::value;
 
+// ---------------------------------------------------------------------------------------------------------------------
+
+template <typename accumulated_tuple_t, typename remaining_tuple_t>
+struct unique_f;
+
+template <typename accumulated_tuple_t, typename next_element_t, typename... remaining_elements_t>
+struct unique_f<accumulated_tuple_t, std::tuple<next_element_t, remaining_elements_t...>>
+    : unique_f<
+          std::conditional_t<
+              contains_v<accumulated_tuple_t, next_element_t>, accumulated_tuple_t,
+              append_t<accumulated_tuple_t, next_element_t>>,
+          std::tuple<remaining_elements_t...>>
+{};
+
+template <typename accumulated_tuple_t>
+struct unique_f<accumulated_tuple_t, std::tuple<>>
+{
+    using type = accumulated_tuple_t;
+};
+
+//! produces new tuple containing only first instance of each element; order is preserved
+template <typename tuple_t>
+using unique_t = unique_f<std::tuple<>, tuple_t>::type;
+
 } // namespace dink::tuple
