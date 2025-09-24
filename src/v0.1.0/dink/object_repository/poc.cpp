@@ -13,6 +13,15 @@
 namespace dink {
 // namespace {
 
+//! ensures capacity is available for one call to push or emplace; maintains amortized O(1) growth
+template <typename container_t>
+auto ensure_capacity_for_push(container_t& container) -> void
+{
+    auto capacity = container.capacity();
+    if (container.size() < capacity) return;
+    container.reserve(capacity * 2);
+}
+
 struct os_page_size_provider_t
 {
     auto operator()() const noexcept -> std::size_t { return 4096; }
@@ -29,14 +38,6 @@ public:
     region_t(allocation_t&& allocation, std::size_t size) noexcept
         : end_{reinterpret_cast<std::byte*>(std::to_address(allocation)) + size}, allocation_{std::move(allocation)}
     {}
-
-#if 0
-    region_t(region_t const&) = delete;
-    auto operator=(region_t const&) -> region_t& = delete;
-
-    region_t(region_t&&) = default;
-    auto operator=(region_t&&) -> region_t& = default;
-#endif
 
 private:
     std::byte* end_;
@@ -218,6 +219,8 @@ public:
         auto page_reservation = pages_.back().reserve(size, align_val);
         if (page_reservation.allocation()) { return reservation_t{*this, std::move(page_reservation), std::nullopt}; }
 
+        ensure_capacity_for_push(pages_);
+
         auto new_page = create_page();
         page_reservation = new_page.reserve(size, align_val);
         assert(page_reservation.allocation());
@@ -226,10 +229,11 @@ public:
 
     auto commit(std::optional<page_t>&& new_page) noexcept -> void
     {
+        assert(pages_.size() < pages_.capacity());
         if (new_page) pages_.emplace_back(*std::move(new_page));
     }
 
-    explicit paged_allocator_t(page_factory_t create_page, page_size_config_t page_size_config) noexcept
+    explicit paged_allocator_t(page_factory_t create_page, page_size_config_t page_size_config)
         : create_page_{std::move(create_page)}, page_size_config_{std::move(page_size_config)}
     {
         pages_.emplace_back(this->create_page());
@@ -270,10 +274,15 @@ public:
 
     auto reserve(std::size_t size, std::align_val_t align_val) -> reservation_t
     {
+        ensure_capacity_for_push(allocations_);
         return reservation_t{*this, allocator_.allocate(size, align_val)};
     }
 
-    auto commit(allocation_t&& allocation) noexcept -> void { allocations_.emplace_back(std::move(allocation)); }
+    auto commit(allocation_t&& allocation) noexcept -> void
+    {
+        assert(allocations_.size() < allocations_.capacity());
+        allocations_.emplace_back(std::move(allocation));
+    }
 
     explicit scoped_allocator_t(allocator_t allocator) : allocator_{std::move(allocator)} {}
 
@@ -335,6 +344,42 @@ public:
 private:
     small_object_allocator_t small_object_allocator_;
     large_object_allocator_t large_object_allocator_;
+};
+
+class destruction_list_element_t
+{
+public:
+    template <typename instance_t>
+    explicit destruction_list_element_t(instance_t* instance) noexcept
+        : instance_{instance, &instance_dtor<instance_t>()}
+    {}
+
+private:
+    using deleter_t = void (*)(void*) noexcept;
+    std::unique_ptr<void, deleter_t> instance_;
+
+    template <typename instance_t>
+    static auto instance_dtor(void* instance) noexcept -> void
+    {
+        assert(instance);
+        std::destroy_at(reinterpret_cast<instance_t*>(instance));
+    }
+};
+
+template <typename element_t = destruction_list_element_t, typename elements_t = std::vector<element_t>>
+class destruction_list_t
+{
+public:
+    auto reserve() -> void { ensure_capacity_for_push(elements_); }
+
+    template <typename instance_t>
+    auto commit(instance_t* instance)
+    {
+        elements_.emplace_back(element_t{instance});
+    }
+
+private:
+    elements_t elements_;
 };
 
 TEST(object_repo_poc, run)
