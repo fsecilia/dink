@@ -11,10 +11,12 @@ list(APPEND dink_library_files
     dink.hpp
     exceptions.hpp
     lib.hpp
+    tuple.hpp
     version.hpp
 )
 
 list(APPEND dink_unit_test_files
+    tuple_test.cpp
     version_test.cpp
 )
 
