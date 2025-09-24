@@ -47,4 +47,10 @@ struct append_f<std::tuple<elements_t...>, element_t>
 template <typename tuple_t, typename element_t>
 using append_t = append_f<tuple_t, element_t>::type;
 
+// ---------------------------------------------------------------------------------------------------------------------
+
+//! appends element to tuple if not already present
+template <typename tuple_t, typename element_t>
+using append_unique_t = std::conditional_t<contains_v<tuple_t, element_t>, tuple_t, append_t<tuple_t, element_t>>;
+
 } // namespace dink::tuple
