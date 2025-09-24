@@ -32,4 +32,19 @@ struct contains_f<std::tuple<elements_t...>, element_t> : std::disjunction<std::
 template <typename tuple_t, typename element_t>
 inline constexpr auto const contains_v = contains_f<tuple_t, element_t>::value;
 
+// ---------------------------------------------------------------------------------------------------------------------
+
+template <typename tuple_t, typename element_t>
+struct append_f;
+
+template <typename element_t, typename... elements_t>
+struct append_f<std::tuple<elements_t...>, element_t>
+{
+    using type = std::tuple<elements_t..., element_t>;
+};
+
+//! appends element to tuple
+template <typename tuple_t, typename element_t>
+using append_t = append_f<tuple_t, element_t>::type;
+
 } // namespace dink::tuple
