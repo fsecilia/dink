@@ -6,20 +6,11 @@
 #pragma once
 
 #include <dink/lib.hpp>
+#include <dink/meta.hpp>
 #include <tuple>
 #include <type_traits>
 
 namespace dink::tuple {
-
-namespace detail {
-
-// constexpr false, but dependent on a template parameter to delay evaluation
-template <typename>
-inline constexpr auto const dependent_false_v = false;
-
-} // namespace detail
-
-// ---------------------------------------------------------------------------------------------------------------------
 
 template <typename tuple_t, typename element_t>
 struct contains_f;
@@ -74,7 +65,7 @@ struct index_of_f<std::tuple<element_t, remaining_elements_t...>, element_t, ind
 template <typename element_t, std::size_t index>
 struct index_of_f<std::tuple<>, element_t, index>
 {
-    static_assert(detail::dependent_false_v<element_t>, "tuple element not found");
+    static_assert(meta::dependent_false_v<element_t>, "tuple element not found");
 };
 
 //! index of element type in tuple_t if present; static asserts if not
