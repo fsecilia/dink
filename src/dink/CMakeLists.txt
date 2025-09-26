@@ -21,8 +21,8 @@ list(APPEND dink_unit_test_files
     version_test.cpp
 )
 
-if (NOT DEFINED dink_max_deduced_params)
-    set(dink_max_deduced_params 10 CACHE STRING "largest number of arguments dink will try to deduce")
+if (NOT DEFINED dink_max_deduced_arity)
+    set(dink_max_deduced_arity 10 CACHE STRING "max arity dink will try to deduce when resolving constructor args")
 endif()
 
 set(config_generated_root "${CMAKE_BINARY_DIR}/generated")
