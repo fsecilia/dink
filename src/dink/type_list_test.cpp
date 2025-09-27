@@ -3,15 +3,15 @@
     Copyright (C) 2025 Frank Secilia
 */
 
-#include "type_list.hpp"
 #include <dink/test.hpp>
+#include <dink/type_list.hpp>
 
-namespace dink::tuple {
+namespace dink::type_list {
 namespace {
 
 // shorthand for tests
 template <typename... elements_t>
-using t = std::tuple<elements_t...>;
+using t = type_list_t<elements_t...>;
 
 template <int id>
 struct unique_value_t
@@ -402,4 +402,4 @@ static_assert(std::is_same_v<unique_t<t<v2, v2, v2>>, t<v2>>);
 // clang-format on
 
 } // namespace
-} // namespace dink::tuple
+} // namespace dink::type_list
