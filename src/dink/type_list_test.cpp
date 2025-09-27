@@ -3,8 +3,8 @@
     Copyright (C) 2025 Frank Secilia
 */
 
+#include "type_list.hpp"
 #include <dink/test.hpp>
-#include <dink/tuple.hpp>
 
 namespace dink::tuple {
 namespace {
