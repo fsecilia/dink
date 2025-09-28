@@ -8,6 +8,7 @@ set(dink_minor 1)
 set(dink_patch 0)
 
 list(APPEND dink_library_files
+    bindings.hpp
     ctor.hpp
     dink.hpp
     exceptions.hpp
@@ -18,6 +19,7 @@ list(APPEND dink_library_files
 )
 
 list(APPEND dink_unit_test_files
+    bindings_test.cpp
     ctor_test.cpp
     type_list_test.cpp
     version_test.cpp
