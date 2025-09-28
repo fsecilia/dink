@@ -23,7 +23,151 @@ using v2 = unique_value_t<2>;
 
 // clang-format off
 
-// exhaustive test of all combinations of 0, 1, 2 of lengths up to 3
+// exhaustive tests of all combinations of 0, 1, 2 of lengths up to 3
+
+static_assert(std::is_same_v<type_list_t<>, cat_t<type_list_t<>, type_list_t<>>>);
+
+static_assert(std::is_same_v<type_list_t<v0>, cat_t<type_list_t<>, type_list_t<v0>>>);
+static_assert(std::is_same_v<type_list_t<v1>, cat_t<type_list_t<>, type_list_t<v1>>>);
+static_assert(std::is_same_v<type_list_t<v2>, cat_t<type_list_t<>, type_list_t<v2>>>);
+
+static_assert(std::is_same_v<type_list_t<v0, v0>, cat_t<type_list_t<>, type_list_t<v0, v0>>>);
+static_assert(std::is_same_v<type_list_t<v0, v1>, cat_t<type_list_t<>, type_list_t<v0, v1>>>);
+static_assert(std::is_same_v<type_list_t<v0, v2>, cat_t<type_list_t<>, type_list_t<v0, v2>>>);
+static_assert(std::is_same_v<type_list_t<v1, v0>, cat_t<type_list_t<>, type_list_t<v1, v0>>>);
+static_assert(std::is_same_v<type_list_t<v1, v1>, cat_t<type_list_t<>, type_list_t<v1, v1>>>);
+static_assert(std::is_same_v<type_list_t<v1, v2>, cat_t<type_list_t<>, type_list_t<v1, v2>>>);
+static_assert(std::is_same_v<type_list_t<v2, v0>, cat_t<type_list_t<>, type_list_t<v2, v0>>>);
+static_assert(std::is_same_v<type_list_t<v2, v1>, cat_t<type_list_t<>, type_list_t<v2, v1>>>);
+static_assert(std::is_same_v<type_list_t<v2, v2>, cat_t<type_list_t<>, type_list_t<v2, v2>>>);
+
+static_assert(std::is_same_v<type_list_t<v0, v0, v0>, cat_t<type_list_t<>, type_list_t<v0, v0, v0>>>);
+static_assert(std::is_same_v<type_list_t<v0, v0, v1>, cat_t<type_list_t<>, type_list_t<v0, v0, v1>>>);
+static_assert(std::is_same_v<type_list_t<v0, v0, v2>, cat_t<type_list_t<>, type_list_t<v0, v0, v2>>>);
+static_assert(std::is_same_v<type_list_t<v0, v1, v0>, cat_t<type_list_t<>, type_list_t<v0, v1, v0>>>);
+static_assert(std::is_same_v<type_list_t<v0, v1, v1>, cat_t<type_list_t<>, type_list_t<v0, v1, v1>>>);
+static_assert(std::is_same_v<type_list_t<v0, v1, v2>, cat_t<type_list_t<>, type_list_t<v0, v1, v2>>>);
+static_assert(std::is_same_v<type_list_t<v0, v2, v0>, cat_t<type_list_t<>, type_list_t<v0, v2, v0>>>);
+static_assert(std::is_same_v<type_list_t<v0, v2, v1>, cat_t<type_list_t<>, type_list_t<v0, v2, v1>>>);
+static_assert(std::is_same_v<type_list_t<v0, v2, v2>, cat_t<type_list_t<>, type_list_t<v0, v2, v2>>>);
+static_assert(std::is_same_v<type_list_t<v1, v0, v0>, cat_t<type_list_t<>, type_list_t<v1, v0, v0>>>);
+static_assert(std::is_same_v<type_list_t<v1, v0, v1>, cat_t<type_list_t<>, type_list_t<v1, v0, v1>>>);
+static_assert(std::is_same_v<type_list_t<v1, v0, v2>, cat_t<type_list_t<>, type_list_t<v1, v0, v2>>>);
+static_assert(std::is_same_v<type_list_t<v1, v1, v0>, cat_t<type_list_t<>, type_list_t<v1, v1, v0>>>);
+static_assert(std::is_same_v<type_list_t<v1, v1, v1>, cat_t<type_list_t<>, type_list_t<v1, v1, v1>>>);
+static_assert(std::is_same_v<type_list_t<v1, v1, v2>, cat_t<type_list_t<>, type_list_t<v1, v1, v2>>>);
+static_assert(std::is_same_v<type_list_t<v1, v2, v0>, cat_t<type_list_t<>, type_list_t<v1, v2, v0>>>);
+static_assert(std::is_same_v<type_list_t<v1, v2, v1>, cat_t<type_list_t<>, type_list_t<v1, v2, v1>>>);
+static_assert(std::is_same_v<type_list_t<v1, v2, v2>, cat_t<type_list_t<>, type_list_t<v1, v2, v2>>>);
+static_assert(std::is_same_v<type_list_t<v2, v0, v0>, cat_t<type_list_t<>, type_list_t<v2, v0, v0>>>);
+static_assert(std::is_same_v<type_list_t<v2, v0, v1>, cat_t<type_list_t<>, type_list_t<v2, v0, v1>>>);
+static_assert(std::is_same_v<type_list_t<v2, v0, v2>, cat_t<type_list_t<>, type_list_t<v2, v0, v2>>>);
+static_assert(std::is_same_v<type_list_t<v2, v1, v0>, cat_t<type_list_t<>, type_list_t<v2, v1, v0>>>);
+static_assert(std::is_same_v<type_list_t<v2, v1, v1>, cat_t<type_list_t<>, type_list_t<v2, v1, v1>>>);
+static_assert(std::is_same_v<type_list_t<v2, v1, v2>, cat_t<type_list_t<>, type_list_t<v2, v1, v2>>>);
+static_assert(std::is_same_v<type_list_t<v2, v2, v0>, cat_t<type_list_t<>, type_list_t<v2, v2, v0>>>);
+static_assert(std::is_same_v<type_list_t<v2, v2, v1>, cat_t<type_list_t<>, type_list_t<v2, v2, v1>>>);
+static_assert(std::is_same_v<type_list_t<v2, v2, v2>, cat_t<type_list_t<>, type_list_t<v2, v2, v2>>>);
+
+static_assert(std::is_same_v<type_list_t<v0, v0, v0>, cat_t<type_list_t<v0>, type_list_t<v0, v0>>>);
+static_assert(std::is_same_v<type_list_t<v0, v0, v1>, cat_t<type_list_t<v0>, type_list_t<v0, v1>>>);
+static_assert(std::is_same_v<type_list_t<v0, v0, v2>, cat_t<type_list_t<v0>, type_list_t<v0, v2>>>);
+static_assert(std::is_same_v<type_list_t<v0, v1, v0>, cat_t<type_list_t<v0>, type_list_t<v1, v0>>>);
+static_assert(std::is_same_v<type_list_t<v0, v1, v1>, cat_t<type_list_t<v0>, type_list_t<v1, v1>>>);
+static_assert(std::is_same_v<type_list_t<v0, v1, v2>, cat_t<type_list_t<v0>, type_list_t<v1, v2>>>);
+static_assert(std::is_same_v<type_list_t<v0, v2, v0>, cat_t<type_list_t<v0>, type_list_t<v2, v0>>>);
+static_assert(std::is_same_v<type_list_t<v0, v2, v1>, cat_t<type_list_t<v0>, type_list_t<v2, v1>>>);
+static_assert(std::is_same_v<type_list_t<v0, v2, v2>, cat_t<type_list_t<v0>, type_list_t<v2, v2>>>);
+static_assert(std::is_same_v<type_list_t<v1, v0, v0>, cat_t<type_list_t<v1>, type_list_t<v0, v0>>>);
+static_assert(std::is_same_v<type_list_t<v1, v0, v1>, cat_t<type_list_t<v1>, type_list_t<v0, v1>>>);
+static_assert(std::is_same_v<type_list_t<v1, v0, v2>, cat_t<type_list_t<v1>, type_list_t<v0, v2>>>);
+static_assert(std::is_same_v<type_list_t<v1, v1, v0>, cat_t<type_list_t<v1>, type_list_t<v1, v0>>>);
+static_assert(std::is_same_v<type_list_t<v1, v1, v1>, cat_t<type_list_t<v1>, type_list_t<v1, v1>>>);
+static_assert(std::is_same_v<type_list_t<v1, v1, v2>, cat_t<type_list_t<v1>, type_list_t<v1, v2>>>);
+static_assert(std::is_same_v<type_list_t<v1, v2, v0>, cat_t<type_list_t<v1>, type_list_t<v2, v0>>>);
+static_assert(std::is_same_v<type_list_t<v1, v2, v1>, cat_t<type_list_t<v1>, type_list_t<v2, v1>>>);
+static_assert(std::is_same_v<type_list_t<v1, v2, v2>, cat_t<type_list_t<v1>, type_list_t<v2, v2>>>);
+static_assert(std::is_same_v<type_list_t<v2, v0, v0>, cat_t<type_list_t<v2>, type_list_t<v0, v0>>>);
+static_assert(std::is_same_v<type_list_t<v2, v0, v1>, cat_t<type_list_t<v2>, type_list_t<v0, v1>>>);
+static_assert(std::is_same_v<type_list_t<v2, v0, v2>, cat_t<type_list_t<v2>, type_list_t<v0, v2>>>);
+static_assert(std::is_same_v<type_list_t<v2, v1, v0>, cat_t<type_list_t<v2>, type_list_t<v1, v0>>>);
+static_assert(std::is_same_v<type_list_t<v2, v1, v1>, cat_t<type_list_t<v2>, type_list_t<v1, v1>>>);
+static_assert(std::is_same_v<type_list_t<v2, v1, v2>, cat_t<type_list_t<v2>, type_list_t<v1, v2>>>);
+static_assert(std::is_same_v<type_list_t<v2, v2, v0>, cat_t<type_list_t<v2>, type_list_t<v2, v0>>>);
+static_assert(std::is_same_v<type_list_t<v2, v2, v1>, cat_t<type_list_t<v2>, type_list_t<v2, v1>>>);
+static_assert(std::is_same_v<type_list_t<v2, v2, v2>, cat_t<type_list_t<v2>, type_list_t<v2, v2>>>);
+
+static_assert(std::is_same_v<type_list_t<v0, v0, v0>, cat_t<type_list_t<v0, v0>, type_list_t<v0>>>);
+static_assert(std::is_same_v<type_list_t<v0, v0, v1>, cat_t<type_list_t<v0, v0>, type_list_t<v1>>>);
+static_assert(std::is_same_v<type_list_t<v0, v0, v2>, cat_t<type_list_t<v0, v0>, type_list_t<v2>>>);
+static_assert(std::is_same_v<type_list_t<v0, v1, v0>, cat_t<type_list_t<v0, v1>, type_list_t<v0>>>);
+static_assert(std::is_same_v<type_list_t<v0, v1, v1>, cat_t<type_list_t<v0, v1>, type_list_t<v1>>>);
+static_assert(std::is_same_v<type_list_t<v0, v1, v2>, cat_t<type_list_t<v0, v1>, type_list_t<v2>>>);
+static_assert(std::is_same_v<type_list_t<v0, v2, v0>, cat_t<type_list_t<v0, v2>, type_list_t<v0>>>);
+static_assert(std::is_same_v<type_list_t<v0, v2, v1>, cat_t<type_list_t<v0, v2>, type_list_t<v1>>>);
+static_assert(std::is_same_v<type_list_t<v0, v2, v2>, cat_t<type_list_t<v0, v2>, type_list_t<v2>>>);
+static_assert(std::is_same_v<type_list_t<v1, v0, v0>, cat_t<type_list_t<v1, v0>, type_list_t<v0>>>);
+static_assert(std::is_same_v<type_list_t<v1, v0, v1>, cat_t<type_list_t<v1, v0>, type_list_t<v1>>>);
+static_assert(std::is_same_v<type_list_t<v1, v0, v2>, cat_t<type_list_t<v1, v0>, type_list_t<v2>>>);
+static_assert(std::is_same_v<type_list_t<v1, v1, v0>, cat_t<type_list_t<v1, v1>, type_list_t<v0>>>);
+static_assert(std::is_same_v<type_list_t<v1, v1, v1>, cat_t<type_list_t<v1, v1>, type_list_t<v1>>>);
+static_assert(std::is_same_v<type_list_t<v1, v1, v2>, cat_t<type_list_t<v1, v1>, type_list_t<v2>>>);
+static_assert(std::is_same_v<type_list_t<v1, v2, v0>, cat_t<type_list_t<v1, v2>, type_list_t<v0>>>);
+static_assert(std::is_same_v<type_list_t<v1, v2, v1>, cat_t<type_list_t<v1, v2>, type_list_t<v1>>>);
+static_assert(std::is_same_v<type_list_t<v1, v2, v2>, cat_t<type_list_t<v1, v2>, type_list_t<v2>>>);
+static_assert(std::is_same_v<type_list_t<v2, v0, v0>, cat_t<type_list_t<v2, v0>, type_list_t<v0>>>);
+static_assert(std::is_same_v<type_list_t<v2, v0, v1>, cat_t<type_list_t<v2, v0>, type_list_t<v1>>>);
+static_assert(std::is_same_v<type_list_t<v2, v0, v2>, cat_t<type_list_t<v2, v0>, type_list_t<v2>>>);
+static_assert(std::is_same_v<type_list_t<v2, v1, v0>, cat_t<type_list_t<v2, v1>, type_list_t<v0>>>);
+static_assert(std::is_same_v<type_list_t<v2, v1, v1>, cat_t<type_list_t<v2, v1>, type_list_t<v1>>>);
+static_assert(std::is_same_v<type_list_t<v2, v1, v2>, cat_t<type_list_t<v2, v1>, type_list_t<v2>>>);
+static_assert(std::is_same_v<type_list_t<v2, v2, v0>, cat_t<type_list_t<v2, v2>, type_list_t<v0>>>);
+static_assert(std::is_same_v<type_list_t<v2, v2, v1>, cat_t<type_list_t<v2, v2>, type_list_t<v1>>>);
+static_assert(std::is_same_v<type_list_t<v2, v2, v2>, cat_t<type_list_t<v2, v2>, type_list_t<v2>>>);
+
+static_assert(std::is_same_v<type_list_t<v0, v0, v0>, cat_t<type_list_t<v0, v0, v0>, type_list_t<>>>);
+static_assert(std::is_same_v<type_list_t<v0, v0, v1>, cat_t<type_list_t<v0, v0, v1>, type_list_t<>>>);
+static_assert(std::is_same_v<type_list_t<v0, v0, v2>, cat_t<type_list_t<v0, v0, v2>, type_list_t<>>>);
+static_assert(std::is_same_v<type_list_t<v0, v1, v0>, cat_t<type_list_t<v0, v1, v0>, type_list_t<>>>);
+static_assert(std::is_same_v<type_list_t<v0, v1, v1>, cat_t<type_list_t<v0, v1, v1>, type_list_t<>>>);
+static_assert(std::is_same_v<type_list_t<v0, v1, v2>, cat_t<type_list_t<v0, v1, v2>, type_list_t<>>>);
+static_assert(std::is_same_v<type_list_t<v0, v2, v0>, cat_t<type_list_t<v0, v2, v0>, type_list_t<>>>);
+static_assert(std::is_same_v<type_list_t<v0, v2, v1>, cat_t<type_list_t<v0, v2, v1>, type_list_t<>>>);
+static_assert(std::is_same_v<type_list_t<v0, v2, v2>, cat_t<type_list_t<v0, v2, v2>, type_list_t<>>>);
+static_assert(std::is_same_v<type_list_t<v1, v0, v0>, cat_t<type_list_t<v1, v0, v0>, type_list_t<>>>);
+static_assert(std::is_same_v<type_list_t<v1, v0, v1>, cat_t<type_list_t<v1, v0, v1>, type_list_t<>>>);
+static_assert(std::is_same_v<type_list_t<v1, v0, v2>, cat_t<type_list_t<v1, v0, v2>, type_list_t<>>>);
+static_assert(std::is_same_v<type_list_t<v1, v1, v0>, cat_t<type_list_t<v1, v1, v0>, type_list_t<>>>);
+static_assert(std::is_same_v<type_list_t<v1, v1, v1>, cat_t<type_list_t<v1, v1, v1>, type_list_t<>>>);
+static_assert(std::is_same_v<type_list_t<v1, v1, v2>, cat_t<type_list_t<v1, v1, v2>, type_list_t<>>>);
+static_assert(std::is_same_v<type_list_t<v1, v2, v0>, cat_t<type_list_t<v1, v2, v0>, type_list_t<>>>);
+static_assert(std::is_same_v<type_list_t<v1, v2, v1>, cat_t<type_list_t<v1, v2, v1>, type_list_t<>>>);
+static_assert(std::is_same_v<type_list_t<v1, v2, v2>, cat_t<type_list_t<v1, v2, v2>, type_list_t<>>>);
+static_assert(std::is_same_v<type_list_t<v2, v0, v0>, cat_t<type_list_t<v2, v0, v0>, type_list_t<>>>);
+static_assert(std::is_same_v<type_list_t<v2, v0, v1>, cat_t<type_list_t<v2, v0, v1>, type_list_t<>>>);
+static_assert(std::is_same_v<type_list_t<v2, v0, v2>, cat_t<type_list_t<v2, v0, v2>, type_list_t<>>>);
+static_assert(std::is_same_v<type_list_t<v2, v1, v0>, cat_t<type_list_t<v2, v1, v0>, type_list_t<>>>);
+static_assert(std::is_same_v<type_list_t<v2, v1, v1>, cat_t<type_list_t<v2, v1, v1>, type_list_t<>>>);
+static_assert(std::is_same_v<type_list_t<v2, v1, v2>, cat_t<type_list_t<v2, v1, v2>, type_list_t<>>>);
+static_assert(std::is_same_v<type_list_t<v2, v2, v0>, cat_t<type_list_t<v2, v2, v0>, type_list_t<>>>);
+static_assert(std::is_same_v<type_list_t<v2, v2, v1>, cat_t<type_list_t<v2, v2, v1>, type_list_t<>>>);
+static_assert(std::is_same_v<type_list_t<v2, v2, v2>, cat_t<type_list_t<v2, v2, v2>, type_list_t<>>>);
+
+static_assert(std::is_same_v<type_list_t<v0, v0>, cat_t<type_list_t<v0, v0>, type_list_t<>>>);
+static_assert(std::is_same_v<type_list_t<v0, v1>, cat_t<type_list_t<v0, v1>, type_list_t<>>>);
+static_assert(std::is_same_v<type_list_t<v0, v2>, cat_t<type_list_t<v0, v2>, type_list_t<>>>);
+static_assert(std::is_same_v<type_list_t<v1, v0>, cat_t<type_list_t<v1, v0>, type_list_t<>>>);
+static_assert(std::is_same_v<type_list_t<v1, v1>, cat_t<type_list_t<v1, v1>, type_list_t<>>>);
+static_assert(std::is_same_v<type_list_t<v1, v2>, cat_t<type_list_t<v1, v2>, type_list_t<>>>);
+static_assert(std::is_same_v<type_list_t<v2, v0>, cat_t<type_list_t<v2, v0>, type_list_t<>>>);
+static_assert(std::is_same_v<type_list_t<v2, v1>, cat_t<type_list_t<v2, v1>, type_list_t<>>>);
+static_assert(std::is_same_v<type_list_t<v2, v2>, cat_t<type_list_t<v2, v2>, type_list_t<>>>);
+
+static_assert(std::is_same_v<type_list_t<v0>, cat_t<type_list_t<v0>, type_list_t<>>>);
+static_assert(std::is_same_v<type_list_t<v1>, cat_t<type_list_t<v1>, type_list_t<>>>);
+static_assert(std::is_same_v<type_list_t<v2>, cat_t<type_list_t<v2>, type_list_t<>>>);
+
+// ---------------------------------------------------------------------------------------------------------------------
 
 static_assert(!contains_v<t<>, v0>);
 static_assert(!contains_v<t<>, v1>);
