@@ -9,12 +9,14 @@
 #include <dink/meta.hpp>
 #include <type_traits>
 
-namespace dink::type_list {
+namespace dink {
 
 template <typename... types_t>
 struct type_list_t;
 
 // ---------------------------------------------------------------------------------------------------------------------
+
+namespace type_list {
 
 template <typename type_list_t, typename element_t>
 struct contains_f;
@@ -101,4 +103,5 @@ struct unique_f<accumulated_type_list_t, type_list_t<>>
 template <typename src_t>
 using unique_t = unique_f<type_list_t<>, src_t>::type;
 
-} // namespace dink::type_list
+} // namespace type_list
+} // namespace dink
