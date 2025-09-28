@@ -17,6 +17,8 @@ struct type_list_t;
 
 // ---------------------------------------------------------------------------------------------------------------------
 
+namespace type_list {
+
 template <typename left_t, typename right_t>
 struct cat_f;
 
@@ -31,8 +33,6 @@ template <typename left_t, typename right_t>
 using cat_t = cat_f<left_t, right_t>::type;
 
 // ---------------------------------------------------------------------------------------------------------------------
-
-namespace type_list {
 
 template <typename type_list_t, typename element_t>
 struct contains_f;
