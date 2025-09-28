@@ -154,12 +154,12 @@ struct scoped_t
         /*
             placeholder; this will eventually use a hetero hash table
             
-            the cache is in the container, so this will ask the container for the cached instance
-            if the container finds a cached instance, it returns it
-            if not, the provider is used to create the instance, it is stored in the container, then returned from
+            The cache is in the container, so this will ask the container for the cached instance.
+            If the container finds a cached instance, it returns it.
+            If not, the provider is used to create the instance, which is stored in the container, then returned from
             the container's instance to provided a stable reference.
         */
-        static auto cache = provider.get(container); // placeholder; this will eventually use a hetero hash table
+        static auto cache = provider.get(container);
         return cache;
     }
 };
