@@ -11,6 +11,7 @@
 
 namespace dink {
 
+//! lightweight, compile-time tuple
 template <typename... types_t>
 struct type_list_t;
 
@@ -25,7 +26,7 @@ template <typename element_t, typename... elements_t>
 struct contains_f<type_list_t<elements_t...>, element_t> : std::disjunction<std::is_same<element_t, elements_t>...>
 {};
 
-//! true if type_list_t has an element of type element_t
+//! true if type list has an element of type element_t
 template <typename type_list_t, typename element_t>
 inline constexpr auto const contains_v = contains_f<type_list_t, element_t>::value;
 
@@ -40,13 +41,13 @@ struct append_f<type_list_t<elements_t...>, element_t>
     using type = type_list_t<elements_t..., element_t>;
 };
 
-//! appends element to type_list_t
+//! appends element to type list
 template <typename type_list_t, typename element_t>
 using append_t = append_f<type_list_t, element_t>::type;
 
 // ---------------------------------------------------------------------------------------------------------------------
 
-//! appends element to type_list_t if not already present
+//! conditionally appends element to type list if not already present
 template <typename type_list_t, typename element_t>
 using append_unique_t
     = std::conditional_t<contains_v<type_list_t, element_t>, type_list_t, append_t<type_list_t, element_t>>;
