@@ -4,10 +4,12 @@
 */
 
 #include <dink/test.hpp>
+#include <dink/type_list.hpp>
 #include <functional>
 #include <iostream>
 #include <memory>
 #include <string>
+#include <type_traits>
 #include <utility>
 
 namespace dink {
@@ -111,9 +113,11 @@ struct factory_t
 
 namespace scopes {
 
-template <typename from_t, typename provider_t>
+template <typename from_p, typename provider_t>
 struct transient_t
 {
+    using from_t = from_p;
+
     provider_t provider;
 
     using resolved_t = decltype(std::declval<provider_t>().get(std::declval<container_t&>()));
@@ -121,9 +125,11 @@ struct transient_t
     constexpr auto resolve(container_t& container) const -> resolved_t { return provider.get(container); }
 };
 
-template <typename from_t, typename provider_t>
+template <typename from_p, typename provider_t>
 struct singleton_t
 {
+    using from_t = from_p;
+
     provider_t provider;
 
     using resolved_t = decltype(std::declval<provider_t>().get(std::declval<container_t&>()));
@@ -142,9 +148,11 @@ struct singleton_t
     }
 };
 
-template <typename from_t, typename provider_t>
+template <typename from_p, typename provider_t>
 struct scoped_t
 {
+    using from_t = from_p;
+
     provider_t provider;
 
     using resolved_t = decltype(std::declval<provider_t>().get(std::declval<container_t&>()));
@@ -166,9 +174,11 @@ struct scoped_t
 
 } // namespace scopes
 
-template <typename from_t, typename provider_t>
+template <typename from_p, typename provider_t>
 struct lifetime_binder_t
 {
+    using from_t = from_p;
+
     provider_t provider;
 
     template <template <typename, typename> class lifetime_t>
@@ -184,9 +194,11 @@ struct lifetime_binder_t
     }
 };
 
-template <typename from_t>
+template <typename from_p>
 struct provider_binder_t
 {
+    using from_t = from_p;
+
     template <typename to_t>
     constexpr auto to() const noexcept -> lifetime_binder_t<from_t, providers::type_t<to_t>>
     {
@@ -215,6 +227,26 @@ constexpr auto bind() noexcept -> provider_binder_t<from_t>
 {
     return {};
 }
+
+template <typename bindings_tuple_t>
+struct get_from_types_f;
+
+template <typename... bindings_t>
+struct get_from_types_f<std::tuple<bindings_t...>>
+{
+    using type = type_list_t<typename bindings_t::from_t...>;
+};
+
+/*!
+    extracts the source type (`from_t`) from each binding in a tuple
+
+    Given a tuple of binding types, this alias produces a `type_list` containing the `from_t` member of each binding,
+    preserving order.
+
+    \tparam bindings_tuple_t a `std::tuple` of binding types to inspect.
+*/
+template <typename bindings_tuple_t>
+using get_from_types_t = typename get_from_types_f<std::remove_cvref_t<bindings_tuple_t>>::type;
 
 struct service_i
 {
@@ -291,6 +323,12 @@ TEST(binding, original_examples)
     binding4.resolve(container);
     std::cout << "resolving 2nd time...\n";
     binding4.resolve(container);
+
+    static_assert(
+        std::is_same_v<
+            get_from_types_t<decltype(std::tuple{binding1, binding2, binding3, binding4})>,
+            type_list_t<service_i, std::shared_ptr<service_i>, service_i, std::unique_ptr<service_i>>>
+    );
 }
 
 TEST(provider, instance_and_prototype)
