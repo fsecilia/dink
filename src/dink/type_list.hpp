@@ -19,6 +19,10 @@ struct type_list_t;
 
 namespace type_list {
 
+inline constexpr auto npos = static_cast<std::size_t>(-1);
+
+// ---------------------------------------------------------------------------------------------------------------------
+
 template <typename left_t, typename right_t>
 struct cat_f;
 
@@ -72,6 +76,7 @@ using append_unique_t
 template <typename type_list_t, typename element_t, std::size_t index>
 struct index_of_f;
 
+//! generic case: when element is not the current element, advance to next index
 template <typename element_t, typename current_element_t, typename... remaining_elements_t, std::size_t index>
 struct index_of_f<type_list_t<current_element_t, remaining_elements_t...>, element_t, index>
 {
@@ -79,19 +84,21 @@ struct index_of_f<type_list_t<current_element_t, remaining_elements_t...>, eleme
         = index_of_f<type_list_t<remaining_elements_t...>, element_t, index + 1>::value;
 };
 
+//! terminating case: when element is the current element, the element was found at the current index
 template <typename element_t, typename... remaining_elements_t, std::size_t index>
 struct index_of_f<type_list_t<element_t, remaining_elements_t...>, element_t, index>
 {
     static inline constexpr auto const value = index;
 };
 
+//! terminating case: element was not found
 template <typename element_t, std::size_t index>
 struct index_of_f<type_list_t<>, element_t, index>
 {
-    static_assert(meta::dependent_false_v<element_t>, "type_list_t element not found");
+    static inline constexpr auto const value = npos;
 };
 
-//! index of element type in type_list_t if present; static asserts if not
+//! resolves to index of first element type in type_list_t if found; npos if not
 template <typename type_list_t, typename element_t>
 inline constexpr auto const index_of_v = index_of_f<type_list_t, element_t, 0>::value;
 
