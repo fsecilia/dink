@@ -31,5 +31,18 @@ struct append_f<type_list_t<elements_t...>, element_t>
 template <typename type_list_t, typename element_t>
 using append_t = append_f<type_list_t, element_t>::type;
 
+// ---------------------------------------------------------------------------------------------------------------------
+
+template <typename type_list_t, typename element_t>
+struct contains_f;
+
+template <typename element_t, typename... elements_t>
+struct contains_f<type_list_t<elements_t...>, element_t> : std::disjunction<std::is_same<element_t, elements_t>...>
+{};
+
+//! true if type list has an element of type element_t
+template <typename type_list_t, typename element_t>
+inline constexpr auto contains_v = contains_f<type_list_t, element_t>::value;
+
 } // namespace type_list
 } // namespace dink
