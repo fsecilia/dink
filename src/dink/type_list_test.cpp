@@ -76,6 +76,25 @@ static_assert(std::is_same_v<append_unique_t<t<v0, v1, v2>, v3>, t<v0, v1, v2, v
 
 // ---------------------------------------------------------------------------------------------------------------------
 
+// empty list
+static_assert(index_of_v<t<>, v0> == npos);
+
+// single element lis
+static_assert(index_of_v<t<v0>, v0> == 0); // found
+static_assert(index_of_v<t<v0>, v1> == npos); // not found
+
+// multi-element unique list
+static_assert(index_of_v<t<v0, v1, v2>, v0> == 0); // found at start
+static_assert(index_of_v<t<v0, v1, v2>, v1> == 1); // found in middle
+static_assert(index_of_v<t<v0, v1, v2>, v2> == 2); // found at end
+static_assert(index_of_v<t<v0, v1, v2>, v3> == npos); // not found
+
+// list with duplicates
+static_assert(index_of_v<t<v0, v1, v0, v1>, v0> == 0); // finds first instance
+static_assert(index_of_v<t<v0, v1, v0, v1>, v1> == 1); // finds first instance
+
+// ---------------------------------------------------------------------------------------------------------------------
+
 // empty list is always unique
 static_assert(std::is_same_v<unique_t<t<>>, t<>>);
 

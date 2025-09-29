@@ -18,6 +18,10 @@ struct type_list_t;
 
 namespace type_list {
 
+inline constexpr auto npos = static_cast<std::size_t>(-1);
+
+// ---------------------------------------------------------------------------------------------------------------------
+
 template <typename type_list_t, typename element_t>
 struct append_f;
 
@@ -65,6 +69,37 @@ inline constexpr auto contains_v = contains_f<type_list_t, element_t>::value;
 template <typename type_list_t, typename element_t>
 using append_unique_t
     = std::conditional_t<contains_v<type_list_t, element_t>, type_list_t, append_t<type_list_t, element_t>>;
+
+// ---------------------------------------------------------------------------------------------------------------------
+
+template <typename type_list_t, typename element_t, std::size_t index>
+struct index_of_f;
+
+//! generic case: when element is not the current element, advance to next index
+template <typename element_t, typename current_element_t, typename... remaining_elements_t, std::size_t index>
+struct index_of_f<type_list_t<current_element_t, remaining_elements_t...>, element_t, index>
+{
+    static inline constexpr auto const value
+        = index_of_f<type_list_t<remaining_elements_t...>, element_t, index + 1>::value;
+};
+
+//! terminating case: when element is the current element, the element was found at the current index
+template <typename element_t, typename... remaining_elements_t, std::size_t index>
+struct index_of_f<type_list_t<element_t, remaining_elements_t...>, element_t, index>
+{
+    static inline constexpr auto const value = index;
+};
+
+//! terminating case: element was not found
+template <typename element_t, std::size_t index>
+struct index_of_f<type_list_t<>, element_t, index>
+{
+    static inline constexpr auto const value = npos;
+};
+
+//! resolves to index of first element type in type_list_t if found; npos if not
+template <typename type_list_t, typename element_t>
+inline constexpr auto const index_of_v = index_of_f<type_list_t, element_t, 0>::value;
 
 // ---------------------------------------------------------------------------------------------------------------------
 
