@@ -11,6 +11,8 @@
 
 namespace dink::meta {
 
-//
+//! constexpr false, but dependent on a template parameter to delay evaluation
+template <typename>
+inline constexpr auto dependent_false_v = false;
 
 } // namespace dink::meta
