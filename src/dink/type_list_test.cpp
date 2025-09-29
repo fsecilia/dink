@@ -44,5 +44,18 @@ static_assert(contains_v<t<v0, v1, v2>, v0>); // begin contained
 static_assert(contains_v<t<v0, v1, v2>, v2>); // end contained
 static_assert(!contains_v<t<v0, v1, v2>, v3>); // not contained
 
+// ---------------------------------------------------------------------------------------------------------------------
+
+// append unique to empty list
+static_assert(std::is_same_v<append_unique_t<t<>, v0>, t<v0>>); // append always works
+
+// append unique to list with one element
+static_assert(std::is_same_v<append_unique_t<t<v0>, v0>, t<v0>>); // already contained
+static_assert(std::is_same_v<append_unique_t<t<v0>, v1>, t<v0, v1>>); // not already contained
+
+// append unique to list with multiple elements
+static_assert(std::is_same_v<append_unique_t<t<v0, v1, v2>, v0>, t<v0, v1, v2>>); // already contained
+static_assert(std::is_same_v<append_unique_t<t<v0, v1, v2>, v3>, t<v0, v1, v2, v3>>); // not already contained
+
 } // namespace
 } // namespace dink::type_list

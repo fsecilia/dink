@@ -44,5 +44,12 @@ struct contains_f<type_list_t<elements_t...>, element_t> : std::disjunction<std:
 template <typename type_list_t, typename element_t>
 inline constexpr auto contains_v = contains_f<type_list_t, element_t>::value;
 
+// ---------------------------------------------------------------------------------------------------------------------
+
+//! conditionally appends element to type list if not already present
+template <typename type_list_t, typename element_t>
+using append_unique_t
+    = std::conditional_t<contains_v<type_list_t, element_t>, type_list_t, append_t<type_list_t, element_t>>;
+
 } // namespace type_list
 } // namespace dink
