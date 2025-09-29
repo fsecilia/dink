@@ -11,6 +11,7 @@ list(APPEND dink_library_files
     dink.hpp
     exceptions.hpp
     lib.hpp
+    meta.hpp
     version.hpp
 )
 
