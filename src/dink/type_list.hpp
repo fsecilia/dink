@@ -33,6 +33,21 @@ using append_t = append_f<type_list_t, element_t>::type;
 
 // ---------------------------------------------------------------------------------------------------------------------
 
+template <typename left_t, typename right_t>
+struct cat_f;
+
+template <typename... left_t, typename... right_t>
+struct cat_f<type_list_t<left_t...>, type_list_t<right_t...>>
+{
+    using type = type_list_t<left_t..., right_t...>;
+};
+
+//! concatenates two type lists into one, preserving order
+template <typename left_t, typename right_t>
+using cat_t = cat_f<left_t, right_t>::type;
+
+// ---------------------------------------------------------------------------------------------------------------------
+
 template <typename type_list_t, typename element_t>
 struct contains_f;
 
