@@ -9,6 +9,8 @@
 
 namespace dink {
 
-//
+//! lightweight, compile-time tuple
+template <typename... types_t>
+struct type_list_t;
 
 } // namespace dink
