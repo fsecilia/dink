@@ -12,10 +12,12 @@ list(APPEND dink_library_files
     exceptions.hpp
     lib.hpp
     meta.hpp
+    type_list.hpp
     version.hpp
 )
 
 list(APPEND dink_unit_test_files
+    type_list_test.cpp
     version_test.cpp
 )
 
