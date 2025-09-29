@@ -51,5 +51,29 @@ template <typename type_list_t, typename element_t>
 using append_unique_t
     = std::conditional_t<contains_v<type_list_t, element_t>, type_list_t, append_t<type_list_t, element_t>>;
 
+// ---------------------------------------------------------------------------------------------------------------------
+
+template <typename accumulated_type_list_t, typename remaining_type_list_t>
+struct unique_f;
+
+template <typename accumulated_type_list_t, typename next_element_t, typename... remaining_elements_t>
+struct unique_f<accumulated_type_list_t, type_list_t<next_element_t, remaining_elements_t...>>
+    : unique_f<
+          std::conditional_t<
+              contains_v<accumulated_type_list_t, next_element_t>, accumulated_type_list_t,
+              append_t<accumulated_type_list_t, next_element_t>>,
+          type_list_t<remaining_elements_t...>>
+{};
+
+template <typename accumulated_type_list_t>
+struct unique_f<accumulated_type_list_t, type_list_t<>>
+{
+    using type = accumulated_type_list_t;
+};
+
+//! produces new type_list_t containing only first instance of each element; order is preserved
+template <typename src_t>
+using unique_t = unique_f<type_list_t<>, src_t>::type;
+
 } // namespace type_list
 } // namespace dink
