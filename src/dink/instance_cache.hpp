@@ -8,6 +8,8 @@
 #include <dink/lib.hpp>
 #include <cassert>
 #include <memory>
+#include <typeindex>
+#include <unordered_map>
 
 namespace dink {
 
@@ -56,6 +58,30 @@ private:
 
     using instance_ptr_t = std::unique_ptr<void, decltype(&default_dtor)>;
     instance_ptr_t instance_{nullptr, &default_dtor};
+};
+
+// ---------------------------------------------------------------------------------------------------------------------
+
+template <typename entry_t>
+class instance_cache_t
+{
+public:
+    /*!
+        retrieves reference to cache entry for given key 
+        
+        Performs a map lookup. If no entry exists for the key, a new, empty entry is created and returned.
+        
+        \tparam key_t type used to look up the entry; may be an interface instead of the value type 
+        \returns reference to the cache entry
+    */
+    template <typename key_t>
+    auto locate() -> entry_t&
+    {
+        return entries_by_type_[std::type_index{typeid(key_t)}];
+    }
+
+private:
+    std::unordered_map<std::type_index, entry_t> entries_by_type_;
 };
 
 } // namespace dink

@@ -132,5 +132,26 @@ TEST_F(cache_entry_test_populated_for_replacement_t, replacing_via_emplace_destr
     EXPECT_CALL(new_mock_value, dtor());
 }
 
+// ---------------------------------------------------------------------------------------------------------------------
+
+struct instance_cache_test_t : Test
+{
+    struct entry_t
+    {};
+
+    using sut_t = instance_cache_t<entry_t>;
+    sut_t sut{};
+};
+
+TEST_F(instance_cache_test_t, locate_is_idempotent)
+{
+    ASSERT_EQ(&sut.locate<int_t>(), &sut.locate<int_t>());
+}
+
+TEST_F(instance_cache_test_t, locate_returns_different_entries_for_different_types)
+{
+    ASSERT_NE(&sut.locate<int_t>(), &sut.locate<float>());
+}
+
 } // namespace
 } // namespace dink
