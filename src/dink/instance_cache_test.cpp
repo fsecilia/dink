@@ -46,11 +46,6 @@ TEST_F(cache_entry_test_empty_t, has_value_returns_false)
     ASSERT_FALSE(sut.has_value());
 }
 
-TEST_F(cache_entry_test_empty_t, get_as_returns_nullptr)
-{
-    ASSERT_EQ(nullptr, sut.get_as<void>());
-}
-
 TEST_F(cache_entry_test_empty_t, emplaced_value_is_destroyed_by_dtor)
 {
     emplace_value();
@@ -99,7 +94,7 @@ TEST_F(cache_entry_test_populated_t, has_value_returns_true)
 
 TEST_F(cache_entry_test_populated_t, value_returned_from_emplace_matches_get_as)
 {
-    ASSERT_EQ(&value, sut.get_as<value_t>());
+    ASSERT_EQ(&value, &sut.get_as<value_t>());
 
     EXPECT_CALL(mock_value, dtor());
 }
