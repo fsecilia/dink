@@ -27,7 +27,7 @@ public:
         This method is NOT const to break ties in overload resolution, even though it normally should be.
     */
     template <typename deduced_t>
-    operator deduced_t()
+    constexpr operator deduced_t()
     {
         return resolve<deduced_t, unqualified_t<deduced_t>>();
     }
@@ -38,12 +38,12 @@ public:
         This conversion matches lvalue refs, so deduced_t& and deduced_t const&.
     */
     template <typename deduced_t>
-    operator deduced_t&() const
+    constexpr operator deduced_t&() const
     {
         return resolve<deduced_t&, unqualified_t<deduced_t>>();
     }
 
-    explicit arg_t(resolver_t& resolver) noexcept : resolver_{resolver} {}
+    explicit constexpr arg_t(resolver_t& resolver) noexcept : resolver_{resolver} {}
 
 private:
     resolver_t& resolver_;
@@ -59,7 +59,7 @@ private:
     }
 
     template <typename deduced_t, typename unqualified_deduced_t>
-    auto resolve() const -> deduced_t
+    constexpr auto resolve() const -> deduced_t
     {
         assert_noncircular<unqualified_deduced_t>();
         using next_dependency_chain_t = type_list::append_t<dependency_chain_t, unqualified_t<unqualified_deduced_t>>;
@@ -86,7 +86,7 @@ public:
         /sa arg_t<resolved_t, dependency_chain_t>::operator deduced_t()
     */
     template <single_arg_deducible<resolved_t> deduced_t>
-    operator deduced_t()
+    constexpr operator deduced_t()
     {
         return static_cast<deduced_t>(arg_);
     }
@@ -97,12 +97,12 @@ public:
         /sa arg_t<resolved_t, dependency_chain_t>::operator deduced_t&()
     */
     template <single_arg_deducible<resolved_t> deduced_t>
-    operator deduced_t&() const
+    constexpr operator deduced_t&() const
     {
         return static_cast<deduced_t&>(arg_);
     }
 
-    explicit single_arg_t(arg_t arg) noexcept : arg_{std::move(arg)} {}
+    explicit constexpr single_arg_t(arg_t arg) noexcept : arg_{std::move(arg)} {}
 
 private:
     arg_t arg_;
