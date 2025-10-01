@@ -15,6 +15,7 @@ list(APPEND dink_library_files
     lib.hpp
     meta.hpp
     type_list.hpp
+    unqualified.hpp
     version.hpp
 )
 
@@ -22,6 +23,7 @@ list(APPEND dink_unit_test_files
     arg_test.cpp
     instance_cache_test.cpp
     type_list_test.cpp
+    unqualified_test.cpp
     version_test.cpp
 )
 
