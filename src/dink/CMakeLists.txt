@@ -8,6 +8,7 @@ set(dink_minor 1)
 set(dink_patch 0)
 
 list(APPEND dink_library_files
+    arg.hpp
     dink.hpp
     exceptions.hpp
     instance_cache.hpp
@@ -18,6 +19,7 @@ list(APPEND dink_library_files
 )
 
 list(APPEND dink_unit_test_files
+    arg_test.cpp
     instance_cache_test.cpp
     type_list_test.cpp
     version_test.cpp
