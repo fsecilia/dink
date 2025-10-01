@@ -6,6 +6,7 @@
 #pragma once
 
 #include <dink/lib.hpp>
+#include <dink/deleter_traits.hpp>
 #include <dink/unqualified.hpp>
 #include <memory>
 
@@ -44,29 +45,11 @@ template <typename type_t>
 struct storage_type_f<type_t volatile> : storage_type_f<type_t>
 {};
 
-/*!
-    unique_ptr becomes unique_ptr to unqualified using original deleter
-    
-    This specialization requires the original deleter can delete both type_t and unqualified_t<type_t>.
-*/
+//! unique_ptr becomes unique_ptr to unqualified using deleter rebound to unqualified
 template <typename type_t, typename deleter_t>
 struct storage_type_f<std::unique_ptr<type_t, deleter_t>>
 {
-    using type = std::unique_ptr<unqualified_t<type_t>, deleter_t>;
-};
-
-/*!
-    unique_ptr becomes unique_ptr to unqualified using deleter rebound to unqualified 
-    
-    Deleters are an arbitrary type and can have an arbitrary parameterization. In the general case, we simply cannot
-    directly convert from a deleter that works on the original type to one that works on the unqualified type. However,
-    we can follow a convention similar to std::default_delete. As long as the first parameter of the deleter matches
-    the original type, we can rebind the deleter on the unqualified type.
-*/
-template <typename type_t, template <typename, typename...> class deleter_t, typename... deleter_params_t>
-struct storage_type_f<std::unique_ptr<type_t, deleter_t<type_t, deleter_params_t...>>>
-{
-    using type = std::unique_ptr<unqualified_t<type_t>, deleter_t<unqualified_t<type_t>, deleter_params_t...>>;
+    using type = std::unique_ptr<unqualified_t<type_t>, rebind_deleter_t<deleter_t, unqualified_t<type_t>>>;
 };
 
 //! shared_ptr becomes shared_ptr to unqualified
