@@ -70,8 +70,7 @@ struct fixture_t
         {
             // check that the arg appended the deduced type to the dependency chain
             static_assert(
-                std::is_same_v<
-                    dependency_chain_t, type_list::append_t<initial_type_list_t, std::remove_reference_t<deduced_t>>>
+                std::is_same_v<dependency_chain_t, type_list::append_t<initial_type_list_t, unqualified_t<deduced_t>>>
             );
 
             return dispatch_resolve(tag_t<deduced_t>{});

@@ -8,6 +8,7 @@
 #include <dink/lib.hpp>
 #include <dink/meta.hpp>
 #include <dink/type_list.hpp>
+#include <dink/unqualified.hpp>
 #include <concepts>
 #include <utility>
 
@@ -29,7 +30,8 @@ public:
     operator deduced_t()
     {
         assert_noncircular<deduced_t>();
-        return resolver_.template resolve<deduced_t, type_list::append_t<dependency_chain_t, deduced_t>>();
+        return resolver_
+            .template resolve<deduced_t, type_list::append_t<dependency_chain_t, unqualified_t<deduced_t>>>();
     }
 
     /*!
@@ -41,7 +43,8 @@ public:
     operator deduced_t&() const
     {
         assert_noncircular<deduced_t>();
-        return resolver_.template resolve<deduced_t&, type_list::append_t<dependency_chain_t, deduced_t>>();
+        return resolver_
+            .template resolve<deduced_t&, type_list::append_t<dependency_chain_t, unqualified_t<deduced_t>>>();
     }
 
     explicit arg_t(resolver_t& resolver) noexcept : resolver_{resolver} {}
