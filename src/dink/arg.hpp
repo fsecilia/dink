@@ -71,7 +71,7 @@ private:
 
 //! filters out signatures that match copy ctor or move ctor
 template <typename deduced_t, typename resolved_t>
-concept single_arg_deducible = !std::same_as<std::remove_cvref_t<deduced_t>, resolved_t>;
+concept single_arg_deducible = !std::same_as<std::decay_t<deduced_t>, resolved_t>;
 
 //! matches any argument type to produce an instance from a resolver; excludes signatures that match copy or move ctor
 template <typename resolved_t, typename arg_t>
