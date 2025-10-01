@@ -51,7 +51,7 @@ struct fixture_t
         auto lcrefcptr(deduced_t const* const& deduced) const noexcept -> id_t { return deduced->id; }
         auto rcrefptr(deduced_t* const&& deduced) const noexcept -> id_t { return deduced->id; }
         auto rcrefcptr(deduced_t const* const&& deduced) const noexcept -> id_t { return deduced->id; }
-        auto arr_ref(deduced_t (&deduced)[deduced_array_size]) const noexcept -> id_t
+        auto lref_arr(deduced_t (&deduced)[deduced_array_size]) const noexcept -> id_t
         {
             return deduced[deduced_array_size - 1].id;
         }
@@ -230,7 +230,7 @@ struct arg_test_t : fixture_t, Test
     auto test_arr_ref() noexcept -> void
     {
         expect_arr_ref();
-        ASSERT_EQ(expected_id + deduced_array_size, handler.arr_ref(sut));
+        ASSERT_EQ(expected_id + deduced_array_size, handler.lref_arr(sut));
     }
 };
 

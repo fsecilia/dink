@@ -20,31 +20,27 @@ class arg_t
 {
 public:
     /*!
-        value-semantic conversion
+        value conversion
         
-        This conversion matches value-semantic types, like lvalues and rvalue refs. 
+        This conversion matches everything but lvalue refs, including rvalue refs and pointers.
         
         This method is NOT const to break ties in overload resolution, even though it normally should be.
     */
     template <typename deduced_t>
     operator deduced_t()
     {
-        assert_noncircular<deduced_t>();
-        return resolver_
-            .template resolve<deduced_t, type_list::append_t<dependency_chain_t, unqualified_t<deduced_t>>>();
+        return resolve<deduced_t, unqualified_t<deduced_t>>();
     }
 
     /*!
-        reference-semantic conversion
+        reference conversion
         
-        This conversion matches reference-semantic types, like rvalues and pointers. 
+        This conversion matches lvalue refs, so deduced_t& and deduced_t const&.
     */
     template <typename deduced_t>
     operator deduced_t&() const
     {
-        assert_noncircular<deduced_t>();
-        return resolver_
-            .template resolve<deduced_t&, type_list::append_t<dependency_chain_t, unqualified_t<deduced_t>>>();
+        return resolve<deduced_t&, unqualified_t<deduced_t>>();
     }
 
     explicit arg_t(resolver_t& resolver) noexcept : resolver_{resolver} {}
@@ -52,13 +48,22 @@ public:
 private:
     resolver_t& resolver_;
 
-    template <typename deduced_t>
+    template <typename unqualified_deduced_t>
     static constexpr auto assert_noncircular() noexcept -> void
     {
         static_assert(
-            meta::dependent_bool_v<!type_list::contains_v<dependency_chain_t, deduced_t>, dependency_chain_t>,
+            meta::dependent_bool_v<
+                !type_list::contains_v<dependency_chain_t, unqualified_deduced_t>, dependency_chain_t>,
             "circular dependency detected"
         );
+    }
+
+    template <typename deduced_t, typename unqualified_deduced_t>
+    auto resolve() const -> deduced_t
+    {
+        assert_noncircular<unqualified_deduced_t>();
+        using next_dependency_chain_t = type_list::append_t<dependency_chain_t, unqualified_t<unqualified_deduced_t>>;
+        return resolver_.template resolve<deduced_t, next_dependency_chain_t>();
     }
 };
 
@@ -74,7 +79,7 @@ class single_arg_t
 {
 public:
     /*!
-        value-semantic conversion
+        value conversion
 
         deliberately not const for the same reason as in arg_t
         
@@ -87,7 +92,7 @@ public:
     }
 
     /*!
-        reference-semantic conversion
+        reference conversion
 
         /sa arg_t<resolved_t, dependency_chain_t>::operator deduced_t&()
     */
