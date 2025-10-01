@@ -9,6 +9,7 @@ set(dink_patch 0)
 
 list(APPEND dink_library_files
     arg.hpp
+    deleter_traits.hpp
     dink.hpp
     exceptions.hpp
     instance_cache.hpp
@@ -22,6 +23,7 @@ list(APPEND dink_library_files
 
 list(APPEND dink_unit_test_files
     arg_test.cpp
+    deleter_traits_test.cpp
     instance_cache_test.cpp
     storage_type_test.cpp
     type_list_test.cpp
