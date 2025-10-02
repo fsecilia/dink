@@ -12,8 +12,23 @@
 
 namespace dink {
 
-// sentinel value used to indicate deduction failed
+namespace arity {
+
+//! sentinel value used to indicate deduction failed
 static inline constexpr auto arity_not_found = static_cast<std::size_t>(-1);
+
+//! factory that forwards directly to ctors; this adapts direct ctor calls to the generic discoverable factory api
+template <typename constructed_t>
+class ctor_factory_t
+{
+public:
+    template <typename... args_t>
+    requires std::constructible_from<constructed_t, args_t...>
+    auto operator()(args_t&&... args) -> constructed_t
+    {
+        return constructed_t{std::forward<args_t>(args)...};
+    }
+};
 
 namespace detail {
 
@@ -28,18 +43,6 @@ struct single_probe_arg_t
 {
     template <single_arg_deducible<constructed_t> deduced_t>
     operator deduced_t();
-};
-
-template <typename constructed_t>
-class default_factory_t
-{
-public:
-    template <typename... args_t>
-    requires std::constructible_from<constructed_t, args_t...>
-    auto operator()(args_t&&... args) -> constructed_t
-    {
-        return constructed_t{std::forward<args_t>(args)...};
-    }
 };
 
 template <typename constructed_t, typename factory_t, typename index_sequence_t>
@@ -83,9 +86,10 @@ struct arity_f<constructed_t, factory_t, std::index_sequence<>>
 };
 
 } // namespace detail
+} // namespace arity
 
-template <typename constructed_t, typename factory_t = detail::default_factory_t<constructed_t>>
+template <typename constructed_t, typename factory_t = arity::ctor_factory_t<constructed_t>>
 inline constexpr auto arity_v
-    = detail::arity_f<constructed_t, factory_t, std::make_index_sequence<dink_max_deduced_arity>>::value;
+    = arity::detail::arity_f<constructed_t, factory_t, std::make_index_sequence<dink_max_deduced_arity>>::value;
 
 } // namespace dink
