@@ -16,11 +16,13 @@ struct constructed_by_t
 };
 
 static_assert(arity_v<constructed_by_t<>> == 0);
-static_assert(arity_v<constructed_by_t<int>> == 1);
-static_assert(arity_v<constructed_by_t<int*, float>> == 2);
-static_assert(arity_v<constructed_by_t<void*, constructed_by_t<>, int>> == 3);
-static_assert(arity_v<constructed_by_t<void*, constructed_by_t<>, int, float>> == 4);
-static_assert(arity_v<constructed_by_t<void*, constructed_by_t<>, int, float, bool>> == 5);
+static_assert(arity_v<constructed_by_t<bool>> == 1);
+static_assert(arity_v<constructed_by_t<int, bool>> == 2);
+static_assert(arity_v<constructed_by_t<void*, int, bool>> == 3);
+static_assert(arity_v<constructed_by_t<float&, void*, int, bool>> == 4);
+static_assert(arity_v<constructed_by_t<constructed_by_t<>&&, float&, void*, int, bool>> == 5);
+static_assert(arity_v<constructed_by_t<bool, int, void const*, float const&, constructed_by_t<>&&>> == 5);
+static_assert(arity_v<constructed_by_t<int, int, int, int, int, int, int, int, int, int>> == 10);
 
 struct multi_ctor_t
 {

@@ -36,6 +36,9 @@ struct probe_arg_t
 {
     template <typename deduced_t>
     operator deduced_t();
+
+    template <typename deduced_t>
+    operator deduced_t&() const;
 };
 
 template <typename constructed_t>
@@ -43,6 +46,9 @@ struct single_probe_arg_t
 {
     template <single_arg_deducible<constructed_t> deduced_t>
     operator deduced_t();
+
+    template <single_arg_deducible<constructed_t> deduced_t>
+    operator deduced_t&() const;
 };
 
 template <typename constructed_t, typename factory_t, typename index_sequence_t>
