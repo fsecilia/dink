@@ -7,6 +7,7 @@
 
 #include <dink/lib.hpp>
 #include <dink/arg.hpp>
+#include <dink/ctor_factory.hpp>
 #include <dink/meta.hpp>
 #include <utility>
 
@@ -16,19 +17,6 @@ namespace arity {
 
 //! sentinel value used to indicate deduction failed
 static inline constexpr auto not_found = static_cast<std::size_t>(-1);
-
-//! factory that forwards directly to ctors; this adapts direct ctor calls to the generic discoverable factory api
-template <typename constructed_t>
-class ctor_factory_t
-{
-public:
-    template <typename... args_t>
-    requires std::constructible_from<constructed_t, args_t...>
-    auto operator()(args_t&&... args) -> constructed_t
-    {
-        return constructed_t{std::forward<args_t>(args)...};
-    }
-};
 
 namespace detail {
 
@@ -108,7 +96,7 @@ struct arity_f<constructed_t, factory_t, std::index_sequence<>>
 
     resolves to discovered arity or `arity::not_found`
 */
-template <typename constructed_t, typename factory_t = arity::ctor_factory_t<constructed_t>>
+template <typename constructed_t, typename factory_t = ctor_factory_t<constructed_t>>
 inline constexpr auto arity_v
     = arity::detail::arity_f<constructed_t, factory_t, std::make_index_sequence<dink_max_deduced_arity>>::value;
 
