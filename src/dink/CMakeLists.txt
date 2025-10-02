@@ -10,7 +10,7 @@ set(dink_patch 0)
 list(APPEND dink_library_files
     arg.hpp
     arity.hpp
-    canonical_type.hpp
+    canonical.hpp
     ctor_factory.hpp
     deleter_traits.hpp
     dink.hpp
@@ -27,7 +27,7 @@ list(APPEND dink_library_files
 list(APPEND dink_unit_test_files
     arg_test.cpp
     arity_test.cpp
-    canonical_type_test.cpp
+    canonical_test.cpp
     ctor_factory_test.cpp
     deleter_traits_test.cpp
     factory_invoker_test.cpp

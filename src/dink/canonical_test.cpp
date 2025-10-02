@@ -3,7 +3,7 @@
     Copyright (C) 2025 Frank Secilia
 */
 
-#include "canonical_type.hpp"
+#include "canonical.hpp"
 #include <dink/test.hpp>
 
 namespace dink {
