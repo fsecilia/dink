@@ -14,6 +14,7 @@ list(APPEND dink_library_files
     deleter_traits.hpp
     dink.hpp
     exceptions.hpp
+    factory_invoker.hpp
     instance_cache.hpp
     lib.hpp
     meta.hpp
@@ -28,6 +29,7 @@ list(APPEND dink_unit_test_files
     arity_test.cpp
     ctor_factory_test.cpp
     deleter_traits_test.cpp
+    factory_invoker_test.cpp
     instance_cache_test.cpp
     storage_type_test.cpp
     type_list_test.cpp
