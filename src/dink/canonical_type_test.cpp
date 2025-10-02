@@ -3,7 +3,7 @@
     Copyright (C) 2025 Frank Secilia
 */
 
-#include "storage_type.hpp"
+#include "canonical_type.hpp"
 #include <dink/test.hpp>
 
 namespace dink {
@@ -26,36 +26,36 @@ struct parameterized_deleter_t
 {};
 
 // base case: these should all resolve to the raw, unqualified type
-static_assert(std::is_same_v<storage_type_t<type_t>, type_t>);
-static_assert(std::is_same_v<storage_type_t<type_t&>, type_t>);
-static_assert(std::is_same_v<storage_type_t<type_t const*>, type_t>);
-static_assert(std::is_same_v<storage_type_t<std::reference_wrapper<type_t>>, type_t>);
+static_assert(std::is_same_v<canonical_t<type_t>, type_t>);
+static_assert(std::is_same_v<canonical_t<type_t&>, type_t>);
+static_assert(std::is_same_v<canonical_t<type_t const*>, type_t>);
+static_assert(std::is_same_v<canonical_t<std::reference_wrapper<type_t>>, type_t>);
 
 // unique_ptrs resolve to a unique_ptr to the unqualified type
-static_assert(std::is_same_v<storage_type_t<std::unique_ptr<type_t>>, std::unique_ptr<type_t>>);
-static_assert(std::is_same_v<storage_type_t<std::unique_ptr<type_t> const&>, std::unique_ptr<type_t>>);
-static_assert(std::is_same_v<storage_type_t<std::unique_ptr<type_t* const>>, std::unique_ptr<type_t>>);
+static_assert(std::is_same_v<canonical_t<std::unique_ptr<type_t>>, std::unique_ptr<type_t>>);
+static_assert(std::is_same_v<canonical_t<std::unique_ptr<type_t> const&>, std::unique_ptr<type_t>>);
+static_assert(std::is_same_v<canonical_t<std::unique_ptr<type_t* const>>, std::unique_ptr<type_t>>);
 
 // unique_pts with deleters must also resolve their deleters to match
 static_assert(
     std::is_same_v<
-        storage_type_t<std::unique_ptr<type_t* const, simple_deleter_t>>, std::unique_ptr<type_t, simple_deleter_t>>
+        canonical_t<std::unique_ptr<type_t* const, simple_deleter_t>>, std::unique_ptr<type_t, simple_deleter_t>>
 );
 static_assert(
     std::is_same_v<
-        storage_type_t<std::unique_ptr<type_t* const, parameterized_deleter_t<type_t* const, deleter_param_t>>>,
+        canonical_t<std::unique_ptr<type_t* const, parameterized_deleter_t<type_t* const, deleter_param_t>>>,
         std::unique_ptr<type_t, parameterized_deleter_t<type_t, deleter_param_t>>>
 );
 
 // shared_pointers remain shared_ptrs
-static_assert(std::is_same_v<storage_type_t<std::shared_ptr<type_t>>, std::shared_ptr<type_t>>);
-static_assert(std::is_same_v<storage_type_t<std::shared_ptr<type_t> const&>, std::shared_ptr<type_t>>);
-static_assert(std::is_same_v<storage_type_t<std::shared_ptr<type_t* const>>, std::shared_ptr<type_t>>);
+static_assert(std::is_same_v<canonical_t<std::shared_ptr<type_t>>, std::shared_ptr<type_t>>);
+static_assert(std::is_same_v<canonical_t<std::shared_ptr<type_t> const&>, std::shared_ptr<type_t>>);
+static_assert(std::is_same_v<canonical_t<std::shared_ptr<type_t* const>>, std::shared_ptr<type_t>>);
 
 // weak_ptrs become shared_ptrs
-static_assert(std::is_same_v<storage_type_t<std::weak_ptr<type_t>>, std::shared_ptr<type_t>>);
-static_assert(std::is_same_v<storage_type_t<std::weak_ptr<type_t> const&>, std::shared_ptr<type_t>>);
-static_assert(std::is_same_v<storage_type_t<std::weak_ptr<type_t* const>>, std::shared_ptr<type_t>>);
+static_assert(std::is_same_v<canonical_t<std::weak_ptr<type_t>>, std::shared_ptr<type_t>>);
+static_assert(std::is_same_v<canonical_t<std::weak_ptr<type_t> const&>, std::shared_ptr<type_t>>);
+static_assert(std::is_same_v<canonical_t<std::weak_ptr<type_t* const>>, std::shared_ptr<type_t>>);
 
 } // namespace
 } // namespace dink
