@@ -9,51 +9,21 @@
 namespace dink {
 namespace {
 
-struct cache_entry_test_t : Test
+struct instance_cache_test_t : Test
 {
-    using sut_t = cache_entry_t;
+    struct key_t
+    {};
 
-    struct mock_value_t
-    {
-        MOCK_METHOD(void, dtor, (), (noexcept));
-        ~mock_value_t() = default;
-    };
-    StrictMock<mock_value_t> mock_value{};
-
-    struct value_t
-    {
-        ~value_t() { mock->dtor(); }
-        mock_value_t* mock = nullptr;
-    };
+    using sut_t = instance_cache_t;
+    sut_t sut{};
 };
 
-TEST_F(cache_entry_test_t, empty_entry_is_safe_to_destroy)
+TEST_F(instance_cache_test_t, try_find_initially_empty)
 {
-    auto sut = sut_t{};
+    ASSERT_EQ(nullptr, (sut.try_find<key_t, int_t>()));
 }
 
-// ---------------------------------------------------------------------------------------------------------------------
-
-struct cache_entry_test_empty_t : cache_entry_test_t
-{
-    sut_t sut;
-
-    auto emplace_value() -> value_t& { return sut.emplace<value_t>(&mock_value); }
-};
-
-TEST_F(cache_entry_test_empty_t, has_value_returns_false)
-{
-    ASSERT_FALSE(sut.has_value());
-}
-
-TEST_F(cache_entry_test_empty_t, emplaced_value_is_destroyed_by_dtor)
-{
-    emplace_value();
-
-    EXPECT_CALL(mock_value, dtor());
-}
-
-TEST_F(cache_entry_test_empty_t, emplace_correctly_forwards_arguments)
+TEST_F(instance_cache_test_t, emplace_correctly_forwards_arguments)
 {
     struct ctor_params_t
     {
@@ -70,54 +40,47 @@ TEST_F(cache_entry_test_empty_t, emplace_correctly_forwards_arguments)
     auto const expected_pointer = static_cast<void*>(this);
     auto const expected_string = std::string{"expected_string"};
 
-    auto result = sut.emplace<ctor_params_t>(expected_integer, expected_pointer, std::string{expected_string});
+    auto& actual = sut.emplace<key_t, ctor_params_t>(expected_integer, expected_pointer, std::string{expected_string});
 
-    ASSERT_EQ(expected_integer, result.integer);
-    ASSERT_EQ(expected_pointer, result.pointer);
-    ASSERT_EQ(expected_string, result.moved_string);
+    ASSERT_EQ(expected_integer, actual.integer);
+    ASSERT_EQ(expected_pointer, actual.pointer);
+    ASSERT_EQ(expected_string, actual.moved_string);
 }
 
-// ---------------------------------------------------------------------------------------------------------------------
-
-struct cache_entry_test_populated_t : cache_entry_test_empty_t
+TEST_F(instance_cache_test_t, emplace_returns_expected_value)
 {
-    StrictMock<mock_value_t> new_mock_value{};
-    value_t& value = emplace_value();
-};
+    auto const expected = int_t{3};
 
-TEST_F(cache_entry_test_populated_t, has_value_returns_true)
-{
-    ASSERT_TRUE(sut.has_value());
+    auto const actual = sut.emplace<key_t, int_t>(expected);
 
-    EXPECT_CALL(mock_value, dtor());
+    ASSERT_EQ(expected, actual);
 }
 
-TEST_F(cache_entry_test_populated_t, value_returned_from_emplace_matches_get_as)
+TEST_F(instance_cache_test_t, emplace_returns_unique_addresses_per_type)
 {
-    ASSERT_EQ(&value, &sut.get_as<value_t>());
+    auto const& actual_int = sut.emplace<int_t, int_t>(3);
+    auto const& actual_ptr = sut.emplace<void*, void*>(this);
 
-    EXPECT_CALL(mock_value, dtor());
+    ASSERT_NE(static_cast<void const*>(&actual_int), static_cast<void const*>(&actual_ptr));
 }
 
-// ---------------------------------------------------------------------------------------------------------------------
-
-struct instance_cache_test_t : Test
+TEST_F(instance_cache_test_t, address_returned_from_emplace_matches_address_returned_from_find)
 {
-    struct entry_t
-    {};
+    auto& expected = sut.emplace<key_t, int_t>(3);
 
-    using sut_t = instance_cache_t<entry_t>;
-    sut_t sut{};
-};
+    auto* const result = sut.try_find<key_t, int_t>();
 
-TEST_F(instance_cache_test_t, locate_is_idempotent)
-{
-    ASSERT_EQ(&sut.locate<int_t>(), &sut.locate<int_t>());
+    ASSERT_EQ(&expected, result);
 }
 
-TEST_F(instance_cache_test_t, locate_returns_different_entries_for_different_types)
+TEST_F(instance_cache_test_t, nonconst_find_matches_const_find)
 {
-    ASSERT_NE(&sut.locate<int_t>(), &sut.locate<float>());
+    sut.emplace<key_t, int_t>(3);
+
+    auto const expected = sut.try_find<key_t, int_t>();
+    auto const actual = static_cast<sut_t const&>(sut).try_find<key_t, int_t>();
+
+    ASSERT_EQ(expected, actual);
 }
 
 } // namespace
