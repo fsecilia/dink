@@ -24,11 +24,12 @@ public:
 
         \tparam value_t concrete type as originally emplaced
         \return reference to cached instance
-        
+
         \pre has_value()
 
-        \warning This function results in undefined behavior if \p value_t is not the exact, literal type used to 
-        `emplace()` the instance. 
+        \pre value_t must be the same value type used to emplace the entry originally
+        \warning This function results in undefined behavior if \p value_t is not the exact, literal type used to
+        `emplace()` the instance.
     */
     template <typename value_t>
     auto get_as() const noexcept -> value_t&
@@ -37,10 +38,15 @@ public:
         return *static_cast<value_t*>(std::to_address(instance_));
     }
 
-    //! creates new instance of value_t in entry, destroying and replacing existing
+    /*!
+        creates new instance of value_t in entry
+
+        \pre value for key must not already exist
+    */
     template <typename value_t, typename... args_t>
     auto emplace(args_t&&... args) -> value_t&
     {
+        assert(!has_value());
         instance_ = instance_ptr_t{new value_t{std::forward<args_t>(args)...}, &typed_dtor<value_t>};
         return get_as<value_t>();
     }

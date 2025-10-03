@@ -99,39 +99,6 @@ TEST_F(cache_entry_test_populated_t, value_returned_from_emplace_matches_get_as)
     EXPECT_CALL(mock_value, dtor());
 }
 
-TEST_F(cache_entry_test_populated_t, replacing_via_emplace_destroys_previous_value_immediately)
-{
-    struct new_value_t
-    {};
-
-    EXPECT_CALL(mock_value, dtor());
-    sut.emplace<new_value_t>();
-}
-
-// ---------------------------------------------------------------------------------------------------------------------
-
-struct cache_entry_test_populated_for_replacement_t : cache_entry_test_empty_t
-{
-    StrictMock<mock_value_t> new_mock_value{};
-    sut_t sut;
-
-    value_t& value = emplace_value();
-};
-
-TEST_F(cache_entry_test_populated_for_replacement_t, replacing_via_emplace_destroys_new_value_from_dtor)
-{
-    struct new_value_t
-    {
-        ~new_value_t() { mock->dtor(); }
-        mock_value_t* mock = nullptr;
-    };
-
-    EXPECT_CALL(mock_value, dtor());
-    sut.emplace<new_value_t>(&new_mock_value);
-
-    EXPECT_CALL(new_mock_value, dtor());
-}
-
 // ---------------------------------------------------------------------------------------------------------------------
 
 struct instance_cache_test_t : Test
