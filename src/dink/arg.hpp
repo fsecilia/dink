@@ -6,9 +6,9 @@
 #pragma once
 
 #include <dink/lib.hpp>
+#include <dink/canonical.hpp>
 #include <dink/meta.hpp>
 #include <dink/type_list.hpp>
-#include <dink/unqualified.hpp>
 #include <concepts>
 #include <utility>
 
@@ -29,7 +29,7 @@ public:
     template <typename deduced_t>
     constexpr operator deduced_t()
     {
-        return resolve<deduced_t, unqualified_t<deduced_t>>();
+        return resolve<deduced_t, canonical_t<deduced_t>>();
     }
 
     /*!
@@ -40,7 +40,7 @@ public:
     template <typename deduced_t>
     constexpr operator deduced_t&() const
     {
-        return resolve<deduced_t&, unqualified_t<deduced_t>>();
+        return resolve<deduced_t&, canonical_t<deduced_t>>();
     }
 
     explicit constexpr arg_t(resolver_t& resolver) noexcept : resolver_{resolver} {}
@@ -48,21 +48,20 @@ public:
 private:
     resolver_t& resolver_;
 
-    template <typename unqualified_deduced_t>
+    template <typename canonical_deduced_t>
     static constexpr auto assert_noncircular() noexcept -> void
     {
         static_assert(
-            meta::dependent_bool_v<
-                !type_list::contains_v<dependency_chain_t, unqualified_deduced_t>, dependency_chain_t>,
+            meta::dependent_bool_v<!type_list::contains_v<dependency_chain_t, canonical_deduced_t>, dependency_chain_t>,
             "circular dependency detected"
         );
     }
 
-    template <typename deduced_t, typename unqualified_deduced_t>
+    template <typename deduced_t, typename canonical_deduced_t>
     constexpr auto resolve() const -> deduced_t
     {
-        assert_noncircular<unqualified_deduced_t>();
-        using next_dependency_chain_t = type_list::append_t<dependency_chain_t, unqualified_t<unqualified_deduced_t>>;
+        assert_noncircular<canonical_deduced_t>();
+        using next_dependency_chain_t = type_list::append_t<dependency_chain_t, canonical_t<canonical_deduced_t>>;
         return resolver_.template resolve<deduced_t, next_dependency_chain_t>();
     }
 };

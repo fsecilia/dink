@@ -73,7 +73,7 @@ struct test_arg_deduces_type_t
 constexpr auto test_arg_deduces_type = test_arg_deduces_type_t{};
 
 // tests that arg_t updates the dependency chain correctly
-struct test_arg_appends_unqualified_deduced_to_dependency_chain_t
+struct test_arg_appends_canonical_deduced_to_dependency_chain_t
 {
     struct deduced_t
     {};
@@ -107,10 +107,10 @@ struct test_arg_appends_unqualified_deduced_to_dependency_chain_t
         handler_t<std::unique_ptr<actual_deduced_t>>{}.handle(arg_t<resolver_t, initial_dependency_chain_t>{resolver});
     }
 
-    constexpr test_arg_appends_unqualified_deduced_to_dependency_chain_t() { test<deduced_t>(); }
+    constexpr test_arg_appends_canonical_deduced_to_dependency_chain_t() { test<deduced_t>(); }
 };
-constexpr auto test_arg_appends_unqualified_deduced_to_dependency_chain
-    = test_arg_appends_unqualified_deduced_to_dependency_chain_t{};
+constexpr auto test_arg_appends_canonical_deduced_to_dependency_chain
+    = test_arg_appends_canonical_deduced_to_dependency_chain_t{};
 
 // tests that single_arg_t does not match copy or move ctors
 struct test_single_arg_does_not_match_smf_t
