@@ -28,7 +28,7 @@ static_assert(ctor_factory_t<composite_t>{}(10, "10").string_val == "10");
 } // namespace constexpr_ctor_test
 
 // test requires clause limits operator () to valid ctor args
-namespace requires_clasus_limits_call_to_valid_ctor_args_test {
+namespace requires_clause_limits_call_to_valid_ctor_args_test {
 
 struct constructible_t
 {
@@ -52,7 +52,7 @@ static_assert(
     "Constraint should prevent construction with incorrect argument count."
 );
 
-} // namespace requires_clasus_limits_call_to_valid_ctor_args_test
+} // namespace requires_clause_limits_call_to_valid_ctor_args_test
 
 // test perfect forwarding selects correct ctor
 TEST(ctor_factory_test, perfect_forwarding_selects_correct_ctor)
