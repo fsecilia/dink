@@ -6,110 +6,77 @@
 #pragma once
 
 #include <dink/lib.hpp>
-#include <functional>
+#include <dink/canonical.hpp>
+#include <dink/deleter_traits.hpp>
 #include <memory>
 
 namespace dink {
 
 namespace detail {
 
-//! metafunction to remove all ref, cv, and pointer qualifiers, including smart pointers and reference wrappers
+//! metafunction to determine type we actually store in the instance cache for a given type
 template <typename type_t>
-struct canonical_f;
+struct unqualified_f;
 
-//! base case: type is unmodified
+//! base case: type is the canonical type
 template <typename type_t>
-struct canonical_f
+struct unqualified_f
 {
-    using type = type_t;
+    using type = canonical_t<type_t>;
 };
 
-//! removes lvalue reference
+//! lvalue refs are stored as values
 template <typename type_t>
-struct canonical_f<type_t&> : canonical_f<type_t>
+struct unqualified_f<type_t&> : unqualified_f<type_t>
 {};
 
-//! removes rvalue reference
+//! rvalue refs are stored as values
 template <typename type_t>
-struct canonical_f<type_t&&> : canonical_f<type_t>
+struct unqualified_f<type_t&&> : unqualified_f<type_t>
 {};
 
-//! removes const
+//! const is stored as value
 template <typename type_t>
-struct canonical_f<type_t const> : canonical_f<type_t>
+struct unqualified_f<type_t const> : unqualified_f<type_t>
 {};
 
-//! removes volatile
+//! volatile is stored as value
 template <typename type_t>
-struct canonical_f<type_t volatile> : canonical_f<type_t>
+struct unqualified_f<type_t volatile> : unqualified_f<type_t>
 {};
 
-//! removes pointer
-template <typename type_t>
-struct canonical_f<type_t*> : canonical_f<type_t>
-{};
-
-//! pointers to function are unmodified; pointer is not removed
-template <typename return_t, typename... args_t>
-struct canonical_f<return_t (*)(args_t...)>
-{
-    using type = return_t (*)(args_t...);
-};
-
-//! decays function to function pointer
-template <typename return_t, typename... args_t>
-struct canonical_f<return_t(args_t...)> : canonical_f<return_t (*)(args_t...)>
-{};
-
-//! removes unsized array
-template <typename type_t>
-struct canonical_f<type_t[]> : canonical_f<type_t>
-{};
-
-//! removes const unsized array; this specialization is necessary to break a tie between const and unsized array
-template <typename type_t>
-struct canonical_f<type_t const[]> : canonical_f<type_t>
-{};
-
-//! removes sized array
-template <typename type_t, std::size_t size>
-struct canonical_f<type_t[size]> : canonical_f<type_t>
-{};
-
-//! removes const sized array; this specialization is necessary to break a tie between const and sized array
-template <typename type_t, std::size_t size>
-struct canonical_f<type_t const[size]> : canonical_f<type_t>
-{};
-
-//! removes reference_wrapper
-template <typename type_t>
-struct canonical_f<std::reference_wrapper<type_t>> : canonical_f<type_t>
-{};
-
-//! removes unique_ptr
+//! unique_ptr becomes unique_ptr to canonical using deleter rebound to canonical
 template <typename type_t, typename deleter_t>
-struct canonical_f<std::unique_ptr<type_t, deleter_t>> : canonical_f<type_t>
-{};
+struct unqualified_f<std::unique_ptr<type_t, deleter_t>>
+{
+    using type = std::unique_ptr<canonical_t<type_t>, rebind_deleter_t<deleter_t, canonical_t<type_t>>>;
+};
 
-//! removes shared_ptr
+//! shared_ptr becomes shared_ptr to canonical
 template <typename type_t>
-struct canonical_f<std::shared_ptr<type_t>> : canonical_f<type_t>
-{};
+struct unqualified_f<std::shared_ptr<type_t>>
+{
+    using type = std::shared_ptr<canonical_t<type_t>>;
+};
 
-//! removes weak_ptr
+//! weak_ptr becomes shared_ptr to canonical
 template <typename type_t>
-struct canonical_f<std::weak_ptr<type_t>> : canonical_f<type_t>
+struct unqualified_f<std::weak_ptr<type_t>> : unqualified_f<std::shared_ptr<type_t>>
 {};
 
 } // namespace detail
 
 /*!
-    gets core, canonical type
-
-    This trait removes references, cv-qualifiers, pointers, smart pointers, and reference wrappers to distill a type
-    down to its fundamental form.
+    determines concrete type to be stored in instance cache
+    
+    This trait uses canonical_t to find the core type and then re-wraps it in the appropriate smart pointer if
+    necessary:
+        - unique_ptr<type_t> -> unique_ptr<canonical_ttype_t>>
+        - shared_ptr<type_t> -> shared_ptr<canonical_t<type_t>>
+        - weak_ptr<type_t>   -> shared_ptr<canonical_t<type_t>>
+        - type_t             -> canonical_t<type_t>
 */
 template <typename type_t>
-using canonical_t = typename detail::canonical_f<type_t>::type;
+using unqualified_t = typename detail::unqualified_f<type_t>::type;
 
 } // namespace dink
