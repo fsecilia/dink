@@ -191,17 +191,4 @@ constexpr auto is_binding_builder_v = requires {
     typename binding_t::provider_type;
 } && !requires { typename binding_t::resolved_scope; };
 
-template <typename element_t>
-auto finalize_binding(element_t&& element) noexcept -> auto
-{
-    if constexpr (is_binding_builder_v<std::remove_cvref_t<element_t>>)
-    {
-        using builder_t = std::remove_cvref_t<element_t>;
-        return binding_t<
-            typename builder_t::from_type, typename builder_t::to_type, typename builder_t::provider_type,
-            scopes::default_t>{std::move(element.provider())};
-    }
-    else { return std::forward<element_t>(element); }
-}
-
 } // namespace dink

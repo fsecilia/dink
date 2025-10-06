@@ -99,7 +99,7 @@ class container_t
 public:
     template <typename... bindings_t>
     explicit container_t(bindings_t&&... bindings)
-        : container_t(resolve_bindings<root_container_tag_t>(std::forward<bindings_t>(bindings)...))
+        : container_t(resolve_bindings<root_container_tag_t>(std::forward<bindings_t>(bindings)..., *this))
     {}
 
     template <typename parent_t, typename... bindings_t>
@@ -143,49 +143,6 @@ public:
     }
 
 private:
-    // Combined transform: finalize + decorate + bind to container_t
-    template <typename container_tag_t, typename... bindings_t>
-    auto resolve_bindings(bindings_t&&... bindings)
-    {
-        return std::make_tuple(resolve_binding<container_tag_t>(std::forward<bindings_t>(bindings))...);
-    }
-
-    template <typename container_tag_t, typename element_t>
-    auto resolve_binding(element_t&& element)
-    {
-        // transform 1: finalize partial bindings (binding_target -> binding)
-        auto finalized = finalize_binding(std::forward<element_t>(element));
-
-        // transform 2: add scope infrastructure (binding -> resolved_binding)
-        auto resolved_binding = resolved_binding_t<decltype(finalized), container_tag_t>{std::move(finalized)};
-
-        // transform 3: bind provider to container_t (if needed for singleton/root-scoped)
-        return bind_to_container<container_tag_t>(std::move(resolved_binding));
-    }
-
-    template <typename container_tag_t, typename prev_resolved_t>
-    auto bind_to_container(prev_resolved_t&& resolved_binding)
-    {
-        using prev_binding_t = typename prev_resolved_t::binding_t;
-        using resolved_scope_t = typename prev_binding_t::resolved_scope_t;
-
-        if constexpr (std::same_as<resolved_scope_t, scopes::singleton_t>
-                      || (std::same_as<resolved_scope_t, scopes::scoped_t>
-                          && std::same_as<container_tag_t, root_container_tag_t>))
-        {
-            using prev_provider_t = typename prev_binding_t::provider_t;
-
-            return resolved_binding_t<
-                binding_t<
-                    typename prev_binding_t::from_type, typename prev_binding_t::to_type,
-                    bound_provider_t<prev_provider_t, container_t>, resolved_scope_t>,
-                container_tag_t>{binding_t{
-                bound_provider_t<prev_provider_t, container_t>{std::move(resolved_binding.binding.provider), this}
-            }};
-        }
-        else { return std::forward<prev_resolved_t>(resolved_binding); }
-    }
-
     template <typename request_t, typename binding_ptr_t>
     auto resolve_accessor(binding_ptr_t binding_ptr)
     {
