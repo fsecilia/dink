@@ -20,36 +20,30 @@ template <typename value_t>
 struct request_traits_t
 {
     using value_type = value_t;
-    static constexpr bool forces_transient = false;
-    static constexpr bool forces_scoped = false;
 };
 
 template <typename value_t>
 struct request_traits_t<value_t&&>
 {
     using value_type = value_t;
-    static constexpr bool forces_transient = true;
 };
 
 template <typename value_t>
 struct request_traits_t<std::unique_ptr<value_t>>
 {
     using value_type = value_t;
-    static constexpr bool forces_transient = true;
 };
 
 template <typename value_t>
 struct request_traits_t<value_t*>
 {
     using value_type = value_t;
-    static constexpr bool forces_scoped = true;
 };
 
 template <typename value_t>
 struct request_traits_t<value_t&>
 {
     using value_type = value_t;
-    static constexpr bool forces_scoped = true;
 };
 
 template <typename value_t>
@@ -62,21 +56,25 @@ template <typename value_t>
 struct request_traits_t<std::weak_ptr<value_t>>
 {
     using value_type = value_t;
-    static constexpr bool forces_scoped = true;
 };
 
-template <typename configured_scope_t, typename request_type_t>
-struct effective_scope_f
-{
-    using type = std::conditional_t<
-        request_traits_t<request_type_t>::forces_transient, scopes::transient_t,
-        std::conditional_t<
-            std::same_as<configured_scope_t, scopes::transient_t> && request_traits_t<request_type_t>::forces_scoped,
-            scopes::scoped_t, configured_scope_t>>;
-};
+// Does this request type require moving/consuming the instance?
+template <typename request_t>
+concept requires_ownership = std::same_as<request_t, typename request_traits_t<request_t>::value_type&&>
+    || std::is_same_v<request_t, std::unique_ptr<typename request_traits_t<request_t>::value_type>>;
 
-template <typename configured_scope_t, typename request_type_t>
-using effective_scope_t = effective_scope_f<configured_scope_t, request_type_t>::type;
+// Does this request type return a non-owning reference that could dangle?
+template <typename request_t>
+concept requires_persistence = std::is_pointer_v<request_t>
+    || std::is_lvalue_reference_v<request_t>
+    || std::is_same_v<request_t, std::weak_ptr<typename request_traits_t<request_t>::value_type>>;
+
+template <typename configured_scope_t, typename request_t>
+using effective_scope_t = std::conditional_t<
+    requires_ownership<request_t>, scopes::transient_t,
+    std::conditional_t<
+        requires_persistence<request_t> && std::same_as<configured_scope_t, scopes::transient_t>, scopes::scoped_t,
+        configured_scope_t>>;
 
 template <typename instance_t, typename root_container_t>
 struct root_promotion_provider
@@ -114,7 +112,7 @@ public:
 
         auto [binding_ptr, slot_ptr, configured_scope] = find_binding<value_type>();
 
-        using effective_scope_t = typename effective_scope_f<decltype(configured_scope), request_t>::type;
+        using effective_scope = effective_scope_t<decltype(configured_scope), request_t>;
 
         if (binding_ptr
             && providers::is_accessor<
@@ -122,11 +120,11 @@ public:
         {
             return resolve_accessor<request_t>(binding_ptr);
         }
-        else if constexpr (std::same_as<effective_scope_t, scopes::transient_t>)
+        else if constexpr (std::same_as<effective_scope, scopes::transient_t>)
         {
-            return resolve_transient<request_t, value_type>();
+            return resolve_transient<request_t, value_type>(binding_ptr);
         }
-        else if constexpr (std::same_as<effective_scope_t, scopes::singleton_t>)
+        else if constexpr (std::same_as<effective_scope, scopes::singleton_t>)
         {
             return resolve_singleton<request_t>(binding_ptr);
         }
@@ -137,9 +135,7 @@ public:
     auto create_as_transient() -> instance_t
     {
         auto [binding_ptr, slot_ptr, configured_scope] = find_binding<instance_t>();
-
-        if (binding_ptr) { return binding_ptr->binding.provider(*this); }
-        else { return auto_wire<instance_t>(*this); }
+        return create_as_transient<instance_t>(binding_ptr);
     }
 
 private:
@@ -149,11 +145,10 @@ private:
         return adapt_to_request_type<request_t>(binding_ptr->binding.provider());
     }
 
-    template <typename request_t, typename instance_t>
-    auto resolve_transient()
+    template <typename request_t, typename instance_t, typename binding_ptr_t>
+    auto resolve_transient(binding_ptr_t binding_ptr)
     {
-        auto instance = create_as_transient<instance_t>();
-        return adapt_to_request_type<request_t>(std::move(instance));
+        return adapt_to_request_type<request_t>(create_as_transient<instance_t>(binding_ptr));
     }
 
     template <typename request_t, typename binding_ptr_t>
@@ -199,6 +194,13 @@ private:
         auto instance = cache_.template get_or_create<instance_t>([&]() { return create_as_transient<instance_t>(); });
 
         return adapt_to_request_type<request_t>(*instance);
+    }
+
+    template <typename instance_t, typename binding_ptr_t>
+    auto create_as_transient(binding_ptr_t binding_ptr) -> instance_t
+    {
+        if (binding_ptr) { return binding_ptr->binding.provider(*this); }
+        else { return auto_wire<instance_t>(*this); }
     }
 
     template <typename from_t, typename tuple_t>
