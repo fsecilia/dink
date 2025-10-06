@@ -13,21 +13,23 @@
 
 namespace dink {
 
-class instance_cache
+struct no_cache_t;
+
+class instance_cache_t
 {
 public:
-    template <typename T>
-    auto get() const noexcept -> std::shared_ptr<T>
+    template <typename instance_t>
+    auto get() const noexcept -> std::shared_ptr<instance_t>
     {
-        auto const it = map_.find(typeid(T));
-        return it != map_.end() ? std::static_pointer_cast<T>(it->second) : nullptr;
+        auto const result = map_.find(typeid(instance_t));
+        return result == map_.end() ? nullptr : std::static_pointer_cast<instance_t>(result->second);
     }
 
-    template <typename T>
-    auto get_or_create(auto&& creator) -> std::shared_ptr<T>
+    template <typename instance_t>
+    auto get_or_create(auto&& creator) -> std::shared_ptr<instance_t>
     {
-        auto& instance = map_[typeid(T)];
-        if (!instance) instance = std::make_shared<T>(creator());
+        auto& instance = map_[typeid(instance_t)];
+        if (!instance) instance = std::make_shared<instance_t>(creator());
         return instance;
     }
 
