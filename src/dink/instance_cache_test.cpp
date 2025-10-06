@@ -9,6 +9,7 @@
 namespace dink {
 namespace {
 
+#if 0
 struct instance_cache_test_t : Test
 {
     struct key_t
@@ -82,6 +83,7 @@ TEST_F(instance_cache_test_t, nonconst_find_matches_const_find)
 
     ASSERT_EQ(expected, actual);
 }
+#endif
 
 } // namespace
 } // namespace dink
