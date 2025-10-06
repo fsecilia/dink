@@ -102,7 +102,7 @@ struct binding_t
     using from_t = from_p;
     using to_type = to_p;
     using provider_t = provider_p;
-    using resolved_scope = std::conditional_t<
+    using resolved_scope_t = std::conditional_t<
         std::same_as<scope_t, scopes::default_t>,
         std::conditional_t<providers::is_accessor<provider_p>, binding::no_scope_t, typename provider_p::default_scope>,
         scope_t>;

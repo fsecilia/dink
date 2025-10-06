@@ -43,7 +43,7 @@ struct child_slot_t
 };
 
 //! primary template - transient scope, no slot
-template <typename binding_p, typename ContainerTag>
+template <typename binding_p, typename container_tag_t>
 struct resolved_binding_t
 {
     using binding_t = binding_p;
