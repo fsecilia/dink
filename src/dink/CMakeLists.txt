@@ -13,6 +13,7 @@ list(APPEND dink_library_files
     binding_transform.hpp
     bindings.hpp
     canonical.hpp
+    container.hpp
     ctor_factory.hpp
     deleter_traits.hpp
     dink.hpp
@@ -32,6 +33,7 @@ list(APPEND dink_unit_test_files
     binding_transform_test.cpp
     bindings_test.cpp
     canonical_test.cpp
+    container_test.cpp
     ctor_factory_test.cpp
     deleter_traits_test.cpp
     factory_invoker_test.cpp

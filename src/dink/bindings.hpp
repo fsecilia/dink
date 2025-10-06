@@ -14,10 +14,17 @@ namespace dink {
 
 namespace scopes {
 
-struct transient_t;
-struct scoped_t;
-struct singleton_t;
-struct default_t;
+struct transient_t
+{};
+
+struct scoped_t
+{};
+
+struct singleton_t
+{};
+
+struct default_t
+{};
 
 } // namespace scopes
 
