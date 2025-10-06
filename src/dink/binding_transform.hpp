@@ -33,8 +33,10 @@ auto get_singleton(binding_t& binding) -> instance_t&
     return instance;
 }
 
-struct root_container_tag_t;
-struct child_container_tag_t;
+struct root_container_tag_t
+{};
+struct child_container_tag_t
+{};
 
 template <typename instance_t>
 struct child_slot_t
