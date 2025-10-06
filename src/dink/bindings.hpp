@@ -184,11 +184,4 @@ auto bind() -> binding_src_t<from_t>
     return {};
 }
 
-template <typename binding_t>
-constexpr auto is_binding_builder_v = requires {
-    typename binding_t::from_type;
-    typename binding_t::to_type;
-    typename binding_t::provider_type;
-} && !requires { typename binding_t::resolved_scope; };
-
 } // namespace dink

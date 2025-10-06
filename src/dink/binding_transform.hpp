@@ -42,7 +42,7 @@ struct child_slot_t
     std::shared_ptr<instance_t> instance;
 };
 
-//! primary template - transient scope, no slot
+//! primary template - transient scope, no slot, no caching
 template <typename binding_p, typename container_tag_t>
 struct resolved_binding_t
 {
@@ -50,9 +50,15 @@ struct resolved_binding_t
     binding_t binding;
 };
 
-// specialization for singleton scope - uses Meyers singleton
+// Helper: does this binding use static (process-wide) storage?
 template <typename binding_p, typename container_tag_t>
-requires std::same_as<typename binding_p::resolved_scope, scopes::singleton_t>
+constexpr bool uses_static_storage_v = std::same_as<typename binding_p::resolved_scope_t, scopes::singleton_t>
+    || (std::same_as<typename binding_p::resolved_scope_t, scopes::scoped_t>
+        && std::same_as<container_tag_t, root_container_tag_t>);
+
+// Specialization for bindings using static storage (singleton and root-scoped)
+template <typename binding_p, typename container_tag_t>
+requires uses_static_storage_v<binding_p, container_tag_t>
 struct resolved_binding_t<binding_p, container_tag_t>
 {
     using binding_t = binding_p;
@@ -63,22 +69,9 @@ struct resolved_binding_t<binding_p, container_tag_t>
     auto get_or_create() -> to_t& { return get_singleton<to_t, binding_t>(binding); }
 };
 
-// specialization for scoped scope in root - acts like singleton
+// Specialization for scoped scope in child - has local slot for zero-overhead lookups
 template <typename binding_p>
-requires std::same_as<typename binding_p::resolved_scope, scopes::scoped_t>
-struct resolved_binding_t<binding_p, root_container_tag_t>
-{
-    using binding_t = binding_p;
-    using to_t = typename binding_t::to_t;
-
-    binding_t binding;
-
-    auto get_or_create() -> to_t& { return get_singleton<to_t, binding_t>(binding); }
-};
-
-// specialization for scoped scope in child - has local slot to store instance for zero-overhead lookups
-template <typename binding_p>
-requires std::same_as<typename binding_p::resolved_scope, scopes::scoped_t>
+requires std::same_as<typename binding_p::resolved_scope_t, scopes::scoped_t>
 struct resolved_binding_t<binding_p, child_container_tag_t>
 {
     using binding_t = binding_p;
@@ -87,6 +80,13 @@ struct resolved_binding_t<binding_p, child_container_tag_t>
     binding_t binding;
     child_slot_t<to_t> slot;
 };
+
+template <typename binding_t>
+constexpr auto is_binding_builder_v = requires {
+    typename binding_t::from_type;
+    typename binding_t::to_type;
+    typename binding_t::provider_type;
+} && !requires { typename binding_t::resolved_scope; };
 
 template <typename element_t>
 auto finalize_binding(element_t&& element) noexcept -> auto
@@ -101,21 +101,25 @@ auto finalize_binding(element_t&& element) noexcept -> auto
     else { return std::forward<element_t>(element); }
 }
 
+// Helper to determine if we need to close over the container
+template <typename resolved_scope_t, typename container_tag_t>
+constexpr bool needs_container_closure_v = std::same_as<resolved_scope_t, scopes::singleton_t>
+    || (std::same_as<resolved_scope_t, scopes::scoped_t> && std::same_as<container_tag_t, root_container_tag_t>);
+
+// Step 3: Close provider over container for singleton/root-scoped bindings
 template <typename container_tag_t, typename prev_resolved_t, typename container_t>
-auto bind_to_container(container_t& container, prev_resolved_t&& resolved_binding) -> auto
+auto close_provider_over_container(prev_resolved_t&& resolved_binding, container_t& container) -> auto
 {
     using prev_binding_t = typename prev_resolved_t::binding_t;
     using resolved_scope_t = typename prev_binding_t::resolved_scope_t;
 
-    if constexpr (std::same_as<resolved_scope_t, scopes::singleton_t>
-                  || (std::same_as<resolved_scope_t, scopes::scoped_t>
-                      && std::same_as<container_tag_t, root_container_tag_t>))
+    if constexpr (needs_container_closure_v<resolved_scope_t, container_tag_t>)
     {
         using prev_provider_t = typename prev_binding_t::provider_t;
 
         return resolved_binding_t<
             binding_t<
-                typename prev_binding_t::from_type, typename prev_binding_t::to_type,
+                typename prev_binding_t::from_t, typename prev_binding_t::to_t,
                 bound_provider_t<prev_provider_t, container_t>, resolved_scope_t>,
             container_tag_t>{binding_t{
             bound_provider_t<prev_provider_t, container_t>{std::move(resolved_binding.binding.provider), &container}
@@ -124,23 +128,24 @@ auto bind_to_container(container_t& container, prev_resolved_t&& resolved_bindin
     else { return std::forward<prev_resolved_t>(resolved_binding); }
 }
 
+// Three-phase transform: builder -> finalized -> resolved -> closed
 template <typename container_tag_t, typename element_t, typename container_t>
 auto resolve_binding(element_t&& element, container_t& container) -> auto
 {
-    // transform 1: finalize partial bindings (binding_target -> binding)
+    // Phase 1: Complete partial bindings (builder -> binding_t)
     auto finalized = finalize_binding(std::forward<element_t>(element));
 
-    // transform 2: add scope infrastructure (binding -> resolved_binding)
-    auto resolved_binding = resolved_binding_t<decltype(finalized), container_tag_t>{std::move(finalized)};
+    // Phase 2: Add scope infrastructure (binding_t -> resolved_binding_t)
+    auto with_scope = resolved_binding_t<decltype(finalized), container_tag_t>{std::move(finalized)};
 
-    // transform 3: bind provider to container_t (if needed for singleton/root-scoped)
-    return bind_to_container<container_tag_t>(std::move(resolved_binding), container);
+    // Phase 3: Close provider over container if needed (for singleton/root-scoped)
+    return close_provider_over_container<container_tag_t>(std::move(with_scope), container);
 }
 
 template <typename container_tag_t, typename... bindings_t, typename container_t>
-auto resolve_bindings(bindings_t&&... bindings, container_t& container)
+auto resolve_bindings(container_t& container, bindings_t&&... bindings)
 {
-    return std::make_tuple(resolve_binding<container_tag_t>(std::forward<bindings_t>(bindings))..., container);
+    return std::make_tuple(resolve_binding<container_tag_t>(std::forward<bindings_t>(bindings), container)...);
 }
 
 } // namespace dink
