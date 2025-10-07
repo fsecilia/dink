@@ -119,6 +119,9 @@ using resolved_t = request_traits_f<requested_t>::resolved_t;
 /*!
     effective scope to use for a specific request given its immediate type and scope it was bound to
     
+    If type is bound transient, but you ask for something like type&, that request is treated as though it were bound
+    scoped. If type is bound scoped or singleton, but you ask for somethign like type&&, that request is treated as
+    though it were bound transient.
 */
 template <typename bound_scope_t, typename request_t>
 using effective_scope_t = std::conditional_t<
@@ -128,6 +131,7 @@ using effective_scope_t = std::conditional_t<
             && std::same_as<bound_scope_t, scopes::transient_t>,
         scopes::scoped_t, bound_scope_t>>;
 
+//! converts type from what is cached or provided to what was actually requested
 template <typename request_t, typename instance_t>
 auto as_requested(instance_t&& instance) -> auto
 {

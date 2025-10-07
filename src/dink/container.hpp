@@ -12,10 +12,12 @@
 #include <dink/request_traits.hpp>
 #include <concepts>
 #include <memory>
+#include <type_traits>
 #include <utility>
 
 namespace dink {
 
+// Binding info
 template <typename binding_t>
 struct binding_info
 {
@@ -149,23 +151,6 @@ struct child_scoped_policy
 template <typename storage_policy, typename parent_policy, typename scoped_policy, typename... resolved_bindings_t>
 class container_impl : private storage_policy, private parent_policy
 {
-    std::tuple<resolved_bindings_t...> bindings_;
-    providers::ctor_invoker_t default_provider_;
-    scoped_policy scoped_resolver_;
-
-    template <typename T, size_t I = 0>
-    static constexpr size_t find_binding_index()
-    {
-        if constexpr (I >= sizeof...(resolved_bindings_t)) { return sizeof...(resolved_bindings_t); }
-        else
-        {
-            using elem_t = std::tuple_element_t<I, decltype(bindings_)>;
-            using from_t = typename elem_t::binding_t::from_t;
-            if constexpr (std::same_as<T, from_t>) return I;
-            else return find_binding_index<T, I + 1>();
-        }
-    }
-
 public:
     // Constructor for root
     template <typename... bindings_t>
@@ -190,64 +175,85 @@ public:
         using resolved_t = resolved_t<request_t>;
         auto info = find_binding<resolved_t>();
 
+        // if no binding binding is found, the type is transient, so use the default provider
         static auto const is_transient = !info.found();
         if (is_transient) return as_requested<request_t>(default_provider_.template operator()<resolved_t>(*this));
 
         if (info.is_accessor()) return as_requested<request_t>(info.binding->binding.provider());
-    }
 
-    using effective_scope_t = effective_scope_t<typename decltype(info)::scope_type, request_t>;
+        using effective_scope_t = effective_scope_t<typename decltype(info)::scope_type, request_t>;
 
-    if constexpr (std::same_as<effective_scope_t, scopes::transient_t>)
-    {
-        return as_requested<request_t>(info.binding->binding.provider(*this));
-    }
-    else if constexpr (std::same_as<effective_scope_t, scopes::singleton_t>)
-    {
-        return as_requested<request_t>(info.binding->get_or_create());
-    }
-    else
-    { // scoped
-        if (info.has_slot() && info.slot->instance) { return as_requested<request_t>(*info.slot->instance); }
-        if (info.has_slot())
+        if constexpr (std::same_as<effective_scope_t, scopes::transient_t>)
         {
-            info.slot->instance = std::make_shared<resolved_t>(info.binding->binding.provider(*this));
-            return as_requested<request_t>(*info.slot->instance);
+            return as_requested<request_t>(info.binding->binding.provider(*this));
         }
-        return scoped_resolver_.template resolve_scoped_no_slot<request_t, resolved_t>(this);
+        else if constexpr (std::same_as<effective_scope_t, scopes::singleton_t>)
+        {
+            return as_requested<request_t>(info.binding->get_or_create());
+        }
+        else
+        {
+            // effective scope is scoped
+            if (info.has_slot() && info.slot->instance) { return as_requested<request_t>(*info.slot->instance); }
+            if (info.has_slot())
+            {
+                info.slot->instance = std::make_shared<resolved_t>(info.binding->binding.provider(*this));
+                return as_requested<request_t>(*info.slot->instance);
+            }
+            return scoped_resolver_.template resolve_scoped_no_slot<request_t, resolved_t>(this);
+        }
     }
-} template <typename value_t>
-auto find_binding()
-{
-    constexpr size_t idx = find_binding_index<value_t>();
 
-    if constexpr (idx < sizeof...(resolved_bindings_t))
+    template <typename value_t>
+    auto find_binding()
     {
-        auto& binding = std::get<idx>(bindings_);
-        using binding_t = std::remove_reference_t<decltype(binding)>;
+        constexpr size_t idx = find_binding_index<value_t>();
 
-        binding_info<binding_t> info;
-        info.binding = &binding;
-        if constexpr (requires { binding.slot; }) { info.slot = &binding.slot; }
-        return info;
+        if constexpr (idx < sizeof...(resolved_bindings_t))
+        {
+            auto& binding = std::get<idx>(bindings_);
+            using binding_t = std::remove_reference_t<decltype(binding)>;
+
+            binding_info<binding_t> info;
+            info.binding = &binding;
+            if constexpr (requires { binding.slot; }) info.slot = &binding.slot;
+            return info;
+        }
+        else { return parent_policy::find_parent_binding(static_cast<value_t*>(nullptr)); }
     }
-    else { return parent_policy::find_parent_binding(static_cast<value_t*>(nullptr)); }
-}
 
-template <typename value_t>
-auto find_cached() -> std::shared_ptr<value_t>
-{
-    if (auto cached = storage_policy::get_cached(static_cast<value_t*>(nullptr))) return cached;
-    return parent_policy::find_parent_cached(static_cast<value_t*>(nullptr));
-}
+    template <typename value_t>
+    auto find_cached() -> std::shared_ptr<value_t>
+    {
+        if (auto cached = storage_policy::get_cached(static_cast<value_t*>(nullptr))) return cached;
+        return parent_policy::find_parent_cached(static_cast<value_t*>(nullptr));
+    }
 
-template <typename instance_t>
-auto create_transient() -> instance_t
-{
-    auto info = find_binding<instance_t>();
-    if (info.found()) { return info.binding->binding.provider(*this); }
-    return default_provider_.template operator()<instance_t>(*this);
-}
+    template <typename instance_t>
+    auto create_transient() -> instance_t
+    {
+        auto info = find_binding<instance_t>();
+        if (info.found()) return info.binding->binding.provider(*this);
+        return default_provider_.template operator()<instance_t>(*this);
+    }
+
+private:
+    template <typename T, size_t I = 0>
+    static constexpr size_t find_binding_index()
+    {
+        if constexpr (I >= sizeof...(resolved_bindings_t)) { return sizeof...(resolved_bindings_t); }
+        else
+        {
+            using elem_t = std::tuple_element_t<I, decltype(bindings_)>;
+            using from_t = typename elem_t::binding_t::from_t;
+            if constexpr (std::same_as<T, from_t>) return I;
+            else return find_binding_index<T, I + 1>();
+        }
+    }
+
+    std::tuple<resolved_bindings_t...> bindings_;
+    providers::ctor_invoker_t default_provider_;
+    scoped_policy scoped_resolver_;
 };
 
 // Root container typedef
