@@ -48,13 +48,13 @@ struct binding_descriptor_t
 struct no_storage_policy
 {
     template <typename T>
-    auto get_cached(T*) -> std::shared_ptr<T>
+    auto get_cached() -> std::shared_ptr<T>
     {
         return nullptr;
     }
 
     template <typename T, typename factory_t>
-    auto get_or_create_cached(T*, factory_t&&) -> std::shared_ptr<T>
+    auto get_or_create_cached(factory_t&&) -> std::shared_ptr<T>
     {
         return nullptr;
     }
@@ -65,13 +65,13 @@ struct cache_storage_policy
     instance_cache_t cache_;
 
     template <typename T>
-    auto get_cached(T*) -> std::shared_ptr<T>
+    auto get_cached() -> std::shared_ptr<T>
     {
         return cache_.template get<T>();
     }
 
     template <typename T, typename factory_t>
-    auto get_or_create_cached(T*, factory_t&& factory) -> std::shared_ptr<T>
+    auto get_or_create_cached(factory_t&& factory) -> std::shared_ptr<T>
     {
         return cache_.template get_or_create<T>(std::forward<factory_t>(factory));
     }
@@ -81,7 +81,7 @@ struct cache_storage_policy
 struct no_parent_policy
 {
     template <typename T>
-    auto find_parent_binding(T*)
+    constexpr auto find_parent_binding()
     {
         using null_t = binding_t<scope_binding_t<
             binding_config_t<T, T, providers::ctor_invoker_t, scopes::transient_t>, root_container_tag_t>>;
@@ -89,7 +89,7 @@ struct no_parent_policy
     }
 
     template <typename T>
-    auto find_parent_cached(T*) -> std::shared_ptr<T>
+    auto find_parent_cached() -> std::shared_ptr<T>
     {
         return nullptr;
     }
@@ -103,13 +103,13 @@ struct has_parent_policy
     explicit has_parent_policy(parent_t& p) : parent_(&p) {}
 
     template <typename T>
-    auto find_parent_binding(T*)
+    constexpr auto find_parent_binding()
     {
         return parent_->template find_binding<T>();
     }
 
     template <typename T>
-    auto find_parent_cached(T*) -> std::shared_ptr<T>
+    auto find_parent_cached() -> std::shared_ptr<T>
     {
         return parent_->template find_cached<T>();
     }
@@ -140,17 +140,11 @@ struct child_scoped_policy
     auto resolve_scoped_no_slot(container_t* container) -> auto
     {
         // Check cache hierarchy
-        if (auto cached = storage_->get_cached(static_cast<value_t*>(nullptr)))
-        {
-            return as_requested<request_t>(*cached);
-        }
-        if (auto cached = parent_->find_parent_cached(static_cast<value_t*>(nullptr)))
-        {
-            return as_requested<request_t>(*cached);
-        }
+        if (auto cached = storage_->template get_cached<value_t>()) { return as_requested<request_t>(*cached); }
+        if (auto cached = parent_->template find_parent_cached<value_t>()) { return as_requested<request_t>(*cached); }
 
         // Create and cache
-        auto instance = storage_->get_or_create_cached(static_cast<value_t*>(nullptr), [container]() {
+        auto instance = storage_->template get_or_create_cached<value_t>([container]() {
             return container->template create_transient<value_t>();
         });
         return as_requested<request_t>(*instance);
@@ -224,27 +218,22 @@ public:
     }
 
     template <typename value_t>
-    auto find_binding()
+    constexpr auto find_binding()
     {
-        constexpr size_t idx = find_binding_index<value_t>();
-
-        if constexpr (idx < sizeof...(resolved_bindings_t))
+        constexpr size_t local_idx = find_binding_index<value_t>();
+        if constexpr (local_idx < sizeof...(resolved_bindings_t))
         {
-            auto& binding = std::get<idx>(bindings_);
-            using binding_t = std::remove_reference_t<decltype(binding)>;
-
-            binding_descriptor_t<binding_t> binding_descriptor;
-            binding_descriptor.binding = &binding;
-            return binding_descriptor;
+            auto& binding = std::get<local_idx>(bindings_);
+            return binding_descriptor_t<std::remove_reference_t<decltype(binding)>>{&binding};
         }
-        else { return parent_policy::find_parent_binding(static_cast<value_t*>(nullptr)); }
+        else { return parent_policy::template find_parent_binding<value_t>(); }
     }
 
     template <typename value_t>
     auto find_cached() -> std::shared_ptr<value_t>
     {
-        if (auto cached = storage_policy::get_cached(static_cast<value_t*>(nullptr))) return cached;
-        return parent_policy::find_parent_cached(static_cast<value_t*>(nullptr));
+        if (auto cached = storage_policy::template get_cached<value_t>()) return cached;
+        return parent_policy::template find_parent_cached<value_t>();
     }
 
     template <typename instance_t>
@@ -257,7 +246,7 @@ public:
 
 private:
     template <typename T, size_t I = 0>
-    static constexpr size_t find_binding_index()
+    static consteval size_t find_binding_index()
     {
         if constexpr (I >= sizeof...(resolved_bindings_t)) return I;
         else if constexpr (std::same_as<T, typename std::tuple_element_t<I, decltype(bindings_)>::from_t>) return I;
