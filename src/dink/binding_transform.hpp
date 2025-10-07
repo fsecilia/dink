@@ -35,6 +35,7 @@ auto get_singleton(binding_t& binding) -> instance_t&
 
 struct root_container_tag_t
 {};
+
 struct child_container_tag_t
 {};
 
