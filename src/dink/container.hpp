@@ -141,7 +141,7 @@ namespace scope_resolution {
 struct static_t
 {
     template <typename request_t, typename value_t, typename provider_t, typename container_t>
-    auto resolve_scoped_no_slot(provider_t& provider, container_t* container)
+    auto resolve_scoped_no_slot(provider_t& provider, container_t&)
     {
         auto& instance = get_or_create_singleton<value_t>(provider);
         return as_requested<request_t>(instance);
@@ -157,15 +157,15 @@ struct instance_cache_t
     instance_cache_t(storage_t* storage, nesting_t* nesting) : storage_{storage}, nesting_{nesting} {}
 
     template <typename request_t, typename value_t, typename provider_t, typename container_t>
-    auto resolve_scoped_no_slot(provider_t&, container_t* container) -> auto
+    auto resolve_scoped_no_slot(provider_t&, container_t& container) -> auto
     {
         // Check cache hierarchy
         if (auto cached = storage_->template get_cached<value_t>()) { return as_requested<request_t>(*cached); }
         if (auto cached = nesting_->template find_parent_cached<value_t>()) { return as_requested<request_t>(*cached); }
 
         // Create and cache
-        auto instance = storage_->template get_or_create_cached<value_t>([container]() {
-            return container->template create_transient<value_t>();
+        auto instance = storage_->template get_or_create_cached<value_t>([&container]() {
+            return container.template create_transient<value_t>();
         });
         return as_requested<request_t>(*instance);
     }
@@ -241,7 +241,7 @@ public:
             }
 
             return scoped_resolver_.template resolve_scoped_no_slot<request_t, resolved_t>(
-                binding_descriptor.binding->provider, this
+                binding_descriptor.binding->config.provider, *this
             );
         }
     }
