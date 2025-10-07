@@ -259,14 +259,9 @@ private:
     template <typename T, size_t I = 0>
     static constexpr size_t find_binding_index()
     {
-        if constexpr (I >= sizeof...(resolved_bindings_t)) { return sizeof...(resolved_bindings_t); }
-        else
-        {
-            using elem_t = std::tuple_element_t<I, decltype(bindings_)>;
-            using from_t = typename elem_t::binding_t::from_t;
-            if constexpr (std::same_as<T, from_t>) return I;
-            else return find_binding_index<T, I + 1>();
-        }
+        if constexpr (I >= sizeof...(resolved_bindings_t)) return I;
+        else if constexpr (std::same_as<T, typename std::tuple_element_t<I, decltype(bindings_)>::from_t>) return I;
+        else return find_binding_index<T, I + 1>();
     }
 
     std::tuple<resolved_bindings_t...> bindings_;
