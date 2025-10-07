@@ -45,24 +45,24 @@ struct child_slot_t
     std::shared_ptr<instance_t> instance;
 };
 
-//! primary template - transient scope, no slot, no caching
-template <typename binding_p, typename container_tag_t>
-struct resolved_binding_t
-{
-    using binding_t = binding_p;
-    binding_t binding;
-};
-
 // Helper: does this binding use static (process-wide) storage?
 template <typename binding_p, typename container_tag_t>
 constexpr bool uses_static_storage_v = std::same_as<typename binding_p::resolved_scope_t, scopes::singleton_t>
     || (std::same_as<typename binding_p::resolved_scope_t, scopes::scoped_t>
         && std::same_as<container_tag_t, root_container_tag_t>);
 
+//! primary template - transient scope, no slot, no caching
+template <typename binding_p, typename container_tag_t>
+struct binding_with_scope_t
+{
+    using binding_t = binding_p;
+    binding_t binding;
+};
+
 // Specialization for bindings using static storage (singleton and root-scoped)
 template <typename binding_p, typename container_tag_t>
 requires uses_static_storage_v<binding_p, container_tag_t>
-struct resolved_binding_t<binding_p, container_tag_t>
+struct binding_with_scope_t<binding_p, container_tag_t>
 {
     using binding_t = binding_p;
     using to_t = typename binding_t::to_t;
@@ -75,7 +75,7 @@ struct resolved_binding_t<binding_p, container_tag_t>
 // Specialization for scoped scope in child - has local slot for zero-overhead lookups
 template <typename binding_p>
 requires std::same_as<typename binding_p::resolved_scope_t, scopes::scoped_t>
-struct resolved_binding_t<binding_p, child_container_tag_t>
+struct binding_with_scope_t<binding_p, child_container_tag_t>
 {
     using binding_t = binding_p;
     using to_t = typename binding_t::to_t;
@@ -83,6 +83,10 @@ struct resolved_binding_t<binding_p, child_container_tag_t>
     binding_t binding;
     child_slot_t<to_t> slot;
 };
+
+template <typename binding_t, typename container_tag_t>
+struct resolved_binding_t : binding_with_scope_t<binding_t, container_tag_t>
+{};
 
 template <typename binding_t>
 constexpr auto is_binding_builder_v = requires {
@@ -106,7 +110,7 @@ auto finalize_binding(element_t&& element) noexcept -> auto
 
 template <typename container_tag_t, typename finalized_binding_t>
 auto add_scope_infrastructure(finalized_binding_t&& finalized_binding)
-    -> resolved_binding_t<finalized_binding_t, container_tag_t>
+    -> binding_with_scope_t<finalized_binding_t, container_tag_t>
 {
     return {std::move(finalized_binding)};
 }
