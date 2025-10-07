@@ -81,7 +81,7 @@ struct instance_cache_storage_t
 
 } // namespace storage
 
-namespace parent {
+namespace nesting {
 
 struct no_parent_t
 {
@@ -120,7 +120,7 @@ struct child_t
     }
 };
 
-} // namespace parent
+} // namespace nesting
 
 namespace scope_resolution {
 
@@ -136,20 +136,20 @@ struct static_t
     }
 };
 
-template <typename parent_t, typename storage_t>
+template <typename nesting_t, typename storage_t>
 struct instance_cache_t
 {
-    parent_t* parent_;
+    nesting_t* nesting_;
     storage_t* storage_;
 
-    instance_cache_t(storage_t* storage, parent_t* parent) : storage_{storage}, parent_{parent} {}
+    instance_cache_t(storage_t* storage, nesting_t* nesting) : storage_{storage}, nesting_{nesting} {}
 
     template <typename request_t, typename value_t, typename container_t>
     auto resolve_scoped_no_slot(container_t* container) -> auto
     {
         // Check cache hierarchy
         if (auto cached = storage_->template get_cached<value_t>()) { return as_requested<request_t>(*cached); }
-        if (auto cached = parent_->template find_parent_cached<value_t>()) { return as_requested<request_t>(*cached); }
+        if (auto cached = nesting_->template find_parent_cached<value_t>()) { return as_requested<request_t>(*cached); }
 
         // Create and cache
         auto instance = storage_->template get_or_create_cached<value_t>([container]() {
@@ -163,13 +163,17 @@ struct instance_cache_t
 } // namespace policies
 
 // Container implementation
-template <typename storage_policy, typename parent_policy, typename scoped_policy, typename... resolved_bindings_t>
-class container_t : private storage_policy, private parent_policy
+template <typename policy_t, typename... resolved_bindings_t>
+class container_t : private policy_t::storage_t, private policy_t::nesting_t
 {
 public:
+    using storage_policy_t = policy_t::storage_t;
+    using nesting_policy_t = policy_t::nesting_t;
+    using scoped_policy_t = policy_t::scoped_t;
+
     // Constructor for root
     template <typename... bindings_t>
-    requires std::same_as<parent_policy, policies::parent::no_parent_t>
+    requires std::same_as<nesting_policy_t, policies::nesting::no_parent_t>
     explicit container_t(bindings_t&&... bindings)
         : bindings_{resolve_bindings<root_container_tag_t>(*this, std::forward<bindings_t>(bindings)...)},
           scoped_resolver_{}
@@ -177,11 +181,11 @@ public:
 
     // Constructor for child
     template <typename parent_t, typename... bindings_t>
-    requires(!std::same_as<parent_policy, policies::parent::no_parent_t>)
+    requires(!std::same_as<nesting_policy_t, policies::nesting::no_parent_t>)
     explicit container_t(parent_t& parent, bindings_t&&... bindings)
-        : parent_policy(parent),
+        : nesting_policy_t(parent),
           bindings_{resolve_bindings<child_container_tag_t>(*this, std::forward<bindings_t>(bindings)...)},
-          scoped_resolver_{static_cast<storage_policy*>(this), static_cast<parent_policy*>(this)}
+          scoped_resolver_{static_cast<storage_policy_t*>(this), static_cast<nesting_policy_t*>(this)}
     {}
 
     template <typename request_t>
@@ -237,14 +241,14 @@ public:
             auto& binding = std::get<local_idx>(bindings_);
             return binding_descriptor_t<std::remove_reference_t<decltype(binding)>>{&binding};
         }
-        else { return parent_policy::template find_parent_binding<value_t>(); }
+        else { return nesting_policy_t::template find_parent_binding<value_t>(); }
     }
 
     template <typename value_t>
     auto find_cached() -> std::shared_ptr<value_t>
     {
-        if (auto cached = storage_policy::template get_cached<value_t>()) return cached;
-        return parent_policy::template find_parent_cached<value_t>();
+        if (auto cached = storage_policy_t::template get_cached<value_t>()) return cached;
+        return nesting_policy_t::template find_parent_cached<value_t>();
     }
 
     template <typename instance_t>
@@ -266,20 +270,28 @@ private:
 
     std::tuple<resolved_bindings_t...> bindings_;
     providers::ctor_invoker_t default_provider_;
-    scoped_policy scoped_resolver_;
+    scoped_policy_t scoped_resolver_;
 };
 
-// Root container typedef
-template <typename... resolved_bindings_t>
-using root_container_t = container_t<
-    policies::storage::no_storage_t, policies::parent::no_parent_t, policies::scope_resolution::static_t,
-    resolved_bindings_t...>;
+struct root_container_policy_t
+{
+    using storage_t = policies::storage::no_storage_t;
+    using nesting_t = policies::nesting::no_parent_t;
+    using scope_resolution_t = policies::scope_resolution::static_t;
+};
 
-// Child container typedef
+template <typename... resolved_bindings_t>
+using root_container_t = container_t<root_container_policy_t>;
+
+template <typename parent_t>
+struct child_container_policy_t
+{
+    using storage_t = policies::storage::instance_cache_storage_t;
+    using nesting_t = policies::nesting::child_t<parent_t>;
+    using scope_resolution_t = policies::scope_resolution::instance_cache_t<nesting_t, storage_t>;
+};
+
 template <typename parent_t, typename... resolved_bindings_t>
-using child_container_t = container_t<
-    policies::storage::instance_cache_storage_t, policies::parent::child_t<parent_t>,
-    policies::scope_resolution::instance_cache_t<parent_t, policies::storage::instance_cache_storage_t>,
-    resolved_bindings_t...>;
+using child_container_t = container_t<child_container_policy_t<parent_t>, resolved_bindings_t...>;
 
 } // namespace dink
