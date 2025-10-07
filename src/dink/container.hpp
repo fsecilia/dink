@@ -17,9 +17,9 @@
 
 namespace dink {
 
-// Binding info
+// Binding binding_descriptor
 template <typename binding_t>
-struct binding_info
+struct binding_descriptor_t
 {
     binding_t* binding = nullptr;
     decltype(std::declval<binding_t>().slot)* slot = nullptr;
@@ -75,7 +75,7 @@ struct no_parent_policy
     {
         using null_t
             = resolved_binding_t<binding_t<T, T, providers::ctor_invoker_t, scopes::transient_t>, root_container_tag_t>;
-        return binding_info<null_t>{};
+        return binding_descriptor_t<null_t>{};
     }
 
     template <typename T>
@@ -173,32 +173,37 @@ public:
     auto resolve()
     {
         using resolved_t = resolved_t<request_t>;
-        auto info = find_binding<resolved_t>();
+        auto binding_descriptor = find_binding<resolved_t>();
 
-        // if no binding binding is found, the type is transient, so use the default provider
-        static auto const is_transient = !info.found();
+        // if no binding is found, the type is transient, so use the default provider
+        static auto const is_transient = !binding_descriptor.found();
         if (is_transient) return as_requested<request_t>(default_provider_.template operator()<resolved_t>(*this));
 
-        if (info.is_accessor()) return as_requested<request_t>(info.binding->binding.provider());
+        if (binding_descriptor.is_accessor())
+            return as_requested<request_t>(binding_descriptor.binding->binding.provider());
 
-        using effective_scope_t = effective_scope_t<typename decltype(info)::scope_type, request_t>;
+        using effective_scope_t = effective_scope_t<typename decltype(binding_descriptor)::scope_type, request_t>;
 
         if constexpr (std::same_as<effective_scope_t, scopes::transient_t>)
         {
-            return as_requested<request_t>(info.binding->binding.provider(*this));
+            return as_requested<request_t>(binding_descriptor.binding->binding.provider(*this));
         }
         else if constexpr (std::same_as<effective_scope_t, scopes::singleton_t>)
         {
-            return as_requested<request_t>(info.binding->get_or_create());
+            return as_requested<request_t>(binding_descriptor.binding->get_or_create());
         }
         else
         {
             // effective scope is scoped
-            if (info.has_slot() && info.slot->instance) { return as_requested<request_t>(*info.slot->instance); }
-            if (info.has_slot())
+            if (binding_descriptor.has_slot() && binding_descriptor.slot->instance)
             {
-                info.slot->instance = std::make_shared<resolved_t>(info.binding->binding.provider(*this));
-                return as_requested<request_t>(*info.slot->instance);
+                return as_requested<request_t>(*binding_descriptor.slot->instance);
+            }
+            if (binding_descriptor.has_slot())
+            {
+                binding_descriptor.slot->instance
+                    = std::make_shared<resolved_t>(binding_descriptor.binding->binding.provider(*this));
+                return as_requested<request_t>(*binding_descriptor.slot->instance);
             }
             return scoped_resolver_.template resolve_scoped_no_slot<request_t, resolved_t>(this);
         }
@@ -214,10 +219,10 @@ public:
             auto& binding = std::get<idx>(bindings_);
             using binding_t = std::remove_reference_t<decltype(binding)>;
 
-            binding_info<binding_t> info;
-            info.binding = &binding;
-            if constexpr (requires { binding.slot; }) info.slot = &binding.slot;
-            return info;
+            binding_descriptor_t<binding_t> binding_descriptor;
+            binding_descriptor.binding = &binding;
+            if constexpr (requires { binding.slot; }) binding_descriptor.slot = &binding.slot;
+            return binding_descriptor;
         }
         else { return parent_policy::find_parent_binding(static_cast<value_t*>(nullptr)); }
     }
@@ -232,8 +237,8 @@ public:
     template <typename instance_t>
     auto create_transient() -> instance_t
     {
-        auto info = find_binding<instance_t>();
-        if (info.found()) return info.binding->binding.provider(*this);
+        auto binding_descriptor = find_binding<instance_t>();
+        if (binding_descriptor.found()) return binding_descriptor.binding->binding.provider(*this);
         return default_provider_.template operator()<instance_t>(*this);
     }
 
