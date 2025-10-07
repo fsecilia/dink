@@ -104,6 +104,13 @@ auto finalize_binding(element_t&& element) noexcept -> auto
     else { return std::forward<element_t>(element); }
 }
 
+template <typename container_tag_t, typename finalized_binding_t>
+auto add_scope_infrastructure(finalized_binding_t&& finalized_binding)
+    -> resolved_binding_t<finalized_binding_t, container_tag_t>
+{
+    return {std::move(finalized_binding)};
+}
+
 // Helper to determine if we need to close over the container
 template <typename resolved_scope_t, typename container_tag_t>
 constexpr bool needs_container_closure_v = std::same_as<resolved_scope_t, scopes::singleton_t>
@@ -139,7 +146,7 @@ auto resolve_binding(element_t&& element, container_t& container) -> auto
     auto finalized = finalize_binding(std::forward<element_t>(element));
 
     // Phase 2: Add scope infrastructure (binding_t -> resolved_binding_t)
-    auto with_scope = resolved_binding_t<decltype(finalized), container_tag_t>{std::move(finalized)};
+    auto with_scope = add_scope_infrastructure<container_tag_t>(std::move(finalized));
 
     // Phase 3: Close provider over container if needed (for singleton/root-scoped)
     return close_provider_over_container<container_tag_t>(std::move(with_scope), container);
