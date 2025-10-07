@@ -23,6 +23,7 @@ list(APPEND dink_library_files
     lib.hpp
     meta.hpp
     request_traits.hpp
+    scopes.hpp
     type_list.hpp
     unqualified.hpp
     version.hpp

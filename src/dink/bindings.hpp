@@ -6,27 +6,12 @@
 #pragma once
 
 #include <dink/lib.hpp>
+#include <dink/scopes.hpp>
 #include <concepts>
 #include <type_traits>
 #include <utility>
 
 namespace dink {
-
-namespace scopes {
-
-struct transient_t
-{};
-
-struct scoped_t
-{};
-
-struct singleton_t
-{};
-
-struct default_t
-{};
-
-} // namespace scopes
 
 namespace providers {
 

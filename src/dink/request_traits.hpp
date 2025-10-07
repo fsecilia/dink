@@ -6,7 +6,7 @@
 #pragma once
 
 #include <dink/lib.hpp>
-#include <dink/bindings.hpp>
+#include <dink/scopes.hpp>
 #include <memory>
 #include <type_traits>
 #include <utility>
