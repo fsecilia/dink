@@ -153,13 +153,13 @@ struct child_scoped_policy
 
 // Container implementation
 template <typename storage_policy, typename parent_policy, typename scoped_policy, typename... resolved_bindings_t>
-class container_impl : private storage_policy, private parent_policy
+class container_t : private storage_policy, private parent_policy
 {
 public:
     // Constructor for root
     template <typename... bindings_t>
     requires std::same_as<parent_policy, no_parent_policy>
-    explicit container_impl(bindings_t&&... bindings)
+    explicit container_t(bindings_t&&... bindings)
         : bindings_{resolve_bindings<root_container_tag_t>(*this, std::forward<bindings_t>(bindings)...)},
           scoped_resolver_{}
     {}
@@ -167,7 +167,7 @@ public:
     // Constructor for child
     template <typename parent_t, typename... bindings_t>
     requires(!std::same_as<parent_policy, no_parent_policy>)
-    explicit container_impl(parent_t& parent, bindings_t&&... bindings)
+    explicit container_t(parent_t& parent, bindings_t&&... bindings)
         : parent_policy(parent),
           bindings_{resolve_bindings<child_container_tag_t>(*this, std::forward<bindings_t>(bindings)...)},
           scoped_resolver_{static_cast<storage_policy*>(this), static_cast<parent_policy*>(this)}
@@ -260,12 +260,11 @@ private:
 
 // Root container typedef
 template <typename... resolved_bindings_t>
-using root_container_t
-    = container_impl<no_storage_policy, no_parent_policy, root_scoped_policy, resolved_bindings_t...>;
+using root_container_t = container_t<no_storage_policy, no_parent_policy, root_scoped_policy, resolved_bindings_t...>;
 
 // Child container typedef
 template <typename parent_t, typename... resolved_bindings_t>
-using child_container_t = container_impl<
+using child_container_t = container_t<
     cache_storage_policy, has_parent_policy<parent_t>,
     child_scoped_policy<cache_storage_policy, has_parent_policy<parent_t>>, resolved_bindings_t...>;
 
