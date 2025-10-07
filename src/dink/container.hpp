@@ -104,9 +104,9 @@ template <typename parent_t>
 struct child_t
 {
     parent_t* parent;
-    decltype(std::declval<parent_t>().root())* root;
+    decltype(std::declval<parent_t>().get_root())* root;
 
-    explicit child_t(parent_t& parent) : parent{&parent}, root{parent.get_root()} {}
+    explicit child_t(parent_t& parent) : parent{&parent}, root{&parent.get_root()} {}
 
     template <typename T>
     constexpr auto find_parent_binding()
@@ -274,7 +274,7 @@ public:
         return default_provider_.template operator()<instance_t>(*this);
     }
 
-    auto root() -> container_t&
+    auto get_root() -> container_t&
     {
         if constexpr (std::same_as<nesting_policy_t, policies::nesting::no_parent_t>) { return *this; }
         else { return *nesting_policy_t::root; }

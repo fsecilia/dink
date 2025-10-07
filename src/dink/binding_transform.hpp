@@ -9,13 +9,23 @@
 #include <dink/bindings.hpp>
 #include <concepts>
 #include <memory>
+#include <optional>
 
 namespace dink {
 
-template <typename instance_t, typename provider_t>
-auto get_or_create_singleton(provider_t& provider) -> instance_t&
+template <typename value_t>
+struct singleton_t
 {
-    static auto instance = provider.template operator()<instance_t>();
+    static std::optional<value_t> value;
+
+    template <typename provider_t, typename container_t>
+    auto get_or_create(provider_t
+};
+
+template <typename instance_t, typename provider_t, typename root_container_t>
+auto get_or_create_singleton(provider_t& provider, root_container_t& root_continer) -> instance_t&
+{
+    static auto instance = provider.template operator()<instance_t>(root_container);
     return instance;
 }
 
@@ -55,9 +65,10 @@ struct binding_t<binding_config_t, container_tag_t>
 
     binding_config_t config;
 
-    auto get_or_create() -> binding_config_t::to_t&
+    template <typename root_container_t>
+    auto get_or_create(root_container_t& root_container) -> binding_config_t::to_t&
     {
-        return get_or_create_singleton<binding_config_t::to_t, provider_t>(config.provider);
+        return get_or_create_singleton<binding_config_t::to_t, provider_t>(config.provider, root_container);
     }
 };
 
