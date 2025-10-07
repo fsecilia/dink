@@ -54,15 +54,22 @@ constexpr bool uses_static_storage_v = std::same_as<typename binding_p::resolved
 
 //! primary template - transient scope, no slot, no caching
 template <typename binding_config_t, typename container_tag_t>
-struct binding_with_scope_t : binding_config_t
+struct scope_binding_t
 {
+    using provider_t = binding_config_t::provider_t;
+
+    binding_config_t config;
 };
 
 // Specialization for bindings using static storage (singleton and root-scoped)
 template <typename binding_config_t, typename container_tag_t>
 requires uses_static_storage_v<binding_config_t, container_tag_t>
-struct binding_with_scope_t<binding_config_t, container_tag_t> : binding_config_t
+struct scope_binding_t<binding_config_t, container_tag_t>
 {
+    using provider_t = binding_config_t::provider_t;
+
+    binding_config_t config;
+
     auto get_or_create() -> binding_config_t::to_t&
     {
         return get_singleton<binding_config_t::to_t, binding_config_t>(*this);
@@ -72,14 +79,20 @@ struct binding_with_scope_t<binding_config_t, container_tag_t> : binding_config_
 // Specialization for scoped scope in child - has local slot for zero-overhead lookups
 template <typename binding_config_t>
 requires std::same_as<typename binding_config_t::resolved_scope_t, scopes::scoped_t>
-struct binding_with_scope_t<binding_config_t, child_container_tag_t> : binding_config_t
+struct scope_binding_t<binding_config_t, child_container_tag_t>
 {
+    using provider_t = binding_config_t::provider_t;
+    binding_config_t config;
     child_slot_t<typename binding_config_t::to_t> slot;
 };
 
-template <typename binding_with_scope_t>
-struct binding_t : binding_with_scope_t
-{};
+template <typename scope_binding_t>
+struct binding_t
+{
+    using provider_t = scope_binding_t::provider_t;
+
+    scope_binding_t scope;
+};
 
 template <typename binding_t>
 constexpr auto is_binding_builder_v = requires {
@@ -103,7 +116,7 @@ auto finalize_binding(element_t&& element) noexcept -> auto
 
 template <typename container_tag_t, typename finalized_binding_t>
 auto add_scope_infrastructure(finalized_binding_t&& finalized_binding)
-    -> binding_with_scope_t<finalized_binding_t, container_tag_t>
+    -> scope_binding_t<finalized_binding_t, container_tag_t>
 {
     return {std::move(finalized_binding)};
 }
@@ -124,9 +137,11 @@ auto close_provider_over_container(prev_resolved_t&& resolved_binding, container
     {
         using prev_provider_t = typename prev_binding_t::provider_t;
 
-        return binding_t<binding_config_t<
-            typename prev_binding_t::from_t, typename prev_binding_t::to_t,
-            bound_provider_t<prev_provider_t, container_t>, resolved_scope_t>>{binding_config_t{
+        return binding_t<scope_binding_t<
+            binding_config_t<
+                typename prev_binding_t::from_t, typename prev_binding_t::to_t,
+                bound_provider_t<prev_provider_t, container_t>, resolved_scope_t>,
+            container_tag_t>>{binding_config_t{
             bound_provider_t<prev_provider_t, container_t>{std::move(resolved_binding.binding.provider), &container}
         }};
     }
@@ -140,10 +155,10 @@ auto resolve_binding(element_t&& element, container_t& container) -> auto
     // Phase 1: Complete partial bindings (builder -> binding_config_t)
     auto finalized = finalize_binding(std::forward<element_t>(element));
 
-    // Phase 2: Add scope infrastructure (binding_config_t -> binding_with_scope_t)
+    // Phase 2: Add scope infrastructure (binding_config_t -> scope_binding_t)
     auto with_scope = add_scope_infrastructure<container_tag_t>(std::move(finalized));
 
-    // Phase 3: Close provider over container if needed (for singleton/root-scoped) (binding_with_scope_t -> binding_t)
+    // Phase 3: Close provider over container if needed (for singleton/root-scoped) (scope_binding_t -> binding_t)
     return close_provider_over_container<container_tag_t>(std::move(with_scope), container);
 }
 

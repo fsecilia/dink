@@ -17,20 +17,30 @@
 
 namespace dink {
 
-// Binding binding_descriptor
 template <typename binding_t>
 struct binding_descriptor_t
 {
     binding_t* binding = nullptr;
-    decltype(std::declval<binding_t>().slot)* slot = nullptr;
     using scope_type = typename binding_t::binding_t::resolved_scope_t;
 
     bool found() const { return binding != nullptr; }
-    bool has_slot() const { return slot != nullptr; }
+
+    bool has_slot() const
+    {
+        if (!binding) return false;
+        return requires { binding->scope.slot; };
+    }
+
+    auto get_slot() -> auto*
+    {
+        if constexpr (requires { binding->scope.slot; }) return &binding->scope.slot;
+        return nullptr;
+    }
+
     bool is_accessor() const
     {
         if (!binding) return false;
-        return providers::is_accessor<typename binding_t::binding_t::provider_t>;
+        return providers::is_accessor<typename binding_t::provider_t>;
     }
 };
 
@@ -73,7 +83,7 @@ struct no_parent_policy
     template <typename T>
     auto find_parent_binding(T*)
     {
-        using null_t = binding_t<binding_with_scope_t<
+        using null_t = binding_t<scope_binding_t<
             binding_config_t<T, T, providers::ctor_invoker_t, scopes::transient_t>, root_container_tag_t>>;
         return binding_descriptor_t<null_t>{};
     }
@@ -124,10 +134,10 @@ struct child_scoped_policy
     storage_t* storage_;
     parent_t* parent_;
 
-    child_scoped_policy(storage_t* s, parent_t* p) : storage_(s), parent_(p) {}
+    child_scoped_policy(storage_t* storage, parent_t* parent) : storage_{storage}, parent_{parent} {}
 
     template <typename request_t, typename value_t, typename container_t>
-    auto resolve_scoped_no_slot(container_t* container)
+    auto resolve_scoped_no_slot(container_t* container) -> auto
     {
         // Check cache hierarchy
         if (auto cached = storage_->get_cached(static_cast<value_t*>(nullptr)))
@@ -179,13 +189,14 @@ public:
         static auto const is_transient = !binding_descriptor.found();
         if (is_transient) return as_requested<request_t>(default_provider_.template operator()<resolved_t>(*this));
 
+        // accessors don't use any caching, so just return them immediately
         if (binding_descriptor.is_accessor())
         {
             return as_requested<request_t>(binding_descriptor.binding->binding.provider());
         }
 
+        // use scope-based caching
         using effective_scope_t = effective_scope_t<typename decltype(binding_descriptor)::scope_type, request_t>;
-
         if constexpr (std::same_as<effective_scope_t, scopes::transient_t>)
         {
             return as_requested<request_t>(binding_descriptor.binding->binding.provider(*this));
@@ -197,16 +208,17 @@ public:
         else
         {
             // effective scope is scoped
-            if (binding_descriptor.has_slot() && binding_descriptor.slot->instance)
+            if constexpr (binding_descriptor.has_slot())
             {
-                return as_requested<request_t>(*binding_descriptor.slot->instance);
+                auto instance = binding_descriptor.slot()->instance;
+                if (!instance)
+                {
+                    instance = std::make_shared<resolved_t>(binding_descriptor.binding->config.provider(*this));
+                    binding_descriptor.slot()->instance = instance;
+                }
+                return as_requested<request_t>(*instance);
             }
-            if (binding_descriptor.has_slot())
-            {
-                binding_descriptor.slot->instance
-                    = std::make_shared<resolved_t>(binding_descriptor.binding->binding.provider(*this));
-                return as_requested<request_t>(*binding_descriptor.slot->instance);
-            }
+
             return scoped_resolver_.template resolve_scoped_no_slot<request_t, resolved_t>(this);
         }
     }
@@ -223,7 +235,6 @@ public:
 
             binding_descriptor_t<binding_t> binding_descriptor;
             binding_descriptor.binding = &binding;
-            if constexpr (requires { binding.slot; }) binding_descriptor.slot = &binding.slot;
             return binding_descriptor;
         }
         else { return parent_policy::find_parent_binding(static_cast<value_t*>(nullptr)); }
