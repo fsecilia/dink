@@ -26,6 +26,7 @@ struct bound_provider_t
     }
 };
 
+// TODO: this should take the provider directly
 template <typename instance_t, typename binding_t>
 auto get_singleton(binding_t& binding) -> instance_t&
 {
@@ -52,36 +53,25 @@ constexpr bool uses_static_storage_v = std::same_as<typename binding_p::resolved
         && std::same_as<container_tag_t, root_container_tag_t>);
 
 //! primary template - transient scope, no slot, no caching
-template <typename binding_p, typename container_tag_t>
-struct binding_with_scope_t
+template <typename config_binding_t, typename container_tag_t>
+struct binding_with_scope_t : config_binding_t
 {
-    using binding_t = binding_p;
-    binding_t binding;
 };
 
 // Specialization for bindings using static storage (singleton and root-scoped)
-template <typename binding_p, typename container_tag_t>
-requires uses_static_storage_v<binding_p, container_tag_t>
-struct binding_with_scope_t<binding_p, container_tag_t>
+template <typename config_binding_t, typename container_tag_t>
+requires uses_static_storage_v<config_binding_t, container_tag_t>
+struct binding_with_scope_t<config_binding_t, container_tag_t> : config_binding_t
 {
-    using binding_t = binding_p;
-    using to_t = typename binding_t::to_t;
-
-    binding_t binding;
-
-    auto get_or_create() -> to_t& { return get_singleton<to_t, binding_t>(binding); }
+    auto get_or_create() -> config_binding_t::to_t& { return get_singleton<config_binding_t::to_t, binding_t>(*this); }
 };
 
 // Specialization for scoped scope in child - has local slot for zero-overhead lookups
-template <typename binding_p>
-requires std::same_as<typename binding_p::resolved_scope_t, scopes::scoped_t>
-struct binding_with_scope_t<binding_p, child_container_tag_t>
+template <typename config_binding_t>
+requires std::same_as<typename config_binding_t::resolved_scope_t, scopes::scoped_t>
+struct binding_with_scope_t<config_binding_t, child_container_tag_t> : config_binding_t
 {
-    using binding_t = binding_p;
-    using to_t = typename binding_t::to_t;
-
-    binding_t binding;
-    child_slot_t<to_t> slot;
+    child_slot_t<typename config_binding_t::to_t> slot;
 };
 
 template <typename binding_t, typename container_tag_t>
