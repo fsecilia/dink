@@ -22,6 +22,7 @@ list(APPEND dink_library_files
     instance_cache.hpp
     lib.hpp
     meta.hpp
+    request_traits.hpp
     type_list.hpp
     unqualified.hpp
     version.hpp
@@ -38,6 +39,7 @@ list(APPEND dink_unit_test_files
     deleter_traits_test.cpp
     factory_invoker_test.cpp
     instance_cache_test.cpp
+    request_traits_test.cpp
     type_list_test.cpp
     unqualified_test.cpp
     version_test.cpp

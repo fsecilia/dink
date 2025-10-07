@@ -1,0 +1,137 @@
+/*!
+    \file
+    Copyright (C) 2025 Frank Secilia
+*/
+
+#pragma once
+
+#include <dink/lib.hpp>
+#include <dink/bindings.hpp>
+#include <memory>
+#include <type_traits>
+#include <utility>
+
+namespace dink {
+
+enum class transitive_scope_t
+{
+    unmodified,
+    transient,
+    scoped
+};
+
+template <typename requested_t>
+struct request_traits_f
+{
+    using resolved_t = requested_t;
+    static constexpr transitive_scope_t transitive_scope = transitive_scope_t::unmodified;
+
+    template <typename instance_t>
+    static auto as_requested(instance_t&& instance) -> auto
+    {
+        return std::forward<instance_t>(instance);
+    }
+};
+
+template <typename requested_t>
+struct request_traits_f<requested_t&&>
+{
+    using resolved_t = requested_t;
+    static constexpr transitive_scope_t transitive_scope = transitive_scope_t::transient;
+
+    template <typename instance_t>
+    static auto as_requested(instance_t&& instance) -> auto
+    {
+        return std::move(instance);
+    }
+};
+
+template <typename requested_t>
+struct request_traits_f<requested_t&>
+{
+    using resolved_t = requested_t;
+    static constexpr transitive_scope_t transitive_scope = transitive_scope_t::scoped;
+
+    template <typename instance_t>
+    static auto as_requested(instance_t&& instance) -> requested_t&
+    {
+        return static_cast<requested_t&>(instance);
+    }
+};
+
+template <typename requested_t>
+struct request_traits_f<requested_t*>
+{
+    using resolved_t = requested_t;
+    static constexpr transitive_scope_t transitive_scope = transitive_scope_t::scoped;
+
+    template <typename instance_t>
+    static auto as_requested(instance_t&& instance) -> requested_t*
+    {
+        return &instance;
+    }
+};
+
+template <typename requested_t>
+struct request_traits_f<std::unique_ptr<requested_t>>
+{
+    using resolved_t = requested_t;
+    static constexpr transitive_scope_t transitive_scope = transitive_scope_t::transient;
+
+    template <typename instance_t>
+    static auto as_requested(instance_t&& instance) -> std::unique_ptr<requested_t>
+    {
+        return std::make_unique<requested_t>(std::forward<instance_t>(instance));
+    }
+};
+
+template <typename requested_t>
+struct request_traits_f<std::shared_ptr<requested_t>>
+{
+    using resolved_t = requested_t;
+    static constexpr transitive_scope_t transitive_scope = transitive_scope_t::unmodified;
+
+    template <typename instance_t>
+    static auto as_requested(instance_t&& instance) -> std::shared_ptr<requested_t>
+    {
+        if constexpr (std::same_as<std::remove_cvref_t<instance_t>, std::shared_ptr<requested_t>>) { return instance; }
+        else { return std::make_shared<requested_t>(std::forward<instance_t>(instance)); }
+    }
+};
+
+template <typename requested_t>
+struct request_traits_f<std::weak_ptr<requested_t>>
+{
+    using resolved_t = requested_t;
+    static constexpr transitive_scope_t transitive_scope = transitive_scope_t::scoped;
+
+    template <typename instance_t>
+    static auto as_requested(instance_t&& instance) -> std::weak_ptr<requested_t>
+    {
+        return std::weak_ptr<requested_t>(instance);
+    }
+};
+
+//! type actual cached and provided for a given request
+template <typename requested_t>
+using resolved_t = request_traits_f<requested_t>::resolved_t;
+
+/*!
+    effective scope to use for a specific request given its immediate type and scope it was bound to
+    
+*/
+template <typename bound_scope_t, typename request_t>
+using effective_scope_t = std::conditional_t<
+    request_traits_f<request_t>::transitive_scope == transitive_scope_t::transient, scopes::transient_t,
+    std::conditional_t<
+        request_traits_f<request_t>::transitive_scope == transitive_scope_t::scoped
+            && std::same_as<bound_scope_t, scopes::transient_t>,
+        scopes::scoped_t, bound_scope_t>>;
+
+template <typename request_t, typename instance_t>
+auto as_requested(instance_t&& instance) -> auto
+{
+    return request_traits_f<request_t>::as_requested(std::forward<instance_t>(instance));
+}
+
+} // namespace dink

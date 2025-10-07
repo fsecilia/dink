@@ -9,100 +9,13 @@
 #include <dink/binding_transform.hpp>
 #include <dink/bindings.hpp>
 #include <dink/instance_cache.hpp>
+#include <dink/request_traits.hpp>
 #include <concepts>
 #include <memory>
-#include <type_traits>
 #include <utility>
 
 namespace dink {
 
-enum class transitive_scope_t
-{
-    unmodified,
-    transient,
-    scoped
-};
-
-template <typename requested_t>
-struct request_traits_f
-{
-    using value_type = requested_t;
-    static constexpr transitive_scope_t transitive_scope = transitive_scope_t::unmodified;
-};
-
-template <typename requested_t>
-struct request_traits_f<requested_t&&>
-{
-    using value_type = requested_t;
-    static constexpr transitive_scope_t transitive_scope = transitive_scope_t::transient;
-};
-
-template <typename requested_t>
-struct request_traits_f<std::unique_ptr<requested_t>>
-{
-    using value_type = requested_t;
-    static constexpr transitive_scope_t transitive_scope = transitive_scope_t::transient;
-};
-
-template <typename requested_t>
-struct request_traits_f<requested_t*>
-{
-    using value_type = requested_t;
-    static constexpr transitive_scope_t transitive_scope = transitive_scope_t::scoped;
-};
-
-template <typename requested_t>
-struct request_traits_f<requested_t&>
-{
-    using value_type = requested_t;
-    static constexpr transitive_scope_t transitive_scope = transitive_scope_t::scoped;
-};
-
-template <typename requested_t>
-struct request_traits_f<std::shared_ptr<requested_t>>
-{
-    using value_type = requested_t;
-    static constexpr transitive_scope_t transitive_scope = transitive_scope_t::unmodified;
-};
-
-template <typename requested_t>
-struct request_traits_f<std::weak_ptr<requested_t>>
-{
-    using value_type = requested_t;
-    static constexpr transitive_scope_t transitive_scope = transitive_scope_t::scoped;
-};
-
-template <typename requested_t>
-using resolved_t = request_traits_f<requested_t>::value_type;
-
-template <typename bound_scope_t, typename request_t>
-using effective_scope_t = std::conditional_t<
-    request_traits_f<request_t>::transitive_scope == transitive_scope_t::transient, scopes::transient_t,
-    std::conditional_t<
-        request_traits_f<request_t>::transitive_scope == transitive_scope_t::scoped
-            && std::same_as<bound_scope_t, scopes::transient_t>,
-        scopes::scoped_t, bound_scope_t>>;
-
-template <typename request_t, typename instance_t>
-auto adapt_instance(instance_t&& instance)
-{
-    using value_t = resolved_t<request_t>;
-
-    if constexpr (std::same_as<request_t, value_t>) return std::forward<instance_t>(instance);
-    else if constexpr (std::same_as<request_t, value_t&>) return static_cast<value_t&>(instance);
-    else if constexpr (std::same_as<request_t, value_t&&>) return std::move(instance);
-    else if constexpr (std::same_as<request_t, value_t*>) return &instance;
-    else if constexpr (std::same_as<request_t, std::unique_ptr<value_t>>)
-        return std::make_unique<value_t>(std::forward<instance_t>(instance));
-    else if constexpr (std::same_as<request_t, std::shared_ptr<value_t>>)
-    {
-        if constexpr (std::same_as<std::remove_cvref_t<instance_t>, std::shared_ptr<value_t>>) return instance;
-        else return std::make_shared<value_t>(std::forward<instance_t>(instance));
-    }
-    else if constexpr (std::same_as<request_t, std::weak_ptr<value_t>>) return std::weak_ptr<value_t>(instance);
-}
-
-// Binding info
 template <typename binding_t>
 struct binding_info
 {
@@ -158,9 +71,9 @@ struct no_parent_policy
     template <typename T>
     auto find_parent_binding(T*)
     {
-        using dummy_t
+        using null_t
             = resolved_binding_t<binding_t<T, T, providers::ctor_invoker_t, scopes::transient_t>, root_container_tag_t>;
-        return binding_info<dummy_t>{};
+        return binding_info<null_t>{};
     }
 
     template <typename T>
@@ -199,7 +112,7 @@ struct root_scoped_policy
         // Root promotes scoped to singleton
         auto provider = [container]() { return container->template create_transient<value_t>(); };
         static auto instance = std::make_shared<value_t>(provider());
-        return adapt_instance<request_t>(*instance);
+        return as_requested<request_t>(*instance);
     }
 };
 
@@ -217,18 +130,18 @@ struct child_scoped_policy
         // Check cache hierarchy
         if (auto cached = storage_->get_cached(static_cast<value_t*>(nullptr)))
         {
-            return adapt_instance<request_t>(*cached);
+            return as_requested<request_t>(*cached);
         }
         if (auto cached = parent_->find_parent_cached(static_cast<value_t*>(nullptr)))
         {
-            return adapt_instance<request_t>(*cached);
+            return as_requested<request_t>(*cached);
         }
 
         // Create and cache
         auto instance = storage_->get_or_create_cached(static_cast<value_t*>(nullptr), [container]() {
             return container->template create_transient<value_t>();
         });
-        return adapt_instance<request_t>(*instance);
+        return as_requested<request_t>(*instance);
     }
 };
 
@@ -277,67 +190,64 @@ public:
         using resolved_t = resolved_t<request_t>;
         auto info = find_binding<resolved_t>();
 
-        if (!info.found())
-        {
-            return adapt_instance<request_t>(default_provider_.template operator()<resolved_t>(*this));
-        }
+        static auto const is_transient = !info.found();
+        if (is_transient) return as_requested<request_t>(default_provider_.template operator()<resolved_t>(*this));
 
-        if (info.is_accessor()) { return adapt_instance<request_t>(info.binding->binding.provider()); }
-
-        using effective_scope_t = effective_scope_t<typename decltype(info)::scope_type, request_t>;
-
-        if constexpr (std::same_as<effective_scope_t, scopes::transient_t>)
-        {
-            return adapt_instance<request_t>(info.binding->binding.provider(*this));
-        }
-        else if constexpr (std::same_as<effective_scope_t, scopes::singleton_t>)
-        {
-            return adapt_instance<request_t>(info.binding->get_or_create());
-        }
-        else
-        { // scoped
-            if (info.has_slot() && info.slot->instance) { return adapt_instance<request_t>(*info.slot->instance); }
-            if (info.has_slot())
-            {
-                info.slot->instance = std::make_shared<resolved_t>(info.binding->binding.provider(*this));
-                return adapt_instance<request_t>(*info.slot->instance);
-            }
-            return scoped_resolver_.template resolve_scoped_no_slot<request_t, resolved_t>(this);
-        }
+        if (info.is_accessor()) return as_requested<request_t>(info.binding->binding.provider());
     }
 
-    template <typename value_t>
-    auto find_binding()
+    using effective_scope_t = effective_scope_t<typename decltype(info)::scope_type, request_t>;
+
+    if constexpr (std::same_as<effective_scope_t, scopes::transient_t>)
     {
-        constexpr size_t idx = find_binding_index<value_t>();
-
-        if constexpr (idx < sizeof...(resolved_bindings_t))
+        return as_requested<request_t>(info.binding->binding.provider(*this));
+    }
+    else if constexpr (std::same_as<effective_scope_t, scopes::singleton_t>)
+    {
+        return as_requested<request_t>(info.binding->get_or_create());
+    }
+    else
+    { // scoped
+        if (info.has_slot() && info.slot->instance) { return as_requested<request_t>(*info.slot->instance); }
+        if (info.has_slot())
         {
-            auto& binding = std::get<idx>(bindings_);
-            using binding_t = std::remove_reference_t<decltype(binding)>;
-
-            binding_info<binding_t> info;
-            info.binding = &binding;
-            if constexpr (requires { binding.slot; }) { info.slot = &binding.slot; }
-            return info;
+            info.slot->instance = std::make_shared<resolved_t>(info.binding->binding.provider(*this));
+            return as_requested<request_t>(*info.slot->instance);
         }
-        else { return parent_policy::find_parent_binding(static_cast<value_t*>(nullptr)); }
+        return scoped_resolver_.template resolve_scoped_no_slot<request_t, resolved_t>(this);
     }
+} template <typename value_t>
+auto find_binding()
+{
+    constexpr size_t idx = find_binding_index<value_t>();
 
-    template <typename value_t>
-    auto find_cached() -> std::shared_ptr<value_t>
+    if constexpr (idx < sizeof...(resolved_bindings_t))
     {
-        if (auto cached = storage_policy::get_cached(static_cast<value_t*>(nullptr))) return cached;
-        return parent_policy::find_parent_cached(static_cast<value_t*>(nullptr));
-    }
+        auto& binding = std::get<idx>(bindings_);
+        using binding_t = std::remove_reference_t<decltype(binding)>;
 
-    template <typename instance_t>
-    auto create_transient() -> instance_t
-    {
-        auto info = find_binding<instance_t>();
-        if (info.found()) { return info.binding->binding.provider(*this); }
-        return default_provider_.template operator()<instance_t>(*this);
+        binding_info<binding_t> info;
+        info.binding = &binding;
+        if constexpr (requires { binding.slot; }) { info.slot = &binding.slot; }
+        return info;
     }
+    else { return parent_policy::find_parent_binding(static_cast<value_t*>(nullptr)); }
+}
+
+template <typename value_t>
+auto find_cached() -> std::shared_ptr<value_t>
+{
+    if (auto cached = storage_policy::get_cached(static_cast<value_t*>(nullptr))) return cached;
+    return parent_policy::find_parent_cached(static_cast<value_t*>(nullptr));
+}
+
+template <typename instance_t>
+auto create_transient() -> instance_t
+{
+    auto info = find_binding<instance_t>();
+    if (info.found()) { return info.binding->binding.provider(*this); }
+    return default_provider_.template operator()<instance_t>(*this);
+}
 };
 
 // Root container typedef
