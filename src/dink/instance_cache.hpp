@@ -13,8 +13,6 @@
 
 namespace dink {
 
-struct no_cache_t;
-
 class instance_cache_t
 {
 public:
@@ -30,7 +28,7 @@ public:
     {
         auto& instance = map_[typeid(instance_t)];
         if (!instance) instance = std::make_shared<instance_t>(creator());
-        return instance;
+        return std::static_pointer_cast<instance_t>(instance);
     }
 
 private:
