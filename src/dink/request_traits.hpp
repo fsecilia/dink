@@ -23,7 +23,7 @@ enum class transitive_scope_t
 template <typename requested_t>
 struct request_traits_f
 {
-    using resolved_t = requested_t;
+    using value_type = requested_t;
     static constexpr transitive_scope_t transitive_scope = transitive_scope_t::unmodified;
 
     template <typename instance_t>
@@ -36,7 +36,7 @@ struct request_traits_f
 template <typename requested_t>
 struct request_traits_f<requested_t&&>
 {
-    using resolved_t = requested_t;
+    using value_type = requested_t;
     static constexpr transitive_scope_t transitive_scope = transitive_scope_t::transient;
 
     template <typename instance_t>
@@ -49,7 +49,7 @@ struct request_traits_f<requested_t&&>
 template <typename requested_t>
 struct request_traits_f<requested_t&>
 {
-    using resolved_t = requested_t;
+    using value_type = requested_t;
     static constexpr transitive_scope_t transitive_scope = transitive_scope_t::scoped;
 
     template <typename instance_t>
@@ -62,7 +62,7 @@ struct request_traits_f<requested_t&>
 template <typename requested_t>
 struct request_traits_f<requested_t*>
 {
-    using resolved_t = requested_t;
+    using value_type = requested_t;
     static constexpr transitive_scope_t transitive_scope = transitive_scope_t::scoped;
 
     template <typename instance_t>
@@ -75,7 +75,7 @@ struct request_traits_f<requested_t*>
 template <typename requested_t>
 struct request_traits_f<std::unique_ptr<requested_t>>
 {
-    using resolved_t = requested_t;
+    using value_type = requested_t;
     static constexpr transitive_scope_t transitive_scope = transitive_scope_t::transient;
 
     template <typename instance_t>
@@ -88,7 +88,7 @@ struct request_traits_f<std::unique_ptr<requested_t>>
 template <typename requested_t>
 struct request_traits_f<std::shared_ptr<requested_t>>
 {
-    using resolved_t = requested_t;
+    using value_type = requested_t;
     static constexpr transitive_scope_t transitive_scope = transitive_scope_t::unmodified;
 
     template <typename instance_t>
@@ -102,7 +102,7 @@ struct request_traits_f<std::shared_ptr<requested_t>>
 template <typename requested_t>
 struct request_traits_f<std::weak_ptr<requested_t>>
 {
-    using resolved_t = requested_t;
+    using value_type = requested_t;
     static constexpr transitive_scope_t transitive_scope = transitive_scope_t::scoped;
 
     template <typename instance_t>
@@ -114,7 +114,7 @@ struct request_traits_f<std::weak_ptr<requested_t>>
 
 //! type actual cached and provided for a given request
 template <typename requested_t>
-using resolved_t = request_traits_f<requested_t>::resolved_t;
+using resolved_t = request_traits_f<requested_t>::value_type;
 
 /*!
     effective scope to use for a specific request given its immediate type and scope it was bound to
