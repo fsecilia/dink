@@ -44,8 +44,10 @@ struct binding_descriptor_t
     }
 };
 
-// Storage policies
-struct no_storage_policy
+namespace policies {
+namespace storage {
+
+struct no_storage_t
 {
     template <typename T>
     auto get_cached() -> std::shared_ptr<T>
@@ -60,7 +62,7 @@ struct no_storage_policy
     }
 };
 
-struct cache_storage_policy
+struct instance_cache_storage_t
 {
     instance_cache_t cache_;
 
@@ -77,8 +79,11 @@ struct cache_storage_policy
     }
 };
 
-// Parent policies
-struct no_parent_policy
+} // namespace storage
+
+namespace parent {
+
+struct no_parent_t
 {
     template <typename T>
     constexpr auto find_parent_binding()
@@ -96,27 +101,30 @@ struct no_parent_policy
 };
 
 template <typename parent_t>
-struct has_parent_policy
+struct child_t
 {
-    parent_t* parent_;
+    parent_t* parent;
 
-    explicit has_parent_policy(parent_t& p) : parent_(&p) {}
+    explicit child_t(parent_t& p) : parent{&p} {}
 
     template <typename T>
     constexpr auto find_parent_binding()
     {
-        return parent_->template find_binding<T>();
+        return parent->template find_binding<T>();
     }
 
     template <typename T>
     auto find_parent_cached() -> std::shared_ptr<T>
     {
-        return parent_->template find_cached<T>();
+        return parent->template find_cached<T>();
     }
 };
 
-// Scoped resolution policies
-struct root_scoped_policy
+} // namespace parent
+
+namespace scope_resolution {
+
+struct static_t
 {
     template <typename request_t, typename value_t, typename container_t>
     auto resolve_scoped_no_slot(container_t* container)
@@ -128,13 +136,13 @@ struct root_scoped_policy
     }
 };
 
-template <typename storage_t, typename parent_t>
-struct child_scoped_policy
+template <typename parent_t, typename storage_t>
+struct instance_cache_t
 {
-    storage_t* storage_;
     parent_t* parent_;
+    storage_t* storage_;
 
-    child_scoped_policy(storage_t* storage, parent_t* parent) : storage_{storage}, parent_{parent} {}
+    instance_cache_t(storage_t* storage, parent_t* parent) : storage_{storage}, parent_{parent} {}
 
     template <typename request_t, typename value_t, typename container_t>
     auto resolve_scoped_no_slot(container_t* container) -> auto
@@ -151,6 +159,9 @@ struct child_scoped_policy
     }
 };
 
+} // namespace scope_resolution
+} // namespace policies
+
 // Container implementation
 template <typename storage_policy, typename parent_policy, typename scoped_policy, typename... resolved_bindings_t>
 class container_t : private storage_policy, private parent_policy
@@ -158,7 +169,7 @@ class container_t : private storage_policy, private parent_policy
 public:
     // Constructor for root
     template <typename... bindings_t>
-    requires std::same_as<parent_policy, no_parent_policy>
+    requires std::same_as<parent_policy, policies::parent::no_parent_t>
     explicit container_t(bindings_t&&... bindings)
         : bindings_{resolve_bindings<root_container_tag_t>(*this, std::forward<bindings_t>(bindings)...)},
           scoped_resolver_{}
@@ -166,7 +177,7 @@ public:
 
     // Constructor for child
     template <typename parent_t, typename... bindings_t>
-    requires(!std::same_as<parent_policy, no_parent_policy>)
+    requires(!std::same_as<parent_policy, policies::parent::no_parent_t>)
     explicit container_t(parent_t& parent, bindings_t&&... bindings)
         : parent_policy(parent),
           bindings_{resolve_bindings<child_container_tag_t>(*this, std::forward<bindings_t>(bindings)...)},
@@ -260,12 +271,15 @@ private:
 
 // Root container typedef
 template <typename... resolved_bindings_t>
-using root_container_t = container_t<no_storage_policy, no_parent_policy, root_scoped_policy, resolved_bindings_t...>;
+using root_container_t = container_t<
+    policies::storage::no_storage_t, policies::parent::no_parent_t, policies::scope_resolution::static_t,
+    resolved_bindings_t...>;
 
 // Child container typedef
 template <typename parent_t, typename... resolved_bindings_t>
 using child_container_t = container_t<
-    cache_storage_policy, has_parent_policy<parent_t>,
-    child_scoped_policy<cache_storage_policy, has_parent_policy<parent_t>>, resolved_bindings_t...>;
+    policies::storage::instance_cache_storage_t, policies::parent::child_t<parent_t>,
+    policies::scope_resolution::instance_cache_t<parent_t, policies::storage::instance_cache_storage_t>,
+    resolved_bindings_t...>;
 
 } // namespace dink
