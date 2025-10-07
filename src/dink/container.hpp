@@ -16,82 +16,77 @@
 
 namespace dink {
 
-enum class request_kind
+enum class transitive_scope_t
 {
-    value,
-    owning,
-    persistent
+    unmodified,
+    transient,
+    scoped
 };
 
-template <typename T>
-struct request_traits
+template <typename requested_t>
+struct request_traits_f
 {
-    using value_type = T;
-    static constexpr request_kind kind = request_kind::value;
+    using value_type = requested_t;
+    static constexpr transitive_scope_t transitive_scope = transitive_scope_t::unmodified;
 };
 
-template <typename T>
-struct request_traits<T&&>
+template <typename requested_t>
+struct request_traits_f<requested_t&&>
 {
-    using value_type = T;
-    static constexpr request_kind kind = request_kind::owning;
+    using value_type = requested_t;
+    static constexpr transitive_scope_t transitive_scope = transitive_scope_t::transient;
 };
 
-template <typename T>
-struct request_traits<std::unique_ptr<T>>
+template <typename requested_t>
+struct request_traits_f<std::unique_ptr<requested_t>>
 {
-    using value_type = T;
-    static constexpr request_kind kind = request_kind::owning;
+    using value_type = requested_t;
+    static constexpr transitive_scope_t transitive_scope = transitive_scope_t::transient;
 };
 
-template <typename T>
-struct request_traits<T*>
+template <typename requested_t>
+struct request_traits_f<requested_t*>
 {
-    using value_type = T;
-    static constexpr request_kind kind = request_kind::persistent;
+    using value_type = requested_t;
+    static constexpr transitive_scope_t transitive_scope = transitive_scope_t::scoped;
 };
 
-template <typename T>
-struct request_traits<T&>
+template <typename requested_t>
+struct request_traits_f<requested_t&>
 {
-    using value_type = T;
-    static constexpr request_kind kind = request_kind::persistent;
+    using value_type = requested_t;
+    static constexpr transitive_scope_t transitive_scope = transitive_scope_t::scoped;
 };
 
-template <typename T>
-struct request_traits<std::shared_ptr<T>>
+template <typename requested_t>
+struct request_traits_f<std::shared_ptr<requested_t>>
 {
-    using value_type = T;
-    static constexpr request_kind kind = request_kind::value;
+    using value_type = requested_t;
+    static constexpr transitive_scope_t transitive_scope = transitive_scope_t::unmodified;
 };
 
-template <typename T>
-struct request_traits<std::weak_ptr<T>>
+template <typename requested_t>
+struct request_traits_f<std::weak_ptr<requested_t>>
 {
-    using value_type = T;
-    static constexpr request_kind kind = request_kind::persistent;
+    using value_type = requested_t;
+    static constexpr transitive_scope_t transitive_scope = transitive_scope_t::scoped;
 };
 
-// Effective scope calculation
-template <typename scope_t, typename request_t>
-struct effective_scope
-{
-    using traits = request_traits<request_t>;
-    using type = std::conditional_t<
-        traits::kind == request_kind::owning, scopes::transient_t,
-        std::conditional_t<
-            traits::kind == request_kind::persistent && std::same_as<scope_t, scopes::transient_t>, scopes::scoped_t,
-            scope_t>>;
-};
+template <typename requested_t>
+using resolved_t = request_traits_f<requested_t>::value_type;
 
-template <typename scope_t, typename request_t>
-using effective_scope_t = typename effective_scope<scope_t, request_t>::type;
+template <typename bound_scope_t, typename request_t>
+using effective_scope_t = std::conditional_t<
+    request_traits_f<request_t>::transitive_scope == transitive_scope_t::transient, scopes::transient_t,
+    std::conditional_t<
+        request_traits_f<request_t>::transitive_scope == transitive_scope_t::scoped
+            && std::same_as<bound_scope_t, scopes::transient_t>,
+        scopes::scoped_t, bound_scope_t>>;
 
 template <typename request_t, typename instance_t>
 auto adapt_instance(instance_t&& instance)
 {
-    using traits = request_traits<request_t>;
-    using value_t = typename traits::value_type;
+    using value_t = resolved_t<request_t>;
 
     if constexpr (std::same_as<request_t, value_t>) return std::forward<instance_t>(instance);
     else if constexpr (std::same_as<request_t, value_t&>) return static_cast<value_t&>(instance);
@@ -279,20 +274,23 @@ public:
     template <typename request_t>
     auto resolve()
     {
-        using value_t = typename request_traits<request_t>::value_type;
-        auto info = find_binding<value_t>();
+        using resolved_t = resolved_t<request_t>;
+        auto info = find_binding<resolved_t>();
 
-        if (!info.found()) { return adapt_instance<request_t>(default_provider_.template operator()<value_t>(*this)); }
+        if (!info.found())
+        {
+            return adapt_instance<request_t>(default_provider_.template operator()<resolved_t>(*this));
+        }
 
         if (info.is_accessor()) { return adapt_instance<request_t>(info.binding->binding.provider()); }
 
-        using scope = effective_scope_t<typename decltype(info)::scope_type, request_t>;
+        using effective_scope_t = effective_scope_t<typename decltype(info)::scope_type, request_t>;
 
-        if constexpr (std::same_as<scope, scopes::transient_t>)
+        if constexpr (std::same_as<effective_scope_t, scopes::transient_t>)
         {
             return adapt_instance<request_t>(info.binding->binding.provider(*this));
         }
-        else if constexpr (std::same_as<scope, scopes::singleton_t>)
+        else if constexpr (std::same_as<effective_scope_t, scopes::singleton_t>)
         {
             return adapt_instance<request_t>(info.binding->get_or_create());
         }
@@ -301,10 +299,10 @@ public:
             if (info.has_slot() && info.slot->instance) { return adapt_instance<request_t>(*info.slot->instance); }
             if (info.has_slot())
             {
-                info.slot->instance = std::make_shared<value_t>(info.binding->binding.provider(*this));
+                info.slot->instance = std::make_shared<resolved_t>(info.binding->binding.provider(*this));
                 return adapt_instance<request_t>(*info.slot->instance);
             }
-            return scoped_resolver_.template resolve_scoped_no_slot<request_t, value_t>(this);
+            return scoped_resolver_.template resolve_scoped_no_slot<request_t, resolved_t>(this);
         }
     }
 
