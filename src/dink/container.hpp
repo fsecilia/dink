@@ -73,8 +73,8 @@ struct no_parent_policy
     template <typename T>
     auto find_parent_binding(T*)
     {
-        using null_t
-            = resolved_binding_t<binding_t<T, T, providers::ctor_invoker_t, scopes::transient_t>, root_container_tag_t>;
+        using null_t = binding_t<binding_with_scope_t<
+            binding_config_t<T, T, providers::ctor_invoker_t, scopes::transient_t>, root_container_tag_t>>;
         return binding_descriptor_t<null_t>{};
     }
 
@@ -180,7 +180,9 @@ public:
         if (is_transient) return as_requested<request_t>(default_provider_.template operator()<resolved_t>(*this));
 
         if (binding_descriptor.is_accessor())
+        {
             return as_requested<request_t>(binding_descriptor.binding->binding.provider());
+        }
 
         using effective_scope_t = effective_scope_t<typename decltype(binding_descriptor)::scope_type, request_t>;
 

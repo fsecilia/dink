@@ -82,7 +82,7 @@ struct no_scope_t;
 } // namespace binding
 
 template <typename from_p, typename to_p, typename provider_p, typename scope_t>
-struct binding_t
+struct binding_config_t
 {
     using from_t = from_p;
     using to_type = to_p;
@@ -105,7 +105,7 @@ public:
 
     template <typename scope_t>
     requires providers::is_creator<provider_t>
-    auto in() && -> binding_t<from_t, to_t, provider_t, scope_t>
+    auto in() && -> binding_config_t<from_t, to_t, provider_t, scope_t>
     {
         return {std::move(provider_)};
     }
