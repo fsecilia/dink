@@ -168,7 +168,7 @@ TEST_F(factory_invoker_test_t, invokes_factory_with_zero_args)
 
 TEST_F(factory_invoker_test_t, invokes_factory_with_single_arg)
 {
-    auto factory = [&](single_arg_t const& arg) { return constructed_t{1}; };
+    auto factory = [&](single_arg_t const&) { return constructed_t{1}; };
 
     auto const result = sut_t<1>{}(factory, resolver);
 
@@ -177,7 +177,7 @@ TEST_F(factory_invoker_test_t, invokes_factory_with_single_arg)
 
 TEST_F(factory_invoker_test_t, invokes_factory_with_multiple_args)
 {
-    auto factory = [&](arg_t const& arg1, arg_t const& arg2) { return constructed_t{2}; };
+    auto factory = [&](arg_t const&, arg_t const&) { return constructed_t{2}; };
 
     auto const result = sut_t<2>{}(factory, resolver);
 

@@ -96,17 +96,40 @@ private:
     struct binding_not_found_t
     {};
 
-    // check if we have a binding for this type locally
-    template <typename canonical_request_t, std::size_t i = 0>
+    // Compute binding index at compile time
+    template <typename T>
+    static constexpr std::size_t compute_binding_index()
+    {
+        if constexpr (sizeof...(bindings_t) == 0) { return static_cast<std::size_t>(-1); }
+        else
+        {
+            return []<std::size_t... Is>(std::index_sequence<Is...>) consteval {
+                constexpr std::size_t not_found = static_cast<std::size_t>(-1);
+
+                // Build array of matches
+                constexpr bool matches[]
+                    = {std::same_as<T, typename std::tuple_element_t<Is, std::tuple<bindings_t...>>::from_type>...};
+
+                // Find first match
+                for (std::size_t i = 0; i < sizeof...(Is); ++i)
+                {
+                    if (matches[i]) return i;
+                }
+                return not_found;
+            }(std::index_sequence_for<bindings_t...>{});
+        }
+    }
+
+    template <typename T>
+    static constexpr std::size_t binding_index_v = compute_binding_index<T>();
+
+    // Direct lookup using pre-computed index
+    template <typename canonical_request_t>
     auto find_local_binding() -> auto
     {
-        if constexpr (i >= sizeof...(bindings_t)) { return static_cast<binding_not_found_t*>(nullptr); }
-        else if constexpr (std::same_as<
-                               canonical_request_t, typename std::tuple_element_t<i, decltype(bindings_)>::from_type>)
-        {
-            return &std::get<i>(bindings_);
-        }
-        else { return find_local_binding<canonical_request_t, i + 1>(); }
+        constexpr auto index = binding_index_v<canonical_request_t>;
+        if constexpr (index != static_cast<std::size_t>(-1)) { return &std::get<index>(bindings_); }
+        else { return static_cast<binding_not_found_t*>(nullptr); }
     }
 
     // create instance from a binding
