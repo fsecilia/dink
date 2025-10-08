@@ -85,14 +85,11 @@ public:
     template <typename request_t, typename dependency_chain_t = type_list_t<>>
     auto resolve() -> request_t
     {
-        decltype(auto) result = try_resolve<request_t, dependency_chain_t>();
-
-        if constexpr (std::same_as<decltype(result), instance_not_found_t>)
-        {
-            // Nothing found anywhere - create locally with default provider
+        auto factory = [this]() -> decltype(auto) {
             return create_from_default_provider<request_t, dependency_chain_t>();
-        }
-        else { return result; }
+        };
+
+        return try_resolve<request_t, dependency_chain_t>(factory);
     }
 
 private:
@@ -170,11 +167,8 @@ private:
         }
     }
 
-    struct instance_not_found_t
-    {};
-
-    template <typename request_t, typename dependency_chain_t = type_list_t<>>
-    auto try_resolve() -> decltype(auto) // returns either request_t or not_found_t
+    template <typename request_t, typename dependency_chain_t, typename factory_t>
+    auto try_resolve(factory_t&& factory) -> request_t
     {
         // check local cache
         if (auto cached = strategy_t::template find_in_local_cache<canonical_t<request_t>>())
@@ -192,17 +186,22 @@ private:
         }
 
         // delegate to parent if exists
-        if constexpr (!is_root) { return resolve_from_parent<request_t, dependency_chain_t>(); }
+        if constexpr (!is_root)
+        {
+            return resolve_from_parent<request_t, dependency_chain_t>(std::forward<factory_t>(factory));
+        }
 
-        return instance_not_found_t{};
+        // Not found anywhere - invoke the factory from the original caller
+        return factory();
     }
 
-    // delegate resolution to parent container
-    template <typename request_t, typename dependency_chain_t>
+    template <typename request_t, typename dependency_chain_t, typename factory_t>
     requires(!is_root)
-    auto resolve_from_parent() -> decltype(auto)
+    auto resolve_from_parent(factory_t&& factory) -> request_t
     {
-        return strategy_t::parent->template try_resolve<request_t, dependency_chain_t>();
+        return strategy_t::parent->template try_resolve<request_t, dependency_chain_t>(
+            std::forward<factory_t>(factory)
+        );
     }
 
     std::tuple<bindings_t...> bindings_;
