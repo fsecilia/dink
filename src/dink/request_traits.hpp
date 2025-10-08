@@ -14,6 +14,29 @@
 
 namespace dink {
 
+namespace detail {
+
+// Metafunction to detect std::shared_ptr
+template <typename>
+struct is_shared_ptr_f : std::false_type
+{};
+
+template <typename element_t>
+struct is_shared_ptr_f<std::shared_ptr<element_t>> : std::true_type
+{};
+
+template <typename element_t>
+constexpr bool is_shared_ptr_v = is_shared_ptr_f<std::remove_cvref_t<element_t>>::value;
+
+template <typename source_t>
+constexpr auto get_underlying(source_t&& source) -> decltype(auto)
+{
+    if constexpr (std::is_pointer_v<std::remove_cvref_t<source_t>> || is_shared_ptr_v<source_t>) return *source;
+    else return std::forward<source_t>(source);
+}
+
+} // namespace detail
+
 enum class transitive_scope_t
 {
     unmodified,
@@ -27,24 +50,10 @@ struct request_traits_f
     using value_type = requested_t;
     static constexpr transitive_scope_t transitive_scope = transitive_scope_t::unmodified;
 
-    template <typename instance_t>
-    static auto as_requested(instance_t&& instance) -> auto
+    template <typename source_t>
+    static auto as_requested(source_t&& source) -> requested_t
     {
-        return std::forward<instance_t>(instance);
-    }
-
-    // Overload for shared_ptr input (from cache)
-    template <typename cached_t>
-    static auto as_requested(std::shared_ptr<cached_t>& cached) -> requested_t
-    {
-        return *cached;
-    }
-
-    // Overload for raw pointer input (from root container's "cache")
-    template <typename cached_t>
-    static auto as_requested(cached_t* cached) -> requested_t
-    {
-        return *cached;
+        return detail::get_underlying(std::forward<source_t>(source));
     }
 };
 
@@ -54,22 +63,10 @@ struct request_traits_f<requested_t&&>
     using value_type = requested_t;
     static constexpr transitive_scope_t transitive_scope = transitive_scope_t::transient;
 
-    template <typename instance_t>
-    static auto as_requested(instance_t&& instance) -> auto
+    template <typename source_t>
+    static auto as_requested(source_t&& source) -> requested_t&&
     {
-        return std::move(instance);
-    }
-
-    template <typename cached_t>
-    static auto as_requested(std::shared_ptr<cached_t>& cached) -> requested_t&&
-    {
-        return std::move(*cached);
-    }
-
-    template <typename cached_t>
-    static auto as_requested(cached_t* cached) -> requested_t&&
-    {
-        return std::move(*cached);
+        return std::move(detail::get_underlying(std::forward<source_t>(source)));
     }
 };
 
@@ -79,22 +76,10 @@ struct request_traits_f<requested_t&>
     using value_type = requested_t;
     static constexpr transitive_scope_t transitive_scope = transitive_scope_t::singleton;
 
-    template <typename instance_t>
-    static auto as_requested(instance_t&& instance) -> requested_t&
+    template <typename source_t>
+    static auto as_requested(source_t&& source) -> requested_t&
     {
-        return static_cast<requested_t&>(instance);
-    }
-
-    template <typename cached_t>
-    static auto as_requested(std::shared_ptr<cached_t>& cached) -> requested_t&
-    {
-        return *cached;
-    }
-
-    template <typename cached_t>
-    static auto as_requested(cached_t* cached) -> requested_t&
-    {
-        return *cached;
+        return detail::get_underlying(std::forward<source_t>(source));
     }
 };
 
@@ -104,22 +89,10 @@ struct request_traits_f<requested_t*>
     using value_type = requested_t;
     static constexpr transitive_scope_t transitive_scope = transitive_scope_t::singleton;
 
-    template <typename instance_t>
-    static auto as_requested(instance_t&& instance) -> requested_t*
+    template <typename source_t>
+    static auto as_requested(source_t&& source) -> requested_t*
     {
-        return &instance;
-    }
-
-    template <typename cached_t>
-    static auto as_requested(std::shared_ptr<cached_t>& cached) -> requested_t*
-    {
-        return cached.get();
-    }
-
-    template <typename cached_t>
-    static auto as_requested(cached_t* cached) -> requested_t*
-    {
-        return cached;
+        return &detail::get_underlying(std::forward<source_t>(source));
     }
 };
 
@@ -129,28 +102,18 @@ struct request_traits_f<std::unique_ptr<requested_t>>
     using value_type = requested_t;
     static constexpr transitive_scope_t transitive_scope = transitive_scope_t::transient;
 
-    template <typename instance_t>
-    static auto as_requested(instance_t&& instance) -> std::unique_ptr<requested_t>
+    template <typename source_t>
+    static auto as_requested(source_t&& source) -> std::unique_ptr<requested_t>
     {
-        return std::make_unique<requested_t>(std::forward<instance_t>(instance));
-    }
-
-    // Cannot convert shared_ptr from cache to unique_ptr - would violate ownership
-    template <typename cached_t>
-    static auto as_requested(std::shared_ptr<cached_t>&) -> std::unique_ptr<requested_t>
-    {
-        static_assert(
-            meta::dependent_false_v<cached_t>, "Cannot request unique_ptr for a cached singleton - ownership conflict"
-        );
-    }
-
-    // Cannot convert raw pointer from cache to unique_ptr - would violate ownership
-    template <typename cached_t>
-    static auto as_requested(cached_t*) -> std::unique_ptr<requested_t>
-    {
-        static_assert(
-            meta::dependent_false_v<cached_t>, "Cannot request unique_ptr for a cached singleton - ownership conflict"
-        );
+        using clean_source_t = std::remove_cvref_t<source_t>;
+        if constexpr (std::is_pointer_v<clean_source_t> || detail::is_shared_ptr_v<clean_source_t>)
+        {
+            static_assert(
+                meta::dependent_false_v<source_t>,
+                "Cannot request unique_ptr for a cached singleton - ownership conflict"
+            );
+        }
+        else { return std::make_unique<requested_t>(std::forward<source_t>(source)); }
     }
 };
 
@@ -160,25 +123,17 @@ struct request_traits_f<std::shared_ptr<requested_t>>
     using value_type = requested_t;
     static constexpr transitive_scope_t transitive_scope = transitive_scope_t::unmodified;
 
-    template <typename instance_t>
-    static auto as_requested(instance_t&& instance) -> std::shared_ptr<requested_t>
+    template <typename source_t>
+    static auto as_requested(source_t&& source) -> std::shared_ptr<requested_t>
     {
-        if constexpr (std::same_as<std::remove_cvref_t<instance_t>, std::shared_ptr<requested_t>>) { return instance; }
-        else { return std::make_shared<requested_t>(std::forward<instance_t>(instance)); }
-    }
+        using clean_source_t = std::remove_cvref_t<source_t>;
 
-    // Overload for shared_ptr input (from cache) - just return it!
-    template <typename cached_t>
-    static auto as_requested(std::shared_ptr<cached_t>&& cached) -> std::shared_ptr<requested_t>
-    {
-        return std::move(cached);
-    }
-
-    // Overload for raw pointer input (from root container)
-    template <typename cached_t>
-    static auto as_requested(cached_t* cached) -> std::shared_ptr<requested_t>
-    {
-        return std::shared_ptr<requested_t>(cached, [](auto*) {}); // non-owning shared_ptr
+        if constexpr (detail::is_shared_ptr_v<clean_source_t>) { return std::forward<source_t>(source); }
+        else if constexpr (std::is_pointer_v<clean_source_t>)
+        {
+            return std::shared_ptr<requested_t>(source, [](auto*) {});
+        }
+        else { return std::make_shared<requested_t>(std::forward<source_t>(source)); }
     }
 };
 
@@ -188,23 +143,11 @@ struct request_traits_f<std::weak_ptr<requested_t>>
     using value_type = requested_t;
     static constexpr transitive_scope_t transitive_scope = transitive_scope_t::singleton;
 
-    template <typename instance_t>
-    static auto as_requested(instance_t&& instance) -> std::weak_ptr<requested_t>
+    template <typename source_t>
+    static auto as_requested(source_t&& source) -> std::weak_ptr<requested_t>
     {
-        return std::weak_ptr<requested_t>(instance);
-    }
-
-    template <typename cached_t>
-    static auto as_requested(std::shared_ptr<cached_t>&& cached) -> std::weak_ptr<requested_t>
-    {
-        return std::weak_ptr<requested_t>(std::move(cached));
-    }
-
-    template <typename cached_t>
-    static auto as_requested(cached_t* cached) -> std::weak_ptr<requested_t>
-    {
-        // Create a non-owning shared_ptr, then convert to weak_ptr
-        return std::weak_ptr<requested_t>(std::shared_ptr<requested_t>(cached, [](auto*) {}));
+        // Simply create a shared_ptr first using its own robust logic, then convert to weak_ptr
+        return request_traits_f<std::shared_ptr<requested_t>>::as_requested(std::forward<source_t>(source));
     }
 };
 
