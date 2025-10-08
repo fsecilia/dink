@@ -155,4 +155,10 @@ auto resolve_binding(binding_config_t<from_t, to_t, provider_t, scope_t> config)
     }
 }
 
+template <typename... bindings_t>
+auto resolve_bindings(bindings_t&&... bindings)
+{
+    return std::make_tuple(resolve_binding(std::forward<bindings_t>(bindings))...);
+}
+
 } // namespace dink

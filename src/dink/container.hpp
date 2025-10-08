@@ -49,7 +49,7 @@ namespace scope_resolution {
 struct static_t
 {
     template <typename instance_t, typename provider_t, typename container_t>
-    auto resolve_singleton(provider_t& provider, container_t& container) -> instance_t
+    auto resolve_singleton(provider_t& provider, container_t& container) -> instance_t&
     {
         static auto instance = provider.template create<type_list_t<>>(container);
         return instance;
@@ -111,7 +111,7 @@ public:
     {}
 
     // Main resolution entry point
-    template <typename request_t>
+    template <typename request_t, typename dependency_chain_t = type_list_t<>>
     auto resolve() -> request_t
     {
         using canonical_request_t = canonical_t<request_t>;
@@ -120,9 +120,12 @@ public:
         if (auto cached = find_in_local_cache<canonical_request_t>()) { return as_requested<request_t>(*cached); }
 
         // Step 2: Check local bindings
-        if (auto* binding = find_local_binding<canonical_request_t>())
+        if (auto binding = find_local_binding<canonical_request_t>())
         {
-            return create_from_binding<request_t>(*binding);
+            if constexpr (!std::same_as<std::remove_pointer_t<decltype(binding)>, binding_not_found_t>)
+            {
+                return create_from_binding<request_t>(*binding);
+            }
         }
 
         // Step 3: Delegate to parent if exists
@@ -159,10 +162,12 @@ private:
     }
 
     // Check if we have a binding for this type locally
+    struct binding_not_found_t
+    {};
     template <typename canonical_request_t, std::size_t I = 0>
-    auto find_local_binding() -> auto*
+    auto find_local_binding() -> auto
     {
-        if constexpr (I >= sizeof...(bindings_t)) { return nullptr; }
+        if constexpr (I >= sizeof...(bindings_t)) { return static_cast<binding_not_found_t*>(nullptr); }
         else if constexpr (std::same_as<
                                canonical_request_t, typename std::tuple_element_t<I, decltype(bindings_)>::from_type>)
         {
@@ -239,6 +244,15 @@ private:
 
     std::tuple<bindings_t...> bindings_;
 };
+
+// Deduction guides
+template <typename... binding_configs_t>
+container_t(binding_configs_t&&...)
+    -> container_t<root_container_policy_t, decltype(resolve_binding(std::declval<binding_configs_t>()))...>;
+
+template <typename parent_t, typename... binding_configs_t>
+container_t(parent_t&, binding_configs_t&&...)
+    -> container_t<child_container_policy_t<parent_t>, decltype(resolve_binding(std::declval<binding_configs_t>()))...>;
 
 // Type aliases
 template <typename... bindings_t>
