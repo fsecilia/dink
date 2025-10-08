@@ -131,7 +131,7 @@ using effective_scope_t = std::conditional_t<
 
 //! Converts type from what is cached or provided to what was actually requested
 template <typename request_t, typename instance_t>
-auto as_requested(instance_t&& instance) -> auto
+auto as_requested(instance_t&& instance) -> request_t
 {
     return request_traits_f<request_t>::as_requested(std::forward<instance_t>(instance));
 }
