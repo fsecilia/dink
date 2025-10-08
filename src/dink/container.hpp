@@ -131,7 +131,7 @@ public:
         // Step 1: Check local cache
         if (auto cached = scope_policy_t::template find_in_local_cache<canonical_request_t>())
         {
-            return as_requested<request_t>(*cached);
+            return as_requested<request_t>(std::move(cached));
         }
 
         // Step 2: Check local bindings
@@ -162,9 +162,10 @@ public:
     }
 
 private:
-    // Check if we have a binding for this type locally
     struct binding_not_found_t
     {};
+
+    // Check if we have a binding for this type locally
     template <typename canonical_request_t, std::size_t I = 0>
     auto find_local_binding() -> auto
     {
@@ -186,8 +187,7 @@ private:
         if constexpr (providers::is_accessor<typename binding_t::provider_type>)
         {
             // Accessor - just get the instance
-            auto& instance = binding.provider.get();
-            return as_requested<request_t>(instance);
+            return as_requested<request_t>(binding.provider.get());
         }
         else
         {
@@ -198,14 +198,14 @@ private:
             if constexpr (std::same_as<effective_scope_request_t, scopes::transient_t>)
             {
                 // Transient - create without caching
-                auto instance = binding.provider.template create<type_list_t<>>(*this);
-                return as_requested<request_t>(instance);
+                return as_requested<request_t>(binding.provider.template create<type_list_t<>>(*this));
             }
             else // singleton
             {
                 // Singleton - resolve through scope policy (caches automatically)
-                auto instance = scope_policy_t::template resolve_singleton<resolved_request_t>(binding.provider, *this);
-                return as_requested<request_t>(instance);
+                return as_requested<request_t>(
+                    scope_policy_t::template resolve_singleton<resolved_request_t>(binding.provider, *this)
+                );
             }
         }
     }
@@ -224,14 +224,14 @@ private:
         if constexpr (std::same_as<effective_scope_request_t, scopes::transient_t>)
         {
             // Transient - create without caching
-            auto instance = default_provider.template create<type_list_t<>>(*this);
-            return as_requested<request_t>(instance);
+            return as_requested<request_t>(default_provider.template create<type_list_t<>>(*this));
         }
-        else // singleton
+        else
         {
             // Singleton - resolve through scope policy
-            auto instance = scope_policy_t::template resolve_singleton<resolved_request_t>(default_provider, *this);
-            return as_requested<request_t>(instance);
+            return as_requested<request_t>(
+                scope_policy_t::template resolve_singleton<resolved_request_t>(default_provider, *this)
+            );
         }
     }
 

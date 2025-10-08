@@ -6,6 +6,7 @@
 #pragma once
 
 #include <dink/lib.hpp>
+#include <dink/meta.hpp>
 #include <dink/scopes.hpp>
 #include <memory>
 #include <type_traits>
@@ -31,6 +32,20 @@ struct request_traits_f
     {
         return std::forward<instance_t>(instance);
     }
+
+    // Overload for shared_ptr input (from cache)
+    template <typename cached_t>
+    static auto as_requested(std::shared_ptr<cached_t>& cached) -> requested_t
+    {
+        return *cached;
+    }
+
+    // Overload for raw pointer input (from root container's "cache")
+    template <typename cached_t>
+    static auto as_requested(cached_t* cached) -> requested_t
+    {
+        return *cached;
+    }
 };
 
 template <typename requested_t>
@@ -43,6 +58,18 @@ struct request_traits_f<requested_t&&>
     static auto as_requested(instance_t&& instance) -> auto
     {
         return std::move(instance);
+    }
+
+    template <typename cached_t>
+    static auto as_requested(std::shared_ptr<cached_t>& cached) -> requested_t&&
+    {
+        return std::move(*cached);
+    }
+
+    template <typename cached_t>
+    static auto as_requested(cached_t* cached) -> requested_t&&
+    {
+        return std::move(*cached);
     }
 };
 
@@ -57,6 +84,18 @@ struct request_traits_f<requested_t&>
     {
         return static_cast<requested_t&>(instance);
     }
+
+    template <typename cached_t>
+    static auto as_requested(std::shared_ptr<cached_t>& cached) -> requested_t&
+    {
+        return *cached;
+    }
+
+    template <typename cached_t>
+    static auto as_requested(cached_t* cached) -> requested_t&
+    {
+        return *cached;
+    }
 };
 
 template <typename requested_t>
@@ -70,6 +109,18 @@ struct request_traits_f<requested_t*>
     {
         return &instance;
     }
+
+    template <typename cached_t>
+    static auto as_requested(std::shared_ptr<cached_t>& cached) -> requested_t*
+    {
+        return cached.get();
+    }
+
+    template <typename cached_t>
+    static auto as_requested(cached_t* cached) -> requested_t*
+    {
+        return cached;
+    }
 };
 
 template <typename requested_t>
@@ -82,6 +133,24 @@ struct request_traits_f<std::unique_ptr<requested_t>>
     static auto as_requested(instance_t&& instance) -> std::unique_ptr<requested_t>
     {
         return std::make_unique<requested_t>(std::forward<instance_t>(instance));
+    }
+
+    // Cannot convert shared_ptr from cache to unique_ptr - would violate ownership
+    template <typename cached_t>
+    static auto as_requested(std::shared_ptr<cached_t>&) -> std::unique_ptr<requested_t>
+    {
+        static_assert(
+            meta::dependent_false_v<cached_t>, "Cannot request unique_ptr for a cached singleton - ownership conflict"
+        );
+    }
+
+    // Cannot convert raw pointer from cache to unique_ptr - would violate ownership
+    template <typename cached_t>
+    static auto as_requested(cached_t*) -> std::unique_ptr<requested_t>
+    {
+        static_assert(
+            meta::dependent_false_v<cached_t>, "Cannot request unique_ptr for a cached singleton - ownership conflict"
+        );
     }
 };
 
@@ -97,6 +166,20 @@ struct request_traits_f<std::shared_ptr<requested_t>>
         if constexpr (std::same_as<std::remove_cvref_t<instance_t>, std::shared_ptr<requested_t>>) { return instance; }
         else { return std::make_shared<requested_t>(std::forward<instance_t>(instance)); }
     }
+
+    // Overload for shared_ptr input (from cache) - just return it!
+    template <typename cached_t>
+    static auto as_requested(std::shared_ptr<cached_t>&& cached) -> std::shared_ptr<requested_t>
+    {
+        return std::move(cached);
+    }
+
+    // Overload for raw pointer input (from root container)
+    template <typename cached_t>
+    static auto as_requested(cached_t* cached) -> std::shared_ptr<requested_t>
+    {
+        return std::shared_ptr<requested_t>(cached, [](auto*) {}); // non-owning shared_ptr
+    }
 };
 
 template <typename requested_t>
@@ -109,6 +192,19 @@ struct request_traits_f<std::weak_ptr<requested_t>>
     static auto as_requested(instance_t&& instance) -> std::weak_ptr<requested_t>
     {
         return std::weak_ptr<requested_t>(instance);
+    }
+
+    template <typename cached_t>
+    static auto as_requested(std::shared_ptr<cached_t>&& cached) -> std::weak_ptr<requested_t>
+    {
+        return std::weak_ptr<requested_t>(std::move(cached));
+    }
+
+    template <typename cached_t>
+    static auto as_requested(cached_t* cached) -> std::weak_ptr<requested_t>
+    {
+        // Create a non-owning shared_ptr, then convert to weak_ptr
+        return std::weak_ptr<requested_t>(std::shared_ptr<requested_t>(cached, [](auto*) {}));
     }
 };
 
