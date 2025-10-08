@@ -12,9 +12,6 @@ namespace dink::scopes {
 struct transient_t
 {};
 
-struct scoped_t
-{};
-
 struct singleton_t
 {};
 

@@ -6,99 +6,30 @@
 #pragma once
 
 #include <dink/lib.hpp>
-#include <dink/binding_transform.hpp>
 #include <dink/bindings.hpp>
+#include <dink/canonical.hpp>
 #include <dink/instance_cache.hpp>
+#include <dink/providers.hpp>
 #include <dink/request_traits.hpp>
-#include <concepts>
+#include <dink/scopes.hpp>
+#include <dink/type_list.hpp>
 #include <memory>
-#include <type_traits>
+#include <tuple>
 #include <utility>
 
 namespace dink {
 
-template <typename binding_t>
-struct binding_descriptor_t
-{
-    binding_t* binding = nullptr;
-    using scope_type = typename binding_t::binding_t::resolved_scope_t;
-
-    bool found() const { return binding != nullptr; }
-
-    bool has_slot() const
-    {
-        if (!binding) return false;
-        return requires { binding->scope.slot; };
-    }
-
-    auto get_slot() -> auto*
-    {
-        if constexpr (requires { binding->scope.slot; }) return &binding->scope.slot;
-        return nullptr;
-    }
-
-    bool is_accessor() const
-    {
-        if (!binding) return false;
-        return providers::is_accessor<typename binding_t::provider_t>;
-    }
-};
+// Forward declaration
+template <typename policy_t, typename... bindings_t>
+class container_t;
 
 namespace policies {
-namespace storage {
 
-struct no_storage_t
-{
-    template <typename T>
-    auto get_cached() -> std::shared_ptr<T>
-    {
-        return nullptr;
-    }
-
-    template <typename T, typename factory_t>
-    auto get_or_create_cached(factory_t&&) -> std::shared_ptr<T>
-    {
-        return nullptr;
-    }
-};
-
-struct instance_cache_storage_t
-{
-    instance_cache_t cache_;
-
-    template <typename T>
-    auto get_cached() -> std::shared_ptr<T>
-    {
-        return cache_.template get<T>();
-    }
-
-    template <typename T, typename factory_t>
-    auto get_or_create_cached(factory_t&& factory) -> std::shared_ptr<T>
-    {
-        return cache_.template get_or_create<T>(std::forward<factory_t>(factory));
-    }
-};
-
-} // namespace storage
-
+// Nesting policies
 namespace nesting {
 
 struct no_parent_t
-{
-    template <typename T>
-    constexpr auto find_parent_binding()
-    {
-        using null_t
-            = binding_t<binding_config_t<T, T, providers::ctor_invoker_t, scopes::transient_t>, root_container_tag_t>;
-        return binding_descriptor_t<null_t>{};
-    }
-
-    template <typename T>
-    auto find_parent_cached() -> std::shared_ptr<T>
-    {
-        return nullptr;
-    }
-};
+{};
 
 template <typename parent_t>
 struct child_t
@@ -106,172 +37,104 @@ struct child_t
     parent_t* parent;
     decltype(std::declval<parent_t>().get_root())* root;
 
-    explicit child_t(parent_t& parent) : parent{&parent}, root{&parent.get_root()} {}
-
-    template <typename T>
-    constexpr auto find_parent_binding()
-    {
-        return parent->template find_binding<T>();
-    }
-
-    template <typename T>
-    auto find_parent_cached() -> std::shared_ptr<T>
-    {
-        return parent->template find_cached<T>();
-    }
+    explicit child_t(parent_t& p) : parent{&p}, root{&p.get_root()} {}
 };
 
 } // namespace nesting
 
-//! closure binding a provider to a specific container instance to produce a parameterless binding
-template <typename provider_t, typename container_t>
-struct bound_provider_t
-{
-    provider_t provider;
-    container_t* container;
-
-    template <typename instance_t>
-    auto operator()() -> instance_t
-    {
-        return provider.template operator()<instance_t>(*container);
-    }
-};
-
+// Scope resolution policies
 namespace scope_resolution {
 
+// Root container - uses Meyer's singletons
 struct static_t
 {
-    template <typename request_t, typename value_t, typename provider_t, typename container_t>
-    auto resolve_scoped_no_slot(provider_t& provider, container_t&)
+    template <typename instance_t, typename provider_t, typename container_t>
+    auto resolve_singleton(provider_t& provider, container_t& container) -> instance_t
     {
-        auto& instance = get_or_create_singleton<value_t>(provider);
-        return as_requested<request_t>(instance);
+        static auto instance = provider.template create<type_list_t<>>(container);
+        return instance;
     }
 };
 
-template <typename nesting_t, typename storage_t>
+// Child container - uses instance cache
 struct instance_cache_t
 {
-    nesting_t* nesting_;
-    storage_t* storage_;
+    dink::instance_cache_t cache;
 
-    instance_cache_t(storage_t* storage, nesting_t* nesting) : storage_{storage}, nesting_{nesting} {}
-
-    template <typename request_t, typename value_t, typename provider_t, typename container_t>
-    auto resolve_scoped_no_slot(provider_t&, container_t& container) -> auto
+    template <typename instance_t, typename provider_t, typename container_t>
+    auto resolve_singleton(provider_t& provider, container_t& container) -> std::shared_ptr<instance_t>
     {
-        // Check cache hierarchy
-        if (auto cached = storage_->template get_cached<value_t>()) { return as_requested<request_t>(*cached); }
-        if (auto cached = nesting_->template find_parent_cached<value_t>()) { return as_requested<request_t>(*cached); }
-
-        // Create and cache
-        auto instance = storage_->template get_or_create_cached<value_t>([&container]() {
-            return container.template create_transient<value_t>();
+        return cache.template get_or_create<instance_t>([&]() {
+            return provider.template create<type_list_t<>>(container);
         });
-        return as_requested<request_t>(*instance);
     }
 };
 
 } // namespace scope_resolution
+
 } // namespace policies
 
-// Container implementation
-template <typename policy_t, typename... resolved_bindings_t>
-class container_t : private policy_t::storage_t, private policy_t::nesting_t
+// Container policy types
+struct root_container_policy_t
+{
+    using nesting_t = policies::nesting::no_parent_t;
+    using scope_resolution_t = policies::scope_resolution::static_t;
+};
+
+template <typename parent_t>
+struct child_container_policy_t
+{
+    using nesting_t = policies::nesting::child_t<parent_t>;
+    using scope_resolution_t = policies::scope_resolution::instance_cache_t;
+};
+
+// Main container implementation
+template <typename policy_t, typename... bindings_t>
+class container_t : private policy_t::nesting_t, private policy_t::scope_resolution_t
 {
 public:
-    using storage_policy_t = policy_t::storage_t;
-    using nesting_policy_t = policy_t::nesting_t;
-    using scoped_policy_t = policy_t::scoped_t;
+    using nesting_policy_t = typename policy_t::nesting_t;
+    using scope_policy_t = typename policy_t::scope_resolution_t;
 
-    // Constructor for root
-    template <typename... bindings_t>
+    // Root constructor
+    template <typename... binding_configs_t>
     requires std::same_as<nesting_policy_t, policies::nesting::no_parent_t>
-    explicit container_t(bindings_t&&... bindings)
-        : bindings_{resolve_bindings<root_container_tag_t>(*this, std::forward<bindings_t>(bindings)...)},
-          scoped_resolver_{}
+    explicit container_t(binding_configs_t&&... configs)
+        : bindings_{resolve_bindings(std::forward<binding_configs_t>(configs)...)}
     {}
 
-    // Constructor for child
-    template <typename parent_t, typename... bindings_t>
+    // Child constructor
+    template <typename parent_t, typename... binding_configs_t>
     requires(!std::same_as<nesting_policy_t, policies::nesting::no_parent_t>)
-    explicit container_t(parent_t& parent, bindings_t&&... bindings)
-        : nesting_policy_t(parent),
-          bindings_{resolve_bindings<child_container_tag_t>(*this, std::forward<bindings_t>(bindings)...)},
-          scoped_resolver_{static_cast<storage_policy_t*>(this), static_cast<nesting_policy_t*>(this)}
+    explicit container_t(parent_t& parent, binding_configs_t&&... configs)
+        : nesting_policy_t(parent), bindings_{resolve_bindings(std::forward<binding_configs_t>(configs)...)}
     {}
 
+    // Main resolution entry point
     template <typename request_t>
-    auto resolve()
+    auto resolve() -> request_t
     {
-        using resolved_t = resolved_t<request_t>;
-        auto binding_descriptor = find_binding<resolved_t>();
+        using canonical_request_t = canonical_t<request_t>;
 
-        // if no binding is found, the type is transient, so use the default provider
-        static auto const is_transient = !binding_descriptor.found();
-        if (is_transient) return as_requested<request_t>(default_provider_.template operator()<resolved_t>(*this));
+        // Step 1: Check local cache
+        if (auto cached = find_in_local_cache<canonical_request_t>()) { return as_requested<request_t>(*cached); }
 
-        // accessors don't use any caching, so just return them immediately
-        if (binding_descriptor.is_accessor())
+        // Step 2: Check local bindings
+        if (auto* binding = find_local_binding<canonical_request_t>())
         {
-            return as_requested<request_t>(binding_descriptor.binding->binding.provider());
+            return create_from_binding<request_t>(*binding);
         }
 
-        // use scope-based caching
-        using effective_scope_t = effective_scope_t<typename decltype(binding_descriptor)::scope_type, request_t>;
-        if constexpr (std::same_as<effective_scope_t, scopes::transient_t>)
+        // Step 3: Delegate to parent if exists
+        if constexpr (!std::same_as<nesting_policy_t, policies::nesting::no_parent_t>)
         {
-            return as_requested<request_t>(binding_descriptor.binding->binding.provider(*this));
-        }
-        else if constexpr (std::same_as<effective_scope_t, scopes::singleton_t>)
-        {
-            return as_requested<request_t>(binding_descriptor.binding->get_or_create());
+            return resolve_from_parent<request_t>();
         }
         else
         {
-            // effective scope is scoped
-            if constexpr (binding_descriptor.has_slot())
-            {
-                auto instance = binding_descriptor.slot()->instance;
-                if (!instance)
-                {
-                    instance = std::make_shared<resolved_t>(binding_descriptor.binding->config.provider(*this));
-                    binding_descriptor.slot()->instance = instance;
-                }
-                return as_requested<request_t>(*instance);
-            }
-
-            return scoped_resolver_.template resolve_scoped_no_slot<request_t, resolved_t>(
-                binding_descriptor.binding->config.provider, *this
-            );
+            // Step 4: No cache, no binding, no parent - use default provider
+            return create_from_default_provider<request_t>();
         }
-    }
-
-    template <typename value_t>
-    constexpr auto find_binding()
-    {
-        constexpr size_t local_idx = find_binding_index<value_t>();
-        if constexpr (local_idx < sizeof...(resolved_bindings_t))
-        {
-            auto& binding = std::get<local_idx>(bindings_);
-            return binding_descriptor_t<std::remove_reference_t<decltype(binding)>>{&binding};
-        }
-        else { return nesting_policy_t::template find_parent_binding<value_t>(); }
-    }
-
-    template <typename value_t>
-    auto find_cached() -> std::shared_ptr<value_t>
-    {
-        if (auto cached = storage_policy_t::template get_cached<value_t>()) return cached;
-        return nesting_policy_t::template find_parent_cached<value_t>();
-    }
-
-    template <typename instance_t>
-    auto create_transient() -> instance_t
-    {
-        auto binding_descriptor = find_binding<instance_t>();
-        if (binding_descriptor.found()) return binding_descriptor.binding->binding.provider(*this);
-        return default_provider_.template operator()<instance_t>(*this);
     }
 
     auto get_root() -> container_t&
@@ -281,38 +144,107 @@ public:
     }
 
 private:
-    template <typename T, size_t I = 0>
-    static consteval size_t find_binding_index()
+    // Check if we have this instance cached locally
+    template <typename canonical_request_t>
+    auto find_in_local_cache() -> std::shared_ptr<canonical_request_t>
     {
-        if constexpr (I >= sizeof...(resolved_bindings_t)) return I;
-        else if constexpr (std::same_as<T, typename std::tuple_element_t<I, decltype(bindings_)>::from_t>) return I;
-        else return find_binding_index<T, I + 1>();
+        if constexpr (requires { scope_policy_t::cache; })
+        {
+            return scope_policy_t::cache.template get<canonical_request_t>();
+        }
+        else
+        {
+            return nullptr; // Root has no cache
+        }
     }
 
-    std::tuple<resolved_bindings_t...> bindings_;
-    providers::ctor_invoker_t default_provider_;
-    scoped_policy_t scoped_resolver_;
+    // Check if we have a binding for this type locally
+    template <typename canonical_request_t, std::size_t I = 0>
+    auto find_local_binding() -> auto*
+    {
+        if constexpr (I >= sizeof...(bindings_t)) { return nullptr; }
+        else if constexpr (std::same_as<
+                               canonical_request_t, typename std::tuple_element_t<I, decltype(bindings_)>::from_type>)
+        {
+            return &std::get<I>(bindings_);
+        }
+        else { return find_local_binding<canonical_request_t, I + 1>(); }
+    }
+
+    // Create instance from a binding
+    template <typename request_t, typename binding_t>
+    auto create_from_binding(binding_t& binding) -> request_t
+    {
+        using resolved_request_t = resolved_t<request_t>;
+
+        if constexpr (providers::is_accessor<typename binding_t::provider_type>)
+        {
+            // Accessor - just get the instance
+            auto& instance = binding.provider.get();
+            return as_requested<request_t>(instance);
+        }
+        else
+        {
+            // Creator - check effective scope
+            using binding_scope_t = typename binding_t::scope_type;
+            using effective_scope_request_t = effective_scope_t<binding_scope_t, request_t>;
+
+            if constexpr (std::same_as<effective_scope_request_t, scopes::transient_t>)
+            {
+                // Transient - create without caching
+                auto instance = binding.provider.template create<type_list_t<>>(*this);
+                return as_requested<request_t>(instance);
+            }
+            else // singleton
+            {
+                // Singleton - resolve through scope policy (caches automatically)
+                auto instance = scope_policy_t::template resolve_singleton<resolved_request_t>(binding.provider, *this);
+                return as_requested<request_t>(instance);
+            }
+        }
+    }
+
+    // Create instance from default provider
+    template <typename request_t>
+    auto create_from_default_provider() -> request_t
+    {
+        using resolved_request_t = resolved_t<request_t>;
+
+        providers::creator_t<resolved_request_t> default_provider;
+
+        // Determine effective scope (default binding is transient, but request might force singleton)
+        using effective_scope_request_t = effective_scope_t<scopes::transient_t, request_t>;
+
+        if constexpr (std::same_as<effective_scope_request_t, scopes::transient_t>)
+        {
+            // Transient - create without caching
+            auto instance = default_provider.template create<type_list_t<>>(*this);
+            return as_requested<request_t>(instance);
+        }
+        else // singleton
+        {
+            // Singleton - resolve through scope policy
+            auto instance = scope_policy_t::template resolve_singleton<resolved_request_t>(default_provider, *this);
+            return as_requested<request_t>(instance);
+        }
+    }
+
+    // Delegate resolution to parent container
+    template <typename request_t>
+    requires(!std::same_as<nesting_policy_t, policies::nesting::no_parent_t>)
+    auto resolve_from_parent() -> request_t
+    {
+        return nesting_policy_t::parent->template resolve<request_t>();
+    }
+
+    std::tuple<bindings_t...> bindings_;
 };
 
-struct root_container_policy_t
-{
-    using storage_t = policies::storage::no_storage_t;
-    using nesting_t = policies::nesting::no_parent_t;
-    using scope_resolution_t = policies::scope_resolution::static_t;
-};
+// Type aliases
+template <typename... bindings_t>
+using root_container_t = container_t<root_container_policy_t, bindings_t...>;
 
-template <typename... resolved_bindings_t>
-using root_container_t = container_t<root_container_policy_t, resolved_bindings_t...>;
-
-template <typename parent_t>
-struct child_container_policy_t
-{
-    using storage_t = policies::storage::instance_cache_storage_t;
-    using nesting_t = policies::nesting::child_t<parent_t>;
-    using scope_resolution_t = policies::scope_resolution::instance_cache_t<nesting_t, storage_t>;
-};
-
-template <typename parent_t, typename... resolved_bindings_t>
-using child_container_t = container_t<child_container_policy_t<parent_t>, resolved_bindings_t...>;
+template <typename parent_t, typename... bindings_t>
+using child_container_t = container_t<child_container_policy_t<parent_t>, bindings_t...>;
 
 } // namespace dink

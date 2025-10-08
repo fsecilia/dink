@@ -17,7 +17,7 @@ enum class transitive_scope_t
 {
     unmodified,
     transient,
-    scoped
+    singleton
 };
 
 template <typename requested_t>
@@ -50,7 +50,7 @@ template <typename requested_t>
 struct request_traits_f<requested_t&>
 {
     using value_type = requested_t;
-    static constexpr transitive_scope_t transitive_scope = transitive_scope_t::scoped;
+    static constexpr transitive_scope_t transitive_scope = transitive_scope_t::singleton;
 
     template <typename instance_t>
     static auto as_requested(instance_t&& instance) -> requested_t&
@@ -63,7 +63,7 @@ template <typename requested_t>
 struct request_traits_f<requested_t*>
 {
     using value_type = requested_t;
-    static constexpr transitive_scope_t transitive_scope = transitive_scope_t::scoped;
+    static constexpr transitive_scope_t transitive_scope = transitive_scope_t::singleton;
 
     template <typename instance_t>
     static auto as_requested(instance_t&& instance) -> requested_t*
@@ -103,7 +103,7 @@ template <typename requested_t>
 struct request_traits_f<std::weak_ptr<requested_t>>
 {
     using value_type = requested_t;
-    static constexpr transitive_scope_t transitive_scope = transitive_scope_t::scoped;
+    static constexpr transitive_scope_t transitive_scope = transitive_scope_t::singleton;
 
     template <typename instance_t>
     static auto as_requested(instance_t&& instance) -> std::weak_ptr<requested_t>
@@ -112,26 +112,24 @@ struct request_traits_f<std::weak_ptr<requested_t>>
     }
 };
 
-//! type actual cached and provided for a given request
+//! Type actually cached and provided for a given request
 template <typename requested_t>
-using resolved_t = request_traits_f<requested_t>::value_type;
+using resolved_t = typename request_traits_f<requested_t>::value_type;
 
 /*!
-    effective scope to use for a specific request given its immediate type and scope it was bound to
+    Effective scope to use for a specific request given its immediate type and scope it was bound to
     
-    If type is bound transient, but you ask for something like type&, that request is treated as though it were bound
-    scoped. If type is bound scoped or singleton, but you ask for somethign like type&&, that request is treated as
-    though it were bound transient.
+    If type is bound transient, but you ask for type&, that request is treated as singleton.
+    If type is bound singleton, but you ask for type&&, that request is treated as transient.
 */
 template <typename bound_scope_t, typename request_t>
 using effective_scope_t = std::conditional_t<
     request_traits_f<request_t>::transitive_scope == transitive_scope_t::transient, scopes::transient_t,
     std::conditional_t<
-        request_traits_f<request_t>::transitive_scope == transitive_scope_t::scoped
-            && std::same_as<bound_scope_t, scopes::transient_t>,
-        scopes::scoped_t, bound_scope_t>>;
+        request_traits_f<request_t>::transitive_scope == transitive_scope_t::singleton, scopes::singleton_t,
+        bound_scope_t>>;
 
-//! converts type from what is cached or provided to what was actually requested
+//! Converts type from what is cached or provided to what was actually requested
 template <typename request_t, typename instance_t>
 auto as_requested(instance_t&& instance) -> auto
 {

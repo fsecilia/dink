@@ -5,6 +5,7 @@
 
 #pragma once
 
+#if 0
 #include <dink/lib.hpp>
 #include <dink/bindings.hpp>
 #include <concepts>
@@ -56,7 +57,7 @@ struct binding_t
     binding_config_t config;
 };
 
-// Specialization for bindings using static storage (singleton and root-scoped)
+// singletons in root
 template <typename binding_config_t, typename container_tag_t>
 requires uses_static_storage_v<binding_config_t, container_tag_t>
 struct binding_t<binding_config_t, container_tag_t>
@@ -127,3 +128,4 @@ auto resolve_bindings(container_t& container, bindings_t&&... bindings)
 }
 
 } // namespace dink
+#endif
