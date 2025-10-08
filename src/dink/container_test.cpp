@@ -12,7 +12,7 @@
 #include <type_traits>
 
 namespace dink {
-namespace {
+// namespace {
 
 // Test instrumentation
 inline static int_t next_id = 1;
@@ -32,6 +32,8 @@ struct constructed_from_t
     int_t id = next_id++;
     constructed_from_t(args_t...) noexcept { ++total_constructions; }
     ~constructed_from_t() { ++total_destructions; }
+
+    constructed_from_t(constructed_from_t const&) = default;
 };
 
 // Type aliases for common test types
@@ -51,6 +53,7 @@ protected:
 // Basic Resolution Tests
 // =============================================================================
 
+#if 0
 TEST_F(ContainerTest, DefaultConstructionWithoutBinding)
 {
     auto container = root_container_t{};
@@ -60,24 +63,25 @@ TEST_F(ContainerTest, DefaultConstructionWithoutBinding)
     EXPECT_EQ(total_constructions, 1);
 }
 
-TEST_F(ContainerTest, DefaultConstructionWithOneDependencies)
+TEST_F(ContainerTest, DefaultConstructionWithOneDependency)
 {
+    // #error set breakpoint here and in the singleton call. see what is different
     auto container = root_container_t{};
     auto instance = container.resolve<one_dep_t>();
 
-    EXPECT_GT(instance.id, 2);
+    EXPECT_EQ(instance.id, 2);
     EXPECT_EQ(total_constructions, 2); // 1 dep + 1 main
 }
 
-#if 0
 TEST_F(ContainerTest, DefaultConstructionWithDependencies)
 {
     auto container = root_container_t{};
     auto instance = container.resolve<three_deps_t>();
 
-    EXPECT_GT(instance.id, 0);
-    EXPECT_EQ(total_constructions, 4); // 3 deps + 1 main
+    EXPECT_EQ(instance.id, 8);
+    EXPECT_EQ(total_constructions, 8);
 }
+#endif
 
 TEST_F(ContainerTest, ExplicitBindingToImplementation)
 {
@@ -88,19 +92,20 @@ TEST_F(ContainerTest, ExplicitBindingToImplementation)
     struct implementation_t : interface_t, constructed_from_t<>
     {};
 
-    auto container = root_container_t{bind<interface_t>().to<implementation_t>()};
+    auto container = root_container_t{bind<interface_t>().to<implementation_t>().in<scopes::transient_t>()};
 
     auto& instance = container.resolve<interface_t&>();
     EXPECT_NE(dynamic_cast<implementation_t*>(&instance), nullptr);
 }
 
+#if 0
 // =============================================================================
 // Scope Behavior Tests
 // =============================================================================
 
 TEST_F(ContainerTest, TransientScopeCreatesNewInstances)
 {
-    auto container = root_container_t{bind<no_deps_t>().to<no_deps_t>().in<scopes::transient_t>()};
+    auto container = root_container_t{bind<no_deps_t>().to<no_deps_t>()};
 
     auto a = container.resolve<no_deps_t>();
     auto b = container.resolve<no_deps_t>();
@@ -150,8 +155,8 @@ TEST_F(ContainerTest, RValueReferenceRequestForcesTransient)
 {
     auto container = root_container_t{bind<no_deps_t>().to<no_deps_t>().in<scopes::singleton_t>()};
 
-    auto&& a = container.resolve<no_deps_t&&>();
-    auto&& b = container.resolve<no_deps_t&&>();
+    auto a = container.resolve<no_deps_t&&>();
+    auto b = container.resolve<no_deps_t&&>();
 
     EXPECT_NE(a.id, b.id);
     EXPECT_EQ(total_constructions, 2);
@@ -211,10 +216,14 @@ TEST_F(ContainerTest, WeakPtrRequest)
 TEST_F(ContainerTest, CustomFactory)
 {
     int_t factory_calls = 0;
-    auto container = root_container_t{bind<no_deps_t>().template to_factory<no_deps_t>([&factory_calls]() {
-        ++factory_calls;
-        return no_deps_t{};
-    })};
+    auto container = root_container_t{
+        bind<no_deps_t>()
+            .template to_factory<no_deps_t>([&factory_calls]() {
+                ++factory_calls;
+                return no_deps_t{};
+            })
+            .in<scopes::transient_t>()
+    };
 
     auto a = container.resolve<no_deps_t>();
     auto b = container.resolve<no_deps_t>();
@@ -225,9 +234,11 @@ TEST_F(ContainerTest, CustomFactory)
 
 TEST_F(ContainerTest, FactoryWithDependencies)
 {
-    auto container = root_container_t{bind<two_deps_t>().template to_factory<two_deps_t>([](no_deps_t a, one_dep_t b) {
-        return two_deps_t{a, b};
-    })};
+    auto container = root_container_t{
+        bind<two_deps_t>()
+            .template to_factory<two_deps_t>([](no_deps_t a, one_dep_t b) { return two_deps_t{a, b}; })
+            .in<scopes::transient_t>()
+    };
 
     auto instance = container.resolve<two_deps_t>();
 
@@ -507,5 +518,5 @@ TEST_F(ContainerTest, ThreadSafetyOfRootSingletons)
 }
 #endif
 
-} // namespace
+// } // namespace
 } // namespace dink

@@ -53,7 +53,7 @@ struct request_traits_f
     template <typename source_t>
     static auto as_requested(source_t&& source) -> requested_t
     {
-        return detail::get_underlying(std::forward<source_t>(source));
+        return std::move(detail::get_underlying(std::forward<source_t>(source)));
     }
 };
 
@@ -99,7 +99,7 @@ struct request_traits_f<requested_t*>
 template <typename requested_t>
 struct request_traits_f<std::unique_ptr<requested_t>>
 {
-    using value_type = requested_t;
+    using value_type = std::remove_cvref_t<requested_t>;
     static constexpr transitive_scope_t transitive_scope = transitive_scope_t::transient;
 
     template <typename source_t>

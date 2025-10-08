@@ -38,7 +38,8 @@ struct creator_t
     template <typename dependency_chain_t, typename container_t, typename factory_invoker_t>
     auto create(container_t& container, factory_invoker_t&& factory_invoker) -> constructed_t
     {
-        return std::invoke(std::forward<factory_invoker_t>(factory_invoker), factory, container);
+        // return std::invoke(std::forward<factory_invoker_t>(factory_invoker), factory, container);
+        return std::forward<factory_invoker_t>(factory_invoker)(factory, container);
     }
 };
 

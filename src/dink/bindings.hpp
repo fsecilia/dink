@@ -129,7 +129,7 @@ auto bind() -> binding_src_t<canonical_t<from_t>>
 
 //! resolve default scope to provider's default (for creators) or no scope (for accessors)
 template <typename from_t, typename to_t, typename provider_t, typename scope_t>
-auto resolve_binding(binding_config_t<from_t, to_t, provider_t, scope_t> config)
+auto resolve_binding(binding_config_t<from_t, to_t, provider_t, scope_t>&& config)
 {
     if constexpr (std::same_as<scope_t, scopes::default_t>)
     {
@@ -153,6 +153,17 @@ auto resolve_binding(binding_config_t<from_t, to_t, provider_t, scope_t> config)
         static_assert(providers::is_creator<provider_t>, "Cannot specify scope for accessor providers");
         return config; // already correct type
     }
+}
+
+//! resolve an incomplete binding builder by applying the default scope
+template <typename from_t, typename to_t, typename provider_t>
+auto resolve_binding(binding_dst_t<from_t, to_t, provider_t>&& dst)
+{
+    // explicitly invoke the conversion operator to get a config with a default scope
+    binding_config_t<from_t, to_t, provider_t, scopes::default_t> config = std::move(dst);
+
+    // delegate to the original function to resolve the default scope to the correct one
+    return resolve_binding(std::move(config));
 }
 
 template <typename... bindings_t>

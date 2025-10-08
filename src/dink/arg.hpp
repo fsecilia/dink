@@ -61,7 +61,7 @@ private:
     constexpr auto resolve() const -> deduced_t
     {
         assert_noncircular<canonical_deduced_t>();
-        using next_dependency_chain_t = type_list::append_t<dependency_chain_t, canonical_t<canonical_deduced_t>>;
+        using next_dependency_chain_t = type_list::append_t<dependency_chain_t, canonical_deduced_t>;
         return resolver_.template resolve<deduced_t, next_dependency_chain_t>();
     }
 };
@@ -87,7 +87,8 @@ public:
     template <single_arg_deducible<resolved_t> deduced_t>
     constexpr operator deduced_t()
     {
-        return static_cast<deduced_t>(arg_);
+        // return static_cast<deduced_t>(arg_);
+        return arg_.operator deduced_t();
     }
 
     /*!
@@ -99,6 +100,7 @@ public:
     constexpr operator deduced_t&() const
     {
         return static_cast<deduced_t&>(arg_);
+        // return arg_.operator deduced_t&(arg_);
     }
 
     explicit constexpr single_arg_t(arg_t arg) noexcept : arg_{std::move(arg)} {}

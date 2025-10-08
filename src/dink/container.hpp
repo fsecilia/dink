@@ -85,11 +85,9 @@ public:
     template <typename request_t, typename dependency_chain_t = type_list_t<>>
     auto resolve() -> request_t
     {
-        auto factory = [this]() -> decltype(auto) {
+        return try_resolve<request_t, dependency_chain_t>([this]() -> decltype(auto) {
             return create_from_default_provider<request_t, dependency_chain_t>();
-        };
-
-        return try_resolve<request_t, dependency_chain_t>(factory);
+        });
     }
 
 private:
@@ -191,20 +189,44 @@ private:
     }
 
     template <typename request_t, typename dependency_chain_t, typename factory_t>
+    requires(!is_root)
+    auto resolve_from_parent(factory_t&& factory) -> request_t
+    {
+        return strategy_t::parent->template try_resolve<request_t, dependency_chain_t>(
+            std::forward<factory_t>(factory)
+        );
+    }
+
+    std::tuple<bindings_t...> bindings_;
+
+public:
+    template <typename request_t, typename dependency_chain_t, typename factory_t>
     auto try_resolve(factory_t&& factory) -> request_t
     {
-        // check local cache
-        if (auto cached = strategy_t::template find_in_local_cache<canonical_t<request_t>>())
+        using canonical_t = canonical_t<request_t>;
+
+        // check local cache for for singleton-scoped requests
+        if constexpr (request_traits_f<canonical_t>::transitive_scope == transitive_scope_t::singleton)
         {
-            return as_requested<request_t>(std::move(cached));
+            if (auto cached = strategy_t::template find_in_local_cache<canonical_t>())
+            {
+                return as_requested<request_t>(std::move(cached));
+            }
         }
 
         // check local bindings
-        if (auto binding = find_local_binding<canonical_t<request_t>>())
+        auto binding = find_local_binding<canonical_t>();
+        if (binding)
         {
-            if constexpr (!std::same_as<std::remove_pointer_t<decltype(binding)>, binding_not_found_t>)
+            using binding_t = std::remove_pointer_t<decltype(binding)>;
+            static constexpr auto binding_found = !std::same_as<binding_t, binding_not_found_t>;
+            if constexpr (binding_found)
             {
-                return create_from_binding<request_t, dependency_chain_t>(*binding);
+                using binding_scope_t = typename binding_t::scope_type;
+                using effective_scope_request_t = effective_scope_t<binding_scope_t, request_t>;
+
+                static constexpr auto binding_matches = std::same_as<effective_scope_request_t, binding_scope_t>;
+                if constexpr (binding_matches) return create_from_binding<request_t, dependency_chain_t>(*binding);
             }
         }
 
@@ -217,17 +239,6 @@ private:
         // Not found anywhere - invoke the factory from the original caller
         return factory();
     }
-
-    template <typename request_t, typename dependency_chain_t, typename factory_t>
-    requires(!is_root)
-    auto resolve_from_parent(factory_t&& factory) -> request_t
-    {
-        return strategy_t::parent->template try_resolve<request_t, dependency_chain_t>(
-            std::forward<factory_t>(factory)
-        );
-    }
-
-    std::tuple<bindings_t...> bindings_;
 };
 
 // deduction guides
