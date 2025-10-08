@@ -35,9 +35,7 @@ template <typename parent_t>
 struct child_t
 {
     parent_t* parent;
-    decltype(std::declval<parent_t>().get_root())* root;
-
-    explicit child_t(parent_t& p) : parent{&p}, root{&p.get_root()} {}
+    explicit child_t(parent_t& parent) : parent{&parent} {}
 };
 
 } // namespace nesting
@@ -153,12 +151,6 @@ public:
             // Step 4: No cache, no binding, no parent - use default provider
             return create_from_default_provider<request_t, dependency_chain_t>();
         }
-    }
-
-    auto get_root() -> container_t&
-    {
-        if constexpr (std::same_as<nesting_policy_t, policies::nesting::no_parent_t>) { return *this; }
-        else { return *nesting_policy_t::root; }
     }
 
 private:
