@@ -85,30 +85,14 @@ public:
     template <typename request_t, typename dependency_chain_t = type_list_t<>>
     auto resolve() -> request_t
     {
-        using canonical_t = canonical_t<request_t>;
+        decltype(auto) result = try_resolve<request_t, dependency_chain_t>();
 
-        // check local cache
-        if (auto cached = strategy_t::template find_in_local_cache<canonical_t>())
+        if constexpr (std::same_as<decltype(result), instance_not_found_t>)
         {
-            return as_requested<request_t>(std::move(cached));
-        }
-
-        // check local bindings
-        if (auto binding = find_local_binding<canonical_t>())
-        {
-            if constexpr (!std::same_as<std::remove_pointer_t<decltype(binding)>, binding_not_found_t>)
-            {
-                return create_from_binding<request_t, dependency_chain_t>(*binding);
-            }
-        }
-
-        // delegate to parent
-        if constexpr (!is_root) { return resolve_from_parent<request_t, dependency_chain_t>(); }
-        else
-        {
-            // no cache, no binding, no parent - use default provider
+            // Nothing found anywhere - create locally with default provider
             return create_from_default_provider<request_t, dependency_chain_t>();
         }
+        else { return result; }
     }
 
 private:
@@ -186,12 +170,39 @@ private:
         }
     }
 
+    struct instance_not_found_t
+    {};
+
+    template <typename request_t, typename dependency_chain_t = type_list_t<>>
+    auto try_resolve() -> decltype(auto) // returns either request_t or not_found_t
+    {
+        // check local cache
+        if (auto cached = strategy_t::template find_in_local_cache<canonical_t<request_t>>())
+        {
+            return as_requested<request_t>(std::move(cached));
+        }
+
+        // check local bindings
+        if (auto binding = find_local_binding<canonical_t<request_t>>())
+        {
+            if constexpr (!std::same_as<std::remove_pointer_t<decltype(binding)>, binding_not_found_t>)
+            {
+                return create_from_binding<request_t, dependency_chain_t>(*binding);
+            }
+        }
+
+        // delegate to parent if exists
+        if constexpr (!is_root) { return resolve_from_parent<request_t, dependency_chain_t>(); }
+
+        return instance_not_found_t{};
+    }
+
     // delegate resolution to parent container
     template <typename request_t, typename dependency_chain_t>
     requires(!is_root)
-    auto resolve_from_parent() -> request_t
+    auto resolve_from_parent() -> decltype(auto)
     {
-        return strategy_t::parent->template resolve<request_t, dependency_chain_t>();
+        return strategy_t::parent->template try_resolve<request_t, dependency_chain_t>();
     }
 
     std::tuple<bindings_t...> bindings_;
