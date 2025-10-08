@@ -45,7 +45,7 @@ struct child_t
 // Scope resolution policies
 namespace scope_resolution {
 
-// Root container - uses Meyer's singletons
+// Root container - uses Meyers singletons
 struct static_t
 {
     template <typename instance_t, typename provider_t, typename container_t>
@@ -53,6 +53,12 @@ struct static_t
     {
         static auto instance = provider.template create<type_list_t<>>(container);
         return instance;
+    }
+
+    template <typename canonical_request_t>
+    auto find_in_local_cache() -> canonical_request_t*
+    {
+        return nullptr;
     }
 };
 
@@ -67,6 +73,12 @@ struct instance_cache_t
         return cache.template get_or_create<instance_t>([&]() {
             return provider.template create<type_list_t<>>(container);
         });
+    }
+
+    template <typename canonical_request_t>
+    auto find_in_local_cache() -> std::shared_ptr<canonical_request_t>
+    {
+        return cache.template get<canonical_request_t>();
     }
 };
 
@@ -117,7 +129,10 @@ public:
         using canonical_request_t = canonical_t<request_t>;
 
         // Step 1: Check local cache
-        if (auto cached = find_in_local_cache<canonical_request_t>()) { return as_requested<request_t>(*cached); }
+        if (auto cached = scope_policy_t::template find_in_local_cache<canonical_request_t>())
+        {
+            return as_requested<request_t>(*cached);
+        }
 
         // Step 2: Check local bindings
         if (auto binding = find_local_binding<canonical_request_t>())
@@ -147,20 +162,6 @@ public:
     }
 
 private:
-    // Check if we have this instance cached locally
-    template <typename canonical_request_t>
-    auto find_in_local_cache() -> std::shared_ptr<canonical_request_t>
-    {
-        if constexpr (requires { scope_policy_t::cache; })
-        {
-            return scope_policy_t::cache.template get<canonical_request_t>();
-        }
-        else
-        {
-            return nullptr; // Root has no cache
-        }
-    }
-
     // Check if we have a binding for this type locally
     struct binding_not_found_t
     {};
