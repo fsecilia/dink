@@ -65,5 +65,50 @@ TEST_F(integration_smoke_test_t, explicit_binding)
     ASSERT_EQ(a1.id, a2.id); // Explicitly bound singleton
 }
 
+TEST_F(integration_smoke_test_t, circular_dependency_detection)
+{
+    struct A;
+    struct B;
+
+    struct A
+    {
+        A(B const&) {}
+    };
+    struct B
+    {
+        B(A const&) {}
+    };
+
+    auto container = root_container_t<>{};
+
+    container.resolve<A>();
+
+    // Force full instantiation via sizeof
+    constexpr bool can_resolve_a = requires { sizeof(decltype(container.resolve<A>())); };
+    constexpr bool can_resolve_b = requires { sizeof(decltype(container.resolve<B>())); };
+
+    EXPECT_FALSE(can_resolve_a);
+    EXPECT_FALSE(can_resolve_b);
+}
+
+TEST_F(integration_smoke_test_t, non_circular_dependency_works)
+{
+    struct A
+    {
+        A() {}
+    };
+    struct B
+    {
+        B(A const&) {}
+    };
+
+    auto container = root_container_t<>{};
+
+    // This should be true - no circular dependency
+    constexpr bool can_resolve_b = requires { container.resolve<B>(); };
+
+    EXPECT_TRUE(can_resolve_b);
+}
+
 } // namespace
 } // namespace dink

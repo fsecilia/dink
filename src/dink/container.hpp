@@ -48,10 +48,10 @@ namespace scope_resolution {
 // Root container - uses Meyers singletons
 struct static_t
 {
-    template <typename instance_t, typename provider_t, typename container_t>
+    template <typename instance_t, typename dependency_chain_t, typename provider_t, typename container_t>
     auto resolve_singleton(provider_t& provider, container_t& container) -> instance_t&
     {
-        static auto instance = provider.template create<type_list_t<>>(container);
+        static auto instance = provider.template create<dependency_chain_t>(container);
         return instance;
     }
 
@@ -67,11 +67,11 @@ struct instance_cache_t
 {
     dink::instance_cache_t cache;
 
-    template <typename instance_t, typename provider_t, typename container_t>
+    template <typename instance_t, typename dependency_chain_t, typename provider_t, typename container_t>
     auto resolve_singleton(provider_t& provider, container_t& container) -> std::shared_ptr<instance_t>
     {
         return cache.template get_or_create<instance_t>([&]() {
-            return provider.template create<type_list_t<>>(container);
+            return provider.template create<dependency_chain_t>(container);
         });
     }
 
@@ -139,19 +139,19 @@ public:
         {
             if constexpr (!std::same_as<std::remove_pointer_t<decltype(binding)>, binding_not_found_t>)
             {
-                return create_from_binding<request_t>(*binding);
+                return create_from_binding<request_t, dependency_chain_t>(*binding);
             }
         }
 
         // Step 3: Delegate to parent if exists
         if constexpr (!std::same_as<nesting_policy_t, policies::nesting::no_parent_t>)
         {
-            return resolve_from_parent<request_t>();
+            return resolve_from_parent<request_t, dependency_chain_t>();
         }
         else
         {
             // Step 4: No cache, no binding, no parent - use default provider
-            return create_from_default_provider<request_t>();
+            return create_from_default_provider<request_t, dependency_chain_t>();
         }
     }
 
@@ -179,7 +179,7 @@ private:
     }
 
     // Create instance from a binding
-    template <typename request_t, typename binding_t>
+    template <typename request_t, typename dependency_chain_t, typename binding_t>
     auto create_from_binding(binding_t& binding) -> request_t
     {
         using resolved_request_t = resolved_t<request_t>;
@@ -198,20 +198,21 @@ private:
             if constexpr (std::same_as<effective_scope_request_t, scopes::transient_t>)
             {
                 // Transient - create without caching
-                return as_requested<request_t>(binding.provider.template create<type_list_t<>>(*this));
+                return as_requested<request_t>(binding.provider.template create<dependency_chain_t>(*this));
             }
             else // singleton
             {
                 // Singleton - resolve through scope policy (caches automatically)
-                return as_requested<request_t>(
-                    scope_policy_t::template resolve_singleton<resolved_request_t>(binding.provider, *this)
-                );
+                return as_requested<
+                    request_t>(scope_policy_t::template resolve_singleton<resolved_request_t, dependency_chain_t>(
+                    binding.provider, *this
+                ));
             }
         }
     }
 
     // Create instance from default provider
-    template <typename request_t>
+    template <typename request_t, typename dependency_chain_t>
     auto create_from_default_provider() -> request_t
     {
         using resolved_request_t = resolved_t<request_t>;
@@ -224,23 +225,24 @@ private:
         if constexpr (std::same_as<effective_scope_request_t, scopes::transient_t>)
         {
             // Transient - create without caching
-            return as_requested<request_t>(default_provider.template create<type_list_t<>>(*this));
+            return as_requested<request_t>(default_provider.template create<dependency_chain_t>(*this));
         }
         else
         {
             // Singleton - resolve through scope policy
-            return as_requested<request_t>(
-                scope_policy_t::template resolve_singleton<resolved_request_t>(default_provider, *this)
-            );
+            return as_requested<
+                request_t>(scope_policy_t::template resolve_singleton<resolved_request_t, dependency_chain_t>(
+                default_provider, *this
+            ));
         }
     }
 
     // Delegate resolution to parent container
-    template <typename request_t>
+    template <typename request_t, typename dependency_chain_t>
     requires(!std::same_as<nesting_policy_t, policies::nesting::no_parent_t>)
     auto resolve_from_parent() -> request_t
     {
-        return nesting_policy_t::parent->template resolve<request_t>();
+        return nesting_policy_t::parent->template resolve<request_t, dependency_chain_t>();
     }
 
     std::tuple<bindings_t...> bindings_;
