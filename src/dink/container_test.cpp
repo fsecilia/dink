@@ -81,7 +81,6 @@ TEST_F(ContainerTest, DefaultConstructionWithDependencies)
     EXPECT_EQ(instance.id, 8);
     EXPECT_EQ(total_constructions, 8);
 }
-#endif
 
 TEST_F(ContainerTest, ExplicitBindingToImplementation)
 {
@@ -98,7 +97,6 @@ TEST_F(ContainerTest, ExplicitBindingToImplementation)
     EXPECT_NE(dynamic_cast<implementation_t*>(&instance), nullptr);
 }
 
-#if 0
 // =============================================================================
 // Scope Behavior Tests
 // =============================================================================
@@ -448,6 +446,7 @@ TEST_F(ContainerTest, MoveOnlyType)
     auto ptr = container.resolve<std::unique_ptr<move_only_t>>();
     EXPECT_GT(ptr->id, 0);
 }
+#endif
 
 TEST_F(ContainerTest, ConstRequestTypes)
 {
@@ -460,6 +459,7 @@ TEST_F(ContainerTest, ConstRequestTypes)
     EXPECT_EQ(total_constructions, 1);
 }
 
+#if 0
 // =============================================================================
 // Circular Dependency Tests (should fail to compile if uncommented)
 // =============================================================================

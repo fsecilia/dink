@@ -215,19 +215,11 @@ public:
         }
 
         // check local bindings
-        auto binding = find_local_binding<canonical_t>();
-        if (binding)
+        if (auto binding = find_local_binding<canonical_t>())
         {
             using binding_t = std::remove_pointer_t<decltype(binding)>;
             static constexpr auto binding_found = !std::same_as<binding_t, binding_not_found_t>;
-            if constexpr (binding_found)
-            {
-                using binding_scope_t = typename binding_t::scope_type;
-                using effective_scope_request_t = effective_scope_t<binding_scope_t, request_t>;
-
-                static constexpr auto binding_matches = std::same_as<effective_scope_request_t, binding_scope_t>;
-                if constexpr (binding_matches) return create_from_binding<request_t, dependency_chain_t>(*binding);
-            }
+            if constexpr (binding_found) return create_from_binding<request_t, dependency_chain_t>(*binding);
         }
 
         // delegate to parent if exists

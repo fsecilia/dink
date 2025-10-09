@@ -99,8 +99,8 @@ public:
     template <single_arg_deducible<resolved_t> deduced_t>
     constexpr operator deduced_t&() const
     {
-        return static_cast<deduced_t&>(arg_);
-        // return arg_.operator deduced_t&(arg_);
+        // return static_cast<deduced_t&>(arg_);
+        return arg_.operator deduced_t&(arg_);
     }
 
     explicit constexpr single_arg_t(arg_t arg) noexcept : arg_{std::move(arg)} {}
