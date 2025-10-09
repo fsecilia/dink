@@ -24,10 +24,10 @@ namespace container::strategies {
 struct root_t
 {
     template <typename instance_t, typename dependency_chain_t, typename provider_t, typename container_t>
-    auto resolve_singleton(provider_t& provider, container_t& container) -> instance_t&
+    auto resolve_singleton(provider_t& provider, container_t& container) -> instance_t*
     {
         static auto instance = provider.template create<dependency_chain_t>(container);
-        return instance;
+        return &instance;
     }
 
     template <typename canonical_request_t>
@@ -83,7 +83,7 @@ public:
     {}
 
     template <typename request_t, typename dependency_chain_t = type_list_t<>>
-    auto resolve() -> request_t
+    auto resolve() -> returned_t<request_t>
     {
         return try_resolve<request_t, dependency_chain_t>([this]() -> decltype(auto) {
             return create_from_default_provider<request_t, dependency_chain_t>();
@@ -132,7 +132,7 @@ private:
 
     // create instance from a binding
     template <typename request_t, typename dependency_chain_t, typename binding_t>
-    auto create_from_binding(binding_t& binding) -> request_t
+    auto create_from_binding(binding_t& binding) -> returned_t<request_t>
     {
         using resolved_request_t = resolved_t<request_t>;
 
@@ -165,7 +165,7 @@ private:
 
     // create instance from default provider
     template <typename request_t, typename dependency_chain_t>
-    auto create_from_default_provider() -> request_t
+    auto create_from_default_provider() -> returned_t<request_t>
     {
         using resolved_request_t = resolved_t<request_t>;
 
@@ -190,7 +190,7 @@ private:
 
     template <typename request_t, typename dependency_chain_t, typename factory_t>
     requires(!is_root)
-    auto resolve_from_parent(factory_t&& factory) -> request_t
+    auto resolve_from_parent(factory_t&& factory) -> returned_t<request_t>
     {
         return strategy_t::parent->template try_resolve<request_t, dependency_chain_t>(
             std::forward<factory_t>(factory)
@@ -201,7 +201,7 @@ private:
 
 public:
     template <typename request_t, typename dependency_chain_t, typename factory_t>
-    auto try_resolve(factory_t&& factory) -> request_t
+    auto try_resolve(factory_t&& factory) -> returned_t<request_t>
     {
         using canonical_t = canonical_t<request_t>;
 

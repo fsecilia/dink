@@ -48,6 +48,7 @@ template <typename requested_t>
 struct request_traits_f
 {
     using value_type = requested_t;
+    using return_type = requested_t;
     static constexpr transitive_scope_t transitive_scope = transitive_scope_t::unmodified;
 
     template <typename source_t>
@@ -61,10 +62,11 @@ template <typename requested_t>
 struct request_traits_f<requested_t&&>
 {
     using value_type = requested_t;
+    using return_type = requested_t;
     static constexpr transitive_scope_t transitive_scope = transitive_scope_t::transient;
 
     template <typename source_t>
-    static auto as_requested(source_t&& source) -> requested_t&&
+    static auto as_requested(source_t&& source) -> requested_t
     {
         return std::move(detail::get_underlying(std::forward<source_t>(source)));
     }
@@ -74,6 +76,7 @@ template <typename requested_t>
 struct request_traits_f<requested_t&>
 {
     using value_type = requested_t;
+    using return_type = requested_t&;
     static constexpr transitive_scope_t transitive_scope = transitive_scope_t::singleton;
 
     template <typename source_t>
@@ -87,6 +90,7 @@ template <typename requested_t>
 struct request_traits_f<requested_t*>
 {
     using value_type = requested_t;
+    using return_type = requested_t*;
     static constexpr transitive_scope_t transitive_scope = transitive_scope_t::singleton;
 
     template <typename source_t>
@@ -96,14 +100,15 @@ struct request_traits_f<requested_t*>
     }
 };
 
-template <typename requested_t>
-struct request_traits_f<std::unique_ptr<requested_t>>
+template <typename requested_t, typename deleter_t>
+struct request_traits_f<std::unique_ptr<requested_t, deleter_t>>
 {
     using value_type = std::remove_cvref_t<requested_t>;
+    using return_type = std::unique_ptr<requested_t, deleter_t>;
     static constexpr transitive_scope_t transitive_scope = transitive_scope_t::transient;
 
     template <typename source_t>
-    static auto as_requested(source_t&& source) -> std::unique_ptr<requested_t>
+    static auto as_requested(source_t&& source) -> std::unique_ptr<requested_t, deleter_t>
     {
         using clean_source_t = std::remove_cvref_t<source_t>;
         if constexpr (std::is_pointer_v<clean_source_t> || detail::is_shared_ptr_v<clean_source_t>)
@@ -113,7 +118,10 @@ struct request_traits_f<std::unique_ptr<requested_t>>
                 "Cannot request unique_ptr for a cached singleton - ownership conflict"
             );
         }
-        else { return std::make_unique<requested_t>(std::forward<source_t>(source)); }
+        else
+        {
+            return std::unique_ptr<requested_t, deleter_t>(new source_t{std::forward<source_t>(source)}, deleter_t{});
+        }
     }
 };
 
@@ -121,6 +129,7 @@ template <typename requested_t>
 struct request_traits_f<std::shared_ptr<requested_t>>
 {
     using value_type = requested_t;
+    using return_type = std::shared_ptr<requested_t>;
     static constexpr transitive_scope_t transitive_scope = transitive_scope_t::unmodified;
 
     template <typename source_t>
@@ -141,6 +150,7 @@ template <typename requested_t>
 struct request_traits_f<std::weak_ptr<requested_t>>
 {
     using value_type = requested_t;
+    using return_type = std::weak_ptr<requested_t>;
     static constexpr transitive_scope_t transitive_scope = transitive_scope_t::singleton;
 
     template <typename source_t>
@@ -151,9 +161,25 @@ struct request_traits_f<std::weak_ptr<requested_t>>
     }
 };
 
+template <typename requested_t>
+struct request_traits_f<requested_t const> : request_traits_f<requested_t>
+{};
+
+template <typename requested_t>
+struct request_traits_f<requested_t const&> : request_traits_f<requested_t&>
+{};
+
+template <typename requested_t>
+struct request_traits_f<requested_t const*> : request_traits_f<requested_t*>
+{};
+
 //! Type actually cached and provided for a given request
 template <typename requested_t>
 using resolved_t = typename request_traits_f<requested_t>::value_type;
+
+//! Type actually cached and provided for a given request
+template <typename requested_t>
+using returned_t = typename request_traits_f<requested_t>::return_type;
 
 /*!
     Effective scope to use for a specific request given its immediate type and scope it was bound to
@@ -170,7 +196,7 @@ using effective_scope_t = std::conditional_t<
 
 //! Converts type from what is cached or provided to what was actually requested
 template <typename request_t, typename instance_t>
-auto as_requested(instance_t&& instance) -> request_t
+auto as_requested(instance_t&& instance) -> decltype(auto)
 {
     return request_traits_f<request_t>::as_requested(std::forward<instance_t>(instance));
 }

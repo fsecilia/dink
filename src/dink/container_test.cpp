@@ -53,7 +53,6 @@ protected:
 // Basic Resolution Tests
 // =============================================================================
 
-#if 0
 TEST_F(ContainerTest, DefaultConstructionWithoutBinding)
 {
     auto container = root_container_t{};
@@ -65,7 +64,6 @@ TEST_F(ContainerTest, DefaultConstructionWithoutBinding)
 
 TEST_F(ContainerTest, DefaultConstructionWithOneDependency)
 {
-    // #error set breakpoint here and in the singleton call. see what is different
     auto container = root_container_t{};
     auto instance = container.resolve<one_dep_t>();
 
@@ -142,8 +140,11 @@ TEST_F(ContainerTest, ReferenceRequestForcesSingleton)
 {
     auto container = root_container_t{bind<no_deps_t>().to<no_deps_t>().in<scopes::transient_t>()};
 
-    auto& a = container.resolve<no_deps_t&>();
-    auto& b = container.resolve<no_deps_t&>();
+    struct unique_type_t : no_deps_t
+    {};
+
+    auto& a = container.resolve<unique_type_t&>();
+    auto& b = container.resolve<unique_type_t&>();
 
     EXPECT_EQ(&a, &b);
     EXPECT_EQ(total_constructions, 1);
@@ -151,10 +152,14 @@ TEST_F(ContainerTest, ReferenceRequestForcesSingleton)
 
 TEST_F(ContainerTest, RValueReferenceRequestForcesTransient)
 {
-    auto container = root_container_t{bind<no_deps_t>().to<no_deps_t>().in<scopes::singleton_t>()};
+    struct unique_type_t : no_deps_t
+    {};
 
-    auto a = container.resolve<no_deps_t&&>();
-    auto b = container.resolve<no_deps_t&&>();
+    auto container = root_container_t{bind<unique_type_t>().to<unique_type_t>().in<scopes::singleton_t>()};
+
+    // #error both lines cause an invalid read of 8 bytes
+    auto a = container.resolve<unique_type_t&&>();
+    auto b = container.resolve<unique_type_t&&>();
 
     EXPECT_NE(a.id, b.id);
     EXPECT_EQ(total_constructions, 2);
@@ -162,10 +167,13 @@ TEST_F(ContainerTest, RValueReferenceRequestForcesTransient)
 
 TEST_F(ContainerTest, PointerRequestForcesSingleton)
 {
-    auto container = root_container_t{bind<no_deps_t>().to<no_deps_t>().in<scopes::transient_t>()};
+    struct unique_type_t : no_deps_t
+    {};
 
-    auto* a = container.resolve<no_deps_t*>();
-    auto* b = container.resolve<no_deps_t*>();
+    auto container = root_container_t{};
+
+    auto* a = container.resolve<unique_type_t*>();
+    auto* b = container.resolve<unique_type_t*>();
 
     EXPECT_EQ(a, b);
     EXPECT_EQ(total_constructions, 1);
@@ -173,10 +181,13 @@ TEST_F(ContainerTest, PointerRequestForcesSingleton)
 
 TEST_F(ContainerTest, SharedPtrRequest)
 {
-    auto container = root_container_t{bind<no_deps_t>().to<no_deps_t>().in<scopes::singleton_t>()};
+    struct unique_type_t : no_deps_t
+    {};
 
-    auto a = container.resolve<std::shared_ptr<no_deps_t>>();
-    auto b = container.resolve<std::shared_ptr<no_deps_t>>();
+    auto container = root_container_t{bind<unique_type_t>().to<unique_type_t>().in<scopes::singleton_t>()};
+
+    auto a = container.resolve<std::shared_ptr<unique_type_t>>();
+    auto b = container.resolve<std::shared_ptr<unique_type_t>>();
 
     EXPECT_EQ(a->id, b->id);
     EXPECT_EQ(a.get(), b.get());
@@ -232,16 +243,14 @@ TEST_F(ContainerTest, CustomFactory)
 
 TEST_F(ContainerTest, FactoryWithDependencies)
 {
-    auto container = root_container_t{
-        bind<two_deps_t>()
-            .template to_factory<two_deps_t>([](no_deps_t a, one_dep_t b) { return two_deps_t{a, b}; })
-            .in<scopes::transient_t>()
-    };
+    auto container = root_container_t{bind<two_deps_t>().template to_factory<two_deps_t>([](no_deps_t a, one_dep_t b) {
+        return two_deps_t{a, b};
+    })};
 
     auto instance = container.resolve<two_deps_t>();
 
     EXPECT_GT(instance.id, 0);
-    EXPECT_EQ(total_constructions, 3); // no_deps + one_dep + two_deps
+    EXPECT_EQ(total_constructions, 4); // arg no_deps(1) + arg one_dep(2) + final two_deps(1)
 }
 
 // =============================================================================
@@ -284,7 +293,8 @@ TEST_F(ContainerTest, InternalPrototypeBinding)
     auto a = container.resolve<no_deps_t>();
     auto b = container.resolve<no_deps_t>();
 
-    EXPECT_NE(a.id, b.id); // Different instances
+    EXPECT_NE(&a, &b); // Different instances
+    EXPECT_EQ(a.id, b.id); // Same value
 }
 
 TEST_F(ContainerTest, ExternalPrototypeBinding)
@@ -293,10 +303,18 @@ TEST_F(ContainerTest, ExternalPrototypeBinding)
 
     auto container = root_container_t{bind<no_deps_t>().to_external_prototype(prototype)};
 
+    auto const expected_a_id = 3;
+    prototype.id = expected_a_id;
     auto a = container.resolve<no_deps_t>();
+
+    auto const expected_b_id = 4;
+    prototype.id = expected_b_id;
     auto b = container.resolve<no_deps_t>();
 
-    EXPECT_NE(a.id, b.id); // Different instances
+    EXPECT_NE(&a, &b); // Different instances
+
+    EXPECT_EQ(expected_a_id, a.id);
+    EXPECT_EQ(expected_b_id, b.id);
 }
 
 // =============================================================================
@@ -446,7 +464,6 @@ TEST_F(ContainerTest, MoveOnlyType)
     auto ptr = container.resolve<std::unique_ptr<move_only_t>>();
     EXPECT_GT(ptr->id, 0);
 }
-#endif
 
 TEST_F(ContainerTest, ConstRequestTypes)
 {
@@ -459,7 +476,6 @@ TEST_F(ContainerTest, ConstRequestTypes)
     EXPECT_EQ(total_constructions, 1);
 }
 
-#if 0
 // =============================================================================
 // Circular Dependency Tests (should fail to compile if uncommented)
 // =============================================================================
@@ -516,7 +532,6 @@ TEST_F(ContainerTest, ThreadSafetyOfRootSingletons)
     EXPECT_EQ(ptr1, ptr2);
     EXPECT_EQ(total_constructions, 1);
 }
-#endif
 
 // } // namespace
 } // namespace dink
