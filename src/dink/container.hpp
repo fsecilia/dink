@@ -189,6 +189,7 @@ struct is_container_f<container_t<strategy_p, bindings_p...>> : std::true_type
 class instance_creator_t
 {
 public:
+    // create instance from a binding
     template <typename request_t, typename dependency_chain_t, typename binding_t, typename container_p>
     auto create_from_binding(binding_t& binding, container_p& container) -> returned_t<request_t>
     {
@@ -206,6 +207,7 @@ public:
         }
     }
 
+    // create instance from default provider
     template <typename request_t, typename dependency_chain_t, typename container_p>
     auto create_from_default_provider(container_p& container) -> returned_t<request_t>
     {
@@ -292,47 +294,10 @@ public:
     {
         // run search for instance or bindings up the chain, or use the default provider with this container.
         return try_resolve<request_t, dependency_chain_t>([this]() -> decltype(auto) {
-            return create_from_default_provider<request_t, dependency_chain_t>();
+            return instance_creator_.template create_from_default_provider<request_t, dependency_chain_t>(*this);
         });
     }
 
-private:
-    instance_creator_t instance_creator_{};
-
-    // create instance from a binding
-    template <typename request_t, typename dependency_chain_t, typename binding_t>
-    auto create_from_binding(binding_t& binding) -> returned_t<request_t>
-    {
-        return instance_creator_.template create_from_binding<request_t, dependency_chain_t, binding_t>(binding, *this);
-    }
-
-    // create instance from default provider
-    template <typename request_t, typename dependency_chain_t>
-    auto create_from_default_provider() -> returned_t<request_t>
-    {
-        return instance_creator_.template create_from_default_provider<request_t, dependency_chain_t>(*this);
-    }
-
-    template <typename request_t, typename dependency_chain_t, typename factory_t>
-    requires(!is_root)
-    auto resolve_from_parent(factory_t&& factory) -> returned_t<request_t>
-    {
-        return strategy_t::parent->template try_resolve<request_t, dependency_chain_t>(
-            std::forward<factory_t>(factory)
-        );
-    }
-
-    template <typename request_t, typename dependency_chain_t, typename scope_t, typename provider_t>
-    auto execute_provider(provider_t& provider) -> returned_t<request_t>
-    {
-        return instance_creator_.template execute_provider<request_t, dependency_chain_t, scope_t, provider_t>(
-            provider, *this
-        );
-    }
-
-    binding_locator_t<bindings_t...> binding_locator_;
-
-public:
     template <typename request_t, typename dependency_chain_t, typename factory_t>
     auto try_resolve(factory_t&& factory) -> returned_t<request_t>
     {
@@ -352,18 +317,27 @@ public:
         {
             using binding_t = std::remove_pointer_t<decltype(binding)>;
             static constexpr auto binding_found = !std::same_as<binding_t, binding_not_found_t>;
-            if constexpr (binding_found) return create_from_binding<request_t, dependency_chain_t>(*binding);
+            if constexpr (binding_found)
+            {
+                return instance_creator_.template create_from_binding<request_t, dependency_chain_t>(*binding, *this);
+            }
         }
 
         // delegate to parent if exists
         if constexpr (!is_root)
         {
-            return resolve_from_parent<request_t, dependency_chain_t>(std::forward<factory_t>(factory));
+            return strategy_t::parent->template try_resolve<request_t, dependency_chain_t>(
+                std::forward<factory_t>(factory)
+            );
         }
 
         // Not found anywhere - invoke the factory from the original caller
         return factory();
     }
+
+private:
+    instance_creator_t instance_creator_{};
+    binding_locator_t<bindings_t...> binding_locator_{};
 };
 
 // deduction guides
