@@ -98,20 +98,20 @@ struct nested_t
 namespace detail {
 
 template <typename>
-struct is_binding_config_f : std::false_type
+struct is_binding_f : std::false_type
 {};
 
 template <typename from_p, typename to_p, typename scope_p, typename provider_p>
-struct is_binding_config_f<binding_config_t<from_p, to_p, scope_p, provider_p>> : std::true_type
+struct is_binding_f<binding_t<from_p, to_p, scope_p, provider_p>> : std::true_type
 {};
 
 template <typename from_p, typename to_p, typename provider_p>
-struct is_binding_config_f<binding_dst_t<from_p, to_p, provider_p>> : std::true_type
+struct is_binding_f<binding_dst_t<from_p, to_p, provider_p>> : std::true_type
 {};
 
 } // namespace detail
 
-template <typename T> concept is_binding_config = detail::is_binding_config_f<std::decay_t<T>>::value;
+template <typename T> concept is_binding = detail::is_binding_f<std::decay_t<T>>::value;
 
 struct binding_not_found_t
 {};
@@ -276,17 +276,17 @@ public:
     inline static constexpr auto is_root = std::same_as<strategy_t, container::strategies::root_t>;
 
     // root constructor
-    template <typename... binding_configs_t>
-    requires((is_binding_config<binding_configs_t> && ...))
-    explicit container_t(binding_configs_t&&... configs)
-        : binding_locator_{resolve_bindings(std::forward<binding_configs_t>(configs)...)}
+    template <typename... immediate_bindings_t>
+    requires((is_binding<immediate_bindings_t> && ...))
+    explicit container_t(immediate_bindings_t&&... configs)
+        : binding_locator_{resolve_bindings(std::forward<immediate_bindings_t>(configs)...)}
     {}
 
     // nested constructor
-    template <typename parent_t, typename... binding_configs_t>
-    requires(is_container<parent_t> && ((is_binding_config<binding_configs_t> && ...)))
-    explicit container_t(parent_t& parent, binding_configs_t&&... configs)
-        : strategy_t{parent}, binding_locator_{resolve_bindings(std::forward<binding_configs_t>(configs)...)}
+    template <typename parent_t, typename... immediate_bindings_t>
+    requires(is_container<parent_t> && (is_binding<immediate_bindings_t> && ...))
+    explicit container_t(parent_t& parent, immediate_bindings_t&&... configs)
+        : strategy_t{parent}, binding_locator_{resolve_bindings(std::forward<immediate_bindings_t>(configs)...)}
     {}
 
     template <typename request_t, typename dependency_chain_t = type_list_t<>>
@@ -341,13 +341,13 @@ private:
 };
 
 // deduction guides
-template <typename... binding_configs_t>
-container_t(binding_configs_t&&...)
-    -> container_t<container::strategies::root_t, decltype(resolve_binding(std::declval<binding_configs_t>()))...>;
+template <typename... bindings_t>
+container_t(bindings_t&&...)
+    -> container_t<container::strategies::root_t, decltype(resolve_binding(std::declval<bindings_t>()))...>;
 
-template <typename parent_t, typename... binding_configs_t>
-container_t(parent_t&, binding_configs_t&&...) -> container_t<
-    container::strategies::nested_t<parent_t>, decltype(resolve_binding(std::declval<binding_configs_t>()))...>;
+template <typename parent_t, typename... bindings_t>
+container_t(parent_t&, bindings_t&&...)
+    -> container_t<container::strategies::nested_t<parent_t>, decltype(resolve_binding(std::declval<bindings_t>()))...>;
 
 // type aliases
 template <typename... bindings_t>

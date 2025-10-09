@@ -17,7 +17,7 @@ namespace dink {
 
 //! complete binding configuration: from type -> to type -> provider -> scope
 template <typename from_t, typename to_t, typename provider_t, typename scope_t>
-struct binding_config_t
+struct binding_t
 {
     using from_type = from_t;
     using to_type = to_t;
@@ -39,13 +39,13 @@ public:
     // specify scope (only for creators)
     template <typename scope_t>
     requires providers::is_creator<provider_t>
-    auto in() && -> binding_config_t<from_t, to_t, provider_t, scope_t>
+    auto in() && -> binding_t<from_t, to_t, provider_t, scope_t>
     {
         return {std::move(provider_)};
     }
 
     // if no scope specified, use default (or accessor has no scope)
-    operator binding_config_t<from_t, to_t, provider_t, scopes::default_t>() && { return {std::move(provider_)}; }
+    operator binding_t<from_t, to_t, provider_t, scopes::default_t>() && { return {std::move(provider_)}; }
 
     explicit binding_dst_t(provider_t provider) : provider_(std::move(provider)) {}
 
@@ -129,7 +129,7 @@ auto bind() -> binding_src_t<canonical_t<from_t>>
 
 //! resolve default scope to provider's default (for creators) or no scope (for accessors)
 template <typename from_t, typename to_t, typename provider_t, typename scope_t>
-auto resolve_binding(binding_config_t<from_t, to_t, provider_t, scope_t>&& config)
+auto resolve_binding(binding_t<from_t, to_t, provider_t, scope_t>&& config)
 {
     if constexpr (std::same_as<scope_t, scopes::default_t>)
     {
@@ -137,14 +137,14 @@ auto resolve_binding(binding_config_t<from_t, to_t, provider_t, scope_t>&& confi
         {
             // use provider's default scope
             using resolved_scope_t = typename provider_t::default_scope;
-            return binding_config_t<from_t, to_t, provider_t, resolved_scope_t>{std::move(config.provider)};
+            return binding_t<from_t, to_t, provider_t, resolved_scope_t>{std::move(config.provider)};
         }
         else
         {
             // accessors have no scope
             struct no_scope_t
             {};
-            return binding_config_t<from_t, to_t, provider_t, no_scope_t>{std::move(config.provider)};
+            return binding_t<from_t, to_t, provider_t, no_scope_t>{std::move(config.provider)};
         }
     }
     else
@@ -160,7 +160,7 @@ template <typename from_t, typename to_t, typename provider_t>
 auto resolve_binding(binding_dst_t<from_t, to_t, provider_t>&& dst)
 {
     // explicitly invoke the conversion operator to get a config with a default scope
-    binding_config_t<from_t, to_t, provider_t, scopes::default_t> config = std::move(dst);
+    binding_t<from_t, to_t, provider_t, scopes::default_t> config = std::move(dst);
 
     // delegate to the original function to resolve the default scope to the correct one
     return resolve_binding(std::move(config));
