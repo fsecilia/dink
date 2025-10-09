@@ -16,7 +16,6 @@ namespace dink {
 
 namespace detail {
 
-// Metafunction to detect std::shared_ptr
 template <typename>
 struct is_shared_ptr_f : std::false_type
 {};
@@ -27,6 +26,17 @@ struct is_shared_ptr_f<std::shared_ptr<element_t>> : std::true_type
 
 template <typename element_t>
 constexpr bool is_shared_ptr_v = is_shared_ptr_f<std::remove_cvref_t<element_t>>::value;
+
+template <typename>
+struct is_weak_ptr_f : std::false_type
+{};
+
+template <typename element_t>
+struct is_weak_ptr_f<std::weak_ptr<element_t>> : std::true_type
+{};
+
+template <typename element_t>
+constexpr bool is_weak_ptr_v = is_weak_ptr_f<std::remove_cvref_t<element_t>>::value;
 
 template <typename source_t>
 constexpr auto get_underlying(source_t&& source) -> decltype(auto)
@@ -128,7 +138,7 @@ struct request_traits_f<std::unique_ptr<requested_t, deleter_t>>
 template <typename requested_t>
 struct request_traits_f<std::shared_ptr<requested_t>>
 {
-    using value_type = requested_t;
+    using value_type = std::remove_cvref_t<requested_t>;
     using return_type = std::shared_ptr<requested_t>;
     static constexpr transitive_scope_t transitive_scope = transitive_scope_t::unmodified;
 
@@ -138,25 +148,35 @@ struct request_traits_f<std::shared_ptr<requested_t>>
         using clean_source_t = std::remove_cvref_t<source_t>;
 
         if constexpr (detail::is_shared_ptr_v<clean_source_t>) { return std::forward<source_t>(source); }
+        else
+        {
+            static_assert(
+                meta::dependent_false_v<source_t>,
+                "Cannot request unique_ptr for a cached singleton - ownership conflict"
+            );
+        }
+#if 0
+        if constexpr (detail::is_shared_ptr_v<clean_source_t>) { return std::forward<source_t>(source); }
         else if constexpr (std::is_pointer_v<clean_source_t>)
         {
             return std::shared_ptr<requested_t>(source, [](auto*) {});
         }
         else { return std::make_shared<requested_t>(std::forward<source_t>(source)); }
+#endif
     }
 };
 
 template <typename requested_t>
 struct request_traits_f<std::weak_ptr<requested_t>>
 {
-    using value_type = requested_t;
+    using value_type = std::remove_cvref_t<requested_t>;
     using return_type = std::weak_ptr<requested_t>;
     static constexpr transitive_scope_t transitive_scope = transitive_scope_t::singleton;
 
     template <typename source_t>
     static auto as_requested(source_t&& source) -> std::weak_ptr<requested_t>
     {
-        // Simply create a shared_ptr first using its own robust logic, then convert to weak_ptr
+        // delegate to shared_ptr path, then convert to weak_ptr
         return request_traits_f<std::shared_ptr<requested_t>>::as_requested(std::forward<source_t>(source));
     }
 };

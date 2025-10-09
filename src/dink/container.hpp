@@ -7,7 +7,6 @@
 
 #include <dink/lib.hpp>
 #include <dink/bindings.hpp>
-#include <dink/canonical.hpp>
 #include <dink/instance_cache.hpp>
 #include <dink/providers.hpp>
 #include <dink/request_traits.hpp>
@@ -23,15 +22,42 @@ namespace container::strategies {
 
 struct root_t
 {
-    template <typename instance_t, typename dependency_chain_t, typename provider_t, typename container_t>
-    auto resolve_singleton(provider_t& provider, container_t& container) -> instance_t*
+    template <typename instance_t, typename bound_initializer_t>
+    static auto untyped_initializer(void* bound_initializer) -> instance_t
     {
-        static auto instance = provider.template create<dependency_chain_t>(container);
-        return &instance;
+        return (*static_cast<bound_initializer_t*>(bound_initializer))();
     }
 
-    template <typename canonical_request_t>
-    auto find_in_local_cache() -> canonical_request_t*
+    template <typename instance_t>
+    static auto singleton_storage(instance_t (*untyped_initializer)(void*), void* bound_initializer) -> instance_t&
+    {
+        static auto singleton = untyped_initializer(bound_initializer);
+        return singleton;
+    }
+
+    template <typename instance_t, typename bound_initializer_t>
+    static auto singleton_storage(bound_initializer_t&& bound_initializer) -> instance_t&
+    {
+        return singleton_storage<instance_t>(&untyped_initializer<instance_t, bound_initializer_t>, &bound_initializer);
+    }
+
+    template <typename instance_t, typename dependency_chain_t, typename provider_t, typename container_t>
+    auto resolve_singleton(provider_t& provider, container_t& container) -> instance_t&
+    {
+        return singleton_storage<instance_t>([&]() { return provider.template create<dependency_chain_t>(container); });
+    }
+
+    template <typename instance_t, typename dependency_chain_t, typename provider_t, typename container_t>
+    auto resolve_shared_ptr(provider_t& provider, container_t& container) -> std::shared_ptr<instance_t>&
+    {
+        static auto shared = std::shared_ptr<instance_t>{
+            &resolve_singleton<instance_t, dependency_chain_t>(provider, container), [](auto&&) {}
+        };
+        return shared;
+    }
+
+    template <typename instance_t>
+    auto find_in_local_cache() -> instance_t*
     {
         return nullptr;
     }
@@ -53,10 +79,17 @@ struct nested_t
         });
     }
 
-    template <typename canonical_request_t>
-    auto find_in_local_cache() -> std::shared_ptr<canonical_request_t>
+    template <typename instance_t, typename dependency_chain_t, typename provider_t, typename container_t>
+    auto resolve_shared_ptr(provider_t& provider, container_t& container) -> std::shared_ptr<instance_t>
     {
-        return cache.template get<canonical_request_t>();
+        // the cache already stores shared_ptrs, so just return that directly
+        return resolve_singleton<instance_t, dependency_chain_t>(provider, container);
+    }
+
+    template <typename resolved_t>
+    auto find_in_local_cache() -> std::shared_ptr<resolved_t>
+    {
+        return cache.template get<resolved_t>();
     }
 };
 
@@ -85,6 +118,7 @@ public:
     template <typename request_t, typename dependency_chain_t = type_list_t<>>
     auto resolve() -> returned_t<request_t>
     {
+        // run search for instance or bindings up the chain, or use the default provider with this container.
         return try_resolve<request_t, dependency_chain_t>([this]() -> decltype(auto) {
             return create_from_default_provider<request_t, dependency_chain_t>();
         });
@@ -121,11 +155,11 @@ private:
     template <typename T>
     static constexpr std::size_t binding_index_v = compute_binding_index<T>();
 
-    // Direct lookup using pre-computed index
-    template <typename canonical_request_t>
+    // direct lookup using pre-computed index
+    template <typename resolved_t>
     auto find_local_binding() -> auto
     {
-        constexpr auto index = binding_index_v<canonical_request_t>;
+        constexpr auto index = binding_index_v<resolved_t>;
         if constexpr (index != static_cast<std::size_t>(-1)) { return &std::get<index>(bindings_); }
         else { return static_cast<binding_not_found_t*>(nullptr); }
     }
@@ -134,8 +168,6 @@ private:
     template <typename request_t, typename dependency_chain_t, typename binding_t>
     auto create_from_binding(binding_t& binding) -> returned_t<request_t>
     {
-        using resolved_request_t = resolved_t<request_t>;
-
         if constexpr (providers::is_accessor<typename binding_t::provider_type>)
         {
             // accessor - just get the instance
@@ -145,21 +177,8 @@ private:
         {
             // creator - check effective scope
             using binding_scope_t = typename binding_t::scope_type;
-            using effective_scope_request_t = effective_scope_t<binding_scope_t, request_t>;
-
-            if constexpr (std::same_as<effective_scope_request_t, scopes::transient_t>)
-            {
-                // transient - create without caching
-                return as_requested<request_t>(binding.provider.template create<dependency_chain_t>(*this));
-            }
-            else
-            {
-                // singleton - resolve through scope strategy (caches automatically)
-                return as_requested<
-                    request_t>(strategy_t::template resolve_singleton<resolved_request_t, dependency_chain_t>(
-                    binding.provider, *this
-                ));
-            }
+            using effective_scope_t = effective_scope_t<binding_scope_t, request_t>;
+            return execute_provider<request_t, dependency_chain_t, effective_scope_t>(binding.provider);
         }
     }
 
@@ -167,25 +186,11 @@ private:
     template <typename request_t, typename dependency_chain_t>
     auto create_from_default_provider() -> returned_t<request_t>
     {
-        using resolved_request_t = resolved_t<request_t>;
+        using resolved_t = resolved_t<request_t>;
 
-        providers::creator_t<resolved_request_t> default_provider;
-
-        // determine effective scope (default binding is transient, but request might force singleton)
-        using effective_scope_request_t = effective_scope_t<scopes::transient_t, request_t>;
-
-        if constexpr (std::same_as<effective_scope_request_t, scopes::transient_t>)
-        {
-            // transient - create without caching
-            return as_requested<request_t>(default_provider.template create<dependency_chain_t>(*this));
-        }
-        else
-        {
-            // singleton - resolve through scope strategy
-            return as_requested<request_t>(
-                strategy_t::template resolve_singleton<resolved_request_t, dependency_chain_t>(default_provider, *this)
-            );
-        }
+        providers::creator_t<resolved_t> default_provider;
+        using effective_scope_t = effective_scope_t<scopes::transient_t, request_t>;
+        return execute_provider<request_t, dependency_chain_t, effective_scope_t>(default_provider);
     }
 
     template <typename request_t, typename dependency_chain_t, typename factory_t>
@@ -197,25 +202,71 @@ private:
         );
     }
 
+    template <typename request_t, typename dependency_chain_t, typename scope_t, typename provider_t>
+    auto execute_provider(provider_t& provider) -> returned_t<request_t>
+    {
+        using provided_t = typename provider_t::provided_t;
+
+        // --- BRANCH ON REQUEST TYPE ---
+        if constexpr (detail::is_shared_ptr_v<request_t> || detail::is_weak_ptr_v<request_t>)
+        {
+            // --- LOGIC FOR SHARED POINTERS (P4, P5, P7) ---
+            if constexpr (std::same_as<scope_t, scopes::singleton_t>)
+            {
+                // This is a singleton request, so use the strategy's shared_ptr resolver.
+                // This correctly handles caching the canonical shared_ptr.
+                return as_requested<request_t>(
+                    strategy_t::template resolve_shared_ptr<provided_t, dependency_chain_t>(provider, *this)
+                );
+            }
+            else // transient scope
+            {
+                // create a new transient shared_ptr.
+                return as_requested<request_t>(
+                    std::shared_ptr<provided_t>{new provided_t{provider.template create<dependency_chain_t>(*this)}}
+                );
+            }
+        }
+        else
+        {
+            static_assert(std::same_as<scope_t, effective_scope_t<scope_t, request_t>>);
+
+            // --- EXISTING LOGIC FOR OTHER TYPES (P1, P2, P3, P6) ---
+
+            if constexpr (std::same_as<scope_t, scopes::singleton_t>)
+            {
+                // Resolve through strategy (caches automatically)
+                return as_requested<request_t>(
+                    strategy_t::template resolve_singleton<provided_t, dependency_chain_t>(provider, *this)
+                );
+            }
+            else // It's a transient scope
+            {
+                // Create without caching
+                return as_requested<request_t>(provider.template create<dependency_chain_t>(*this));
+            }
+        }
+    }
+
     std::tuple<bindings_t...> bindings_;
 
 public:
     template <typename request_t, typename dependency_chain_t, typename factory_t>
     auto try_resolve(factory_t&& factory) -> returned_t<request_t>
     {
-        using canonical_t = canonical_t<request_t>;
+        using resolved_t = resolved_t<request_t>;
 
         // check local cache for for singleton-scoped requests
-        if constexpr (request_traits_f<canonical_t>::transitive_scope == transitive_scope_t::singleton)
+        if constexpr (request_traits_f<resolved_t>::transitive_scope == transitive_scope_t::singleton)
         {
-            if (auto cached = strategy_t::template find_in_local_cache<canonical_t>())
+            if (auto cached = strategy_t::template find_in_local_cache<resolved_t>())
             {
                 return as_requested<request_t>(std::move(cached));
             }
         }
 
-        // check local bindings
-        if (auto binding = find_local_binding<canonical_t>())
+        // check local bindings and create if found
+        if (auto binding = find_local_binding<resolved_t>())
         {
             using binding_t = std::remove_pointer_t<decltype(binding)>;
             static constexpr auto binding_found = !std::same_as<binding_t, binding_not_found_t>;

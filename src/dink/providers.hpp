@@ -22,6 +22,7 @@ struct creator_t
 {
     struct creator_tag;
     using default_scope = scopes::transient_t;
+    using provided_t = constructed_t;
 
     factory_t factory;
 
@@ -38,7 +39,8 @@ struct creator_t
     template <typename dependency_chain_t, typename container_t, typename factory_invoker_t>
     auto create(container_t& container, factory_invoker_t&& factory_invoker) -> constructed_t
     {
-        return std::invoke(std::forward<factory_invoker_t>(factory_invoker), factory, container);
+        return std::forward<factory_invoker_t>(factory_invoker)(factory, container);
+        // return std::invoke(std::forward<factory_invoker_t>(factory_invoker), factory, container);
     }
 };
 
@@ -46,6 +48,7 @@ struct creator_t
 template <typename instance_t>
 struct internal_reference_t
 {
+    using provided_t = instance_t;
     instance_t instance;
 
     auto get() -> instance_t& { return instance; }
@@ -56,6 +59,7 @@ struct internal_reference_t
 template <typename instance_t>
 struct external_reference_t
 {
+    using provided_t = instance_t;
     instance_t* instance;
 
     auto get() -> instance_t& { return *instance; }
@@ -66,6 +70,7 @@ struct external_reference_t
 template <typename instance_t>
 struct internal_prototype_t
 {
+    using provided_t = instance_t;
     instance_t prototype;
 
     auto get() const -> instance_t { return prototype; }
@@ -75,6 +80,7 @@ struct internal_prototype_t
 template <typename instance_t>
 struct external_prototype_t
 {
+    using provided_t = instance_t;
     instance_t const* prototype;
 
     auto get() const -> instance_t { return *prototype; }
