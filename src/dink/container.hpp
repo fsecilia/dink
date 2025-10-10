@@ -118,13 +118,13 @@ struct binding_not_found_t
 
 // Manages finding a binding for a given type
 template <typename... bindings_t>
-class binding_locator_t
+class config_t
 {
 public:
-    explicit binding_locator_t(std::tuple<bindings_t...> bindings) : bindings_{std::move(bindings)} {}
+    explicit config_t(std::tuple<bindings_t...> bindings) : bindings_{std::move(bindings)} {}
 
     template <typename... args_t>
-    explicit binding_locator_t(args_t&&... args) : bindings_{std::forward<args_t>(args)...}
+    explicit config_t(args_t&&... args) : bindings_{std::forward<args_t>(args)...}
     {}
 
     template <typename resolved_t>
@@ -167,9 +167,9 @@ private:
 };
 
 template <typename... bindings_t>
-binding_locator_t(bindings_t&&...) -> binding_locator_t<std::decay_t<bindings_t>...>;
+config_t(bindings_t&&...) -> config_t<std::decay_t<bindings_t>...>;
 
-template <typename scope_t, typename binding_locator_t, typename instance_creator_t>
+template <typename scope_t, typename config_t, typename instance_creator_t>
 class container_t;
 
 // --- Concept to identify a container (avoids ambiguity)
@@ -179,8 +179,8 @@ template <typename>
 struct is_container_f : std::false_type
 {};
 
-template <typename scope_t, typename binding_locator_t, typename instance_creator_t>
-struct is_container_f<container_t<scope_t, binding_locator_t, instance_creator_t>> : std::true_type
+template <typename scope_t, typename config_t, typename instance_creator_t>
+struct is_container_f<container_t<scope_t, config_t, instance_creator_t>> : std::true_type
 {};
 
 } // namespace detail
@@ -270,45 +270,43 @@ private:
     }
 };
 
-/// \brief A metafunction to create a locator type from a tuple of bindings.
+/// \brief A metafunction to create a config type from a tuple of bindings.
 template <typename tuple_t>
-struct locator_from_tuple_f;
+struct config_from_tuple_f;
 
 /// \brief Specialization that extracts the binding pack from the tuple.
 template <template <typename...> class tuple_p, typename... bindings_t>
-struct locator_from_tuple_f<tuple_p<bindings_t...>>
+struct config_from_tuple_f<tuple_p<bindings_t...>>
 {
-    using type = binding_locator_t<bindings_t...>;
+    using type = config_t<bindings_t...>;
 };
 
-template <typename scope_t, typename binding_locator_t, typename instance_creator_t>
+template <typename scope_t, typename config_t, typename instance_creator_t>
 class container_t : public scope_t
 {
-    // Helper to get the deduced locator type from a set of configs
+    // Helper to get the deduced config type from a set of configs
     template <typename... bindings_t>
-    using deduced_locator_t =
-        typename locator_from_tuple_f<decltype(resolve_bindings(std::declval<bindings_t>()...))>::type;
+    using deduced_config_t =
+        typename config_from_tuple_f<decltype(resolve_bindings(std::declval<bindings_t>()...))>::type;
 
 public:
     inline static constexpr auto is_global = std::same_as<scope_t, container::scope::global_t>;
 
-    container_t(scope_t scope, binding_locator_t locator, instance_creator_t instance_creator) noexcept
-        : scope_t{std::move(scope)}, binding_locator_{std::move(locator)},
-          instance_creator_{std::move(instance_creator)}
+    container_t(scope_t scope, config_t config, instance_creator_t instance_creator) noexcept
+        : scope_t{std::move(scope)}, config_{std::move(config)}, instance_creator_{std::move(instance_creator)}
     {}
 
     // global constructor
     template <typename... bindings_t>
     requires((!is_container<bindings_t> && ...) && (is_binding<bindings_t> && ...))
-    explicit container_t(bindings_t&&... configs)
-        : binding_locator_{resolve_bindings(std::forward<bindings_t>(configs)...)}
+    explicit container_t(bindings_t&&... configs) : config_{resolve_bindings(std::forward<bindings_t>(configs)...)}
     {}
 
     // nested constructor
-    template <typename p_scope_t, typename p_locator_t, typename p_creator_t, typename... bindings_t>
+    template <typename p_scope_t, typename p_config_t, typename p_creator_t, typename... bindings_t>
     requires(is_binding<bindings_t> && ...)
-    explicit container_t(container_t<p_scope_t, p_locator_t, p_creator_t>& parent, bindings_t&&... configs)
-        : scope_t{parent}, binding_locator_{resolve_bindings(std::forward<bindings_t>(configs)...)}
+    explicit container_t(container_t<p_scope_t, p_config_t, p_creator_t>& parent, bindings_t&&... configs)
+        : scope_t{parent}, config_{resolve_bindings(std::forward<bindings_t>(configs)...)}
     {}
 
     template <typename request_t, typename dependency_chain_t = type_list_t<>>
@@ -335,7 +333,7 @@ public:
         }
 
         // check local bindings and create if found
-        if (auto binding = binding_locator_.template find_binding<resolved_t>())
+        if (auto binding = config_.template find_binding<resolved_t>())
         {
             using binding_t = std::remove_pointer_t<decltype(binding)>;
             static constexpr auto binding_found = !std::same_as<binding_t, binding_not_found_t>;
@@ -358,7 +356,7 @@ public:
     }
 
 private:
-    binding_locator_t binding_locator_{};
+    config_t config_{};
     instance_creator_t instance_creator_{};
 };
 
@@ -384,31 +382,31 @@ template <
     = 0>
 container_t(first_binding_p&&, rest_bindings_p&&...) -> container_t<
     container::scope::global_t,
-    typename locator_from_tuple_f<
+    typename config_from_tuple_f<
         decltype(resolve_bindings(std::declval<first_binding_p>(), std::declval<rest_bindings_p>()...))>::type,
     instance_creator_t>;
 
 //! deduction guide for empty global containers
-container_t() -> container_t<container::scope::global_t, binding_locator_t<>, instance_creator_t>;
+container_t() -> container_t<container::scope::global_t, config_t<>, instance_creator_t>;
 
 //! deduction guide for nested containers
-template <typename p_scope_t, typename p_locator_t, typename p_creator_t, typename... bindings_t>
+template <typename p_scope_t, typename p_config_t, typename p_creator_t, typename... bindings_t>
 requires(is_binding<bindings_t> && ...)
-container_t(container_t<p_scope_t, p_locator_t, p_creator_t>& parent, bindings_t&&...) -> container_t<
+container_t(container_t<p_scope_t, p_config_t, p_creator_t>& parent, bindings_t&&...) -> container_t<
     container::scope::nested_t<std::decay_t<decltype(parent)>>,
-    typename locator_from_tuple_f<decltype(resolve_bindings(std::declval<bindings_t>()...))>::type, instance_creator_t>;
+    typename config_from_tuple_f<decltype(resolve_bindings(std::declval<bindings_t>()...))>::type, instance_creator_t>;
 
 // type aliases
 
 template <typename... bindings_t>
 using global_container_t = container_t<
     container::scope::global_t,
-    typename locator_from_tuple_f<decltype(resolve_bindings(std::declval<bindings_t>()...))>::type, instance_creator_t>;
+    typename config_from_tuple_f<decltype(resolve_bindings(std::declval<bindings_t>()...))>::type, instance_creator_t>;
 
 template <typename parent_t, typename... bindings_t>
 using child_container_t = container_t<
     container::scope::nested_t<parent_t>,
-    typename locator_from_tuple_f<decltype(resolve_bindings(std::declval<bindings_t>()...))>::type,
+    typename config_from_tuple_f<decltype(resolve_bindings(std::declval<bindings_t>()...))>::type,
     dink::instance_creator_t>;
 
 } // namespace dink
