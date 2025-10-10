@@ -18,9 +18,9 @@
 
 namespace dink {
 
-namespace container::strategies {
+namespace container::scope {
 
-struct root_t
+struct global_t
 {
     template <typename instance_t, typename bound_initializer_t>
     static auto untyped_initializer(void* bound_initializer) -> instance_t
@@ -93,7 +93,7 @@ struct nested_t
     }
 };
 
-} // namespace container::strategies
+} // namespace container::scope
 
 namespace detail {
 
@@ -169,7 +169,7 @@ private:
 template <typename... bindings_t>
 binding_locator_t(bindings_t&&...) -> binding_locator_t<std::decay_t<bindings_t>...>;
 
-template <typename strategy_t, typename binding_locator_t, typename instance_creator_t>
+template <typename scope_t, typename binding_locator_t, typename instance_creator_t>
 class container_t;
 
 // --- Concept to identify a container (avoids ambiguity)
@@ -179,8 +179,8 @@ template <typename>
 struct is_container_f : std::false_type
 {};
 
-template <typename strategy_t, typename binding_locator_t, typename instance_creator_t>
-struct is_container_f<container_t<strategy_t, binding_locator_t, instance_creator_t>> : std::true_type
+template <typename scope_t, typename binding_locator_t, typename instance_creator_t>
+struct is_container_f<container_t<scope_t, binding_locator_t, instance_creator_t>> : std::true_type
 {};
 
 } // namespace detail
@@ -234,7 +234,7 @@ private:
             // --- LOGIC FOR SHARED POINTERS (P4, P5, P7) ---
             if constexpr (std::same_as<lifecycle_t, lifecycle::singleton_t>)
             {
-                // This is a singleton request, so use the strategy's shared_ptr resolver.
+                // This is a singleton request, so use the scope's shared_ptr resolver.
                 // This correctly handles caching the canonical shared_ptr.
                 return as_requested<request_t>(
                     container.template resolve_shared_ptr<provided_t, dependency_chain_t>(provider, container)
@@ -256,7 +256,7 @@ private:
 
             if constexpr (std::same_as<lifecycle_t, lifecycle::singleton_t>)
             {
-                // Resolve through strategy (caches automatically)
+                // Resolve through scope (caches automatically)
                 return as_requested<request_t>(
                     container.template resolve_singleton<provided_t, dependency_chain_t>(provider, container)
                 );
@@ -281,8 +281,8 @@ struct locator_from_tuple_f<tuple_p<bindings_t...>>
     using type = binding_locator_t<bindings_t...>;
 };
 
-template <typename strategy_t, typename binding_locator_t, typename instance_creator_t>
-class container_t : public strategy_t
+template <typename scope_t, typename binding_locator_t, typename instance_creator_t>
+class container_t : public scope_t
 {
     // Helper to get the deduced locator type from a set of configs
     template <typename... bindings_t>
@@ -290,14 +290,14 @@ class container_t : public strategy_t
         typename locator_from_tuple_f<decltype(resolve_bindings(std::declval<bindings_t>()...))>::type;
 
 public:
-    inline static constexpr auto is_root = std::same_as<strategy_t, container::strategies::root_t>;
+    inline static constexpr auto is_global = std::same_as<scope_t, container::scope::global_t>;
 
-    container_t(strategy_t strategy, binding_locator_t locator, instance_creator_t instance_creator) noexcept
-        : strategy_t{std::move(strategy)}, binding_locator_{std::move(locator)},
+    container_t(scope_t scope, binding_locator_t locator, instance_creator_t instance_creator) noexcept
+        : scope_t{std::move(scope)}, binding_locator_{std::move(locator)},
           instance_creator_{std::move(instance_creator)}
     {}
 
-    // root constructor
+    // global constructor
     template <typename... bindings_t>
     requires((!is_container<bindings_t> && ...) && (is_binding<bindings_t> && ...))
     explicit container_t(bindings_t&&... configs)
@@ -305,10 +305,10 @@ public:
     {}
 
     // nested constructor
-    template <typename p_strategy_t, typename p_locator_t, typename p_creator_t, typename... bindings_t>
+    template <typename p_scope_t, typename p_locator_t, typename p_creator_t, typename... bindings_t>
     requires(is_binding<bindings_t> && ...)
-    explicit container_t(container_t<p_strategy_t, p_locator_t, p_creator_t>& parent, bindings_t&&... configs)
-        : strategy_t{parent}, binding_locator_{resolve_bindings(std::forward<bindings_t>(configs)...)}
+    explicit container_t(container_t<p_scope_t, p_locator_t, p_creator_t>& parent, bindings_t&&... configs)
+        : scope_t{parent}, binding_locator_{resolve_bindings(std::forward<bindings_t>(configs)...)}
     {}
 
     template <typename request_t, typename dependency_chain_t = type_list_t<>>
@@ -328,7 +328,7 @@ public:
         // check local cache for for singleton-lifecycled requests
         if constexpr (request_traits_f<resolved_t>::transitive_lifecycle == transitive_lifecycle_t::singleton)
         {
-            if (auto cached = strategy_t::template find_in_local_cache<resolved_t>())
+            if (auto cached = scope_t::template find_in_local_cache<resolved_t>())
             {
                 return as_requested<request_t>(std::move(cached));
             }
@@ -346,9 +346,9 @@ public:
         }
 
         // delegate to parent if exists
-        if constexpr (!is_root)
+        if constexpr (!is_global)
         {
-            return strategy_t::parent->template try_resolve<request_t, dependency_chain_t>(
+            return scope_t::parent->template try_resolve<request_t, dependency_chain_t>(
                 std::forward<factory_t>(factory)
             );
         }
@@ -365,15 +365,15 @@ private:
 /*
     deduction guides
     
-    clang kept matching the root deduction guide for a nested container, so there are 2 clang-20.1-specific workarounds:
-        - the root deduction guides must be split into empty and nonempty so we can apply a constrainted to the first_
+    clang kept matching the global deduction guide for a nested container, so there are 2 clang-20.1-specific workarounds:
+        - the global deduction guides must be split into empty and nonempty so we can apply a constrainted to the first_
           parameter
         - the nonempty version must use enable_if_t to remove itself from consideration
     
     When clang fixes this, the empty/nonempty split can be removed, as can the enable_if_t.
 */
 
-//! deduction guide for nonempty root containers
+//! deduction guide for nonempty global containers
 template <
     typename first_binding_p, typename... rest_bindings_p,
     std::enable_if_t<
@@ -383,31 +383,31 @@ template <
         int>
     = 0>
 container_t(first_binding_p&&, rest_bindings_p&&...) -> container_t<
-    container::strategies::root_t,
+    container::scope::global_t,
     typename locator_from_tuple_f<
         decltype(resolve_bindings(std::declval<first_binding_p>(), std::declval<rest_bindings_p>()...))>::type,
     instance_creator_t>;
 
-//! deduction guide for empty root containers
-container_t() -> container_t<container::strategies::root_t, binding_locator_t<>, instance_creator_t>;
+//! deduction guide for empty global containers
+container_t() -> container_t<container::scope::global_t, binding_locator_t<>, instance_creator_t>;
 
 //! deduction guide for nested containers
-template <typename p_strategy_t, typename p_locator_t, typename p_creator_t, typename... bindings_t>
+template <typename p_scope_t, typename p_locator_t, typename p_creator_t, typename... bindings_t>
 requires(is_binding<bindings_t> && ...)
-container_t(container_t<p_strategy_t, p_locator_t, p_creator_t>& parent, bindings_t&&...) -> container_t<
-    container::strategies::nested_t<std::decay_t<decltype(parent)>>,
+container_t(container_t<p_scope_t, p_locator_t, p_creator_t>& parent, bindings_t&&...) -> container_t<
+    container::scope::nested_t<std::decay_t<decltype(parent)>>,
     typename locator_from_tuple_f<decltype(resolve_bindings(std::declval<bindings_t>()...))>::type, instance_creator_t>;
 
 // type aliases
 
 template <typename... bindings_t>
-using root_container_t = container_t<
-    container::strategies::root_t,
+using global_container_t = container_t<
+    container::scope::global_t,
     typename locator_from_tuple_f<decltype(resolve_bindings(std::declval<bindings_t>()...))>::type, instance_creator_t>;
 
 template <typename parent_t, typename... bindings_t>
 using child_container_t = container_t<
-    container::strategies::nested_t<parent_t>,
+    container::scope::nested_t<parent_t>,
     typename locator_from_tuple_f<decltype(resolve_bindings(std::declval<bindings_t>()...))>::type,
     dink::instance_creator_t>;
 
