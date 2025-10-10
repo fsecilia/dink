@@ -15,14 +15,14 @@
 
 namespace dink {
 
-//! complete binding configuration: from type -> to type -> provider -> scope
-template <typename from_t, typename to_t, typename provider_t, typename scope_t>
+//! complete binding configuration: from type -> to type -> provider -> lifecycle
+template <typename from_t, typename to_t, typename provider_t, typename lifecycle_t>
 struct binding_t
 {
     using from_type = from_t;
     using to_type = to_t;
     using provider_type = provider_t;
-    using scope_type = scope_t;
+    using lifecycle_type = lifecycle_t;
 
     provider_t provider;
 };
@@ -36,15 +36,15 @@ public:
     using to_type = to_t;
     using provider_type = provider_t;
 
-    // specify scope (only for creators)
-    template <typename scope_t>
+    // specify lifecycle (only for creators)
+    template <typename lifecycle_t>
     requires providers::is_creator<provider_t>
-    auto in() && -> binding_t<from_t, to_t, provider_t, scope_t>
+    auto in() && -> binding_t<from_t, to_t, provider_t, lifecycle_t>
     {
         return {std::move(provider_)};
     }
 
-    // if no scope specified, use default (or accessor has no scope)
+    // if no lifecycle specified, use default (or accessor has no lifecycle)
     operator binding_t<from_t, to_t, provider_t, lifecycle::default_t>() && { return {std::move(provider_)}; }
 
     explicit binding_dst_t(provider_t provider) : provider_(std::move(provider)) {}
@@ -127,42 +127,42 @@ auto bind() -> binding_src_t<canonical_t<from_t>>
     return {};
 }
 
-//! resolve default scope to provider's default (for creators) or no scope (for accessors)
-template <typename from_t, typename to_t, typename provider_t, typename scope_t>
-auto resolve_binding(binding_t<from_t, to_t, provider_t, scope_t>&& config)
+//! resolve default lifecycle to provider's default (for creators) or no lifecycle (for accessors)
+template <typename from_t, typename to_t, typename provider_t, typename lifecycle_t>
+auto resolve_binding(binding_t<from_t, to_t, provider_t, lifecycle_t>&& config)
 {
-    if constexpr (std::same_as<scope_t, lifecycle::default_t>)
+    if constexpr (std::same_as<lifecycle_t, lifecycle::default_t>)
     {
         if constexpr (providers::is_creator<provider_t>)
         {
-            // use provider's default scope
-            using resolved_scope_t = typename provider_t::default_scope;
-            return binding_t<from_t, to_t, provider_t, resolved_scope_t>{std::move(config.provider)};
+            // use provider's default lifecycle
+            using resolved_lifecycle_t = typename provider_t::default_lifecycle;
+            return binding_t<from_t, to_t, provider_t, resolved_lifecycle_t>{std::move(config.provider)};
         }
         else
         {
-            // accessors have no scope
-            struct no_scope_t
+            // accessors have no lifecycle
+            struct no_lifecycle_t
             {};
-            return binding_t<from_t, to_t, provider_t, no_scope_t>{std::move(config.provider)};
+            return binding_t<from_t, to_t, provider_t, no_lifecycle_t>{std::move(config.provider)};
         }
     }
     else
     {
-        // scope explicitly specified
-        static_assert(providers::is_creator<provider_t>, "Cannot specify scope for accessor providers");
+        // lifecycle explicitly specified
+        static_assert(providers::is_creator<provider_t>, "Cannot specify lifecycle for accessor providers");
         return config; // already correct type
     }
 }
 
-//! resolve an incomplete binding builder by applying the default scope
+//! resolve an incomplete binding builder by applying the default lifecycle
 template <typename from_t, typename to_t, typename provider_t>
 auto resolve_binding(binding_dst_t<from_t, to_t, provider_t>&& dst)
 {
-    // explicitly invoke the conversion operator to get a config with a default scope
+    // explicitly invoke the conversion operator to get a config with a default lifecycle
     binding_t<from_t, to_t, provider_t, lifecycle::default_t> config = std::move(dst);
 
-    // delegate to the original function to resolve the default scope to the correct one
+    // delegate to the original function to resolve the default lifecycle to the correct one
     return resolve_binding(std::move(config));
 }
 

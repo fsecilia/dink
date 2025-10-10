@@ -101,8 +101,8 @@ template <typename>
 struct is_binding_f : std::false_type
 {};
 
-template <typename from_p, typename to_p, typename scope_p, typename provider_p>
-struct is_binding_f<binding_t<from_p, to_p, scope_p, provider_p>> : std::true_type
+template <typename from_p, typename to_p, typename lifecycle_p, typename provider_p>
+struct is_binding_f<binding_t<from_p, to_p, lifecycle_p, provider_p>> : std::true_type
 {};
 
 template <typename from_p, typename to_p, typename provider_p>
@@ -187,7 +187,7 @@ struct is_container_f<container_t<strategy_t, binding_locator_t, instance_creato
 
 template <typename T> concept is_container = detail::is_container_f<std::decay_t<T>>::value;
 
-// Creates an instance from a provider, handling scope and caching.
+// Creates an instance from a provider, handling lifecycle and caching.
 class instance_creator_t
 {
 public:
@@ -202,10 +202,10 @@ public:
         }
         else
         {
-            // creator - check effective scope
-            using binding_scope_t = typename binding_t::scope_type;
-            using effective_scope_t = effective_scope_t<binding_scope_t, request_t>;
-            return execute_provider<request_t, dependency_chain_t, effective_scope_t>(binding.provider, container);
+            // creator - check effective lifecycle
+            using binding_lifecycle_t = typename binding_t::lifecycle_type;
+            using effective_lifecycle_t = effective_lifecycle_t<binding_lifecycle_t, request_t>;
+            return execute_provider<request_t, dependency_chain_t, effective_lifecycle_t>(binding.provider, container);
         }
     }
 
@@ -216,13 +216,14 @@ public:
         using resolved_t = resolved_t<request_t>;
 
         providers::creator_t<resolved_t> default_provider;
-        using effective_scope_t = effective_scope_t<lifecycle::transient_t, request_t>;
-        return execute_provider<request_t, dependency_chain_t, effective_scope_t>(default_provider, container);
+        using effective_lifecycle_t = effective_lifecycle_t<lifecycle::transient_t, request_t>;
+        return execute_provider<request_t, dependency_chain_t, effective_lifecycle_t>(default_provider, container);
     }
 
 private:
     template <
-        typename request_t, typename dependency_chain_t, typename scope_t, typename provider_t, typename container_p>
+        typename request_t, typename dependency_chain_t, typename lifecycle_t, typename provider_t,
+        typename container_p>
     auto execute_provider(provider_t& provider, container_p& container) -> returned_t<request_t>
     {
         using provided_t = typename provider_t::provided_t;
@@ -231,7 +232,7 @@ private:
         if constexpr (detail::is_shared_ptr_v<request_t> || detail::is_weak_ptr_v<request_t>)
         {
             // --- LOGIC FOR SHARED POINTERS (P4, P5, P7) ---
-            if constexpr (std::same_as<scope_t, lifecycle::singleton_t>)
+            if constexpr (std::same_as<lifecycle_t, lifecycle::singleton_t>)
             {
                 // This is a singleton request, so use the strategy's shared_ptr resolver.
                 // This correctly handles caching the canonical shared_ptr.
@@ -239,7 +240,7 @@ private:
                     container.template resolve_shared_ptr<provided_t, dependency_chain_t>(provider, container)
                 );
             }
-            else // transient scope
+            else // transient lifecycle
             {
                 // create a new transient shared_ptr.
                 return as_requested<request_t>(
@@ -249,18 +250,18 @@ private:
         }
         else
         {
-            static_assert(std::same_as<scope_t, effective_scope_t<scope_t, request_t>>);
+            static_assert(std::same_as<lifecycle_t, effective_lifecycle_t<lifecycle_t, request_t>>);
 
             // --- EXISTING LOGIC FOR OTHER TYPES (P1, P2, P3, P6) ---
 
-            if constexpr (std::same_as<scope_t, lifecycle::singleton_t>)
+            if constexpr (std::same_as<lifecycle_t, lifecycle::singleton_t>)
             {
                 // Resolve through strategy (caches automatically)
                 return as_requested<request_t>(
                     container.template resolve_singleton<provided_t, dependency_chain_t>(provider, container)
                 );
             }
-            else // It's a transient scope
+            else // It's a transient lifecycle
             {
                 // Create without caching
                 return as_requested<request_t>(provider.template create<dependency_chain_t>(container));
@@ -324,8 +325,8 @@ public:
     {
         using resolved_t = resolved_t<request_t>;
 
-        // check local cache for for singleton-scoped requests
-        if constexpr (request_traits_f<resolved_t>::transitive_scope == transitive_scope_t::singleton)
+        // check local cache for for singleton-lifecycled requests
+        if constexpr (request_traits_f<resolved_t>::transitive_lifecycle == transitive_lifecycle_t::singleton)
         {
             if (auto cached = strategy_t::template find_in_local_cache<resolved_t>())
             {
