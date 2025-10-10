@@ -14,8 +14,8 @@
 
 namespace dink {
 
-//! matches any argument type to produce an instance from a resolver; not fit to match single-argument ctors
-template <typename resolver_t, typename dependency_chain_t>
+//! matches any argument type to produce an instance from a container; not fit to match single-argument ctors
+template <typename container_t, typename dependency_chain_t>
 class arg_t
 {
 public:
@@ -43,10 +43,10 @@ public:
         return resolve<deduced_t&, canonical_t<deduced_t>>();
     }
 
-    explicit constexpr arg_t(resolver_t& resolver) noexcept : resolver_{resolver} {}
+    explicit constexpr arg_t(container_t& container) noexcept : container_{container} {}
 
 private:
-    resolver_t& resolver_;
+    container_t& container_;
 
     template <typename canonical_deduced_t>
     static constexpr auto assert_noncircular() noexcept -> void
@@ -62,7 +62,7 @@ private:
     {
         assert_noncircular<canonical_deduced_t>();
         using next_dependency_chain_t = type_list::append_t<dependency_chain_t, canonical_deduced_t>;
-        return resolver_.template resolve<deduced_t, next_dependency_chain_t>();
+        return container_.template resolve<deduced_t, next_dependency_chain_t>();
     }
 };
 
@@ -72,7 +72,7 @@ private:
 template <typename deduced_t, typename resolved_t>
 concept single_arg_deducible = !std::same_as<std::decay_t<deduced_t>, resolved_t>;
 
-//! matches any argument type to produce an instance from a resolver; excludes signatures that match copy or move ctor
+//! matches any argument type to produce an instance from a container; excludes signatures that match copy or move ctor
 template <typename resolved_t, typename arg_t>
 class single_arg_t
 {

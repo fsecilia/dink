@@ -13,12 +13,12 @@ namespace {
 
 struct factory_invoker_detail_test_t : Test
 {
-    struct resolver_t
+    struct container_t
     {};
 
     struct arg_t
     {
-        resolver_t& resolver;
+        container_t& container;
     };
 
     struct single_arg_t
@@ -26,7 +26,7 @@ struct factory_invoker_detail_test_t : Test
         arg_t arg;
     };
 
-    resolver_t resolver{};
+    container_t container{};
 };
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -36,22 +36,22 @@ struct factory_invoker_detail_indexed_arg_factory_test_t : factory_invoker_detai
     using sut_t = indexed_arg_factory_t<arg_t, single_arg_t>;
 
     // when creating a single arg, the type is single_arg_t
-    static_assert(std::is_same_v<single_arg_t, decltype(std::declval<sut_t>().template create<1, 0>(resolver))>);
+    static_assert(std::is_same_v<single_arg_t, decltype(std::declval<sut_t>().template create<1, 0>(container))>);
 
     // when creating multiple args, the type is arg_t
-    static_assert(std::is_same_v<arg_t, decltype(std::declval<sut_t>().template create<2, 0>(resolver))>);
-    static_assert(std::is_same_v<arg_t, decltype(std::declval<sut_t>().template create<2, 1>(resolver))>);
+    static_assert(std::is_same_v<arg_t, decltype(std::declval<sut_t>().template create<2, 0>(container))>);
+    static_assert(std::is_same_v<arg_t, decltype(std::declval<sut_t>().template create<2, 1>(container))>);
 };
 
-TEST_F(factory_invoker_detail_indexed_arg_factory_test_t, arg_is_initialized_with_resolver)
+TEST_F(factory_invoker_detail_indexed_arg_factory_test_t, arg_is_initialized_with_container)
 {
-    ASSERT_EQ(&resolver, &(sut_t{}.template create<2, 0>(resolver).resolver));
-    ASSERT_EQ(&resolver, &(sut_t{}.template create<2, 1>(resolver).resolver));
+    ASSERT_EQ(&container, &(sut_t{}.template create<2, 0>(container).container));
+    ASSERT_EQ(&container, &(sut_t{}.template create<2, 1>(container).container));
 }
 
-TEST_F(factory_invoker_detail_indexed_arg_factory_test_t, single_arg_is_initialized_with_resolver)
+TEST_F(factory_invoker_detail_indexed_arg_factory_test_t, single_arg_is_initialized_with_container)
 {
-    ASSERT_EQ(&resolver, &(sut_t{}.template create<1, 0>(resolver).arg.resolver));
+    ASSERT_EQ(&container, &(sut_t{}.template create<1, 0>(container).arg.container));
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -65,21 +65,21 @@ struct factory_invoker_detail_dispatcher_test_t : factory_invoker_detail_test_t
 
     struct indexed_arg_factory_t
     {
-        resolver_t* resolver = nullptr;
+        container_t* container = nullptr;
 
         template <std::size_t, std::size_t index>
-        constexpr auto create(auto& resolver) -> auto
+        constexpr auto create(auto& container) -> auto
         {
-            this->resolver = &resolver;
-            return arg_t{resolver};
+            this->container = &container;
+            return arg_t{container};
         }
     };
 
     struct instance_factory_t
     {
-        resolver_t* resolver;
+        container_t* container;
 
-        auto assert_arg(arg_t const& arg) const noexcept -> void { ASSERT_EQ(resolver, &arg.resolver); }
+        auto assert_arg(arg_t const& arg) const noexcept -> void { ASSERT_EQ(container, &arg.container); }
 
         constexpr auto operator()() -> constructed_t { return constructed_t{0}; }
 
@@ -104,24 +104,24 @@ struct factory_invoker_detail_dispatcher_test_t : factory_invoker_detail_test_t
 TEST_F(factory_invoker_detail_dispatcher_test_t, arity_0_constructs_with_0_args)
 {
     auto sut = sut_t<0>{};
-    auto instance_factory = instance_factory_t{.resolver = &resolver};
-    auto const constructed = sut(instance_factory, resolver);
+    auto instance_factory = instance_factory_t{.container = &container};
+    auto const constructed = sut(instance_factory, container);
     ASSERT_EQ(0, constructed.arity);
 }
 
 TEST_F(factory_invoker_detail_dispatcher_test_t, arity_1_constructs_with_1_args)
 {
     auto sut = sut_t<1>{};
-    auto instance_factory = instance_factory_t{.resolver = &resolver};
-    auto const constructed = sut(instance_factory, resolver);
+    auto instance_factory = instance_factory_t{.container = &container};
+    auto const constructed = sut(instance_factory, container);
     ASSERT_EQ(1, constructed.arity);
 }
 
 TEST_F(factory_invoker_detail_dispatcher_test_t, arity_2_constructs_with_2_args)
 {
     auto sut = sut_t<2>{};
-    auto instance_factory = instance_factory_t{.resolver = &resolver};
-    auto const constructed = sut(instance_factory, resolver);
+    auto instance_factory = instance_factory_t{.container = &container};
+    auto const constructed = sut(instance_factory, container);
     ASSERT_EQ(2, constructed.arity);
 }
 
@@ -134,13 +134,13 @@ namespace {
 
 struct factory_invoker_test_t : Test
 {
-    struct resolver_t
+    struct container_t
     {};
-    resolver_t resolver;
+    container_t container;
 
     struct arg_t
     {
-        constexpr explicit arg_t(resolver_t&) {}
+        constexpr explicit arg_t(container_t&) {}
     };
 
     struct single_arg_t
@@ -161,7 +161,7 @@ TEST_F(factory_invoker_test_t, invokes_factory_with_zero_args)
 {
     auto factory = [&]() { return constructed_t{0}; };
 
-    auto const result = sut_t<0>{}(factory, resolver);
+    auto const result = sut_t<0>{}(factory, container);
 
     ASSERT_EQ(result.arity, 0);
 }
@@ -170,7 +170,7 @@ TEST_F(factory_invoker_test_t, invokes_factory_with_single_arg)
 {
     auto factory = [&](single_arg_t const&) { return constructed_t{1}; };
 
-    auto const result = sut_t<1>{}(factory, resolver);
+    auto const result = sut_t<1>{}(factory, container);
 
     ASSERT_EQ(result.arity, 1);
 }
@@ -179,7 +179,7 @@ TEST_F(factory_invoker_test_t, invokes_factory_with_multiple_args)
 {
     auto factory = [&](arg_t const&, arg_t const&) { return constructed_t{2}; };
 
-    auto const result = sut_t<2>{}(factory, resolver);
+    auto const result = sut_t<2>{}(factory, container);
 
     ASSERT_EQ(result.arity, 2);
 }

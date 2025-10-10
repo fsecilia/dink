@@ -13,7 +13,7 @@ namespace {
 // tests that sut deduces to the expected type for types we expect
 struct test_arg_deduces_type_t
 {
-    struct resolver_t;
+    struct container_t;
 
     struct deduced_t
     {};
@@ -63,7 +63,7 @@ struct test_arg_deduces_type_t
 
     constexpr auto test_all_deductions_for_all_sut_types() -> void
     {
-        using arg_t = arg_t<resolver_t, type_list_t<>>;
+        using arg_t = arg_t<container_t, type_list_t<>>;
         test_all_deductions<arg_t>();
         test_all_deductions<single_arg_t<handler_t, arg_t>>();
     }
@@ -80,7 +80,7 @@ struct test_arg_appends_canonical_deduced_to_dependency_chain_t
     using initial_dependency_chain_t = type_list_t<int, void*>;
     using expected_dependency_chain_t = type_list_t<int, void*, deduced_t>;
 
-    struct resolver_t
+    struct container_t
     {
         template <typename actual_deduced_t, typename next_dependency_chain_t>
         constexpr auto resolve() -> actual_deduced_t
@@ -99,11 +99,11 @@ struct test_arg_appends_canonical_deduced_to_dependency_chain_t
     template <typename actual_deduced_t>
     constexpr auto test() -> void
     {
-        auto resolver = resolver_t{};
-        handler_t<actual_deduced_t>{}.handle(arg_t<resolver_t, initial_dependency_chain_t>{resolver});
-        handler_t<actual_deduced_t*>{}.handle(arg_t<resolver_t, initial_dependency_chain_t>{resolver});
-        handler_t<actual_deduced_t&&>{}.handle(arg_t<resolver_t, initial_dependency_chain_t>{resolver});
-        handler_t<std::unique_ptr<actual_deduced_t>>{}.handle(arg_t<resolver_t, initial_dependency_chain_t>{resolver});
+        auto container = container_t{};
+        handler_t<actual_deduced_t>{}.handle(arg_t<container_t, initial_dependency_chain_t>{container});
+        handler_t<actual_deduced_t*>{}.handle(arg_t<container_t, initial_dependency_chain_t>{container});
+        handler_t<actual_deduced_t&&>{}.handle(arg_t<container_t, initial_dependency_chain_t>{container});
+        handler_t<std::unique_ptr<actual_deduced_t>>{}.handle(arg_t<container_t, initial_dependency_chain_t>{container});
     }
 
     constexpr test_arg_appends_canonical_deduced_to_dependency_chain_t() { test<deduced_t>(); }

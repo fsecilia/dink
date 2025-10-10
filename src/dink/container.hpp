@@ -234,7 +234,7 @@ private:
             // --- LOGIC FOR SHARED POINTERS (P4, P5, P7) ---
             if constexpr (std::same_as<lifecycle_t, lifecycle::singleton_t>)
             {
-                // This is a singleton request, so use the scope's shared_ptr resolver.
+                // This is a singleton request, so use the scope's shared_ptr container.
                 // This correctly handles caching the canonical shared_ptr.
                 return as_requested<request_t>(
                     container.template resolve_shared_ptr<provided_t, dependency_chain_t>(provider, container)
