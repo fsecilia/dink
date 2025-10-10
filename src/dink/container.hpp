@@ -17,65 +17,111 @@
 #include <atomic>
 #include <memory>
 #include <mutex>
-#include <new>
 #include <utility>
 
 namespace dink {
+
+//! initializes an instance using the double-checked locking pattern
+template <typename instance_t>
+struct double_checked_storage_t
+{
+public:
+    template <typename factory_t>
+    auto get_or_create(factory_t&& factory) -> instance_t&
+    {
+        // try loading outside of lock
+        auto* result = atomic.load(std::memory_order_acquire);
+        if (result != nullptr) return *result;
+
+        std::lock_guard lock(creation_mutex);
+
+        // try loading from inside of lock
+        result = atomic.load(std::memory_order_relaxed);
+        if (result != nullptr) return *result;
+
+        // couldn't get, so create
+        return create(std::forward<factory_t>(factory));
+    }
+
+    auto get_if_initialized() const noexcept -> instance_t* { return atomic.load(std::memory_order_acquire); }
+
+private:
+    // store instance in a union so we can control when ctor and dtor are called without using heap
+    union union_t
+    {
+        union_t() {}
+        ~union_t() {}
+        instance_t instance;
+    };
+    union_t storage;
+
+    // track instance in a unique_ptr with custom deleter for union
+    std::unique_ptr<instance_t, void (*)(instance_t*)> instance{nullptr, [](instance_t* p) { p->~instance_t(); }};
+
+    // instance is replicated into an atomic when valid
+    std::atomic<instance_t*> atomic{nullptr};
+
+    // creation uses the double-checked locking pattern
+    std::mutex creation_mutex;
+
+    //! creates instance under lock, replicates to atomic_instance
+    template <typename factory_t>
+    auto create(factory_t&& factory) -> instance_t&
+    {
+        // find where to put instance
+        auto* storage_ptr = &storage.instance;
+
+        // call ctor
+        new (storage_ptr) instance_t(factory());
+
+        // capture instance
+        instance.reset(storage_ptr);
+
+        // replicate into atomic
+        atomic.store(storage_ptr, std::memory_order_release);
+
+        return *instance;
+    }
+};
+
+//! process-wide accessible type-indexed instance; this is singleton
+template <typename instance_t, typename storage_t = double_checked_storage_t<instance_t>>
+class type_indexed_storage_t
+{
+public:
+    template <typename factory_t>
+    static auto get_or_create(factory_t&& factory) -> instance_t&
+    {
+        return instance().get_or_create(std::forward<factory_t>(factory));
+    }
+
+    static auto get_if_initialized() noexcept -> instance_t* { return instance().get_if_initialized(); }
+
+private:
+    static auto instance() -> double_checked_storage_t<instance_t>&
+    {
+        static storage_t instance;
+        return instance;
+    }
+};
 
 namespace container::scope {
 
 struct global_t
 {
-private:
-    template <typename instance_t>
-    struct storage_t
-    {
-        // a union provides correctly sized and aligned uninitialized storage
-        union instance_union_t
-        {
-            instance_union_t() {} // do not construct the member
-            ~instance_union_t() {} // do not destruct the member
-            instance_t instance;
-        };
-        static inline instance_union_t instance_buffer;
-
-        // the rest of the mechanism remains unchanged
-        static inline std::atomic<instance_t*> instance_ptr{nullptr};
-        using deleter_f = void (*)(instance_t*);
-        static inline std::unique_ptr<instance_t, deleter_f> lifetime_manager{
-            nullptr, [](instance_t* ptr) {
-                if (ptr) ptr->~instance_t();
-            }
-        };
-        static inline std::mutex creation_mutex;
-    };
-
 public:
     template <typename instance_t, typename dependency_chain_t, typename provider_t, typename container_t>
     auto resolve_singleton(provider_t& provider, container_t& container) -> instance_t&
     {
-        auto* instance = storage_t<instance_t>::instance_ptr.load(std::memory_order_acquire);
-        if (instance == nullptr)
-        {
-            std::lock_guard lock(storage_t<instance_t>::creation_mutex);
-            instance = storage_t<instance_t>::instance_ptr.load(std::memory_order_relaxed);
-            if (instance == nullptr)
-            {
-                // the address for placement new is now the address of the union member
-                auto* storage_ptr = &storage_t<instance_t>::instance_buffer.instance;
-
-                new (storage_ptr) instance_t(provider.template create<dependency_chain_t>(container));
-                storage_t<instance_t>::lifetime_manager.reset(storage_ptr);
-                storage_t<instance_t>::instance_ptr.store(storage_ptr, std::memory_order_release);
-                instance = storage_ptr;
-            }
-        }
-        return *instance;
+        return type_indexed_storage_t<instance_t>::get_or_create([&]() {
+            return provider.template create<dependency_chain_t>(container);
+        });
     }
 
     template <typename instance_t, typename dependency_chain_t, typename provider_t, typename container_t>
     auto resolve_shared_ptr(provider_t& provider, container_t& container) -> std::shared_ptr<instance_t>&
     {
+        // wrap in a shared_ptr with no-op deleter
         static auto shared = std::shared_ptr<instance_t>{
             &resolve_singleton<instance_t, dependency_chain_t>(provider, container), [](auto&&) {}
         };
@@ -85,7 +131,7 @@ public:
     template <typename instance_t>
     auto find_in_local_cache() -> instance_t*
     {
-        return storage_t<instance_t>::instance_ptr.load(std::memory_order_acquire);
+        return type_indexed_storage_t<instance_t>::get_if_initialized();
     }
 };
 
