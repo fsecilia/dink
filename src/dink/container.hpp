@@ -35,16 +35,13 @@ struct global_t
         return singleton;
     }
 
-    template <typename instance_t, typename bound_initializer_t>
-    static auto singleton_storage(bound_initializer_t&& bound_initializer) -> instance_t&
-    {
-        return singleton_storage<instance_t>(&untyped_initializer<instance_t, bound_initializer_t>, &bound_initializer);
-    }
-
     template <typename instance_t, typename dependency_chain_t, typename provider_t, typename container_t>
     auto resolve_singleton(provider_t& provider, container_t& container) -> instance_t&
     {
-        return singleton_storage<instance_t>([&]() { return provider.template create<dependency_chain_t>(container); });
+        auto initializer = [&provider, &container]() {
+            return provider.template create<dependency_chain_t>(container);
+        };
+        return singleton_storage<instance_t>(&untyped_initializer<instance_t, decltype(initializer)>, &initializer);
     }
 
     template <typename instance_t, typename dependency_chain_t, typename provider_t, typename container_t>
