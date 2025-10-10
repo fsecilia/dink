@@ -7,7 +7,7 @@
 #include <dink/test.hpp>
 #include <dink/bindings.hpp>
 #include <dink/container.hpp>
-#include <dink/scopes.hpp>
+#include <dink/lifecycle.hpp>
 #include <memory>
 
 namespace dink {

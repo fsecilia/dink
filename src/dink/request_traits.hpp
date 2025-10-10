@@ -6,8 +6,8 @@
 #pragma once
 
 #include <dink/lib.hpp>
+#include <dink/lifecycle.hpp>
 #include <dink/meta.hpp>
-#include <dink/scopes.hpp>
 #include <memory>
 #include <type_traits>
 #include <utility>

@@ -8,9 +8,9 @@
 #include <dink/lib.hpp>
 #include <dink/bindings.hpp>
 #include <dink/instance_cache.hpp>
+#include <dink/lifecycle.hpp>
 #include <dink/providers.hpp>
 #include <dink/request_traits.hpp>
-#include <dink/scopes.hpp>
 #include <dink/type_list.hpp>
 #include <memory>
 #include <tuple>
@@ -183,22 +183,9 @@ template <typename strategy_t, typename binding_locator_t, typename instance_cre
 struct is_container_f<container_t<strategy_t, binding_locator_t, instance_creator_t>> : std::true_type
 {};
 
-template <typename>
-struct is_strategy_f : std::false_type
-{};
-
-template <>
-struct is_strategy_f<container::strategies::root_t> : std::true_type
-{};
-
-template <typename parent_t>
-struct is_strategy_f<container::strategies::nested_t<parent_t>> : std::true_type
-{};
-
 } // namespace detail
 
 template <typename T> concept is_container = detail::is_container_f<std::decay_t<T>>::value;
-template <typename T> concept is_strategy = detail::is_strategy_f<std::decay_t<T>>::value;
 
 // Creates an instance from a provider, handling scope and caching.
 class instance_creator_t

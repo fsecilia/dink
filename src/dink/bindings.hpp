@@ -7,8 +7,8 @@
 
 #include <dink/lib.hpp>
 #include <dink/canonical.hpp>
+#include <dink/lifecycle.hpp>
 #include <dink/providers.hpp>
-#include <dink/scopes.hpp>
 #include <concepts>
 #include <type_traits>
 #include <utility>

@@ -9,7 +9,7 @@
 #include <dink/arity.hpp>
 #include <dink/ctor_factory.hpp>
 #include <dink/factory_invoker.hpp>
-#include <dink/scopes.hpp>
+#include <dink/lifecycle.hpp>
 
 namespace dink::providers {
 
