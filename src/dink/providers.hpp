@@ -21,7 +21,7 @@ template <typename constructed_t, typename factory_t = ctor_factory_t<constructe
 struct creator_t
 {
     struct creator_tag;
-    using default_scope = scopes::transient_t;
+    using default_scope = lifecycle::transient_t;
     using provided_t = constructed_t;
 
     factory_t factory;

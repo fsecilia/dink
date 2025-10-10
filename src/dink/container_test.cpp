@@ -365,8 +365,8 @@ TEST_F(ContainerTest, ChildOverridesParentBinding)
     struct unique_type_t : no_deps_t
     {};
 
-    auto parent = container_t{bind<unique_type_t>().to<unique_type_t>().in<scopes::singleton_t>()};
-    auto child = container_t{parent, bind<unique_type_t>().to<unique_type_t>().in<scopes::transient_t>()};
+    auto parent = container_t{bind<unique_type_t>().to<unique_type_t>().in<lifecycle::singleton_t>()};
+    auto child = container_t{parent, bind<unique_type_t>().to<unique_type_t>().in<lifecycle::transient_t>()};
 
     auto& from_parent = parent.resolve<unique_type_t&>();
     auto from_child1 = child.resolve<unique_type_t>();

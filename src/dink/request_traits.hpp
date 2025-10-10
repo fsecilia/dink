@@ -209,9 +209,9 @@ using returned_t = typename request_traits_f<requested_t>::return_type;
 */
 template <typename bound_scope_t, typename request_t>
 using effective_scope_t = std::conditional_t<
-    request_traits_f<request_t>::transitive_scope == transitive_scope_t::transient, scopes::transient_t,
+    request_traits_f<request_t>::transitive_scope == transitive_scope_t::transient, lifecycle::transient_t,
     std::conditional_t<
-        request_traits_f<request_t>::transitive_scope == transitive_scope_t::singleton, scopes::singleton_t,
+        request_traits_f<request_t>::transitive_scope == transitive_scope_t::singleton, lifecycle::singleton_t,
         bound_scope_t>>;
 
 //! Converts type from what is cached or provided to what was actually requested

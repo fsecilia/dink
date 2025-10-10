@@ -45,7 +45,7 @@ public:
     }
 
     // if no scope specified, use default (or accessor has no scope)
-    operator binding_t<from_t, to_t, provider_t, scopes::default_t>() && { return {std::move(provider_)}; }
+    operator binding_t<from_t, to_t, provider_t, lifecycle::default_t>() && { return {std::move(provider_)}; }
 
     explicit binding_dst_t(provider_t provider) : provider_(std::move(provider)) {}
 
@@ -131,7 +131,7 @@ auto bind() -> binding_src_t<canonical_t<from_t>>
 template <typename from_t, typename to_t, typename provider_t, typename scope_t>
 auto resolve_binding(binding_t<from_t, to_t, provider_t, scope_t>&& config)
 {
-    if constexpr (std::same_as<scope_t, scopes::default_t>)
+    if constexpr (std::same_as<scope_t, lifecycle::default_t>)
     {
         if constexpr (providers::is_creator<provider_t>)
         {
@@ -160,7 +160,7 @@ template <typename from_t, typename to_t, typename provider_t>
 auto resolve_binding(binding_dst_t<from_t, to_t, provider_t>&& dst)
 {
     // explicitly invoke the conversion operator to get a config with a default scope
-    binding_t<from_t, to_t, provider_t, scopes::default_t> config = std::move(dst);
+    binding_t<from_t, to_t, provider_t, lifecycle::default_t> config = std::move(dst);
 
     // delegate to the original function to resolve the default scope to the correct one
     return resolve_binding(std::move(config));

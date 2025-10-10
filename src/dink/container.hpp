@@ -216,7 +216,7 @@ public:
         using resolved_t = resolved_t<request_t>;
 
         providers::creator_t<resolved_t> default_provider;
-        using effective_scope_t = effective_scope_t<scopes::transient_t, request_t>;
+        using effective_scope_t = effective_scope_t<lifecycle::transient_t, request_t>;
         return execute_provider<request_t, dependency_chain_t, effective_scope_t>(default_provider, container);
     }
 
@@ -231,7 +231,7 @@ private:
         if constexpr (detail::is_shared_ptr_v<request_t> || detail::is_weak_ptr_v<request_t>)
         {
             // --- LOGIC FOR SHARED POINTERS (P4, P5, P7) ---
-            if constexpr (std::same_as<scope_t, scopes::singleton_t>)
+            if constexpr (std::same_as<scope_t, lifecycle::singleton_t>)
             {
                 // This is a singleton request, so use the strategy's shared_ptr resolver.
                 // This correctly handles caching the canonical shared_ptr.
@@ -253,7 +253,7 @@ private:
 
             // --- EXISTING LOGIC FOR OTHER TYPES (P1, P2, P3, P6) ---
 
-            if constexpr (std::same_as<scope_t, scopes::singleton_t>)
+            if constexpr (std::same_as<scope_t, lifecycle::singleton_t>)
             {
                 // Resolve through strategy (caches automatically)
                 return as_requested<request_t>(

@@ -7,7 +7,7 @@
 
 #include <dink/lib.hpp>
 
-namespace dink::scopes {
+namespace dink::lifecycle {
 
 struct transient_t
 {};
@@ -18,4 +18,4 @@ struct singleton_t
 struct default_t
 {};
 
-} // namespace dink::scopes
+} // namespace dink::lifecycle
