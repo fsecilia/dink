@@ -169,7 +169,7 @@ private:
 template <typename... bindings_t>
 binding_locator_t(bindings_t&&...) -> binding_locator_t<std::decay_t<bindings_t>...>;
 
-template <typename strategy_t, typename... bindings_t>
+template <typename strategy_t, typename binding_locator_t, typename instance_creator_t>
 class container_t;
 
 // --- Concept to identify a container (avoids ambiguity)
@@ -179,11 +179,26 @@ template <typename>
 struct is_container_f : std::false_type
 {};
 
-template <typename strategy_p, typename... bindings_p>
-struct is_container_f<container_t<strategy_p, bindings_p...>> : std::true_type
+template <typename strategy_t, typename binding_locator_t, typename instance_creator_t>
+struct is_container_f<container_t<strategy_t, binding_locator_t, instance_creator_t>> : std::true_type
+{};
+
+template <typename>
+struct is_strategy_f : std::false_type
+{};
+
+template <>
+struct is_strategy_f<container::strategies::root_t> : std::true_type
+{};
+
+template <typename parent_t>
+struct is_strategy_f<container::strategies::nested_t<parent_t>> : std::true_type
 {};
 
 } // namespace detail
+
+template <typename T> concept is_container = detail::is_container_f<std::decay_t<T>>::value;
+template <typename T> concept is_strategy = detail::is_strategy_f<std::decay_t<T>>::value;
 
 // Creates an instance from a provider, handling scope and caching.
 class instance_creator_t
@@ -267,26 +282,45 @@ private:
     }
 };
 
-template <typename T> concept is_container = detail::is_container_f<std::decay_t<T>>::value;
+/// \brief A metafunction to create a locator type from a tuple of bindings.
+template <typename tuple_t>
+struct locator_from_tuple_f;
 
-template <typename strategy_t, typename... bindings_t>
+/// \brief Specialization that extracts the binding pack from the tuple.
+template <template <typename...> class tuple_p, typename... bindings_t>
+struct locator_from_tuple_f<tuple_p<bindings_t...>>
+{
+    using type = binding_locator_t<bindings_t...>;
+};
+
+template <typename strategy_t, typename binding_locator_t, typename instance_creator_t>
 class container_t : public strategy_t
 {
+    // Helper to get the deduced locator type from a set of configs
+    template <typename... bindings_t>
+    using deduced_locator_t =
+        typename locator_from_tuple_f<decltype(resolve_bindings(std::declval<bindings_t>()...))>::type;
+
 public:
     inline static constexpr auto is_root = std::same_as<strategy_t, container::strategies::root_t>;
 
+    container_t(strategy_t strategy, binding_locator_t locator, instance_creator_t instance_creator) noexcept
+        : strategy_t{std::move(strategy)}, binding_locator_{std::move(locator)},
+          instance_creator_{std::move(instance_creator)}
+    {}
+
     // root constructor
-    template <typename... immediate_bindings_t>
-    requires((is_binding<immediate_bindings_t> && ...))
-    explicit container_t(immediate_bindings_t&&... configs)
-        : binding_locator_{resolve_bindings(std::forward<immediate_bindings_t>(configs)...)}
+    template <typename... bindings_t>
+    requires((!is_container<bindings_t> && ...) && (is_binding<bindings_t> && ...))
+    explicit container_t(bindings_t&&... configs)
+        : binding_locator_{resolve_bindings(std::forward<bindings_t>(configs)...)}
     {}
 
     // nested constructor
-    template <typename parent_t, typename... immediate_bindings_t>
-    requires(is_container<parent_t> && (is_binding<immediate_bindings_t> && ...))
-    explicit container_t(parent_t& parent, immediate_bindings_t&&... configs)
-        : strategy_t{parent}, binding_locator_{resolve_bindings(std::forward<immediate_bindings_t>(configs)...)}
+    template <typename p_strategy_t, typename p_locator_t, typename p_creator_t, typename... bindings_t>
+    requires(is_binding<bindings_t> && ...)
+    explicit container_t(container_t<p_strategy_t, p_locator_t, p_creator_t>& parent, bindings_t&&... configs)
+        : strategy_t{parent}, binding_locator_{resolve_bindings(std::forward<bindings_t>(configs)...)}
     {}
 
     template <typename request_t, typename dependency_chain_t = type_list_t<>>
@@ -336,24 +370,57 @@ public:
     }
 
 private:
+    binding_locator_t binding_locator_{};
     instance_creator_t instance_creator_{};
-    binding_locator_t<bindings_t...> binding_locator_{};
 };
 
-// deduction guides
-template <typename... bindings_t>
-container_t(bindings_t&&...)
-    -> container_t<container::strategies::root_t, decltype(resolve_binding(std::declval<bindings_t>()))...>;
+/*
+    deduction guides
+    
+    clang kept matching the root deduction guide for a nested container, so there are 2 clang-20.1-specific workarounds:
+        - the root deduction guides must be split into empty and nonempty so we can apply a constrainted to the first_
+          parameter
+        - the nonempty version must use enable_if_t to remove itself from consideration
+    
+    When clang fixes this, the empty/nonempty split can be removed, as can the enable_if_t.
+*/
 
-template <typename parent_t, typename... bindings_t>
-container_t(parent_t&, bindings_t&&...)
-    -> container_t<container::strategies::nested_t<parent_t>, decltype(resolve_binding(std::declval<bindings_t>()))...>;
+//! deduction guide for nonempty root containers
+template <
+    typename first_binding_p, typename... rest_bindings_p,
+    std::enable_if_t<
+        !is_container<std::decay_t<first_binding_p>>
+            && is_binding<std::decay_t<first_binding_p>>
+            && (is_binding<std::decay_t<rest_bindings_p>> && ...),
+        int>
+    = 0>
+container_t(first_binding_p&&, rest_bindings_p&&...) -> container_t<
+    container::strategies::root_t,
+    typename locator_from_tuple_f<
+        decltype(resolve_bindings(std::declval<first_binding_p>(), std::declval<rest_bindings_p>()...))>::type,
+    instance_creator_t>;
+
+//! deduction guide for empty root containers
+container_t() -> container_t<container::strategies::root_t, binding_locator_t<>, instance_creator_t>;
+
+//! deduction guide for nested containers
+template <typename p_strategy_t, typename p_locator_t, typename p_creator_t, typename... bindings_t>
+requires(is_binding<bindings_t> && ...)
+container_t(container_t<p_strategy_t, p_locator_t, p_creator_t>& parent, bindings_t&&...) -> container_t<
+    container::strategies::nested_t<std::decay_t<decltype(parent)>>,
+    typename locator_from_tuple_f<decltype(resolve_bindings(std::declval<bindings_t>()...))>::type, instance_creator_t>;
 
 // type aliases
+
 template <typename... bindings_t>
-using root_container_t = container_t<container::strategies::root_t, bindings_t...>;
+using root_container_t = container_t<
+    container::strategies::root_t,
+    typename locator_from_tuple_f<decltype(resolve_bindings(std::declval<bindings_t>()...))>::type, instance_creator_t>;
 
 template <typename parent_t, typename... bindings_t>
-using child_container_t = container_t<container::strategies::nested_t<parent_t>, bindings_t...>;
+using child_container_t = container_t<
+    container::strategies::nested_t<parent_t>,
+    typename locator_from_tuple_f<decltype(resolve_bindings(std::declval<bindings_t>()...))>::type,
+    dink::instance_creator_t>;
 
 } // namespace dink

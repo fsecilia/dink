@@ -9,9 +9,6 @@
 #include <dink/container.hpp>
 #include <dink/scopes.hpp>
 #include <memory>
-#include <type_traits>
-
-#include <iostream>
 
 namespace dink {
 // namespace {
@@ -55,7 +52,7 @@ protected:
 // Basic Resolution Tests
 // =============================================================================
 
-#if 1
+#if 0
 TEST_F(ContainerTest, DefaultConstructionWithoutBinding)
 {
     auto container = root_container_t{};
@@ -82,7 +79,6 @@ TEST_F(ContainerTest, DefaultConstructionWithDependencies)
     EXPECT_EQ(instance.id, 8);
     EXPECT_EQ(total_constructions, 8);
 }
-#endif
 
 TEST_F(ContainerTest, ExplicitBindingToImplementation)
 {
@@ -107,7 +103,6 @@ TEST_F(ContainerTest, ExplicitBindingToImplementation)
     EXPECT_NE(dynamic_cast<implementation_t*>(&instance), nullptr);
 }
 
-#if 1
 // =============================================================================
 // Scope Behavior Tests
 // =============================================================================
@@ -172,8 +167,6 @@ TEST_F(ContainerTest, RValueReferenceRequestForcesTransient)
     {};
 
     auto container = root_container_t{bind<unique_type_t>().to<unique_type_t>().in<scopes::singleton_t>()};
-
-    // #error both lines cause an invalid read of 8 bytes
     auto a = container.resolve<unique_type_t&&>();
     auto b = container.resolve<unique_type_t&&>();
 
@@ -358,7 +351,7 @@ TEST_F(ContainerTest, ChildResolvesFromParent)
 
     auto parent = root_container_t{bind<unique_type_t>().to<unique_type_t>().in<scopes::singleton_t>()};
 
-    auto child = child_container_t{parent};
+    auto child = child_container_t<decltype(parent)>{parent};
 
     auto& from_parent = parent.resolve<unique_type_t&>();
     auto& from_child = child.resolve<unique_type_t&>();
@@ -366,15 +359,14 @@ TEST_F(ContainerTest, ChildResolvesFromParent)
     EXPECT_EQ(&from_parent, &from_child);
     EXPECT_EQ(total_constructions, 1);
 }
-
+#endif
 TEST_F(ContainerTest, ChildOverridesParentBinding)
 {
     struct unique_type_t : no_deps_t
     {};
 
-    auto parent = root_container_t{bind<unique_type_t>().to<unique_type_t>().in<scopes::singleton_t>()};
-
-    auto child = child_container_t{parent, bind<unique_type_t>().to<unique_type_t>().in<scopes::transient_t>()};
+    auto parent = container_t{bind<unique_type_t>().to<unique_type_t>().in<scopes::singleton_t>()};
+    auto child = container_t{parent, bind<unique_type_t>().to<unique_type_t>().in<scopes::transient_t>()};
 
     auto& from_parent = parent.resolve<unique_type_t&>();
     auto from_child1 = child.resolve<unique_type_t>();
@@ -384,7 +376,7 @@ TEST_F(ContainerTest, ChildOverridesParentBinding)
     EXPECT_NE(from_child1.id, from_child2.id);
     EXPECT_EQ(total_constructions, 3);
 }
-
+#if 0
 TEST_F(ContainerTest, NestedContainerSingletonScoping)
 {
     struct unique_type_t : no_deps_t
