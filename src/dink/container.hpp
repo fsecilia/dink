@@ -7,6 +7,7 @@
 
 #include <dink/lib.hpp>
 #include <dink/bindings.hpp>
+#include <dink/config.hpp>
 #include <dink/instance_cache.hpp>
 #include <dink/lifecycle.hpp>
 #include <dink/providers.hpp>
@@ -14,7 +15,6 @@
 #include <dink/resolver.hpp>
 #include <dink/type_list.hpp>
 #include <memory>
-#include <tuple>
 #include <utility>
 
 namespace dink {
@@ -93,80 +93,6 @@ struct nested_t
 
 } // namespace container::scope
 
-namespace detail {
-
-template <typename>
-struct is_binding_f : std::false_type
-{};
-
-template <typename from_p, typename to_p, typename lifecycle_p, typename provider_p>
-struct is_binding_f<binding_t<from_p, to_p, lifecycle_p, provider_p>> : std::true_type
-{};
-
-template <typename from_p, typename to_p, typename provider_p>
-struct is_binding_f<binding_dst_t<from_p, to_p, provider_p>> : std::true_type
-{};
-
-} // namespace detail
-
-template <typename T> concept is_binding = detail::is_binding_f<std::decay_t<T>>::value;
-
-struct binding_not_found_t
-{};
-
-// Manages finding a binding for a given type
-template <typename... bindings_t>
-class config_t
-{
-public:
-    explicit config_t(std::tuple<bindings_t...> bindings) : bindings_{std::move(bindings)} {}
-
-    template <typename... args_t>
-    explicit config_t(args_t&&... args) : bindings_{std::forward<args_t>(args)...}
-    {}
-
-    template <typename resolved_t>
-    auto find_binding() -> auto
-    {
-        constexpr auto index = binding_index_v<resolved_t>;
-        if constexpr (index != static_cast<std::size_t>(-1)) { return &std::get<index>(bindings_); }
-        else { return static_cast<binding_not_found_t*>(nullptr); }
-    }
-
-private:
-    // Compute binding index at compile time
-    template <typename T>
-    static constexpr std::size_t compute_binding_index()
-    {
-        if constexpr (sizeof...(bindings_t) == 0) { return static_cast<std::size_t>(-1); }
-        else
-        {
-            return []<std::size_t... Is>(std::index_sequence<Is...>) consteval {
-                constexpr std::size_t not_found = static_cast<std::size_t>(-1);
-
-                // Build array of matches
-                constexpr bool matches[]
-                    = {std::same_as<T, typename std::tuple_element_t<Is, std::tuple<bindings_t...>>::from_type>...};
-
-                // Find first match
-                for (std::size_t i = 0; i < sizeof...(Is); ++i)
-                {
-                    if (matches[i]) return i;
-                }
-                return not_found;
-            }(std::index_sequence_for<bindings_t...>{});
-        }
-    }
-
-    template <typename T>
-    static constexpr std::size_t binding_index_v = compute_binding_index<T>();
-
-    std::tuple<bindings_t...> bindings_;
-};
-
-template <typename... bindings_t>
-config_t(bindings_t&&...) -> config_t<std::decay_t<bindings_t>...>;
-
 template <typename scope_t, typename config_t, typename resolver_t>
 class container_t;
 
@@ -184,17 +110,6 @@ struct is_container_f<container_t<scope_t, config_t, resolver_t>> : std::true_ty
 } // namespace detail
 
 template <typename T> concept is_container = detail::is_container_f<std::decay_t<T>>::value;
-
-/// \brief A metafunction to create a config type from a tuple of bindings.
-template <typename tuple_t>
-struct config_from_tuple_f;
-
-/// \brief Specialization that extracts the binding pack from the tuple.
-template <template <typename...> class tuple_p, typename... bindings_t>
-struct config_from_tuple_f<tuple_p<bindings_t...>>
-{
-    using type = config_t<bindings_t...>;
-};
 
 template <typename scope_t, typename config_t, typename resolver_t>
 class container_t : public scope_t

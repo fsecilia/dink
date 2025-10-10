@@ -12,6 +12,7 @@ list(APPEND dink_library_files
     arity.hpp
     bindings.hpp
     canonical.hpp
+    config.hpp
     container.hpp
     ctor_factory.hpp
     dink.hpp
@@ -33,6 +34,7 @@ list(APPEND dink_unit_test_files
     arity_test.cpp
     bindings_test.cpp
     canonical_test.cpp
+    config_test.cpp
     container_test.cpp
     ctor_factory_test.cpp
     factory_invoker_test.cpp

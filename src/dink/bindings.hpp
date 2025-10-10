@@ -172,4 +172,22 @@ auto resolve_bindings(bindings_t&&... bindings)
     return std::make_tuple(resolve_binding(std::forward<bindings_t>(bindings))...);
 }
 
+namespace detail {
+
+template <typename>
+struct is_binding_f : std::false_type
+{};
+
+template <typename from_p, typename to_p, typename lifecycle_p, typename provider_p>
+struct is_binding_f<binding_t<from_p, to_p, lifecycle_p, provider_p>> : std::true_type
+{};
+
+template <typename from_p, typename to_p, typename provider_p>
+struct is_binding_f<binding_dst_t<from_p, to_p, provider_p>> : std::true_type
+{};
+
+} // namespace detail
+
+template <typename T> concept is_binding = detail::is_binding_f<std::decay_t<T>>::value;
+
 } // namespace dink
