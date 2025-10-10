@@ -14,7 +14,10 @@
 #include <dink/request_traits.hpp>
 #include <dink/resolver.hpp>
 #include <dink/type_list.hpp>
+#include <atomic>
 #include <memory>
+#include <mutex>
+#include <new>
 #include <utility>
 
 namespace dink {
@@ -23,26 +26,51 @@ namespace container::scope {
 
 struct global_t
 {
-    template <typename instance_t, typename bound_initializer_t>
-    static auto untyped_initializer(void* bound_initializer) -> instance_t
-    {
-        return (*static_cast<bound_initializer_t*>(bound_initializer))();
-    }
-
+private:
     template <typename instance_t>
-    static auto singleton_storage(instance_t (*untyped_initializer)(void*), void* bound_initializer) -> instance_t&
+    struct storage_t
     {
-        static auto singleton = untyped_initializer(bound_initializer);
-        return singleton;
-    }
+        // a union provides correctly sized and aligned uninitialized storage
+        union instance_union_t
+        {
+            instance_union_t() {} // do not construct the member
+            ~instance_union_t() {} // do not destruct the member
+            instance_t instance;
+        };
+        static inline instance_union_t instance_buffer;
 
+        // the rest of the mechanism remains unchanged
+        static inline std::atomic<instance_t*> instance_ptr{nullptr};
+        using deleter_f = void (*)(instance_t*);
+        static inline std::unique_ptr<instance_t, deleter_f> lifetime_manager{
+            nullptr, [](instance_t* ptr) {
+                if (ptr) ptr->~instance_t();
+            }
+        };
+        static inline std::mutex creation_mutex;
+    };
+
+public:
     template <typename instance_t, typename dependency_chain_t, typename provider_t, typename container_t>
     auto resolve_singleton(provider_t& provider, container_t& container) -> instance_t&
     {
-        auto initializer = [&provider, &container]() {
-            return provider.template create<dependency_chain_t>(container);
-        };
-        return singleton_storage<instance_t>(&untyped_initializer<instance_t, decltype(initializer)>, &initializer);
+        auto* instance = storage_t<instance_t>::instance_ptr.load(std::memory_order_acquire);
+        if (instance == nullptr)
+        {
+            std::lock_guard lock(storage_t<instance_t>::creation_mutex);
+            instance = storage_t<instance_t>::instance_ptr.load(std::memory_order_relaxed);
+            if (instance == nullptr)
+            {
+                // the address for placement new is now the address of the union member
+                auto* storage_ptr = &storage_t<instance_t>::instance_buffer.instance;
+
+                new (storage_ptr) instance_t(provider.template create<dependency_chain_t>(container));
+                storage_t<instance_t>::lifetime_manager.reset(storage_ptr);
+                storage_t<instance_t>::instance_ptr.store(storage_ptr, std::memory_order_release);
+                instance = storage_ptr;
+            }
+        }
+        return *instance;
     }
 
     template <typename instance_t, typename dependency_chain_t, typename provider_t, typename container_t>
@@ -57,7 +85,7 @@ struct global_t
     template <typename instance_t>
     auto find_in_local_cache() -> instance_t*
     {
-        return nullptr;
+        return storage_t<instance_t>::instance_ptr.load(std::memory_order_acquire);
     }
 };
 
