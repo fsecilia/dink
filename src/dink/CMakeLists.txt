@@ -23,6 +23,7 @@ list(APPEND dink_library_files
     meta.hpp
     providers.hpp
     request_traits.hpp
+    resolver.hpp
     type_list.hpp
     version.hpp
 )
@@ -38,6 +39,7 @@ list(APPEND dink_unit_test_files
     instance_cache_test.cpp
     providers_test.cpp
     request_traits_test.cpp
+    resolver_test.cpp
     type_list_test.cpp
     version_test.cpp
 )
