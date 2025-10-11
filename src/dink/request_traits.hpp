@@ -88,9 +88,9 @@ struct request_traits_f<std::unique_ptr<requested_t, deleter_t>>
     template <typename source_t>
     static auto as_requested(source_t&& source) -> std::unique_ptr<requested_t, deleter_t>
     {
-        using clean_source_t = std::remove_cvref_t<source_t>;
-        static_assert(!std::is_pointer_v<clean_source_t> || is_shared_ptr_v<clean_source_t>);
-        return std::unique_ptr<requested_t, deleter_t>(new clean_source_t{std::move(source)}, deleter_t{});
+        // std::make_unique will copy from an lvalue (the singleton T&)
+        // and move from an rvalue (a transient T&&). This is perfect.
+        return std::make_unique<requested_t>(std::forward<source_t>(source));
     }
 };
 

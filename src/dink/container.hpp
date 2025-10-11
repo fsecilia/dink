@@ -140,30 +140,19 @@ private:
     auto invoke_provider(provider_t& provider) -> returned_t<request_t>
     {
         using provided_t = typename provider_t::provided_t;
-        using resolved_t = resolved_t<request_t>; // The underlying T
 
         if constexpr (std::same_as<lifestyle_t, lifestyle::singleton_t>)
         {
-            if constexpr (is_unique_ptr_v<request_t>)
+            if constexpr (is_shared_ptr_v<request_t> || is_weak_ptr_v<request_t>)
             {
-                // 1. Resolve the singleton instance. This will create and cache it on the first call,
-                //    and return a reference to the cached instance on subsequent calls.
-                auto& singleton_instance = scope_.template resolve<provided_t, dependency_chain_t>(provider, *this);
-
-                // 2. Create a copy of the singleton and return it in a unique_ptr.
-                return std::make_unique<resolved_t>(singleton_instance);
-            }
-            else if constexpr (is_shared_ptr_v<request_t> || is_weak_ptr_v<request_t>)
-            {
-                // Use the scope's dedicated shared_ptr handling, which correctly
-                // creates a non-owning or cached shared_ptr to the singleton.
+                // scope resolves a non-owning or cached shared_ptr to the singleton
                 return as_requested<request_t>(
                     scope_.template resolve_shared<provided_t, dependency_chain_t>(provider, *this)
                 );
             }
             else
             {
-                // For other requests (T&, T*), resolve the singleton and return a reference to it.
+                // scope resolves a reference to the singleton
                 return as_requested<request_t>(
                     scope_.template resolve<provided_t, dependency_chain_t>(provider, *this)
                 );

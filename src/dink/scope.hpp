@@ -15,16 +15,27 @@
 namespace dink {
 namespace scope {
 
+/*!
+    scope for the root, global container
+    
+    This scope has no parent. 
+    
+    This scope expects to have a lifetime similar to the whole application, so it uses Meyers singletons for cache.This
+    gives it O(1) lookups with less overhead than a hash table.
+*/
 struct global_t
 {
+private:
+    //! type-indexed storage for references
     template <typename instance_t>
     using cache_t = type_indexed_storage_t<instance_t>;
 
-    // A separate, type-indexed storage for the canonical shared_ptrs.
+    //! type-indexed storage for canonical shared_ptrs
     template <typename instance_t>
     using shared_cache_t = type_indexed_storage_t<std::shared_ptr<instance_t>>;
 
 public:
+    //! resolves a reference to a meyers singleton
     template <typename instance_t, typename dependency_chain_t, typename provider_t, typename container_t>
     auto resolve(provider_t& provider, container_t& container) -> instance_t&
     {
@@ -33,10 +44,10 @@ public:
         });
     }
 
+    //! resolves a shared_ptr with a no-op deleter pointing to the singleton instance
     template <typename instance_t, typename dependency_chain_t, typename provider_t, typename container_t>
     auto resolve_shared(provider_t& provider, container_t& container) -> std::shared_ptr<instance_t>&
     {
-        // use shared_ptr with a no-op deleter pointing to the raw singleton
         return shared_cache_t<instance_t>::get_or_create([&]() {
             return std::shared_ptr<instance_t>{
                 &this->resolve<instance_t, dependency_chain_t>(provider, container), [](auto&&) {}
@@ -44,32 +55,37 @@ public:
         });
     }
 
+    //! finds a pointer to the singleton instance, or nullptr
     template <typename instance_t>
     auto find() -> instance_t*
     {
         return cache_t<instance_t>::get_if_initialized();
     }
 
+    //! finds the canonical shared pointer to the singleton instance, or nullptr
     template <typename instance_t>
     auto find_shared() -> std::shared_ptr<instance_t>*
     {
         return shared_cache_t<instance_t>::get_if_initialized();
     }
 
+    // signals there is no parent to delegate to
     template <typename request_t, typename dependency_chain_t>
-    auto delegate_to_parent()
+    auto delegate_to_parent() -> auto
     {
-        // signal there is no parent to delegate to
         return not_found;
     }
 };
 
+/*!
+    scope for nested containers
+    
+    These scopes cache their instances in a hash table, mapping from type_index to shared_ptr<void>. 
+*/
 template <typename parent_t>
 struct nested_t
 {
     parent_t* parent;
-    explicit nested_t(parent_t& parent) : parent{&parent} {}
-
     dink::instance_cache_t cache;
 
     template <typename instance_t, typename dependency_chain_t, typename provider_t, typename container_t>
@@ -105,6 +121,8 @@ struct nested_t
         // delegate remaining resolution the parent
         return parent->template resolve<request_t, dependency_chain_t>();
     }
+
+    explicit nested_t(parent_t& parent) : parent{&parent} {}
 };
 
 } // namespace scope
