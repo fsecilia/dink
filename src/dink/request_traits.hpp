@@ -14,8 +14,6 @@
 
 namespace dink {
 
-namespace detail {
-
 template <typename>
 struct is_unique_ptr_f : std::false_type
 {};
@@ -50,13 +48,11 @@ template <typename value_t>
 constexpr bool is_weak_ptr_v = is_weak_ptr_f<value_t>::value;
 
 template <typename source_t>
-constexpr auto get_underlying(source_t&& source) -> decltype(auto)
+constexpr auto element_type(source_t&& source) -> decltype(auto)
 {
     if constexpr (std::is_pointer_v<std::remove_cvref_t<source_t>> || is_shared_ptr_v<source_t>) return *source;
     else return std::forward<source_t>(source);
 }
-
-} // namespace detail
 
 enum class transitive_lifestyle_t
 {
@@ -75,7 +71,7 @@ struct request_traits_f
     template <typename source_t>
     static auto as_requested(source_t&& source) -> requested_t
     {
-        return std::move(detail::get_underlying(std::forward<source_t>(source)));
+        return std::move(element_type(std::forward<source_t>(source)));
     }
 };
 
@@ -89,7 +85,7 @@ struct request_traits_f<requested_t&&>
     template <typename source_t>
     static auto as_requested(source_t&& source) -> requested_t
     {
-        return std::move(detail::get_underlying(std::forward<source_t>(source)));
+        return std::move(element_type(std::forward<source_t>(source)));
     }
 };
 
@@ -103,7 +99,7 @@ struct request_traits_f<requested_t&>
     template <typename source_t>
     static auto as_requested(source_t&& source) -> requested_t&
     {
-        return static_cast<requested_t&>(detail::get_underlying(std::forward<source_t>(source)));
+        return static_cast<requested_t&>(element_type(std::forward<source_t>(source)));
     }
 };
 
@@ -117,7 +113,7 @@ struct request_traits_f<requested_t*>
     template <typename source_t>
     static auto as_requested(source_t&& source) -> requested_t*
     {
-        return &detail::get_underlying(std::forward<source_t>(source));
+        return &element_type(std::forward<source_t>(source));
     }
 };
 
@@ -132,19 +128,8 @@ struct request_traits_f<std::unique_ptr<requested_t, deleter_t>>
     static auto as_requested(source_t&& source) -> std::unique_ptr<requested_t, deleter_t>
     {
         using clean_source_t = std::remove_cvref_t<source_t>;
-        if constexpr (std::is_pointer_v<clean_source_t> || detail::is_shared_ptr_v<clean_source_t>)
-        {
-            // This path should be unreachable if the container logic is correct.
-            static_assert(
-                meta::dependent_false_v<source_t>,
-                "Ownership Conflict: Cannot create a unique_ptr from a cached singleton instance. The container should bypass the cache for this request type."
-            );
-        }
-        else
-        {
-            // This path is correct for transient creation where a value is provided.
-            return std::unique_ptr<requested_t, deleter_t>(new clean_source_t{std::move(source)}, deleter_t{});
-        }
+        static_assert(!std::is_pointer_v<clean_source_t> || is_shared_ptr_v<clean_source_t>);
+        return std::unique_ptr<requested_t, deleter_t>(new clean_source_t{std::move(source)}, deleter_t{});
     }
 };
 
@@ -161,10 +146,9 @@ struct request_traits_f<std::shared_ptr<requested_t>>
         using clean_source_t = std::remove_cvref_t<source_t>;
 
         // Case 1: Source is already a shared_ptr (e.g., from nested cache or transient).
-        if constexpr (detail::is_shared_ptr_v<clean_source_t>) { return std::forward<source_t>(source); }
+        if constexpr (is_shared_ptr_v<clean_source_t>) { return std::forward<source_t>(source); }
         // Case 2: Source is a pointer to a shared_ptr (from global cache).
-        else if constexpr (std::is_pointer_v<clean_source_t>
-                           && detail::is_shared_ptr_v<std::remove_pointer_t<clean_source_t>>)
+        else if constexpr (std::is_pointer_v<clean_source_t> && is_shared_ptr_v<std::remove_pointer_t<clean_source_t>>)
         {
             // The global cache returns a pointer to the canonical shared_ptr. Dereference it.
             return *source;

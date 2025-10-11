@@ -70,48 +70,38 @@ public:
     template <typename request_t, typename dependency_chain_t = type_list_t<>>
     auto resolve() -> decltype(auto)
     {
-        // Get the traits for the request
         using traits = request_traits_f<request_t>;
         using resolved_t = typename traits::value_type;
 
-        // --- FIX: Skip cache lookup for transient requests ---
-        // If the request itself forces a transient lifestyle (like unique_ptr or T&&),
-        // we must create a new instance, so we bypass the cache check.
-        if constexpr (traits::transitive_lifestyle != transitive_lifestyle_t::transient)
+        static constexpr auto check_cache = traits::transitive_lifestyle == transitive_lifestyle_t::singleton;
+        if constexpr (check_cache)
         {
-            // 1. Check local cache (Runtime check)
-            if constexpr (detail::is_shared_ptr_v<request_t> || detail::is_weak_ptr_v<request_t>)
+            static constexpr auto check_shared_cache = is_shared_ptr_v<request_t> || is_weak_ptr_v<request_t>;
+            if constexpr (check_shared_cache)
             {
-                if (auto cached = scope_.template find_shared_in_cache<resolved_t>(); cached)
+                if (auto cached = scope_.template find_shared_in_cache<resolved_t>())
                 {
                     return as_requested<request_t>(std::move(cached));
                 }
             }
             else
             {
-                if (auto cached = scope_.template find_in_local_cache<resolved_t>(); cached)
+                if (auto cached = scope_.template find_in_local_cache<resolved_t>())
                 {
                     return as_requested<request_t>(std::move(cached));
                 }
             }
         }
 
-        // --- If we get here, the cache was skipped or missed ---
+        auto local_binding = config_.template find_binding<resolved_t>();
+        static constexpr auto binding_found = !std::is_same_v<decltype(local_binding), not_found_t>;
+        if constexpr (binding_found) return create_from_binding<request_t, dependency_chain_t>(*local_binding);
 
-        // 2. Check local bindings (Compile-time check)
-        auto binding = config_.template find_binding<resolved_t>();
-        if constexpr (!std::is_same_v<decltype(binding), not_found_t>)
-        {
-            return create_from_binding<request_t, dependency_chain_t>(*binding);
-        }
-
-        // 3. Delegate to parent, or prepare to use the default provider.
         decltype(auto) delegate_result = scope_.template delegate<request_t, dependency_chain_t>();
-        if constexpr (!std::is_same_v<decltype(delegate_result), not_found_t>)
-        {
-            return as_requested<request_t>(delegate_result);
-        }
-        else { return create_from_default_provider<request_t, dependency_chain_t>(); }
+        static constexpr auto delegate_succeeded = !std::is_same_v<decltype(delegate_result), not_found_t>;
+        if constexpr (delegate_succeeded) return as_requested<request_t>(delegate_result);
+
+        return create_from_default_provider<request_t, dependency_chain_t>();
     }
 
 private:
@@ -156,7 +146,7 @@ private:
 
             // This is the core fix: Handle unique_ptr as a special case for singletons.
             // The user wants a unique copy of the canonical singleton instance.
-            if constexpr (detail::is_unique_ptr_v<request_t>) // Assume is_unique_ptr_v exists
+            if constexpr (is_unique_ptr_v<request_t>) // Assume is_unique_ptr_v exists
             {
                 // 1. Resolve the singleton instance. This will create and cache it on the first call,
                 //    and return a reference to the cached instance on subsequent calls.
@@ -166,7 +156,7 @@ private:
                 // 2. Create a copy of the singleton and return it in a unique_ptr.
                 return std::make_unique<resolved_t>(singleton_instance);
             }
-            else if constexpr (detail::is_shared_ptr_v<request_t> || detail::is_weak_ptr_v<request_t>)
+            else if constexpr (is_shared_ptr_v<request_t> || is_weak_ptr_v<request_t>)
             {
                 // Use the scope's dedicated shared_ptr handling, which correctly
                 // creates a non-owning or cached shared_ptr to the singleton.
