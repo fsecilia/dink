@@ -130,11 +130,9 @@ private:
     template <typename request_t, typename dependency_chain_t>
     auto create_from_default_provider() -> returned_t<request_t>
     {
-        using resolved_t = resolved_t<request_t>;
-
-        providers::creator_t<resolved_t> default_provider;
         using effective_lifestyle_t = effective_lifestyle_t<lifestyle::transient_t, request_t>;
-        return execute_provider<request_t, dependency_chain_t, effective_lifestyle_t>(default_provider);
+        auto provider = providers::default_t<request_t>{};
+        return execute_provider<request_t, dependency_chain_t, effective_lifestyle_t>(provider);
     }
 
     template <typename request_t, typename dependency_chain_t, typename lifestyle_t, typename provider_t>

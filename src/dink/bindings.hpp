@@ -15,7 +15,7 @@
 
 namespace dink {
 
-//! complete binding configuration: from type -> to type -> provider -> lifestyle
+//! binding configuration: from type -> to type -> provider -> lifestyle
 template <typename from_t, typename to_t, typename provider_t, typename lifestyle_t>
 struct binding_t
 {
@@ -36,7 +36,7 @@ public:
     using to_type = to_t;
     using provider_type = provider_t;
 
-    // specify lifestyle (only for creators)
+    //! specifies lifestyle for creators; unavailable for accessors
     template <typename lifestyle_t>
     requires providers::is_creator<provider_t>
     auto in() && -> binding_t<from_t, to_t, provider_t, lifestyle_t>
@@ -44,7 +44,7 @@ public:
         return {std::move(provider_)};
     }
 
-    // if no lifestyle specified, use default (or accessor has no lifestyle)
+    //! specifies default lifestyle
     operator binding_t<from_t, to_t, provider_t, lifestyle::default_t>() && { return {std::move(provider_)}; }
 
     explicit binding_dst_t(provider_t provider) : provider_(std::move(provider)) {}
@@ -114,6 +114,19 @@ public:
             providers::external_prototype_t<to_t>{&instance}
         };
     }
+
+    //! specifies lifestyle for creators; unavailable for accessors
+    template <typename lifestyle_t>
+    auto in() && -> binding_t<from_t, from_t, providers::default_t<from_t>, lifestyle_t>
+    {
+        return {providers::default_t<from_t>{}};
+    }
+
+    //! converts to final binding with default provider and lifestyle
+    operator binding_t<from_t, from_t, providers::default_t<from_t>, lifestyle::default_t>() &&
+    {
+        return {providers::default_t<from_t>{}};
+    }
 };
 
 //! entry point for binding dsl
@@ -144,6 +157,7 @@ auto resolve_binding(binding_t<from_t, to_t, provider_t, lifestyle_t>&& config)
             // accessors have no lifestyle
             struct no_lifestyle_t
             {};
+
             return binding_t<from_t, to_t, provider_t, no_lifestyle_t>{std::move(config.provider)};
         }
     }

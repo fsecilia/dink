@@ -10,6 +10,7 @@
 #include <dink/ctor_factory.hpp>
 #include <dink/factory_invoker.hpp>
 #include <dink/lifestyle.hpp>
+#include <dink/request_traits.hpp>
 
 namespace dink::providers {
 
@@ -84,5 +85,8 @@ struct external_prototype_t
 
     auto get() const -> instance_t { return *prototype; }
 };
+
+template <typename request_t>
+using default_t = providers::creator_t<resolved_t<request_t>>;
 
 } // namespace dink::providers
