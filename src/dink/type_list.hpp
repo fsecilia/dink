@@ -6,6 +6,7 @@
 #pragma once
 
 #include <dink/lib.hpp>
+#include <dink/not_found.hpp>
 #include <type_traits>
 
 namespace dink {
@@ -17,10 +18,6 @@ struct type_list_t;
 // ---------------------------------------------------------------------------------------------------------------------
 
 namespace type_list {
-
-inline constexpr auto npos = static_cast<std::size_t>(-1);
-
-// ---------------------------------------------------------------------------------------------------------------------
 
 template <typename type_list_t, typename element_t>
 struct append_f;

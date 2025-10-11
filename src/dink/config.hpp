@@ -28,37 +28,37 @@ public:
     auto find_binding() -> auto
     {
         constexpr auto index = binding_index_v<resolved_t>;
-        if constexpr (index != static_cast<std::size_t>(-1)) return &std::get<index>(bindings_);
+        if constexpr (index != npos) return &std::get<index>(bindings_);
         else return not_found;
     }
 
 private:
     // Compute binding index at compile time
-    template <typename T>
+    template <typename resolved_t>
     static constexpr std::size_t compute_binding_index()
     {
-        if constexpr (sizeof...(bindings_t) == 0) { return static_cast<std::size_t>(-1); }
+        if constexpr (sizeof...(bindings_t) == 0) return npos;
         else
         {
-            return []<std::size_t... Is>(std::index_sequence<Is...>) consteval {
-                constexpr std::size_t not_found = static_cast<std::size_t>(-1);
+            return []<std::size_t... indices>(std::index_sequence<indices...>) consteval {
+                // build array of matches
+                constexpr bool matches[] = {std::same_as<
+                    resolved_t, typename std::tuple_element_t<indices, std::tuple<bindings_t...>>::from_type>...};
 
-                // Build array of matches
-                constexpr bool matches[]
-                    = {std::same_as<T, typename std::tuple_element_t<Is, std::tuple<bindings_t...>>::from_type>...};
-
-                // Find first match
-                for (std::size_t i = 0; i < sizeof...(Is); ++i)
+                // find first match in array
+                for (std::size_t index = 0; index < sizeof...(indices); ++index)
                 {
-                    if (matches[i]) return i;
+                    if (matches[index]) return index;
                 }
-                return not_found;
+
+                // no match was found
+                return npos;
             }(std::index_sequence_for<bindings_t...>{});
         }
     }
 
-    template <typename T>
-    static constexpr std::size_t binding_index_v = compute_binding_index<T>();
+    template <typename resolved_t>
+    static constexpr std::size_t binding_index_v = compute_binding_index<resolved_t>();
 
     std::tuple<bindings_t...> bindings_;
 };
