@@ -14,14 +14,10 @@
 
 namespace dink::provider {
 
-template <typename provider_t> concept is_creator = requires { typename provider_t::creator_tag; };
-template <typename provider_t> concept is_accessor = !is_creator<provider_t>;
-
 //! unified creator provider - handles both ctors and user factories
 template <typename constructed_t, typename factory_t = ctor_factory_t<constructed_t>>
 struct creator_t
 {
-    struct creator_tag;
     using default_lifestyle = lifestyle::transient_t;
     using provided_t = constructed_t;
 
@@ -103,5 +99,19 @@ struct provider_factory_t
 
 //! default factory creates default providers
 using default_factory_t = provider_factory_t<default_t>;
+
+template <typename value_t>
+struct is_creator_f : std::false_type
+{};
+
+template <typename constructed_t, typename factory_t>
+struct is_creator_f<creator_t<constructed_t, factory_t>> : std::true_type
+{};
+
+template <typename value_t>
+inline static constexpr auto is_creator_v = is_creator_f<value_t>::value;
+
+template <typename value_t> concept is_creator = is_creator_v<value_t>;
+template <typename provider_t> concept is_accessor = !is_creator<provider_t>;
 
 } // namespace dink::provider
