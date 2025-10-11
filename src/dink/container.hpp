@@ -107,16 +107,18 @@ public:
 
         // --- If we get here, cache missed and no local binding exists ---
 
-        // 3. Delegate or use default provider (Compile-time check)
-        static constexpr auto is_global = std::same_as<scope_t, container::scope::global_t>;
-        if constexpr (!is_global)
+        // 3. Delegate to parent, or prepare to use the default provider.
+        auto delegate_result = scope_t::template delegate<request_t, dependency_chain_t>();
+        if constexpr (!std::is_same_v<decltype(delegate_result), not_found_t>)
         {
-            // Not the global scope, so delegate the entire resolution task to the parent.
-            return scope_t::parent->template resolve<request_t, dependency_chain_t>();
+            // Delegation was successful (we were in a nested scope).
+            // The parent found the instance, so we just return it.
+            return delegate_result;
         }
         else
         {
-            // We are the global scope (the end of the line). If not found here, use the default.
+            // Delegation returned 'not_found' (we are in the global scope).
+            // This is the end of the line, so use the default provider.
             return resolver_.template create_from_default_provider<request_t, dependency_chain_t>(*this);
         }
     }

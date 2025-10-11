@@ -7,6 +7,8 @@
 
 #include <dink/lib.hpp>
 #include <dink/instance_cache.hpp>
+#include <dink/not_found.hpp>
+#include <dink/request_traits.hpp>
 #include <atomic>
 #include <memory>
 #include <mutex>
@@ -126,6 +128,13 @@ public:
     {
         return type_indexed_storage_t<instance_t>::get_if_initialized();
     }
+
+    template <typename request_t, typename dependency_chain_t>
+    auto delegate()
+    {
+        // signal there is no parent to delegate to
+        return not_found;
+    }
 };
 
 template <typename parent_t>
@@ -155,6 +164,13 @@ struct nested_t
     auto find_in_local_cache() -> std::shared_ptr<resolved_t>
     {
         return cache.template get<resolved_t>();
+    }
+
+    template <typename request_t, typename dependency_chain_t>
+    auto delegate() -> returned_t<request_t>
+    {
+        // delegate remaining resolution the parent
+        return parent->template resolve<request_t, dependency_chain_t>();
     }
 };
 
