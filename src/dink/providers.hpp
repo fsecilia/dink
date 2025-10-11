@@ -26,13 +26,12 @@ struct creator_t
 
     factory_t factory;
 
-    static constexpr auto arity = arity_v<constructed_t, factory_t>;
-
     template <typename dependency_chain_t, typename container_t>
     auto create(container_t& container) -> constructed_t
     {
         using arg_t = arg_t<container_t, dependency_chain_t>;
         using single_arg_t = single_arg_t<constructed_t, arg_t>;
+        static constexpr auto arity = arity_v<constructed_t, factory_t>;
         return create<dependency_chain_t>(container, factory_invoker_t<constructed_t, arity, arg_t, single_arg_t>{});
     }
 

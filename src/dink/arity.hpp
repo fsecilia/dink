@@ -9,14 +9,12 @@
 #include <dink/arg.hpp>
 #include <dink/ctor_factory.hpp>
 #include <dink/meta.hpp>
+#include <dink/not_found.hpp>
 #include <utility>
 
 namespace dink {
 
 namespace arity {
-
-//! sentinel value used to indicate deduction failed
-static inline constexpr auto not_found = static_cast<std::size_t>(-1);
 
 namespace detail {
 
@@ -74,7 +72,7 @@ struct arity_f<constructed_t, factory_t, std::index_sequence<index, remaining_in
     }();
 };
 
-//! base case checks 0-arity or resolves to not_found
+//! base case checks 0-arity or resolves to npos
 template <typename constructed_t, typename factory_t>
 struct arity_f<constructed_t, factory_t, std::index_sequence<>>
 {
@@ -82,9 +80,9 @@ struct arity_f<constructed_t, factory_t, std::index_sequence<>>
         if constexpr (std::is_invocable_v<factory_t>)
         {
             if constexpr (std::is_convertible_v<constructed_t, std::invoke_result_t<factory_t>>) { return 0; }
-            else { return not_found; }
+            else { return npos; }
         }
-        else { return not_found; }
+        else { return npos; }
     }();
 };
 
@@ -94,7 +92,7 @@ struct arity_f<constructed_t, factory_t, std::index_sequence<>>
 /*!
     searches `factory_t` to find arity of greediest call operator that returns a type convertible to `constructed_t`
 
-    resolves to discovered arity or `arity::not_found`
+    resolves to discovered arity or `npos`
 */
 template <typename constructed_t, typename factory_t = ctor_factory_t<constructed_t>>
 inline constexpr auto arity_v

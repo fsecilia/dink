@@ -7,6 +7,7 @@
 
 #include <dink/lib.hpp>
 #include <dink/arity.hpp>
+#include <dink/not_found.hpp>
 #include <utility>
 
 namespace dink {
@@ -44,7 +45,7 @@ struct arity_dispatcher_t<constructed_t, indexed_arg_factory_t, std::index_seque
 template <typename constructed_t, std::size_t arity, typename arg_t, typename single_arg_t>
 class factory_invoker_t
 {
-    static_assert(arity::not_found != arity);
+    static_assert(npos != arity);
 
 public:
     constexpr auto operator()(auto& factory, auto& container) const -> constructed_t

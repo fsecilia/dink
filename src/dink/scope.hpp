@@ -137,9 +137,9 @@ struct nested_t
     dink::instance_cache_t cache;
 
     template <typename instance_t, typename dependency_chain_t, typename provider_t, typename container_t>
-    auto resolve_singleton(provider_t& provider, container_t& container) -> std::shared_ptr<instance_t>
+    auto resolve_singleton(provider_t& provider, container_t& container) -> instance_t&
     {
-        return cache.template get_or_create<instance_t>([&]() {
+        return *cache.template get_or_create<instance_t>([&]() {
             return provider.template create<dependency_chain_t>(container);
         });
     }

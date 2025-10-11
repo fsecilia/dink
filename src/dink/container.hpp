@@ -9,6 +9,7 @@
 #include <dink/bindings.hpp>
 #include <dink/config.hpp>
 #include <dink/lifestyle.hpp>
+#include <dink/not_found.hpp>
 #include <dink/providers.hpp>
 #include <dink/request_traits.hpp>
 #include <dink/resolver.hpp>
@@ -86,14 +87,10 @@ public:
         }
 
         // check local bindings and create if found
-        if (auto binding = config_.template find_binding<resolved_t>())
+        auto binding = config_.template find_binding<resolved_t>();
+        if constexpr (!std::same_as<decltype(binding), not_found_t>)
         {
-            using binding_t = std::remove_pointer_t<decltype(binding)>;
-            static constexpr auto binding_found = !std::same_as<binding_t, binding_not_found_t>;
-            if constexpr (binding_found)
-            {
-                return resolver_.template create_from_binding<request_t, dependency_chain_t>(*binding, *this);
-            }
+            return resolver_.template create_from_binding<request_t, dependency_chain_t>(*binding, *this);
         }
 
         return delegate_to_parent<request_t, dependency_chain_t>(std::forward<factory_t>(factory));

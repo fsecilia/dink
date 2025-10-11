@@ -22,6 +22,7 @@ list(APPEND dink_library_files
     lib.hpp
     lifestyle.hpp
     meta.hpp
+    not_found.hpp
     providers.hpp
     request_traits.hpp
     resolver.hpp

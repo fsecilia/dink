@@ -7,13 +7,11 @@
 
 #include <dink/lib.hpp>
 #include <dink/bindings.hpp>
+#include <dink/not_found.hpp>
 #include <tuple>
 #include <utility>
 
 namespace dink {
-
-struct binding_not_found_t
-{};
 
 // Manages finding a binding for a given type
 template <typename... bindings_t>
@@ -30,8 +28,8 @@ public:
     auto find_binding() -> auto
     {
         constexpr auto index = binding_index_v<resolved_t>;
-        if constexpr (index != static_cast<std::size_t>(-1)) { return &std::get<index>(bindings_); }
-        else { return static_cast<binding_not_found_t*>(nullptr); }
+        if constexpr (index != static_cast<std::size_t>(-1)) return &std::get<index>(bindings_);
+        else return not_found;
     }
 
 private:
