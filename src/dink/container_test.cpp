@@ -343,35 +343,35 @@ TEST_F(ContainerTest, ExternalPrototypeBinding)
 // Container Hierarchy Tests
 // =============================================================================
 
-TEST_F(ContainerTest, ChildResolvesFromParent)
+TEST_F(ContainerTest, NestedResolvesFromGlobal)
 {
     struct unique_type_t : no_deps_t
     {};
 
-    auto parent = global_container_t{bind<unique_type_t>().to<unique_type_t>().in<lifestyle::singleton_t>()};
-    auto child = child_container_t<decltype(parent)>{parent};
+    auto global = global_container_t{bind<unique_type_t>().to<unique_type_t>().in<lifestyle::singleton_t>()};
+    auto nested = nested_container_t{global};
 
-    auto& from_parent = parent.resolve<unique_type_t&>();
-    auto& from_child = child.resolve<unique_type_t&>();
+    auto& from_global = global.resolve<unique_type_t&>();
+    auto& from_nested = nested.resolve<unique_type_t&>();
 
-    EXPECT_EQ(&from_parent, &from_child);
+    EXPECT_EQ(&from_global, &from_nested);
     EXPECT_EQ(total_constructions, 1);
 }
 
-TEST_F(ContainerTest, ChildOverridesParentBinding)
+TEST_F(ContainerTest, NestedOverridesGlobalBinding)
 {
     struct unique_type_t : no_deps_t
     {};
 
-    auto parent = container_t{bind<unique_type_t>().to<unique_type_t>().in<lifestyle::singleton_t>()};
-    auto child = container_t{parent, bind<unique_type_t>().to<unique_type_t>().in<lifestyle::transient_t>()};
+    auto global = container_t{bind<unique_type_t>().to<unique_type_t>().in<lifestyle::singleton_t>()};
+    auto nested = container_t{global, bind<unique_type_t>().to<unique_type_t>().in<lifestyle::transient_t>()};
 
-    auto& from_parent = parent.resolve<unique_type_t&>();
-    auto from_child1 = child.resolve<unique_type_t>();
-    auto from_child2 = child.resolve<unique_type_t>();
+    auto& from_global = global.resolve<unique_type_t&>();
+    auto from_nested1 = nested.resolve<unique_type_t>();
+    auto from_nested2 = nested.resolve<unique_type_t>();
 
-    EXPECT_NE(from_parent.id, from_child1.id);
-    EXPECT_NE(from_child1.id, from_child2.id);
+    EXPECT_NE(from_global.id, from_nested1.id);
+    EXPECT_NE(from_nested1.id, from_nested2.id);
     EXPECT_EQ(total_constructions, 3);
 }
 
@@ -380,16 +380,16 @@ TEST_F(ContainerTest, NestedContainerSingletonScoping)
     struct unique_type_t : no_deps_t
     {};
 
-    auto parent = global_container_t{};
-    auto child1 = child_container_t{parent, bind<unique_type_t>().to<unique_type_t>().in<lifestyle::singleton_t>()};
-    auto child2 = child_container_t{parent, bind<unique_type_t>().to<unique_type_t>().in<lifestyle::singleton_t>()};
+    auto global = global_container_t{};
+    auto nested1 = nested_container_t{global, bind<unique_type_t>().to<unique_type_t>().in<lifestyle::singleton_t>()};
+    auto nested2 = nested_container_t{global, bind<unique_type_t>().to<unique_type_t>().in<lifestyle::singleton_t>()};
 
-    auto& from_child1_a = child1.resolve<unique_type_t&>();
-    auto& from_child1_b = child1.resolve<unique_type_t&>();
-    auto& from_child2 = child2.resolve<unique_type_t&>();
+    auto& from_nested1_a = nested1.resolve<unique_type_t&>();
+    auto& from_nested1_b = nested1.resolve<unique_type_t&>();
+    auto& from_nested2 = nested2.resolve<unique_type_t&>();
 
-    EXPECT_EQ(&from_child1_a, &from_child1_b); // Same within child1
-    EXPECT_NE(&from_child1_a, &from_child2); // Different across children
+    EXPECT_EQ(&from_nested1_a, &from_nested1_b); // Same within nested1
+    EXPECT_NE(&from_nested1_a, &from_nested2); // Different across nestedren
     EXPECT_EQ(total_constructions, 2);
 }
 

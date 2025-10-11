@@ -8,6 +8,7 @@
 #include <dink/lib.hpp>
 #include <dink/bindings.hpp>
 #include <dink/config.hpp>
+#include <dink/delegation_strategy.hpp>
 #include <dink/lifestyle.hpp>
 #include <dink/not_found.hpp>
 #include <dink/provider.hpp>
@@ -18,20 +19,23 @@
 
 namespace dink {
 
-template <typename scope_t, typename config_t, typename default_provider_factory_t>
+template <typename delegation_strategy_t, typename scope_t, typename config_t, typename default_provider_factory_t>
 class container_t;
 
 template <typename>
 struct is_container_f : std::false_type
 {};
 
-template <typename scope_t, typename config_t, typename default_provider_factory_t>
-struct is_container_f<container_t<scope_t, config_t, default_provider_factory_t>> : std::true_type
+template <typename delegation_strategy_t, typename scope_t, typename config_t, typename default_provider_factory_t>
+struct is_container_f<container_t<delegation_strategy_t, scope_t, config_t, default_provider_factory_t>>
+    : std::true_type
 {};
 
 template <typename value_t> concept is_container = is_container_f<std::remove_cvref_t<value_t>>::value;
 
-template <typename scope_t, typename config_t, typename default_provider_factory_t = provider::default_factory_t>
+template <
+    typename delegation_strategy_t, typename scope_t, typename config_t,
+    typename default_provider_factory_t = provider::default_factory_t>
 class container_t
 {
 public:
@@ -47,25 +51,42 @@ public:
     )
     explicit container_t(first_binding_t&& first, remaining_bindings_t&&... rest)
         : container_t{
+              delegation_strategy_t{},
               scope_t{},
               config_t{
                   resolve_bindings(std::forward<first_binding_t>(first), std::forward<remaining_bindings_t>(rest)...)
-              }
+              },
+              default_provider_factory_t{},
           }
     {}
 
     //! nested scope ctor; produces container with nested scope and given bindings
-    template <typename scope_p, typename config_p, typename... bindings_t>
+    template <
+        typename parent_delegation_strategy_t, typename parent_scope_t, typename parent_config_t,
+        typename parent_default_provider_factory_t, typename... bindings_t>
     requires(is_binding<bindings_t> && ...)
-    explicit container_t(container_t<scope_p, config_p>& parent, bindings_t&&... configs)
-        : container_t{scope_t{parent}, config_t{resolve_bindings(std::forward<bindings_t>(configs)...)}}
+    explicit container_t(
+        container_t<parent_delegation_strategy_t, parent_scope_t, parent_config_t, parent_default_provider_factory_t>&
+            parent,
+        bindings_t&&... configs
+    )
+        : container_t{
+              delegation_strategy_t{parent}, scope_t{},
+              config_t{resolve_bindings(std::forward<bindings_t>(configs)...)}, default_provider_factory_t{}
+          }
     {}
 
     // basic ctor; must be constrained or it is too greedy for clang when using deduction guides
-    template <is_scope scope_p, is_config config_p>
-    container_t(scope_p&& scope, config_p&& config, default_provider_factory_t default_provider_factory = {}) noexcept
-        : scope_{std::forward<scope_p>(scope)}, config_{std::forward<config_p>(config)},
-          default_provider_factory_{std::move(default_provider_factory)}
+    template <
+        is_delegation_strategy delegation_strategy_p, is_scope scope_p, is_config config_p,
+        typename default_provider_factory_p>
+    container_t(
+        delegation_strategy_p&& delegation_strategy, scope_p&& scope, config_p&& config,
+        default_provider_factory_p&& default_provider_factory = {}
+    ) noexcept
+        : delegation_strategy_{std::forward<delegation_strategy_p>(delegation_strategy)},
+          scope_{std::forward<scope_p>(scope)}, config_{std::forward<config_p>(config)},
+          default_provider_factory_{std::forward<default_provider_factory_p>(default_provider_factory)}
     {}
 
     template <typename request_t, typename dependency_chain_t = type_list_t<>>
@@ -100,7 +121,8 @@ public:
         if constexpr (binding_found) return create_from_binding<request_t, dependency_chain_t>(*local_binding);
 
         // try delegating to parent
-        decltype(auto) delegate_result = scope_.template delegate_to_parent<request_t, dependency_chain_t>();
+        decltype(auto) delegate_result
+            = delegation_strategy_.template delegate_to_parent<request_t, dependency_chain_t>();
         static constexpr auto delegate_succeeded = !std::is_same_v<decltype(delegate_result), not_found_t>;
         if constexpr (delegate_succeeded) return as_requested<request_t>(delegate_result);
 
@@ -165,6 +187,7 @@ private:
         }
     }
 
+    delegation_strategy_t delegation_strategy_;
     scope_t scope_{};
     config_t config_{};
     [[no_unique_address]] default_provider_factory_t default_provider_factory_{};
@@ -192,29 +215,44 @@ template <
         int>
     = 0>
 container_t(first_binding_p&&, rest_bindings_p&&...) -> container_t<
-    scope::global_t,
+    delegation_strategy::global_t, scope::global_t,
     typename config_from_tuple_f<
-        decltype(resolve_bindings(std::declval<first_binding_p>(), std::declval<rest_bindings_p>()...))>::type>;
+        decltype(resolve_bindings(std::declval<first_binding_p>(), std::declval<rest_bindings_p>()...))>::type,
+    provider::default_factory_t>;
 
 //! deduction guide for empty global containers
-container_t() -> container_t<scope::global_t, config_t<>>;
+container_t() -> container_t<delegation_strategy::global_t, scope::global_t, config_t<>, provider::default_factory_t>;
 
 //! deduction guide for nested containers
-template <typename p_scope_t, typename p_config_t, typename... bindings_t>
+template <
+    typename parent_delegation_strategy_t, typename parent_scope_t, typename parent_config_t,
+    typename parent_default_factory_t, typename... bindings_t>
 requires(is_binding<bindings_t> && ...)
-container_t(container_t<p_scope_t, p_config_t>& parent, bindings_t&&...) -> container_t<
-    scope::nested_t<std::remove_cvref_t<decltype(parent)>>,
-    typename config_from_tuple_f<decltype(resolve_bindings(std::declval<bindings_t>()...))>::type>;
+container_t(
+    container_t<parent_delegation_strategy_t, parent_scope_t, parent_config_t, parent_default_factory_t>& parent,
+    bindings_t&&...
+)
+    -> container_t<
+        delegation_strategy::nested_t<
+            container_t<parent_delegation_strategy_t, parent_scope_t, parent_config_t, parent_default_factory_t>>,
+        scope::nested_t, typename config_from_tuple_f<decltype(resolve_bindings(std::declval<bindings_t>()...))>::type,
+        provider::default_factory_t>;
 
 // type aliases
 
 template <typename... bindings_t>
 using global_container_t = container_t<
-    scope::global_t, typename config_from_tuple_f<decltype(resolve_bindings(std::declval<bindings_t>()...))>::type>;
+    delegation_strategy::global_t, scope::global_t,
+    typename config_from_tuple_f<decltype(resolve_bindings(std::declval<bindings_t>()...))>::type,
+    provider::default_factory_t>;
 
-template <typename parent_t, typename... bindings_t>
-using child_container_t = container_t<
-    scope::nested_t<parent_t>,
-    typename config_from_tuple_f<decltype(resolve_bindings(std::declval<bindings_t>()...))>::type>;
+template <
+    typename parent_delegation_strategy_t, typename parent_scope_t, typename parent_config_t,
+    typename parent_default_factory_t, typename... bindings_t>
+using nested_container_t = container_t<
+    delegation_strategy::nested_t<
+        container_t<parent_delegation_strategy_t, parent_scope_t, parent_config_t, parent_default_factory_t>>,
+    scope::nested_t, typename config_from_tuple_f<decltype(resolve_bindings(std::declval<bindings_t>()...))>::type,
+    provider::default_factory_t>;
 
 } // namespace dink

@@ -11,14 +11,13 @@
 #include <dink/request_traits.hpp>
 #include <dink/type_indexed_storage.hpp>
 #include <memory>
+#include <type_traits>
 
 namespace dink {
 namespace scope {
 
 /*!
     scope for the root, global container
-    
-    This scope has no parent. 
     
     This scope expects to have a lifetime similar to the whole application, so it uses Meyers singletons for cache.This
     gives it O(1) lookups with less overhead than a hash table.
@@ -68,13 +67,6 @@ public:
     {
         return shared_cache_t<instance_t>::get_if_initialized();
     }
-
-    // signals there is no parent to delegate to
-    template <typename request_t, typename dependency_chain_t>
-    auto delegate_to_parent() -> auto
-    {
-        return not_found;
-    }
 };
 
 /*!
@@ -82,10 +74,8 @@ public:
     
     These scopes cache their instances in a hash table, mapping from type_index to shared_ptr<void>. 
 */
-template <typename parent_t>
 struct nested_t
 {
-    parent_t* parent;
     dink::instance_cache_t cache;
 
     template <typename instance_t, typename dependency_chain_t, typename provider_t, typename container_t>
@@ -114,15 +104,6 @@ struct nested_t
     {
         return find<resolved_t>();
     }
-
-    template <typename request_t, typename dependency_chain_t>
-    auto delegate_to_parent() -> decltype(auto)
-    {
-        // delegate remaining resolution the parent
-        return parent->template resolve<request_t, dependency_chain_t>();
-    }
-
-    explicit nested_t(parent_t& parent) : parent{&parent} {}
 };
 
 } // namespace scope
@@ -135,8 +116,8 @@ template <>
 struct is_scope_f<scope::global_t> : std::true_type
 {};
 
-template <typename parent_t>
-struct is_scope_f<scope::nested_t<parent_t>> : std::true_type
+template <>
+struct is_scope_f<scope::nested_t> : std::true_type
 {};
 
 template <typename value_t> concept is_scope = is_scope_f<std::remove_cvref_t<value_t>>::value;
