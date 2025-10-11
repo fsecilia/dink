@@ -52,7 +52,6 @@ protected:
 // Basic Resolution Tests
 // =============================================================================
 
-#if 1
 TEST_F(ContainerTest, DefaultConstructionWithoutBinding)
 {
     auto container = global_container_t{};
@@ -350,7 +349,6 @@ TEST_F(ContainerTest, ChildResolvesFromParent)
     {};
 
     auto parent = global_container_t{bind<unique_type_t>().to<unique_type_t>().in<lifestyle::singleton_t>()};
-
     auto child = child_container_t<decltype(parent)>{parent};
 
     auto& from_parent = parent.resolve<unique_type_t&>();
@@ -359,7 +357,7 @@ TEST_F(ContainerTest, ChildResolvesFromParent)
     EXPECT_EQ(&from_parent, &from_child);
     EXPECT_EQ(total_constructions, 1);
 }
-#endif
+
 TEST_F(ContainerTest, ChildOverridesParentBinding)
 {
     struct unique_type_t : no_deps_t
@@ -376,7 +374,7 @@ TEST_F(ContainerTest, ChildOverridesParentBinding)
     EXPECT_NE(from_child1.id, from_child2.id);
     EXPECT_EQ(total_constructions, 3);
 }
-#if 1
+
 TEST_F(ContainerTest, NestedContainerSingletonScoping)
 {
     struct unique_type_t : no_deps_t
@@ -592,7 +590,6 @@ TEST_F(ContainerTest, ThreadSafetyOfRootSingletons)
     EXPECT_EQ(ptr1, ptr2);
     EXPECT_EQ(total_constructions, 1);
 }
-#endif
 
 // } // namespace
 } // namespace dink

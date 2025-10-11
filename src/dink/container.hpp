@@ -111,22 +111,46 @@ public:
     {}
 
     template <typename request_t, typename dependency_chain_t = type_list_t<>>
-    auto resolve() -> returned_t<request_t>
+    auto resolve() -> decltype(auto)
     {
         using resolved_t = resolved_t<request_t>;
 
         // 1. Check local cache (Runtime check)
         // This is the highest precedence lookup. If it hits, we're done.
-        if (auto cached = scope_.template find_in_local_cache<resolved_t>(); cached)
+        if constexpr (detail::is_shared_ptr_v<request_t> || detail::is_weak_ptr_v<request_t>)
         {
-            using cached_t = decltype(cached);
-            if constexpr (std::is_pointer_v<cached_t>) // True for global_t, which returns T*
+            // --- PATH A: User requested a shared_ptr ---
+            // Use the dedicated finder for canonical shared_ptrs.
+            if (auto cached_shared = scope_.template find_shared_in_cache<resolved_t>(); cached_shared)
             {
-                return *cached; // Return the reference to the singleton
+                using cached_t = decltype(cached_shared);
+                if constexpr (std::is_pointer_v<cached_t>) // True for global_t, which returns shared_ptr*
+                {
+                    return as_requested<request_t>(*cached_shared);
+                }
+                else // True for nested_t, which returns shared_ptr
+                {
+                    return as_requested<request_t>(std::move(cached_shared));
+                }
             }
-            else // True for nested_t, which returns shared_ptr<T>
+        }
+        else
+        {
+            // --- PATH B: User requested a value, reference, or raw pointer ---
+            // Use the original finder for raw instances.
+            if (auto cached = scope_.template find_in_local_cache<resolved_t>(); cached)
             {
-                return as_requested<request_t>(std::move(cached));
+                using cached_t = decltype(cached);
+                if constexpr (std::is_pointer_v<cached_t>) // True for global_t, which returns T*
+                {
+                    decltype(auto) result = as_requested<request_t>(*cached);
+                    return result;
+                    // return as_requested<request_t>(*cached); // Return the reference to the singleton
+                }
+                else // True for nested_t, which returns shared_ptr<T>
+                {
+                    return as_requested<request_t>(std::move(cached));
+                }
             }
         }
 
@@ -143,12 +167,12 @@ public:
         // --- If we get here, cache missed and no local binding exists ---
 
         // 3. Delegate to parent, or prepare to use the default provider.
-        auto delegate_result = scope_.template delegate<request_t, dependency_chain_t>();
+        decltype(auto) delegate_result = scope_.template delegate<request_t, dependency_chain_t>();
         if constexpr (!std::is_same_v<decltype(delegate_result), not_found_t>)
         {
             // Delegation was successful (we were in a nested scope).
             // The parent found the instance, so we just return it.
-            return delegate_result;
+            return as_requested<request_t>(delegate_result);
         }
         else
         {
@@ -202,7 +226,7 @@ private:
                 // This is a singleton request, so use the scope's shared_ptr container.
                 // This correctly handles caching the canonical shared_ptr.
                 return as_requested<request_t>(
-                    scope_.template resolve_shared_ptr<provided_t, dependency_chain_t>(provider)
+                    scope_.template resolve_shared_ptr<provided_t, dependency_chain_t>(provider, *this)
                 );
             }
             else // transient lifestyle

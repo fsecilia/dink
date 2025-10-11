@@ -128,10 +128,7 @@ struct request_traits_f<std::unique_ptr<requested_t, deleter_t>>
                 "Cannot request unique_ptr for a cached singleton - ownership conflict"
             );
         }
-        else
-        {
-            return std::unique_ptr<requested_t, deleter_t>(new source_t{std::forward<source_t>(source)}, deleter_t{});
-        }
+        else { return std::unique_ptr<requested_t, deleter_t>(new clean_source_t{std::move(source)}, deleter_t{}); }
     }
 };
 
