@@ -79,28 +79,31 @@ public:
             static constexpr auto check_shared_cache = is_shared_ptr_v<request_t> || is_weak_ptr_v<request_t>;
             if constexpr (check_shared_cache)
             {
-                if (auto cached = scope_.template find_shared_in_cache<resolved_t>())
+                if (auto cached = scope_.template find_shared<resolved_t>())
                 {
                     return as_requested<request_t>(std::move(cached));
                 }
             }
             else
             {
-                if (auto cached = scope_.template find_in_local_cache<resolved_t>())
+                if (auto cached = scope_.template find<resolved_t>())
                 {
                     return as_requested<request_t>(std::move(cached));
                 }
             }
         }
 
+        // check local bindings
         auto local_binding = config_.template find_binding<resolved_t>();
         static constexpr auto binding_found = !std::is_same_v<decltype(local_binding), not_found_t>;
         if constexpr (binding_found) return create_from_binding<request_t, dependency_chain_t>(*local_binding);
 
-        decltype(auto) delegate_result = scope_.template delegate<request_t, dependency_chain_t>();
+        // try delegating to parent
+        decltype(auto) delegate_result = scope_.template delegate_to_parent<request_t, dependency_chain_t>();
         static constexpr auto delegate_succeeded = !std::is_same_v<decltype(delegate_result), not_found_t>;
         if constexpr (delegate_succeeded) return as_requested<request_t>(delegate_result);
 
+        // no cached instances or bindings were found; create and optionally cache using default provider
         return create_from_default_provider<request_t, dependency_chain_t>();
     }
 
@@ -150,8 +153,7 @@ private:
             {
                 // 1. Resolve the singleton instance. This will create and cache it on the first call,
                 //    and return a reference to the cached instance on subsequent calls.
-                auto& singleton_instance
-                    = scope_.template resolve_singleton<provided_t, dependency_chain_t>(provider, *this);
+                auto& singleton_instance = scope_.template resolve<provided_t, dependency_chain_t>(provider, *this);
 
                 // 2. Create a copy of the singleton and return it in a unique_ptr.
                 return std::make_unique<resolved_t>(singleton_instance);
@@ -161,14 +163,14 @@ private:
                 // Use the scope's dedicated shared_ptr handling, which correctly
                 // creates a non-owning or cached shared_ptr to the singleton.
                 return as_requested<request_t>(
-                    scope_.template resolve_shared_ptr<provided_t, dependency_chain_t>(provider, *this)
+                    scope_.template resolve_shared<provided_t, dependency_chain_t>(provider, *this)
                 );
             }
             else
             {
                 // For other requests (T&, T*), resolve the singleton and return a reference to it.
                 return as_requested<request_t>(
-                    scope_.template resolve_singleton<provided_t, dependency_chain_t>(provider, *this)
+                    scope_.template resolve<provided_t, dependency_chain_t>(provider, *this)
                 );
             }
         }

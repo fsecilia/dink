@@ -110,7 +110,7 @@ struct global_t
 
 public:
     template <typename instance_t, typename dependency_chain_t, typename provider_t, typename container_t>
-    auto resolve_singleton(provider_t& provider, container_t& container) -> instance_t&
+    auto resolve(provider_t& provider, container_t& container) -> instance_t&
     {
         return type_indexed_storage_t<instance_t>::get_or_create([&]() {
             return provider.template create<dependency_chain_t>(container);
@@ -118,34 +118,33 @@ public:
     }
 
     template <typename instance_t, typename dependency_chain_t, typename provider_t, typename container_t>
-    auto resolve_shared_ptr(provider_t& provider, container_t& container) -> std::shared_ptr<instance_t>&
+    auto resolve_shared(provider_t& provider, container_t& container) -> std::shared_ptr<instance_t>&
     {
         return shared_cache_t<instance_t>::get_or_create([&]() {
             // Create a shared_ptr with a no-op deleter pointing to the raw singleton.
             return std::shared_ptr<instance_t>{
-                &this->resolve_singleton<instance_t, dependency_chain_t>(provider, container), [](auto&&) {}
+                &this->resolve<instance_t, dependency_chain_t>(provider, container), [](auto&&) {}
             };
         });
     }
 
     template <typename instance_t>
-    auto find_in_local_cache() -> instance_t*
+    auto find() -> instance_t*
     {
         return type_indexed_storage_t<instance_t>::get_if_initialized();
     }
 
+    template <typename instance_t>
+    auto find_shared() -> std::shared_ptr<instance_t>*
+    {
+        return shared_cache_t<instance_t>::get_if_initialized();
+    }
+
     template <typename request_t, typename dependency_chain_t>
-    auto delegate()
+    auto delegate_to_parent()
     {
         // signal there is no parent to delegate to
         return not_found;
-    }
-
-    // NEW: Finder for the canonical shared_ptr. Returns a pointer to the cached object.
-    template <typename instance_t>
-    auto find_shared_in_cache() -> std::shared_ptr<instance_t>*
-    {
-        return shared_cache_t<instance_t>::get_if_initialized();
     }
 };
 
@@ -158,7 +157,7 @@ struct nested_t
     dink::instance_cache_t cache;
 
     template <typename instance_t, typename dependency_chain_t, typename provider_t, typename container_t>
-    auto resolve_singleton(provider_t& provider, container_t& container) -> instance_t&
+    auto resolve(provider_t& provider, container_t& container) -> instance_t&
     {
         return *cache.template get_or_create<instance_t>([&]() {
             return provider.template create<dependency_chain_t>(container);
@@ -166,26 +165,26 @@ struct nested_t
     }
 
     template <typename instance_t, typename dependency_chain_t, typename provider_t, typename container_t>
-    auto resolve_shared_ptr(provider_t& provider, container_t& container) -> std::shared_ptr<instance_t>
+    auto resolve_shared(provider_t& provider, container_t& container) -> std::shared_ptr<instance_t>
     {
         // the cache already stores shared_ptrs, so just return that directly
-        return resolve_singleton<instance_t, dependency_chain_t>(provider, container);
+        return resolve<instance_t, dependency_chain_t>(provider, container);
     }
 
     template <typename resolved_t>
-    auto find_in_local_cache() -> std::shared_ptr<resolved_t>
+    auto find() -> std::shared_ptr<resolved_t>
     {
         return cache.template get<resolved_t>();
     }
 
     template <typename resolved_t>
-    auto find_shared_in_cache() -> std::shared_ptr<resolved_t>
+    auto find_shared() -> std::shared_ptr<resolved_t>
     {
-        return find_in_local_cache<resolved_t>();
+        return find<resolved_t>();
     }
 
     template <typename request_t, typename dependency_chain_t>
-    auto delegate() -> decltype(auto)
+    auto delegate_to_parent() -> decltype(auto)
     {
         // delegate remaining resolution the parent
         return parent->template resolve<request_t, dependency_chain_t>();
