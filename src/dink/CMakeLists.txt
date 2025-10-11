@@ -27,6 +27,7 @@ list(APPEND dink_library_files
     provider.hpp
     request_traits.hpp
     scope.hpp
+    smart_pointer_traits.hpp
     type_indexed_storage.hpp
     type_list.hpp
     version.hpp
@@ -46,6 +47,7 @@ list(APPEND dink_unit_test_files
     provider_test.cpp
     request_traits_test.cpp
     scope_test.cpp
+    smart_pointer_traits_test.cpp
     type_indexed_storage_test.cpp
     type_list_test.cpp
     version_test.cpp

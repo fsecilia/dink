@@ -8,51 +8,12 @@
 #include <dink/lib.hpp>
 #include <dink/lifestyle.hpp>
 #include <dink/meta.hpp>
+#include <dink/smart_pointer_traits.hpp>
 #include <memory>
 #include <type_traits>
 #include <utility>
 
 namespace dink {
-
-template <typename>
-struct is_unique_ptr_f : std::false_type
-{};
-
-template <typename element_t, typename deleter_t>
-struct is_unique_ptr_f<std::unique_ptr<element_t, deleter_t>> : std::true_type
-{};
-
-template <typename value_t>
-constexpr bool is_unique_ptr_v = is_unique_ptr_f<std::remove_cvref_t<value_t>>::value;
-
-template <typename>
-struct is_shared_ptr_f : std::false_type
-{};
-
-template <typename element_t>
-struct is_shared_ptr_f<std::shared_ptr<element_t>> : std::true_type
-{};
-
-template <typename value_t>
-constexpr bool is_shared_ptr_v = is_shared_ptr_f<std::remove_cvref_t<value_t>>::value;
-
-template <typename>
-struct is_weak_ptr_f : std::false_type
-{};
-
-template <typename element_t>
-struct is_weak_ptr_f<std::weak_ptr<element_t>> : std::true_type
-{};
-
-template <typename value_t>
-constexpr bool is_weak_ptr_v = is_weak_ptr_f<value_t>::value;
-
-template <typename source_t>
-constexpr auto element_type(source_t&& source) -> decltype(auto)
-{
-    if constexpr (std::is_pointer_v<std::remove_cvref_t<source_t>> || is_shared_ptr_v<source_t>) return *source;
-    else return std::forward<source_t>(source);
-}
 
 enum class transitive_lifestyle_t
 {
