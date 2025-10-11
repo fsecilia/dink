@@ -11,7 +11,7 @@
 #include <memory>
 
 namespace dink {
-// namespace {
+namespace {
 
 // Test instrumentation
 inline static int_t next_id = 1;
@@ -591,5 +591,5 @@ TEST_F(ContainerTest, ThreadSafetyOfRootSingletons)
     EXPECT_EQ(total_constructions, 1);
 }
 
-// } // namespace
+} // namespace
 } // namespace dink
