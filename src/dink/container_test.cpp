@@ -523,23 +523,6 @@ TEST_F(ContainerTest, ConstRequestTypes)
 }
 
 // =============================================================================
-// Circular Dependency Tests (should fail to compile if uncommented)
-// =============================================================================
-
-/*
-TEST_F(ContainerTest, CircularDependencyDetection)
-{
-    // This should fail to compile with "circular dependency detected"
-    struct a_t;
-    struct b_t : constructed_from_t<a_t> {};
-    struct a_t : constructed_from_t<b_t> {};
-    
-    auto container = global_container_t{};
-    // container.resolve<a_t>(); // Should not compile
-}
-*/
-
-// =============================================================================
 // Performance/Stress Tests
 // =============================================================================
 
