@@ -17,6 +17,17 @@ namespace dink {
 namespace detail {
 
 template <typename>
+struct is_unique_ptr_f : std::false_type
+{};
+
+template <typename element_t, typename deleter_t>
+struct is_unique_ptr_f<std::unique_ptr<element_t, deleter_t>> : std::true_type
+{};
+
+template <typename value_t>
+constexpr bool is_unique_ptr_v = is_unique_ptr_f<std::remove_cvref_t<value_t>>::value;
+
+template <typename>
 struct is_shared_ptr_f : std::false_type
 {};
 
@@ -24,8 +35,8 @@ template <typename element_t>
 struct is_shared_ptr_f<std::shared_ptr<element_t>> : std::true_type
 {};
 
-template <typename element_t>
-constexpr bool is_shared_ptr_v = is_shared_ptr_f<std::remove_cvref_t<element_t>>::value;
+template <typename value_t>
+constexpr bool is_shared_ptr_v = is_shared_ptr_f<std::remove_cvref_t<value_t>>::value;
 
 template <typename>
 struct is_weak_ptr_f : std::false_type
@@ -35,8 +46,8 @@ template <typename element_t>
 struct is_weak_ptr_f<std::weak_ptr<element_t>> : std::true_type
 {};
 
-template <typename element_t>
-constexpr bool is_weak_ptr_v = is_weak_ptr_f<std::remove_cvref_t<element_t>>::value;
+template <typename value_t>
+constexpr bool is_weak_ptr_v = is_weak_ptr_f<value_t>::value;
 
 template <typename source_t>
 constexpr auto get_underlying(source_t&& source) -> decltype(auto)
@@ -92,7 +103,7 @@ struct request_traits_f<requested_t&>
     template <typename source_t>
     static auto as_requested(source_t&& source) -> requested_t&
     {
-        return detail::get_underlying(std::forward<source_t>(source));
+        return static_cast<requested_t&>(detail::get_underlying(std::forward<source_t>(source)));
     }
 };
 
@@ -123,12 +134,17 @@ struct request_traits_f<std::unique_ptr<requested_t, deleter_t>>
         using clean_source_t = std::remove_cvref_t<source_t>;
         if constexpr (std::is_pointer_v<clean_source_t> || detail::is_shared_ptr_v<clean_source_t>)
         {
+            // This path should be unreachable if the container logic is correct.
             static_assert(
                 meta::dependent_false_v<source_t>,
-                "Cannot request unique_ptr for a cached singleton - ownership conflict"
+                "Ownership Conflict: Cannot create a unique_ptr from a cached singleton instance. The container should bypass the cache for this request type."
             );
         }
-        else { return std::unique_ptr<requested_t, deleter_t>(new clean_source_t{std::move(source)}, deleter_t{}); }
+        else
+        {
+            // This path is correct for transient creation where a value is provided.
+            return std::unique_ptr<requested_t, deleter_t>(new clean_source_t{std::move(source)}, deleter_t{});
+        }
     }
 };
 
@@ -144,22 +160,27 @@ struct request_traits_f<std::shared_ptr<requested_t>>
     {
         using clean_source_t = std::remove_cvref_t<source_t>;
 
+        // Case 1: Source is already a shared_ptr (e.g., from nested cache or transient).
         if constexpr (detail::is_shared_ptr_v<clean_source_t>) { return std::forward<source_t>(source); }
-        else
+        // Case 2: Source is a pointer to a shared_ptr (from global cache).
+        else if constexpr (std::is_pointer_v<clean_source_t>
+                           && detail::is_shared_ptr_v<std::remove_pointer_t<clean_source_t>>)
         {
-            static_assert(
-                meta::dependent_false_v<source_t>,
-                "Cannot request unique_ptr for a cached singleton - ownership conflict"
-            );
+            // The global cache returns a pointer to the canonical shared_ptr. Dereference it.
+            return *source;
         }
-#if 0
-        if constexpr (detail::is_shared_ptr_v<clean_source_t>) { return std::forward<source_t>(source); }
+        // Case 3: Source is a pointer to the underlying value T (from a singleton accessor).
         else if constexpr (std::is_pointer_v<clean_source_t>)
         {
+            // The source is a non-owning pointer to a singleton. Create a non-owning shared_ptr.
             return std::shared_ptr<requested_t>(source, [](auto*) {});
         }
-        else { return std::make_shared<requested_t>(std::forward<source_t>(source)); }
-#endif
+        // Case 4: Source is the raw value T (from a transient provider).
+        else
+        {
+            // The source is a temporary value. Create a new owning shared_ptr.
+            return std::make_shared<requested_t>(std::forward<source_t>(source));
+        }
     }
 };
 

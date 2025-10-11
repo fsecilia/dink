@@ -113,73 +113,48 @@ public:
     template <typename request_t, typename dependency_chain_t = type_list_t<>>
     auto resolve() -> decltype(auto)
     {
-        using resolved_t = resolved_t<request_t>;
+        // Get the traits for the request
+        using traits = request_traits_f<request_t>;
+        using resolved_t = typename traits::value_type;
 
-        // 1. Check local cache (Runtime check)
-        // This is the highest precedence lookup. If it hits, we're done.
-        if constexpr (detail::is_shared_ptr_v<request_t> || detail::is_weak_ptr_v<request_t>)
+        // --- FIX: Skip cache lookup for transient requests ---
+        // If the request itself forces a transient lifestyle (like unique_ptr or T&&),
+        // we must create a new instance, so we bypass the cache check.
+        if constexpr (traits::transitive_lifestyle != transitive_lifestyle_t::transient)
         {
-            // --- PATH A: User requested a shared_ptr ---
-            // Use the dedicated finder for canonical shared_ptrs.
-            if (auto cached_shared = scope_.template find_shared_in_cache<resolved_t>(); cached_shared)
+            // 1. Check local cache (Runtime check)
+            if constexpr (detail::is_shared_ptr_v<request_t> || detail::is_weak_ptr_v<request_t>)
             {
-                using cached_t = decltype(cached_shared);
-                if constexpr (std::is_pointer_v<cached_t>) // True for global_t, which returns shared_ptr*
+                if (auto cached = scope_.template find_shared_in_cache<resolved_t>(); cached)
                 {
-                    return as_requested<request_t>(*cached_shared);
-                }
-                else // True for nested_t, which returns shared_ptr
-                {
-                    return as_requested<request_t>(std::move(cached_shared));
+                    return as_requested<request_t>(std::move(cached));
                 }
             }
-        }
-        else
-        {
-            // --- PATH B: User requested a value, reference, or raw pointer ---
-            // Use the original finder for raw instances.
-            if (auto cached = scope_.template find_in_local_cache<resolved_t>(); cached)
+            else
             {
-                using cached_t = decltype(cached);
-                if constexpr (std::is_pointer_v<cached_t>) // True for global_t, which returns T*
-                {
-                    decltype(auto) result = as_requested<request_t>(*cached);
-                    return result;
-                    // return as_requested<request_t>(*cached); // Return the reference to the singleton
-                }
-                else // True for nested_t, which returns shared_ptr<T>
+                if (auto cached = scope_.template find_in_local_cache<resolved_t>(); cached)
                 {
                     return as_requested<request_t>(std::move(cached));
                 }
             }
         }
 
-        // --- If we get here, the cache missed ---
+        // --- If we get here, the cache was skipped or missed ---
 
         // 2. Check local bindings (Compile-time check)
         auto binding = config_.template find_binding<resolved_t>();
         if constexpr (!std::is_same_v<decltype(binding), not_found_t>)
         {
-            // A binding was found. Create from it and we're done.
             return create_from_binding<request_t, dependency_chain_t>(*binding);
         }
-
-        // --- If we get here, cache missed and no local binding exists ---
 
         // 3. Delegate to parent, or prepare to use the default provider.
         decltype(auto) delegate_result = scope_.template delegate<request_t, dependency_chain_t>();
         if constexpr (!std::is_same_v<decltype(delegate_result), not_found_t>)
         {
-            // Delegation was successful (we were in a nested scope).
-            // The parent found the instance, so we just return it.
             return as_requested<request_t>(delegate_result);
         }
-        else
-        {
-            // Delegation returned 'not_found' (we are in the global scope).
-            // This is the end of the line, so use the default provider.
-            return create_from_default_provider<request_t, dependency_chain_t>();
-        }
+        else { return create_from_default_provider<request_t, dependency_chain_t>(); }
     }
 
 private:
@@ -216,45 +191,44 @@ private:
     auto execute_provider(provider_t& provider) -> returned_t<request_t>
     {
         using provided_t = typename provider_t::provided_t;
+        using resolved_t = resolved_t<request_t>; // The underlying T
 
-        // --- BRANCH ON REQUEST TYPE ---
-        if constexpr (detail::is_shared_ptr_v<request_t> || detail::is_weak_ptr_v<request_t>)
+        if constexpr (std::same_as<lifestyle_t, lifestyle::singleton_t>)
         {
-            // --- LOGIC FOR SHARED POINTERS (P4, P5, P7) ---
-            if constexpr (std::same_as<lifestyle_t, lifestyle::singleton_t>)
+            // --- SINGLETON LIFESTYLE LOGIC ---
+
+            // This is the core fix: Handle unique_ptr as a special case for singletons.
+            // The user wants a unique copy of the canonical singleton instance.
+            if constexpr (detail::is_unique_ptr_v<request_t>) // Assume is_unique_ptr_v exists
             {
-                // This is a singleton request, so use the scope's shared_ptr container.
-                // This correctly handles caching the canonical shared_ptr.
+                // 1. Resolve the singleton instance. This will create and cache it on the first call,
+                //    and return a reference to the cached instance on subsequent calls.
+                auto& singleton_instance
+                    = scope_.template resolve_singleton<provided_t, dependency_chain_t>(provider, *this);
+
+                // 2. Create a copy of the singleton and return it in a unique_ptr.
+                return std::make_unique<resolved_t>(singleton_instance);
+            }
+            else if constexpr (detail::is_shared_ptr_v<request_t> || detail::is_weak_ptr_v<request_t>)
+            {
+                // Use the scope's dedicated shared_ptr handling, which correctly
+                // creates a non-owning or cached shared_ptr to the singleton.
                 return as_requested<request_t>(
                     scope_.template resolve_shared_ptr<provided_t, dependency_chain_t>(provider, *this)
                 );
             }
-            else // transient lifestyle
+            else
             {
-                // create a new transient shared_ptr.
-                return as_requested<request_t>(
-                    std::shared_ptr<provided_t>{new provided_t{provider.template create<dependency_chain_t>(*this)}}
-                );
-            }
-        }
-        else
-        {
-            static_assert(std::same_as<lifestyle_t, effective_lifestyle_t<lifestyle_t, request_t>>);
-
-            // --- EXISTING LOGIC FOR OTHER TYPES (P1, P2, P3, P6) ---
-
-            if constexpr (std::same_as<lifestyle_t, lifestyle::singleton_t>)
-            {
-                // Resolve through scope (caches automatically)
+                // For other requests (T&, T*), resolve the singleton and return a reference to it.
                 return as_requested<request_t>(
                     scope_.template resolve_singleton<provided_t, dependency_chain_t>(provider, *this)
                 );
             }
-            else // It's a transient lifestyle
-            {
-                // Create without caching
-                return as_requested<request_t>(provider.template create<dependency_chain_t>(*this));
-            }
+        }
+        else // --- TRANSIENT LIFESTYLE LOGIC ---
+        {
+            // Create a new instance every time, without caching.
+            return as_requested<request_t>(provider.template create<dependency_chain_t>(*this));
         }
     }
 
