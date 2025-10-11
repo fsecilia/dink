@@ -10,7 +10,7 @@
 #include <dink/config.hpp>
 #include <dink/lifestyle.hpp>
 #include <dink/not_found.hpp>
-#include <dink/providers.hpp>
+#include <dink/provider.hpp>
 #include <dink/request_traits.hpp>
 #include <dink/scope.hpp>
 #include <dink/type_list.hpp>
@@ -31,7 +31,7 @@ struct is_container_f<container_t<scope_t, config_t, default_provider_factory_t>
 
 template <typename T> concept is_container = is_container_f<std::decay_t<T>>::value;
 
-template <typename scope_t, typename config_t, typename default_provider_factory_t = providers::default_factory_t>
+template <typename scope_t, typename config_t, typename default_provider_factory_t = provider::default_factory_t>
 class container_t
 {
 public:
@@ -113,7 +113,7 @@ private:
     template <typename request_t, typename dependency_chain_t, typename binding_t>
     auto create_from_binding(binding_t& binding) -> returned_t<request_t>
     {
-        if constexpr (providers::is_accessor<typename binding_t::provider_type>)
+        if constexpr (provider::is_accessor<typename binding_t::provider_type>)
         {
             // accessor - just get the instance
             return as_requested<request_t>(binding.provider.get());

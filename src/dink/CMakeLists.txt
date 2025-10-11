@@ -24,7 +24,7 @@ list(APPEND dink_library_files
     lifestyle.hpp
     meta.hpp
     not_found.hpp
-    providers.hpp
+    provider.hpp
     request_traits.hpp
     scope.hpp
     type_indexed_storage.hpp
@@ -43,7 +43,7 @@ list(APPEND dink_unit_test_files
     double_checked_storage_test.cpp
     factory_invoker_test.cpp
     instance_cache_test.cpp
-    providers_test.cpp
+    provider_test.cpp
     request_traits_test.cpp
     scope_test.cpp
     type_indexed_storage_test.cpp

@@ -12,7 +12,7 @@
 #include <dink/lifestyle.hpp>
 #include <dink/request_traits.hpp>
 
-namespace dink::providers {
+namespace dink::provider {
 
 template <typename provider_t> concept is_creator = requires { typename provider_t::creator_tag; };
 template <typename provider_t> concept is_accessor = !is_creator<provider_t>;
@@ -104,4 +104,4 @@ struct provider_factory_t
 //! default factory creates default providers
 using default_factory_t = provider_factory_t<default_t>;
 
-} // namespace dink::providers
+} // namespace dink::provider

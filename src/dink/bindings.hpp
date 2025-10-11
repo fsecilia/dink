@@ -8,7 +8,7 @@
 #include <dink/lib.hpp>
 #include <dink/canonical.hpp>
 #include <dink/lifestyle.hpp>
-#include <dink/providers.hpp>
+#include <dink/provider.hpp>
 #include <concepts>
 #include <type_traits>
 #include <utility>
@@ -38,7 +38,7 @@ public:
 
     //! specifies lifestyle for creators; unavailable for accessors
     template <typename lifestyle_t>
-    requires providers::is_creator<provider_t>
+    requires provider::is_creator<provider_t>
     auto in() && -> binding_t<from_t, to_t, provider_t, lifestyle_t>
     {
         return {std::move(provider_)};
@@ -60,72 +60,72 @@ class binding_src_t
 public:
     // bind to type using ctor
     template <typename to_t>
-    auto to() const -> binding_dst_t<from_t, to_t, providers::creator_t<to_t>>
+    auto to() const -> binding_dst_t<from_t, to_t, provider::creator_t<to_t>>
     {
-        return binding_dst_t<from_t, to_t, providers::creator_t<to_t>>{providers::creator_t<to_t>{}};
+        return binding_dst_t<from_t, to_t, provider::creator_t<to_t>>{provider::creator_t<to_t>{}};
     }
 
     // bind to type using factory
     template <typename to_t, typename factory_t>
     auto to_factory(factory_t&& factory) const
-        -> binding_dst_t<from_t, to_t, providers::creator_t<to_t, std::decay_t<factory_t>>>
+        -> binding_dst_t<from_t, to_t, provider::creator_t<to_t, std::decay_t<factory_t>>>
     {
-        return binding_dst_t<from_t, to_t, providers::creator_t<to_t, std::decay_t<factory_t>>>{
-            providers::creator_t<to_t, std::decay_t<factory_t>>{std::forward<factory_t>(factory)}
+        return binding_dst_t<from_t, to_t, provider::creator_t<to_t, std::decay_t<factory_t>>>{
+            provider::creator_t<to_t, std::decay_t<factory_t>>{std::forward<factory_t>(factory)}
         };
     }
 
     // bind to internal reference
     template <typename to_t>
     auto to_internal_reference(to_t&& instance) const
-        -> binding_dst_t<from_t, to_t, providers::internal_reference_t<std::decay_t<to_t>>>
+        -> binding_dst_t<from_t, to_t, provider::internal_reference_t<std::decay_t<to_t>>>
     {
-        return binding_dst_t<from_t, to_t, providers::internal_reference_t<std::decay_t<to_t>>>{
-            providers::internal_reference_t<std::decay_t<to_t>>{std::forward<to_t>(instance)}
+        return binding_dst_t<from_t, to_t, provider::internal_reference_t<std::decay_t<to_t>>>{
+            provider::internal_reference_t<std::decay_t<to_t>>{std::forward<to_t>(instance)}
         };
     }
 
     // bind to external reference
     template <typename to_t>
     auto to_external_reference(to_t& instance) const
-        -> binding_dst_t<from_t, to_t, providers::external_reference_t<to_t>>
+        -> binding_dst_t<from_t, to_t, provider::external_reference_t<to_t>>
     {
-        return binding_dst_t<from_t, to_t, providers::external_reference_t<to_t>>{
-            providers::external_reference_t<to_t>{&instance}
+        return binding_dst_t<from_t, to_t, provider::external_reference_t<to_t>>{
+            provider::external_reference_t<to_t>{&instance}
         };
     }
 
     // bind to internal prototype
     template <typename to_t>
     auto to_internal_prototype(to_t&& instance) const
-        -> binding_dst_t<from_t, to_t, providers::internal_prototype_t<std::decay_t<to_t>>>
+        -> binding_dst_t<from_t, to_t, provider::internal_prototype_t<std::decay_t<to_t>>>
     {
-        return binding_dst_t<from_t, to_t, providers::internal_prototype_t<std::decay_t<to_t>>>{
-            providers::internal_prototype_t<std::decay_t<to_t>>{std::forward<to_t>(instance)}
+        return binding_dst_t<from_t, to_t, provider::internal_prototype_t<std::decay_t<to_t>>>{
+            provider::internal_prototype_t<std::decay_t<to_t>>{std::forward<to_t>(instance)}
         };
     }
 
     // bind to external prototype
     template <typename to_t>
     auto to_external_prototype(to_t const& instance) const
-        -> binding_dst_t<from_t, to_t, providers::external_prototype_t<to_t>>
+        -> binding_dst_t<from_t, to_t, provider::external_prototype_t<to_t>>
     {
-        return binding_dst_t<from_t, to_t, providers::external_prototype_t<to_t>>{
-            providers::external_prototype_t<to_t>{&instance}
+        return binding_dst_t<from_t, to_t, provider::external_prototype_t<to_t>>{
+            provider::external_prototype_t<to_t>{&instance}
         };
     }
 
     //! specifies lifestyle for creators; unavailable for accessors
     template <typename lifestyle_t>
-    auto in() && -> binding_t<from_t, from_t, providers::default_t<from_t>, lifestyle_t>
+    auto in() && -> binding_t<from_t, from_t, provider::default_t<from_t>, lifestyle_t>
     {
-        return {providers::default_t<from_t>{}};
+        return {provider::default_t<from_t>{}};
     }
 
     //! converts to final binding with default provider and lifestyle
-    operator binding_t<from_t, from_t, providers::default_t<from_t>, lifestyle::default_t>() &&
+    operator binding_t<from_t, from_t, provider::default_t<from_t>, lifestyle::default_t>() &&
     {
-        return {providers::default_t<from_t>{}};
+        return {provider::default_t<from_t>{}};
     }
 };
 
@@ -146,7 +146,7 @@ auto resolve_binding(binding_t<from_t, to_t, provider_t, lifestyle_t>&& config)
 {
     if constexpr (std::same_as<lifestyle_t, lifestyle::default_t>)
     {
-        if constexpr (providers::is_creator<provider_t>)
+        if constexpr (provider::is_creator<provider_t>)
         {
             // use provider's default lifestyle
             using resolved_lifestyle_t = typename provider_t::default_lifestyle;
@@ -164,7 +164,7 @@ auto resolve_binding(binding_t<from_t, to_t, provider_t, lifestyle_t>&& config)
     else
     {
         // lifestyle explicitly specified
-        static_assert(providers::is_creator<provider_t>, "Cannot specify lifestyle for accessor providers");
+        static_assert(provider::is_creator<provider_t>, "Cannot specify lifestyle for accessor provider");
         return config; // already correct type
     }
 }
