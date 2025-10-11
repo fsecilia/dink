@@ -18,20 +18,20 @@
 
 namespace dink {
 
-template <typename scope_t, typename config_t>
+template <typename scope_t, typename config_t, typename default_provider_factory_t>
 class container_t;
 
 template <typename>
 struct is_container_f : std::false_type
 {};
 
-template <typename scope_t, typename config_t>
-struct is_container_f<container_t<scope_t, config_t>> : std::true_type
+template <typename scope_t, typename config_t, typename default_provider_factory_t>
+struct is_container_f<container_t<scope_t, config_t, default_provider_factory_t>> : std::true_type
 {};
 
 template <typename T> concept is_container = is_container_f<std::decay_t<T>>::value;
 
-template <typename scope_t, typename config_t>
+template <typename scope_t, typename config_t, typename default_provider_factory_t = providers::default_factory_t>
 class container_t
 {
 public:
@@ -63,8 +63,9 @@ public:
 
     // basic ctor; must be constrained or it is too greedy for clang when using deduction guides
     template <is_scope scope_p, is_config config_p>
-    container_t(scope_p&& scope, config_p&& config) noexcept
-        : scope_{std::forward<scope_p>(scope)}, config_{std::forward<config_p>(config)}
+    container_t(scope_p&& scope, config_p&& config, default_provider_factory_t default_provider_factory = {}) noexcept
+        : scope_{std::forward<scope_p>(scope)}, config_{std::forward<config_p>(config)},
+          default_provider_factory_{std::move(default_provider_factory)}
     {}
 
     template <typename request_t, typename dependency_chain_t = type_list_t<>>
@@ -104,7 +105,7 @@ public:
         if constexpr (delegate_succeeded) return as_requested<request_t>(delegate_result);
 
         // no cached instances or bindings were found; create and optionally cache using default provider
-        return create_from_default_provider<request_t, dependency_chain_t>();
+        return invoke_default_provider<request_t, dependency_chain_t>();
     }
 
 private:
@@ -122,32 +123,28 @@ private:
             // creator - check effective lifestyle
             using binding_lifestyle_t = typename binding_t::lifestyle_type;
             using effective_lifestyle_t = effective_lifestyle_t<binding_lifestyle_t, request_t>;
-            return execute_provider<request_t, dependency_chain_t, effective_lifestyle_t>(binding.provider);
+            return invoke_provider<request_t, dependency_chain_t, effective_lifestyle_t>(binding.provider);
         }
     }
 
     // create instance from default provider
     template <typename request_t, typename dependency_chain_t>
-    auto create_from_default_provider() -> returned_t<request_t>
+    auto invoke_default_provider() -> returned_t<request_t>
     {
         using effective_lifestyle_t = effective_lifestyle_t<lifestyle::transient_t, request_t>;
-        auto provider = providers::default_t<request_t>{};
-        return execute_provider<request_t, dependency_chain_t, effective_lifestyle_t>(provider);
+        auto default_provider = default_provider_factory_.template create<request_t>();
+        return invoke_provider<request_t, dependency_chain_t, effective_lifestyle_t>(default_provider);
     }
 
     template <typename request_t, typename dependency_chain_t, typename lifestyle_t, typename provider_t>
-    auto execute_provider(provider_t& provider) -> returned_t<request_t>
+    auto invoke_provider(provider_t& provider) -> returned_t<request_t>
     {
         using provided_t = typename provider_t::provided_t;
         using resolved_t = resolved_t<request_t>; // The underlying T
 
         if constexpr (std::same_as<lifestyle_t, lifestyle::singleton_t>)
         {
-            // --- SINGLETON LIFESTYLE LOGIC ---
-
-            // This is the core fix: Handle unique_ptr as a special case for singletons.
-            // The user wants a unique copy of the canonical singleton instance.
-            if constexpr (is_unique_ptr_v<request_t>) // Assume is_unique_ptr_v exists
+            if constexpr (is_unique_ptr_v<request_t>)
             {
                 // 1. Resolve the singleton instance. This will create and cache it on the first call,
                 //    and return a reference to the cached instance on subsequent calls.
@@ -181,6 +178,7 @@ private:
 
     scope_t scope_{};
     config_t config_{};
+    [[no_unique_address]] default_provider_factory_t default_provider_factory_{};
 };
 
 /*

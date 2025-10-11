@@ -86,7 +86,22 @@ struct external_prototype_t
     auto get() const -> instance_t { return *prototype; }
 };
 
+//! default provider, if unspecified, invokes the resolved type's ctor
 template <typename request_t>
-using default_t = providers::creator_t<resolved_t<request_t>>;
+using default_t = creator_t<resolved_t<request_t>>;
+
+//! factory for providers
+template <template <typename provided_t> class provider_t>
+struct provider_factory_t
+{
+    template <typename provided_t>
+    auto create() -> provider_t<provided_t>
+    {
+        return provider_t<provided_t>{};
+    }
+};
+
+//! default factory creates default providers
+using default_factory_t = provider_factory_t<default_t>;
 
 } // namespace dink::providers
