@@ -64,7 +64,7 @@ private:
 };
 
 template <typename... bindings_t>
-config_t(bindings_t&&...) -> config_t<std::decay_t<bindings_t>...>;
+config_t(bindings_t&&...) -> config_t<std::remove_cvref_t<bindings_t>...>;
 
 /// \brief A metafunction to create a config type from a tuple of bindings.
 template <typename tuple_t>
@@ -85,6 +85,6 @@ template <typename... Bindings>
 struct is_config_f<config_t<Bindings...>> : std::true_type
 {};
 
-template <typename T> concept is_config = is_config_f<std::decay_t<T>>::value;
+template <typename T> concept is_config = is_config_f<std::remove_cvref_t<T>>::value;
 
 } // namespace dink

@@ -78,10 +78,10 @@ public:
     // bind to internal reference
     template <typename to_t>
     auto to_internal_reference(to_t&& instance) const
-        -> binding_dst_t<from_t, to_t, provider::internal_reference_t<std::decay_t<to_t>>>
+        -> binding_dst_t<from_t, to_t, provider::internal_reference_t<std::remove_cvref_t<to_t>>>
     {
-        return binding_dst_t<from_t, to_t, provider::internal_reference_t<std::decay_t<to_t>>>{
-            provider::internal_reference_t<std::decay_t<to_t>>{std::forward<to_t>(instance)}
+        return binding_dst_t<from_t, to_t, provider::internal_reference_t<std::remove_cvref_t<to_t>>>{
+            provider::internal_reference_t<std::remove_cvref_t<to_t>>{std::forward<to_t>(instance)}
         };
     }
 
@@ -98,10 +98,10 @@ public:
     // bind to internal prototype
     template <typename to_t>
     auto to_internal_prototype(to_t&& instance) const
-        -> binding_dst_t<from_t, to_t, provider::internal_prototype_t<std::decay_t<to_t>>>
+        -> binding_dst_t<from_t, to_t, provider::internal_prototype_t<std::remove_cvref_t<to_t>>>
     {
-        return binding_dst_t<from_t, to_t, provider::internal_prototype_t<std::decay_t<to_t>>>{
-            provider::internal_prototype_t<std::decay_t<to_t>>{std::forward<to_t>(instance)}
+        return binding_dst_t<from_t, to_t, provider::internal_prototype_t<std::remove_cvref_t<to_t>>>{
+            provider::internal_prototype_t<std::remove_cvref_t<to_t>>{std::forward<to_t>(instance)}
         };
     }
 
@@ -202,6 +202,6 @@ struct is_binding_f<binding_dst_t<from_p, to_p, provider_p>> : std::true_type
 
 } // namespace detail
 
-template <typename T> concept is_binding = detail::is_binding_f<std::decay_t<T>>::value;
+template <typename T> concept is_binding = detail::is_binding_f<std::remove_cvref_t<T>>::value;
 
 } // namespace dink

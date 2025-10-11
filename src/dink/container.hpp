@@ -29,7 +29,7 @@ template <typename scope_t, typename config_t, typename default_provider_factory
 struct is_container_f<container_t<scope_t, config_t, default_provider_factory_t>> : std::true_type
 {};
 
-template <typename T> concept is_container = is_container_f<std::decay_t<T>>::value;
+template <typename value_t> concept is_container = is_container_f<std::remove_cvref_t<value_t>>::value;
 
 template <typename scope_t, typename config_t, typename default_provider_factory_t = provider::default_factory_t>
 class container_t
@@ -41,9 +41,9 @@ public:
     //! global scope ctor; produces container with global scope and given bindings
     template <typename first_binding_t, typename... remaining_bindings_t>
     requires(
-        !is_container<std::decay_t<first_binding_t>>
-        && is_binding<std::decay_t<first_binding_t>>
-        && (is_binding<std::decay_t<remaining_bindings_t>> && ...)
+        !is_container<std::remove_cvref_t<first_binding_t>>
+        && is_binding<std::remove_cvref_t<first_binding_t>>
+        && (is_binding<std::remove_cvref_t<remaining_bindings_t>> && ...)
     )
     explicit container_t(first_binding_t&& first, remaining_bindings_t&&... rest)
         : container_t{
@@ -197,9 +197,9 @@ private:
 template <
     typename first_binding_p, typename... rest_bindings_p,
     std::enable_if_t<
-        !is_container<std::decay_t<first_binding_p>>
-            && is_binding<std::decay_t<first_binding_p>>
-            && (is_binding<std::decay_t<rest_bindings_p>> && ...),
+        !is_container<std::remove_cvref_t<first_binding_p>>
+            && is_binding<std::remove_cvref_t<first_binding_p>>
+            && (is_binding<std::remove_cvref_t<rest_bindings_p>> && ...),
         int>
     = 0>
 container_t(first_binding_p&&, rest_bindings_p&&...) -> container_t<
@@ -214,7 +214,7 @@ container_t() -> container_t<scope::global_t, config_t<>>;
 template <typename p_scope_t, typename p_config_t, typename... bindings_t>
 requires(is_binding<bindings_t> && ...)
 container_t(container_t<p_scope_t, p_config_t>& parent, bindings_t&&...) -> container_t<
-    scope::nested_t<std::decay_t<decltype(parent)>>,
+    scope::nested_t<std::remove_cvref_t<decltype(parent)>>,
     typename config_from_tuple_f<decltype(resolve_bindings(std::declval<bindings_t>()...))>::type>;
 
 // type aliases
