@@ -226,13 +226,14 @@ private:
 
 /*
     deduction guides
-    
-    clang kept matching the global deduction guide for a nested container, so there are 2 clang-20.1-specific workarounds:
+
+    clang matches the global deduction guide for a nested container, so there are clang-20.1-specific workarounds:
         - the global deduction guides must be split into empty and nonempty so we can apply a constrainted to the first_
           parameter
         - the nonempty version must use enable_if_t to remove itself from consideration
-    
-    When clang fixes this, the empty/nonempty split can be removed, as can the enable_if_t.
+
+    When clang fixes this, the empty/nonempty split can be removed. The enable_if_t may need to be converted to a
+    concept.
 */
 
 //! deduction guide for nonempty global containers
