@@ -33,6 +33,18 @@ template <typename scope_t, typename config_t, typename resolver_t>
 struct is_container_f<container_t<scope_t, config_t, resolver_t>> : std::true_type
 {};
 
+// In a detail namespace
+template <typename>
+struct is_reference_wrapper : std::false_type
+{};
+
+template <typename T>
+struct is_reference_wrapper<std::reference_wrapper<T>> : std::true_type
+{};
+
+template <typename T>
+inline constexpr bool is_reference_wrapper_v = is_reference_wrapper<T>::value;
+
 } // namespace detail
 
 template <typename T> concept is_container = detail::is_container_f<std::decay_t<T>>::value;
@@ -66,50 +78,47 @@ public:
     template <typename request_t, typename dependency_chain_t = type_list_t<>>
     auto resolve() -> returned_t<request_t>
     {
-        // run search for instance or bindings up the chain, or use the default provider with this container.
-        return try_resolve<request_t, dependency_chain_t>([this]() -> decltype(auto) {
-            return resolver_.template create_from_default_provider<request_t, dependency_chain_t>(*this);
-        });
-    }
-
-    template <typename request_t, typename dependency_chain_t, typename factory_t>
-    auto try_resolve(factory_t&& factory) -> returned_t<request_t>
-    {
         using resolved_t = resolved_t<request_t>;
 
-        // check local cache for for singleton-lifestyled requests
-        if constexpr (request_traits_f<resolved_t>::transitive_lifestyle == transitive_lifestyle_t::singleton)
+        // 1. Check local cache (Runtime check)
+        // This is the highest precedence lookup. If it hits, we're done.
+        if (auto cached = scope_t::template find_in_local_cache<resolved_t>(); cached)
         {
-            if (auto cached = scope_t::template find_in_local_cache<resolved_t>())
+            using cached_t = decltype(cached);
+            if constexpr (std::is_pointer_v<cached_t>) // True for global_t, which returns T*
+            {
+                return *cached; // Return the reference to the singleton
+            }
+            else // True for nested_t, which returns shared_ptr<T>
             {
                 return as_requested<request_t>(std::move(cached));
             }
         }
 
-        // check local bindings and create if found
+        // --- If we get here, the cache missed ---
+
+        // 2. Check local bindings (Compile-time check)
         auto binding = config_.template find_binding<resolved_t>();
-        if constexpr (!std::same_as<decltype(binding), not_found_t>)
+        if constexpr (!std::is_same_v<decltype(binding), not_found_t>)
         {
+            // A binding was found. Create from it and we're done.
             return resolver_.template create_from_binding<request_t, dependency_chain_t>(*binding, *this);
         }
 
-        return delegate_to_parent<request_t, dependency_chain_t>(std::forward<factory_t>(factory));
-    }
+        // --- If we get here, cache missed and no local binding exists ---
 
-    template <typename request_t, typename dependency_chain_t, typename factory_t>
-    auto delegate_to_parent(factory_t&& factory) -> returned_t<request_t>
-    {
-        // delegate to parent if exists
+        // 3. Delegate or use default provider (Compile-time check)
         static constexpr auto is_global = std::same_as<scope_t, container::scope::global_t>;
         if constexpr (!is_global)
         {
-            return scope_t::parent->template try_resolve<request_t, dependency_chain_t>(
-                std::forward<factory_t>(factory)
-            );
+            // Not the global scope, so delegate the entire resolution task to the parent.
+            return scope_t::parent->template resolve<request_t, dependency_chain_t>();
         }
-
-        // Not found anywhere - invoke the factory from the original caller
-        return factory();
+        else
+        {
+            // We are the global scope (the end of the line). If not found here, use the default.
+            return resolver_.template create_from_default_provider<request_t, dependency_chain_t>(*this);
+        }
     }
 
 private:
