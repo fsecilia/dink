@@ -110,8 +110,8 @@ struct request_traits_f<std::shared_ptr<requested_t>>
         if constexpr (is_shared_ptr_v<clean_source_t>) { return std::forward<source_t>(source); }
         else if constexpr (std::is_pointer_v<clean_source_t> && is_shared_ptr_v<std::remove_pointer_t<clean_source_t>>)
         {
-            // Case 2: Source is a pointer to a shared_ptr (from global cache).
-            // The global cache returns a pointer to the canonical shared_ptr. Dereference it.
+            // Case 2: Source is a pointer to a shared_ptr (from root cache).
+            // The root cache returns a pointer to the canonical shared_ptr. Dereference it.
             return *source;
         }
         else if constexpr (std::is_pointer_v<clean_source_t>)

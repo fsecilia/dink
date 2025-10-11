@@ -17,12 +17,12 @@ namespace dink {
 namespace scope {
 
 /*!
-    scope for the root, global container
+    scope for the root container
     
     This scope expects to have a lifetime similar to the whole application, so it uses Meyers singletons for cache.This
     gives it O(1) lookups with less overhead than a hash table.
 */
-struct global_t
+struct root_t
 {
 private:
     //! type-indexed storage for references
@@ -113,7 +113,7 @@ struct is_scope_f : std::false_type
 {};
 
 template <>
-struct is_scope_f<scope::global_t> : std::true_type
+struct is_scope_f<scope::root_t> : std::true_type
 {};
 
 template <>

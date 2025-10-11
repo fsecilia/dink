@@ -26,7 +26,7 @@ TEST_F(integration_smoke_test_t, default_ctor_transient)
 {
     using instance_t = constructed_from_t<>;
 
-    auto container = global_container_t<>{};
+    auto container = root_container_t<>{};
     auto a1 = container.resolve<instance_t>();
     auto a2 = container.resolve<instance_t>();
 
@@ -37,7 +37,7 @@ TEST_F(integration_smoke_test_t, default_ctor_singleton)
 {
     using instance_t = constructed_from_t<>;
 
-    auto container = global_container_t<>{};
+    auto container = root_container_t<>{};
     auto& a1 = container.resolve<instance_t&>();
     auto& a2 = container.resolve<instance_t&>();
 
@@ -48,7 +48,7 @@ TEST_F(integration_smoke_test_t, dependency_graph)
 {
     using instance_t = constructed_from_t<constructed_from_t<>, constructed_from_t<constructed_from_t<>>>;
 
-    auto container = global_container_t<>{};
+    auto container = root_container_t<>{};
     auto c = container.resolve<instance_t>();
 
     EXPECT_TRUE(c.id > 0); // Successfully constructed with dependencies
@@ -58,7 +58,7 @@ TEST_F(integration_smoke_test_t, explicit_binding)
 {
     using instance_t = constructed_from_t<>;
 
-    auto container = global_container_t{bind<instance_t>().to<instance_t>().in<lifestyle::singleton_t>()};
+    auto container = root_container_t{bind<instance_t>().to<instance_t>().in<lifestyle::singleton_t>()};
     auto a1 = container.resolve<instance_t>();
     auto a2 = container.resolve<instance_t>();
 

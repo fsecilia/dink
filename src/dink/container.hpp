@@ -39,10 +39,10 @@ template <
 class container_t
 {
 public:
-    //! default ctor; produces container with global scope and no bindings
+    //! default ctor; produces container with root scope and no bindings
     container_t() = default;
 
-    //! global scope ctor; produces container with global scope and given bindings
+    //! root scope ctor; produces container with root scope and given bindings
     template <typename first_binding_t, typename... remaining_bindings_t>
     requires(
         !is_container<std::remove_cvref_t<first_binding_t>>
@@ -196,8 +196,8 @@ private:
 /*
     deduction guides
 
-    clang matches the global deduction guide for a nested container, so there are clang-20.1-specific workarounds:
-        - the global deduction guides must be split into empty and nonempty so we can apply a constraint to the first
+    clang matches the root deduction guide for a nested container, so there are clang-20.1-specific workarounds:
+        - the root deduction guides must be split into empty and nonempty so we can apply a constraint to the first
           parameter
         - the nonempty version must use enable_if_t to remove itself from consideration
 
@@ -205,7 +205,7 @@ private:
     be converted to a concept.
 */
 
-//! deduction guide for nonempty global containers
+//! deduction guide for nonempty root containers
 template <
     typename first_binding_p, typename... rest_bindings_p,
     std::enable_if_t<
@@ -215,13 +215,13 @@ template <
         int>
     = 0>
 container_t(first_binding_p&&, rest_bindings_p&&...) -> container_t<
-    delegation_strategy::global_t, scope::global_t,
+    delegation_strategy::root_t, scope::root_t,
     typename config_from_tuple_f<
         decltype(resolve_bindings(std::declval<first_binding_p>(), std::declval<rest_bindings_p>()...))>::type,
     provider::default_factory_t>;
 
-//! deduction guide for empty global containers
-container_t() -> container_t<delegation_strategy::global_t, scope::global_t, config_t<>, provider::default_factory_t>;
+//! deduction guide for empty root containers
+container_t() -> container_t<delegation_strategy::root_t, scope::root_t, config_t<>, provider::default_factory_t>;
 
 //! deduction guide for nested containers
 template <
@@ -241,8 +241,8 @@ container_t(
 // type aliases
 
 template <typename... bindings_t>
-using global_container_t = container_t<
-    delegation_strategy::global_t, scope::global_t,
+using root_container_t = container_t<
+    delegation_strategy::root_t, scope::root_t,
     typename config_from_tuple_f<decltype(resolve_bindings(std::declval<bindings_t>()...))>::type,
     provider::default_factory_t>;
 

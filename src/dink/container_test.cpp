@@ -54,7 +54,7 @@ protected:
 
 TEST_F(ContainerTest, DefaultConstructionWithoutBinding)
 {
-    auto container = global_container_t{};
+    auto container = root_container_t{};
     auto instance = container.resolve<no_deps_t>();
 
     EXPECT_EQ(instance.id, 1);
@@ -63,7 +63,7 @@ TEST_F(ContainerTest, DefaultConstructionWithoutBinding)
 
 TEST_F(ContainerTest, DefaultConstructionWithOneDependency)
 {
-    auto container = global_container_t{};
+    auto container = root_container_t{};
     auto instance = container.resolve<one_dep_t>();
 
     EXPECT_EQ(instance.id, 2);
@@ -72,7 +72,7 @@ TEST_F(ContainerTest, DefaultConstructionWithOneDependency)
 
 TEST_F(ContainerTest, DefaultConstructionWithDependencies)
 {
-    auto container = global_container_t{};
+    auto container = root_container_t{};
     auto instance = container.resolve<three_deps_t>();
 
     EXPECT_EQ(instance.id, 8);
@@ -96,7 +96,7 @@ TEST_F(ContainerTest, ExplicitBindingToImplementation)
         implementation_t(implementation_t const&) = delete;
     };
 
-    auto container = global_container_t{bind<interface_t>().to<implementation_t>().in<lifestyle::singleton_t>()};
+    auto container = root_container_t{bind<interface_t>().to<implementation_t>().in<lifestyle::singleton_t>()};
 
     auto& instance = container.resolve<interface_t&>();
     EXPECT_NE(dynamic_cast<implementation_t*>(&instance), nullptr);
@@ -108,7 +108,7 @@ TEST_F(ContainerTest, ExplicitBindingToImplementation)
 
 TEST_F(ContainerTest, TransientlifestyleCreatesNewInstances)
 {
-    auto container = global_container_t{bind<no_deps_t>().to<no_deps_t>()};
+    auto container = root_container_t{bind<no_deps_t>().to<no_deps_t>()};
 
     auto a = container.resolve<no_deps_t>();
     auto b = container.resolve<no_deps_t>();
@@ -122,7 +122,7 @@ TEST_F(ContainerTest, SingletonlifestyleReusesSameInstance)
     struct unique_type_t : no_deps_t
     {};
 
-    auto container = global_container_t{bind<unique_type_t>().to<unique_type_t>().in<lifestyle::singleton_t>()};
+    auto container = root_container_t{bind<unique_type_t>().to<unique_type_t>().in<lifestyle::singleton_t>()};
 
     auto a = container.resolve<unique_type_t>();
     auto b = container.resolve<unique_type_t>();
@@ -133,7 +133,7 @@ TEST_F(ContainerTest, SingletonlifestyleReusesSameInstance)
 
 TEST_F(ContainerTest, DefaultlifestyleIsTransient)
 {
-    auto container = global_container_t{};
+    auto container = root_container_t{};
 
     auto a = container.resolve<no_deps_t>();
     auto b = container.resolve<no_deps_t>();
@@ -151,7 +151,7 @@ TEST_F(ContainerTest, ReferenceRequestForcesSingleton)
     struct unique_type_t : no_deps_t
     {};
 
-    auto container = global_container_t{bind<unique_type_t>().to<unique_type_t>().in<lifestyle::transient_t>()};
+    auto container = root_container_t{bind<unique_type_t>().to<unique_type_t>().in<lifestyle::transient_t>()};
 
     auto& a = container.resolve<unique_type_t&>();
     auto& b = container.resolve<unique_type_t&>();
@@ -165,7 +165,7 @@ TEST_F(ContainerTest, RValueReferenceRequestForcesTransient)
     struct unique_type_t : no_deps_t
     {};
 
-    auto container = global_container_t{bind<unique_type_t>().to<unique_type_t>().in<lifestyle::singleton_t>()};
+    auto container = root_container_t{bind<unique_type_t>().to<unique_type_t>().in<lifestyle::singleton_t>()};
     auto a = container.resolve<unique_type_t&&>();
     auto b = container.resolve<unique_type_t&&>();
 
@@ -178,7 +178,7 @@ TEST_F(ContainerTest, PointerRequestForcesSingleton)
     struct unique_type_t : no_deps_t
     {};
 
-    auto container = global_container_t{};
+    auto container = root_container_t{};
 
     auto* a = container.resolve<unique_type_t*>();
     auto* b = container.resolve<unique_type_t*>();
@@ -192,7 +192,7 @@ TEST_F(ContainerTest, SharedPtrRequest)
     struct unique_type_t : no_deps_t
     {};
 
-    auto container = global_container_t{bind<unique_type_t>().to<unique_type_t>().in<lifestyle::singleton_t>()};
+    auto container = root_container_t{bind<unique_type_t>().to<unique_type_t>().in<lifestyle::singleton_t>()};
 
     auto a = container.resolve<std::shared_ptr<unique_type_t>>();
     auto b = container.resolve<std::shared_ptr<unique_type_t>>();
@@ -207,7 +207,7 @@ TEST_F(ContainerTest, UniquePtrRequestForcesTransient)
     struct unique_type_t : no_deps_t
     {};
 
-    auto container = global_container_t{bind<unique_type_t>().to<unique_type_t>().in<lifestyle::singleton_t>()};
+    auto container = root_container_t{bind<unique_type_t>().to<unique_type_t>().in<lifestyle::singleton_t>()};
 
     auto a = container.resolve<std::unique_ptr<unique_type_t>>();
     auto b = container.resolve<std::unique_ptr<unique_type_t>>();
@@ -221,7 +221,7 @@ TEST_F(ContainerTest, WeakPtrRequest)
     struct unique_type_t : no_deps_t
     {};
 
-    auto container = global_container_t{bind<unique_type_t>().to<unique_type_t>().in<lifestyle::singleton_t>()};
+    auto container = root_container_t{bind<unique_type_t>().to<unique_type_t>().in<lifestyle::singleton_t>()};
 
     auto shared = container.resolve<std::shared_ptr<unique_type_t>>();
     auto weak = container.resolve<std::weak_ptr<unique_type_t>>();
@@ -242,7 +242,7 @@ TEST_F(ContainerTest, CustomFactory)
     {};
 
     int_t factory_calls = 0;
-    auto container = global_container_t{
+    auto container = root_container_t{
         bind<unique_type_t>()
             .template to_factory<unique_type_t>([&factory_calls]() {
                 ++factory_calls;
@@ -265,7 +265,7 @@ TEST_F(ContainerTest, FactoryWithDependencies)
         using two_deps_t::two_deps_t;
     };
 
-    auto container = global_container_t{bind<unique_type_t>().template to_factory<unique_type_t>(
+    auto container = root_container_t{bind<unique_type_t>().template to_factory<unique_type_t>(
         [](no_deps_t a, one_dep_t b) { return unique_type_t{a, b}; }
     )};
 
@@ -284,7 +284,7 @@ TEST_F(ContainerTest, InternalReferenceBinding)
     no_deps_t instance;
     auto original_id = instance.id;
 
-    auto container = global_container_t{bind<no_deps_t>().to_internal_reference(std::move(instance))};
+    auto container = root_container_t{bind<no_deps_t>().to_internal_reference(std::move(instance))};
 
     auto& a = container.resolve<no_deps_t&>();
     auto& b = container.resolve<no_deps_t&>();
@@ -298,7 +298,7 @@ TEST_F(ContainerTest, ExternalReferenceBinding)
     no_deps_t instance;
     auto original_id = instance.id;
 
-    auto container = global_container_t{bind<no_deps_t>().to_external_reference(instance)};
+    auto container = root_container_t{bind<no_deps_t>().to_external_reference(instance)};
 
     auto& resolved = container.resolve<no_deps_t&>();
 
@@ -310,7 +310,7 @@ TEST_F(ContainerTest, InternalPrototypeBinding)
 {
     no_deps_t prototype;
 
-    auto container = global_container_t{bind<no_deps_t>().to_internal_prototype(std::move(prototype))};
+    auto container = root_container_t{bind<no_deps_t>().to_internal_prototype(std::move(prototype))};
 
     auto a = container.resolve<no_deps_t>();
     auto b = container.resolve<no_deps_t>();
@@ -323,7 +323,7 @@ TEST_F(ContainerTest, ExternalPrototypeBinding)
 {
     no_deps_t prototype;
 
-    auto container = global_container_t{bind<no_deps_t>().to_external_prototype(prototype)};
+    auto container = root_container_t{bind<no_deps_t>().to_external_prototype(prototype)};
 
     auto const expected_a_id = 3;
     prototype.id = expected_a_id;
@@ -343,34 +343,34 @@ TEST_F(ContainerTest, ExternalPrototypeBinding)
 // Container Hierarchy Tests
 // =============================================================================
 
-TEST_F(ContainerTest, NestedResolvesFromGlobal)
+TEST_F(ContainerTest, NestedResolvesFromroot)
 {
     struct unique_type_t : no_deps_t
     {};
 
-    auto global = global_container_t{bind<unique_type_t>().to<unique_type_t>().in<lifestyle::singleton_t>()};
-    auto nested = nested_container_t{global};
+    auto root = root_container_t{bind<unique_type_t>().to<unique_type_t>().in<lifestyle::singleton_t>()};
+    auto nested = nested_container_t{root};
 
-    auto& from_global = global.resolve<unique_type_t&>();
+    auto& from_root = root.resolve<unique_type_t&>();
     auto& from_nested = nested.resolve<unique_type_t&>();
 
-    EXPECT_EQ(&from_global, &from_nested);
+    EXPECT_EQ(&from_root, &from_nested);
     EXPECT_EQ(total_constructions, 1);
 }
 
-TEST_F(ContainerTest, NestedOverridesGlobalBinding)
+TEST_F(ContainerTest, NestedOverridesrootBinding)
 {
     struct unique_type_t : no_deps_t
     {};
 
-    auto global = container_t{bind<unique_type_t>().to<unique_type_t>().in<lifestyle::singleton_t>()};
-    auto nested = container_t{global, bind<unique_type_t>().to<unique_type_t>().in<lifestyle::transient_t>()};
+    auto root = container_t{bind<unique_type_t>().to<unique_type_t>().in<lifestyle::singleton_t>()};
+    auto nested = container_t{root, bind<unique_type_t>().to<unique_type_t>().in<lifestyle::transient_t>()};
 
-    auto& from_global = global.resolve<unique_type_t&>();
+    auto& from_root = root.resolve<unique_type_t&>();
     auto from_nested1 = nested.resolve<unique_type_t>();
     auto from_nested2 = nested.resolve<unique_type_t>();
 
-    EXPECT_NE(from_global.id, from_nested1.id);
+    EXPECT_NE(from_root.id, from_nested1.id);
     EXPECT_NE(from_nested1.id, from_nested2.id);
     EXPECT_EQ(total_constructions, 3);
 }
@@ -380,9 +380,9 @@ TEST_F(ContainerTest, NestedContainerSingletonScoping)
     struct unique_type_t : no_deps_t
     {};
 
-    auto global = global_container_t{};
-    auto nested1 = nested_container_t{global, bind<unique_type_t>().to<unique_type_t>().in<lifestyle::singleton_t>()};
-    auto nested2 = nested_container_t{global, bind<unique_type_t>().to<unique_type_t>().in<lifestyle::singleton_t>()};
+    auto root = root_container_t{};
+    auto nested1 = nested_container_t{root, bind<unique_type_t>().to<unique_type_t>().in<lifestyle::singleton_t>()};
+    auto nested2 = nested_container_t{root, bind<unique_type_t>().to<unique_type_t>().in<lifestyle::singleton_t>()};
 
     auto& from_nested1_a = nested1.resolve<unique_type_t&>();
     auto& from_nested1_b = nested1.resolve<unique_type_t&>();
@@ -412,7 +412,7 @@ TEST_F(ContainerTest, DeepDependencyChain)
     struct a_t : constructed_from_t<b_t>
     {};
 
-    auto container = global_container_t{};
+    auto container = root_container_t{};
     auto instance = container.resolve<a_t>();
 
     EXPECT_GT(instance.id, 0);
@@ -436,7 +436,7 @@ TEST_F(ContainerTest, DiamondDependency)
     struct a_t : constructed_from_t<b_t, c_t>
     {};
 
-    auto container = global_container_t{};
+    auto container = root_container_t{};
     auto instance = container.resolve<a_t>();
 
     EXPECT_GT(instance.id, 0);
@@ -450,7 +450,7 @@ TEST_F(ContainerTest, MixedlifestylesInDependencyChain)
 
     using service_t = constructed_from_t<dep_t>;
 
-    auto container = global_container_t{
+    auto container = root_container_t{
         bind<dep_t>().to<dep_t>().in<lifestyle::singleton_t>(),
         bind<service_t>().to<service_t>().in<lifestyle::transient_t>()
     };
@@ -471,7 +471,7 @@ TEST_F(ContainerTest, MultipleBindingsFirstWins)
     int_t first_factory_calls = 0;
     int_t second_factory_calls = 0;
 
-    auto container = global_container_t{
+    auto container = root_container_t{
         bind<no_deps_t>().to_factory<no_deps_t>([&first_factory_calls]() {
             ++first_factory_calls;
             return no_deps_t{};
@@ -499,7 +499,7 @@ TEST_F(ContainerTest, MoveOnlyType)
         move_only_t& operator=(move_only_t&&) = default;
     };
 
-    auto container = global_container_t{};
+    auto container = root_container_t{};
 
     auto instance = container.resolve<move_only_t>();
     EXPECT_GT(instance.id, 0);
@@ -513,7 +513,7 @@ TEST_F(ContainerTest, ConstRequestTypes)
     struct unique_type_t : no_deps_t
     {};
 
-    auto container = global_container_t{bind<unique_type_t>().to<unique_type_t>().in<lifestyle::singleton_t>()};
+    auto container = root_container_t{bind<unique_type_t>().to<unique_type_t>().in<lifestyle::singleton_t>()};
 
     auto const& const_ref = container.resolve<unique_type_t const&>();
     auto const* const_ptr = container.resolve<unique_type_t const*>();
@@ -543,7 +543,7 @@ TEST_F(ContainerTest, LargeDependencyGraphPerformance)
     struct level1_t : constructed_from_t<level2_t>
     {};
 
-    auto container = global_container_t{bind<level5_t>().to<level5_t>().in<lifestyle::singleton_t>()};
+    auto container = root_container_t{bind<level5_t>().to<level5_t>().in<lifestyle::singleton_t>()};
 
     auto start_constructions = total_constructions;
     auto instance = container.resolve<level1_t>();
@@ -559,7 +559,7 @@ TEST_F(ContainerTest, ThreadSafetyOfRootSingletons)
     {};
 
     // Root container singletons use static locals which are thread-safe in C++11
-    auto container = global_container_t{bind<unique_type_t>().to<unique_type_t>().in<lifestyle::singleton_t>()};
+    auto container = root_container_t{bind<unique_type_t>().to<unique_type_t>().in<lifestyle::singleton_t>()};
 
     unique_type_t* ptr1 = nullptr;
     unique_type_t* ptr2 = nullptr;

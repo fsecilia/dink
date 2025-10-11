@@ -13,11 +13,11 @@ namespace dink {
 namespace delegation_strategy {
 
 /*!
-    delegation strategy for the root, global container
+    delegation strategy for the root, root container
     
     This strategy has no parent. 
 */
-struct global_t
+struct root_t
 {
     // signals there is no parent to which to delegate
     template <typename request_t, typename dependency_chain_t>
@@ -54,7 +54,7 @@ struct is_delegation_strategy_f : std::false_type
 {};
 
 template <>
-struct is_delegation_strategy_f<delegation_strategy::global_t> : std::true_type
+struct is_delegation_strategy_f<delegation_strategy::root_t> : std::true_type
 {};
 
 template <typename parent_t>
