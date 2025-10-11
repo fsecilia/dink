@@ -16,6 +16,7 @@ list(APPEND dink_library_files
     container.hpp
     ctor_factory.hpp
     dink.hpp
+    double_checked_storage.hpp
     exceptions.hpp
     factory_invoker.hpp
     instance_cache.hpp
@@ -26,6 +27,7 @@ list(APPEND dink_library_files
     providers.hpp
     request_traits.hpp
     scope.hpp
+    type_indexed_storage.hpp
     type_list.hpp
     version.hpp
 )
@@ -38,11 +40,13 @@ list(APPEND dink_unit_test_files
     config_test.cpp
     container_test.cpp
     ctor_factory_test.cpp
+    double_checked_storage_test.cpp
     factory_invoker_test.cpp
     instance_cache_test.cpp
     providers_test.cpp
     request_traits_test.cpp
     scope_test.cpp
+    type_indexed_storage_test.cpp
     type_list_test.cpp
     version_test.cpp
 )
