@@ -25,7 +25,6 @@ list(APPEND dink_library_files
     not_found.hpp
     providers.hpp
     request_traits.hpp
-    resolver.hpp
     scope.hpp
     type_list.hpp
     version.hpp
@@ -43,7 +42,6 @@ list(APPEND dink_unit_test_files
     instance_cache_test.cpp
     providers_test.cpp
     request_traits_test.cpp
-    resolver_test.cpp
     scope_test.cpp
     type_list_test.cpp
     version_test.cpp

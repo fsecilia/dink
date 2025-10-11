@@ -232,7 +232,14 @@ using effective_lifestyle_t = std::conditional_t<
         request_traits_f<request_t>::transitive_lifestyle == transitive_lifestyle_t::singleton, lifestyle::singleton_t,
         bound_lifestyle_t>>;
 
-//! Converts type from what is cached or provided to what was actually requested
+/*!
+    Converts type from what is cached or provided to what was actually requested.
+    
+    The mapping from provided or cached types is to requested types is n:m. A provider always returns a simple value, 
+    but that value may be cached in a singleton, which returns a reference, or a shared_ptr. The request may be for
+    a copy, a reference, an rvalue reference, a pointer, a unique_ptr, shared_ptr, or weak_ptr. as_requested() handles
+    the n:m mapping by delegating to the request_traits of the request.
+*/
 template <typename request_t, typename instance_t>
 auto as_requested(instance_t&& instance) -> decltype(auto)
 {
