@@ -201,10 +201,10 @@ template <>
 struct is_scope_f<scope::global_t> : std::true_type
 {};
 
-template <typename T>
-struct is_scope_f<scope::nested_t<T>> : std::true_type
+template <typename parent_t>
+struct is_scope_f<scope::nested_t<parent_t>> : std::true_type
 {};
 
-template <typename T> concept is_scope = is_scope_f<std::decay_t<T>>::value;
+template <typename value_t> concept is_scope = is_scope_f<std::remove_cvref_t<value_t>>::value;
 
 } // namespace dink
