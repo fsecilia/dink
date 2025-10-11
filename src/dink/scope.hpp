@@ -100,7 +100,7 @@ private:
     }
 };
 
-namespace container::scope {
+namespace scope {
 
 struct global_t
 {
@@ -192,5 +192,20 @@ struct nested_t
     }
 };
 
-} // namespace container::scope
+} // namespace scope
+
+template <typename>
+struct is_scope_f : std::false_type
+{};
+
+template <>
+struct is_scope_f<scope::global_t> : std::true_type
+{};
+
+template <typename T>
+struct is_scope_f<scope::nested_t<T>> : std::true_type
+{};
+
+template <typename T> concept is_scope = is_scope_f<std::decay_t<T>>::value;
+
 } // namespace dink

@@ -77,4 +77,14 @@ struct config_from_tuple_f<tuple_p<bindings_t...>>
     using type = config_t<bindings_t...>;
 };
 
+template <typename>
+struct is_config_f : std::false_type
+{};
+
+template <typename... Bindings>
+struct is_config_f<config_t<Bindings...>> : std::true_type
+{};
+
+template <typename T> concept is_config = is_config_f<std::decay_t<T>>::value;
+
 } // namespace dink

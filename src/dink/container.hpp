@@ -21,9 +21,6 @@ namespace dink {
 template <typename scope_t, typename config_t>
 class container_t;
 
-// --- Concept to identify a container (avoids ambiguity)
-namespace detail {
-
 template <typename>
 struct is_container_f : std::false_type
 {};
@@ -32,70 +29,42 @@ template <typename scope_t, typename config_t>
 struct is_container_f<container_t<scope_t, config_t>> : std::true_type
 {};
 
-// --- Trait and concept for identifying a scope ---
-template <typename>
-struct is_scope_f : std::false_type
-{};
-
-template <>
-struct is_scope_f<container::scope::global_t> : std::true_type
-{};
-
-template <typename T>
-struct is_scope_f<container::scope::nested_t<T>> : std::true_type
-{};
-
-template <typename T> concept is_scope = is_scope_f<std::decay_t<T>>::value;
-
-// --- Trait and concept for identifying a config ---
-template <typename>
-struct is_config_f : std::false_type
-{};
-
-template <typename... Bindings>
-struct is_config_f<config_t<Bindings...>> : std::true_type
-{};
-
-template <typename T> concept is_config = is_config_f<std::decay_t<T>>::value;
-
-} // namespace detail
-
-template <typename T> concept is_container = detail::is_container_f<std::decay_t<T>>::value;
+template <typename T> concept is_container = is_container_f<std::decay_t<T>>::value;
 
 template <typename scope_t, typename config_t>
 class container_t
 {
-    // Helper to get the deduced config type from a set of configs
-    template <typename... bindings_t>
-    using deduced_config_t =
-        typename config_from_tuple_f<decltype(resolve_bindings(std::declval<bindings_t>()...))>::type;
-
 public:
-    // Direct constructor for testing, now properly constrained
-    template <detail::is_scope ScopeP, detail::is_config ConfigP>
-    explicit container_t(ScopeP&& scope, ConfigP&& config)
-        : scope_{std::forward<ScopeP>(scope)}, config_{std::forward<ConfigP>(config)}
-    {}
+    //! default ctor; produces container with global scope and no bindings
+    container_t() = default;
 
-    // global constructor (empty)
-    explicit container_t() : config_{} {}
-
-    // global constructor (non-empty)
-    template <typename first_binding_p, typename... rest_bindings_p>
+    //! global scope ctor; produces container with global scope and given bindings
+    template <typename first_binding_t, typename... remaining_bindings_t>
     requires(
-        !is_container<std::decay_t<first_binding_p>>
-        && is_binding<std::decay_t<first_binding_p>>
-        && (is_binding<std::decay_t<rest_bindings_p>> && ...)
+        !is_container<std::decay_t<first_binding_t>>
+        && is_binding<std::decay_t<first_binding_t>>
+        && (is_binding<std::decay_t<remaining_bindings_t>> && ...)
     )
-    explicit container_t(first_binding_p&& first, rest_bindings_p&&... rest)
-        : config_{resolve_bindings(std::forward<first_binding_p>(first), std::forward<rest_bindings_p>(rest)...)}
+    explicit container_t(first_binding_t&& first, remaining_bindings_t&&... rest)
+        : container_t{
+              scope_t{},
+              config_t{
+                  resolve_bindings(std::forward<first_binding_t>(first), std::forward<remaining_bindings_t>(rest)...)
+              }
+          }
     {}
 
-    // nested constructor
-    template <typename p_scope_t, typename p_config_t, typename... bindings_t>
+    //! nested scope ctor; produces container with nested scope and given bindings
+    template <typename scope_p, typename config_p, typename... bindings_t>
     requires(is_binding<bindings_t> && ...)
-    explicit container_t(container_t<p_scope_t, p_config_t>& parent, bindings_t&&... configs)
-        : scope_{parent}, config_{resolve_bindings(std::forward<bindings_t>(configs)...)}
+    explicit container_t(container_t<scope_p, config_p>& parent, bindings_t&&... configs)
+        : container_t{scope_t{parent}, config_t{resolve_bindings(std::forward<bindings_t>(configs)...)}}
+    {}
+
+    // basic ctor; must be constrained or it is too greedy for clang when using deduction guides
+    template <is_scope scope_p, is_config config_p>
+    container_t(scope_p&& scope, config_p&& config) noexcept
+        : scope_{std::forward<scope_p>(scope)}, config_{std::forward<config_p>(config)}
     {}
 
     template <typename request_t, typename dependency_chain_t = type_list_t<>>
@@ -228,12 +197,12 @@ private:
     deduction guides
 
     clang matches the global deduction guide for a nested container, so there are clang-20.1-specific workarounds:
-        - the global deduction guides must be split into empty and nonempty so we can apply a constrainted to the first_
+        - the global deduction guides must be split into empty and nonempty so we can apply a constraint to the first
           parameter
         - the nonempty version must use enable_if_t to remove itself from consideration
 
-    When clang fixes this, the empty/nonempty split can be removed. The enable_if_t may need to be converted to a
-    concept.
+    When clang fixes this, the empty/nonempty split can be removed, though something like the enable_if_t will need to 
+    be converted to a concept.
 */
 
 //! deduction guide for nonempty global containers
@@ -246,30 +215,29 @@ template <
         int>
     = 0>
 container_t(first_binding_p&&, rest_bindings_p&&...) -> container_t<
-    container::scope::global_t,
+    scope::global_t,
     typename config_from_tuple_f<
         decltype(resolve_bindings(std::declval<first_binding_p>(), std::declval<rest_bindings_p>()...))>::type>;
 
 //! deduction guide for empty global containers
-container_t() -> container_t<container::scope::global_t, config_t<>>;
+container_t() -> container_t<scope::global_t, config_t<>>;
 
 //! deduction guide for nested containers
 template <typename p_scope_t, typename p_config_t, typename... bindings_t>
 requires(is_binding<bindings_t> && ...)
 container_t(container_t<p_scope_t, p_config_t>& parent, bindings_t&&...) -> container_t<
-    container::scope::nested_t<std::decay_t<decltype(parent)>>,
+    scope::nested_t<std::decay_t<decltype(parent)>>,
     typename config_from_tuple_f<decltype(resolve_bindings(std::declval<bindings_t>()...))>::type>;
 
 // type aliases
 
 template <typename... bindings_t>
 using global_container_t = container_t<
-    container::scope::global_t,
-    typename config_from_tuple_f<decltype(resolve_bindings(std::declval<bindings_t>()...))>::type>;
+    scope::global_t, typename config_from_tuple_f<decltype(resolve_bindings(std::declval<bindings_t>()...))>::type>;
 
 template <typename parent_t, typename... bindings_t>
 using child_container_t = container_t<
-    container::scope::nested_t<parent_t>,
+    scope::nested_t<parent_t>,
     typename config_from_tuple_f<decltype(resolve_bindings(std::declval<bindings_t>()...))>::type>;
 
 } // namespace dink
