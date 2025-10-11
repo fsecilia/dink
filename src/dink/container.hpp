@@ -58,18 +58,6 @@ struct is_config_f<config_t<Bindings...>> : std::true_type
 
 template <typename T> concept is_config = is_config_f<std::decay_t<T>>::value;
 
-//
-template <typename>
-struct is_reference_wrapper : std::false_type
-{};
-
-template <typename T>
-struct is_reference_wrapper<std::reference_wrapper<T>> : std::true_type
-{};
-
-template <typename T>
-inline constexpr bool is_reference_wrapper_v = is_reference_wrapper<T>::value;
-
 } // namespace detail
 
 template <typename T> concept is_container = detail::is_container_f<std::decay_t<T>>::value;
