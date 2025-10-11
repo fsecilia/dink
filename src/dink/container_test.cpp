@@ -7,7 +7,7 @@
 #include <dink/test.hpp>
 #include <dink/bindings.hpp>
 #include <dink/container.hpp>
-#include <dink/lifecycle.hpp>
+#include <dink/lifestyle.hpp>
 #include <memory>
 
 namespace dink {
@@ -97,17 +97,17 @@ TEST_F(ContainerTest, ExplicitBindingToImplementation)
         implementation_t(implementation_t const&) = delete;
     };
 
-    auto container = root_container_t{bind<interface_t>().to<implementation_t>().in<lifecycles::singleton_t>()};
+    auto container = root_container_t{bind<interface_t>().to<implementation_t>().in<lifestyles::singleton_t>()};
 
     auto& instance = container.resolve<interface_t&>();
     EXPECT_NE(dynamic_cast<implementation_t*>(&instance), nullptr);
 }
 
 // =============================================================================
-// Lifecycle Behavior Tests
+// lifestyle Behavior Tests
 // =============================================================================
 
-TEST_F(ContainerTest, TransientLifecycleCreatesNewInstances)
+TEST_F(ContainerTest, TransientlifestyleCreatesNewInstances)
 {
     auto container = root_container_t{bind<no_deps_t>().to<no_deps_t>()};
 
@@ -118,12 +118,12 @@ TEST_F(ContainerTest, TransientLifecycleCreatesNewInstances)
     EXPECT_EQ(total_constructions, 2);
 }
 
-TEST_F(ContainerTest, SingletonLifecycleReusesSameInstance)
+TEST_F(ContainerTest, SingletonlifestyleReusesSameInstance)
 {
     struct unique_type_t : no_deps_t
     {};
 
-    auto container = root_container_t{bind<unique_type_t>().to<unique_type_t>().in<lifecycles::singleton_t>()};
+    auto container = root_container_t{bind<unique_type_t>().to<unique_type_t>().in<lifestyles::singleton_t>()};
 
     auto a = container.resolve<unique_type_t>();
     auto b = container.resolve<unique_type_t>();
@@ -132,7 +132,7 @@ TEST_F(ContainerTest, SingletonLifecycleReusesSameInstance)
     EXPECT_EQ(total_constructions, 1);
 }
 
-TEST_F(ContainerTest, DefaultLifecycleIsTransient)
+TEST_F(ContainerTest, DefaultlifestyleIsTransient)
 {
     auto container = root_container_t{};
 
@@ -152,7 +152,7 @@ TEST_F(ContainerTest, ReferenceRequestForcesSingleton)
     struct unique_type_t : no_deps_t
     {};
 
-    auto container = root_container_t{bind<unique_type_t>().to<unique_type_t>().in<lifecycles::transient_t>()};
+    auto container = root_container_t{bind<unique_type_t>().to<unique_type_t>().in<lifestyles::transient_t>()};
 
     auto& a = container.resolve<unique_type_t&>();
     auto& b = container.resolve<unique_type_t&>();
@@ -166,7 +166,7 @@ TEST_F(ContainerTest, RValueReferenceRequestForcesTransient)
     struct unique_type_t : no_deps_t
     {};
 
-    auto container = root_container_t{bind<unique_type_t>().to<unique_type_t>().in<lifecycles::singleton_t>()};
+    auto container = root_container_t{bind<unique_type_t>().to<unique_type_t>().in<lifestyles::singleton_t>()};
     auto a = container.resolve<unique_type_t&&>();
     auto b = container.resolve<unique_type_t&&>();
 
@@ -193,7 +193,7 @@ TEST_F(ContainerTest, SharedPtrRequest)
     struct unique_type_t : no_deps_t
     {};
 
-    auto container = root_container_t{bind<unique_type_t>().to<unique_type_t>().in<lifecycles::singleton_t>()};
+    auto container = root_container_t{bind<unique_type_t>().to<unique_type_t>().in<lifestyles::singleton_t>()};
 
     auto a = container.resolve<std::shared_ptr<unique_type_t>>();
     auto b = container.resolve<std::shared_ptr<unique_type_t>>();
@@ -208,7 +208,7 @@ TEST_F(ContainerTest, UniquePtrRequestForcesTransient)
     struct unique_type_t : no_deps_t
     {};
 
-    auto container = root_container_t{bind<unique_type_t>().to<unique_type_t>().in<lifecycles::singleton_t>()};
+    auto container = root_container_t{bind<unique_type_t>().to<unique_type_t>().in<lifestyles::singleton_t>()};
 
     auto a = container.resolve<std::unique_ptr<unique_type_t>>();
     auto b = container.resolve<std::unique_ptr<unique_type_t>>();
@@ -222,7 +222,7 @@ TEST_F(ContainerTest, WeakPtrRequest)
     struct unique_type_t : no_deps_t
     {};
 
-    auto container = root_container_t{bind<unique_type_t>().to<unique_type_t>().in<lifecycles::singleton_t>()};
+    auto container = root_container_t{bind<unique_type_t>().to<unique_type_t>().in<lifestyles::singleton_t>()};
 
     auto shared = container.resolve<std::shared_ptr<unique_type_t>>();
     auto weak = container.resolve<std::weak_ptr<unique_type_t>>();
@@ -249,7 +249,7 @@ TEST_F(ContainerTest, CustomFactory)
                 ++factory_calls;
                 return unique_type_t{};
             })
-            .in<lifecycles::transient_t>()
+            .in<lifestyles::transient_t>()
     };
 
     auto a = container.resolve<unique_type_t>();
@@ -349,7 +349,7 @@ TEST_F(ContainerTest, ChildResolvesFromParent)
     struct unique_type_t : no_deps_t
     {};
 
-    auto parent = root_container_t{bind<unique_type_t>().to<unique_type_t>().in<lifecycles::singleton_t>()};
+    auto parent = root_container_t{bind<unique_type_t>().to<unique_type_t>().in<lifestyles::singleton_t>()};
 
     auto child = child_container_t<decltype(parent)>{parent};
 
@@ -365,8 +365,8 @@ TEST_F(ContainerTest, ChildOverridesParentBinding)
     struct unique_type_t : no_deps_t
     {};
 
-    auto parent = container_t{bind<unique_type_t>().to<unique_type_t>().in<lifecycle::singleton_t>()};
-    auto child = container_t{parent, bind<unique_type_t>().to<unique_type_t>().in<lifecycle::transient_t>()};
+    auto parent = container_t{bind<unique_type_t>().to<unique_type_t>().in<lifestyle::singleton_t>()};
+    auto child = container_t{parent, bind<unique_type_t>().to<unique_type_t>().in<lifestyle::transient_t>()};
 
     auto& from_parent = parent.resolve<unique_type_t&>();
     auto from_child1 = child.resolve<unique_type_t>();
@@ -383,8 +383,8 @@ TEST_F(ContainerTest, NestedContainerSingletonScoping)
     {};
 
     auto parent = root_container_t{};
-    auto child1 = child_container_t{parent, bind<unique_type_t>().to<unique_type_t>().in<lifecycles::singleton_t>()};
-    auto child2 = child_container_t{parent, bind<unique_type_t>().to<unique_type_t>().in<lifecycles::singleton_t>()};
+    auto child1 = child_container_t{parent, bind<unique_type_t>().to<unique_type_t>().in<lifestyles::singleton_t>()};
+    auto child2 = child_container_t{parent, bind<unique_type_t>().to<unique_type_t>().in<lifestyles::singleton_t>()};
 
     auto& from_child1_a = child1.resolve<unique_type_t&>();
     auto& from_child1_b = child1.resolve<unique_type_t&>();
@@ -445,7 +445,7 @@ TEST_F(ContainerTest, DiamondDependency)
     EXPECT_EQ(total_constructions, 4); // D (once), B, C, A
 }
 
-TEST_F(ContainerTest, MixedLifecyclesInDependencyChain)
+TEST_F(ContainerTest, MixedlifestylesInDependencyChain)
 {
     struct dep_t : constructed_from_t<>
     {};
@@ -453,7 +453,7 @@ TEST_F(ContainerTest, MixedLifecyclesInDependencyChain)
     using service_t = constructed_from_t<dep_t>;
 
     auto container = root_container_t{
-        bind<dep_t>().to<dep_t>().in<lifecycles::singleton_t>(), bind<service_t>().to<service_t>().in<lifecycles::transient_t>()
+        bind<dep_t>().to<dep_t>().in<lifestyles::singleton_t>(), bind<service_t>().to<service_t>().in<lifestyles::transient_t>()
     };
 
     auto a = container.resolve<service_t>();
@@ -514,7 +514,7 @@ TEST_F(ContainerTest, ConstRequestTypes)
     struct unique_type_t : no_deps_t
     {};
 
-    auto container = root_container_t{bind<unique_type_t>().to<unique_type_t>().in<lifecycles::singleton_t>()};
+    auto container = root_container_t{bind<unique_type_t>().to<unique_type_t>().in<lifestyles::singleton_t>()};
 
     auto const& const_ref = container.resolve<unique_type_t const&>();
     auto const* const_ptr = container.resolve<unique_type_t const*>();
@@ -561,7 +561,7 @@ TEST_F(ContainerTest, LargeDependencyGraphPerformance)
     struct level1_t : constructed_from_t<level2_t>
     {};
 
-    auto container = root_container_t{bind<level5_t>().to<level5_t>().in<lifecycles::singleton_t>()};
+    auto container = root_container_t{bind<level5_t>().to<level5_t>().in<lifestyles::singleton_t>()};
 
     auto start_constructions = total_constructions;
     auto instance = container.resolve<level1_t>();
@@ -577,7 +577,7 @@ TEST_F(ContainerTest, ThreadSafetyOfRootSingletons)
     {};
 
     // Root container singletons use static locals which are thread-safe in C++11
-    auto container = root_container_t{bind<unique_type_t>().to<unique_type_t>().in<lifecycles::singleton_t>()};
+    auto container = root_container_t{bind<unique_type_t>().to<unique_type_t>().in<lifestyles::singleton_t>()};
 
     unique_type_t* ptr1 = nullptr;
     unique_type_t* ptr2 = nullptr;

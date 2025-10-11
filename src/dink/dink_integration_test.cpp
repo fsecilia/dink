@@ -58,7 +58,7 @@ TEST_F(integration_smoke_test_t, explicit_binding)
 {
     using instance_t = constructed_from_t<>;
 
-    auto container = global_container_t{bind<instance_t>().to<instance_t>().in<lifecycle::singleton_t>()};
+    auto container = global_container_t{bind<instance_t>().to<instance_t>().in<lifestyle::singleton_t>()};
     auto a1 = container.resolve<instance_t>();
     auto a2 = container.resolve<instance_t>();
 

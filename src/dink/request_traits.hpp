@@ -6,7 +6,7 @@
 #pragma once
 
 #include <dink/lib.hpp>
-#include <dink/lifecycle.hpp>
+#include <dink/lifestyle.hpp>
 #include <dink/meta.hpp>
 #include <memory>
 #include <type_traits>
@@ -47,7 +47,7 @@ constexpr auto get_underlying(source_t&& source) -> decltype(auto)
 
 } // namespace detail
 
-enum class transitive_lifecycle_t
+enum class transitive_lifestyle_t
 {
     unmodified,
     transient,
@@ -59,7 +59,7 @@ struct request_traits_f
 {
     using value_type = requested_t;
     using return_type = requested_t;
-    static constexpr transitive_lifecycle_t transitive_lifecycle = transitive_lifecycle_t::unmodified;
+    static constexpr transitive_lifestyle_t transitive_lifestyle = transitive_lifestyle_t::unmodified;
 
     template <typename source_t>
     static auto as_requested(source_t&& source) -> requested_t
@@ -73,7 +73,7 @@ struct request_traits_f<requested_t&&>
 {
     using value_type = requested_t;
     using return_type = requested_t;
-    static constexpr transitive_lifecycle_t transitive_lifecycle = transitive_lifecycle_t::transient;
+    static constexpr transitive_lifestyle_t transitive_lifestyle = transitive_lifestyle_t::transient;
 
     template <typename source_t>
     static auto as_requested(source_t&& source) -> requested_t
@@ -87,7 +87,7 @@ struct request_traits_f<requested_t&>
 {
     using value_type = requested_t;
     using return_type = requested_t&;
-    static constexpr transitive_lifecycle_t transitive_lifecycle = transitive_lifecycle_t::singleton;
+    static constexpr transitive_lifestyle_t transitive_lifestyle = transitive_lifestyle_t::singleton;
 
     template <typename source_t>
     static auto as_requested(source_t&& source) -> requested_t&
@@ -101,7 +101,7 @@ struct request_traits_f<requested_t*>
 {
     using value_type = requested_t;
     using return_type = requested_t*;
-    static constexpr transitive_lifecycle_t transitive_lifecycle = transitive_lifecycle_t::singleton;
+    static constexpr transitive_lifestyle_t transitive_lifestyle = transitive_lifestyle_t::singleton;
 
     template <typename source_t>
     static auto as_requested(source_t&& source) -> requested_t*
@@ -115,7 +115,7 @@ struct request_traits_f<std::unique_ptr<requested_t, deleter_t>>
 {
     using value_type = std::remove_cvref_t<requested_t>;
     using return_type = std::unique_ptr<requested_t, deleter_t>;
-    static constexpr transitive_lifecycle_t transitive_lifecycle = transitive_lifecycle_t::transient;
+    static constexpr transitive_lifestyle_t transitive_lifestyle = transitive_lifestyle_t::transient;
 
     template <typename source_t>
     static auto as_requested(source_t&& source) -> std::unique_ptr<requested_t, deleter_t>
@@ -140,7 +140,7 @@ struct request_traits_f<std::shared_ptr<requested_t>>
 {
     using value_type = std::remove_cvref_t<requested_t>;
     using return_type = std::shared_ptr<requested_t>;
-    static constexpr transitive_lifecycle_t transitive_lifecycle = transitive_lifecycle_t::unmodified;
+    static constexpr transitive_lifestyle_t transitive_lifestyle = transitive_lifestyle_t::unmodified;
 
     template <typename source_t>
     static auto as_requested(source_t&& source) -> std::shared_ptr<requested_t>
@@ -171,7 +171,7 @@ struct request_traits_f<std::weak_ptr<requested_t>>
 {
     using value_type = std::remove_cvref_t<requested_t>;
     using return_type = std::weak_ptr<requested_t>;
-    static constexpr transitive_lifecycle_t transitive_lifecycle = transitive_lifecycle_t::singleton;
+    static constexpr transitive_lifestyle_t transitive_lifestyle = transitive_lifestyle_t::singleton;
 
     template <typename source_t>
     static auto as_requested(source_t&& source) -> std::weak_ptr<requested_t>
@@ -202,17 +202,17 @@ template <typename requested_t>
 using returned_t = typename request_traits_f<requested_t>::return_type;
 
 /*!
-    Effective lifecycle to use for a specific request given its immediate type and lifecycle it was bound to
+    Effective lifestyle to use for a specific request given its immediate type and lifestyle it was bound to
     
     If type is bound transient, but you ask for type&, that request is treated as singleton.
     If type is bound singleton, but you ask for type&&, that request is treated as transient.
 */
-template <typename bound_lifecycle_t, typename request_t>
-using effective_lifecycle_t = std::conditional_t<
-    request_traits_f<request_t>::transitive_lifecycle == transitive_lifecycle_t::transient, lifecycle::transient_t,
+template <typename bound_lifestyle_t, typename request_t>
+using effective_lifestyle_t = std::conditional_t<
+    request_traits_f<request_t>::transitive_lifestyle == transitive_lifestyle_t::transient, lifestyle::transient_t,
     std::conditional_t<
-        request_traits_f<request_t>::transitive_lifecycle == transitive_lifecycle_t::singleton, lifecycle::singleton_t,
-        bound_lifecycle_t>>;
+        request_traits_f<request_t>::transitive_lifestyle == transitive_lifestyle_t::singleton, lifestyle::singleton_t,
+        bound_lifestyle_t>>;
 
 //! Converts type from what is cached or provided to what was actually requested
 template <typename request_t, typename instance_t>

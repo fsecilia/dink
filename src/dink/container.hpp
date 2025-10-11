@@ -8,7 +8,7 @@
 #include <dink/lib.hpp>
 #include <dink/bindings.hpp>
 #include <dink/config.hpp>
-#include <dink/lifecycle.hpp>
+#include <dink/lifestyle.hpp>
 #include <dink/providers.hpp>
 #include <dink/request_traits.hpp>
 #include <dink/resolver.hpp>
@@ -45,8 +45,6 @@ class container_t : public scope_t
         typename config_from_tuple_f<decltype(resolve_bindings(std::declval<bindings_t>()...))>::type;
 
 public:
-    inline static constexpr auto is_global = std::same_as<scope_t, container::scope::global_t>;
-
     container_t(scope_t scope, config_t config, resolver_t resolver) noexcept
         : scope_t{std::move(scope)}, config_{std::move(config)}, resolver_{std::move(resolver)}
     {}
@@ -78,8 +76,8 @@ public:
     {
         using resolved_t = resolved_t<request_t>;
 
-        // check local cache for for singleton-lifecycled requests
-        if constexpr (request_traits_f<resolved_t>::transitive_lifecycle == transitive_lifecycle_t::singleton)
+        // check local cache for for singleton-lifestyled requests
+        if constexpr (request_traits_f<resolved_t>::transitive_lifestyle == transitive_lifestyle_t::singleton)
         {
             if (auto cached = scope_t::template find_in_local_cache<resolved_t>())
             {
@@ -98,7 +96,14 @@ public:
             }
         }
 
+        return delegate_to_parent<request_t, dependency_chain_t>(std::forward<factory_t>(factory));
+    }
+
+    template <typename request_t, typename dependency_chain_t, typename factory_t>
+    auto delegate_to_parent(factory_t&& factory) -> returned_t<request_t>
+    {
         // delegate to parent if exists
+        static constexpr auto is_global = std::same_as<scope_t, container::scope::global_t>;
         if constexpr (!is_global)
         {
             return scope_t::parent->template try_resolve<request_t, dependency_chain_t>(

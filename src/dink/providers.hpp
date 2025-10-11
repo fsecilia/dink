@@ -9,7 +9,7 @@
 #include <dink/arity.hpp>
 #include <dink/ctor_factory.hpp>
 #include <dink/factory_invoker.hpp>
-#include <dink/lifecycle.hpp>
+#include <dink/lifestyle.hpp>
 
 namespace dink::providers {
 
@@ -21,7 +21,7 @@ template <typename constructed_t, typename factory_t = ctor_factory_t<constructe
 struct creator_t
 {
     struct creator_tag;
-    using default_lifecycle = lifecycle::transient_t;
+    using default_lifestyle = lifestyle::transient_t;
     using provided_t = constructed_t;
 
     factory_t factory;

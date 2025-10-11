@@ -7,14 +7,14 @@
 
 #include <dink/lib.hpp>
 #include <dink/bindings.hpp>
-#include <dink/lifecycle.hpp>
+#include <dink/lifestyle.hpp>
 #include <dink/providers.hpp>
 #include <dink/request_traits.hpp>
 #include <memory>
 
 namespace dink {
 
-// Creates an instance from a provider, handling lifecycle and caching.
+// Creates an instance from a provider, handling lifestyle and caching.
 class resolver_t
 {
 public:
@@ -29,10 +29,10 @@ public:
         }
         else
         {
-            // creator - check effective lifecycle
-            using binding_lifecycle_t = typename binding_t::lifecycle_type;
-            using effective_lifecycle_t = effective_lifecycle_t<binding_lifecycle_t, request_t>;
-            return execute_provider<request_t, dependency_chain_t, effective_lifecycle_t>(binding.provider, container);
+            // creator - check effective lifestyle
+            using binding_lifestyle_t = typename binding_t::lifestyle_type;
+            using effective_lifestyle_t = effective_lifestyle_t<binding_lifestyle_t, request_t>;
+            return execute_provider<request_t, dependency_chain_t, effective_lifestyle_t>(binding.provider, container);
         }
     }
 
@@ -43,13 +43,13 @@ public:
         using resolved_t = resolved_t<request_t>;
 
         providers::creator_t<resolved_t> default_provider;
-        using effective_lifecycle_t = effective_lifecycle_t<lifecycle::transient_t, request_t>;
-        return execute_provider<request_t, dependency_chain_t, effective_lifecycle_t>(default_provider, container);
+        using effective_lifestyle_t = effective_lifestyle_t<lifestyle::transient_t, request_t>;
+        return execute_provider<request_t, dependency_chain_t, effective_lifestyle_t>(default_provider, container);
     }
 
 private:
     template <
-        typename request_t, typename dependency_chain_t, typename lifecycle_t, typename provider_t,
+        typename request_t, typename dependency_chain_t, typename lifestyle_t, typename provider_t,
         typename container_p>
     auto execute_provider(provider_t& provider, container_p& container) -> returned_t<request_t>
     {
@@ -59,7 +59,7 @@ private:
         if constexpr (detail::is_shared_ptr_v<request_t> || detail::is_weak_ptr_v<request_t>)
         {
             // --- LOGIC FOR SHARED POINTERS (P4, P5, P7) ---
-            if constexpr (std::same_as<lifecycle_t, lifecycle::singleton_t>)
+            if constexpr (std::same_as<lifestyle_t, lifestyle::singleton_t>)
             {
                 // This is a singleton request, so use the scope's shared_ptr container.
                 // This correctly handles caching the canonical shared_ptr.
@@ -67,7 +67,7 @@ private:
                     container.template resolve_shared_ptr<provided_t, dependency_chain_t>(provider, container)
                 );
             }
-            else // transient lifecycle
+            else // transient lifestyle
             {
                 // create a new transient shared_ptr.
                 return as_requested<request_t>(
@@ -77,18 +77,18 @@ private:
         }
         else
         {
-            static_assert(std::same_as<lifecycle_t, effective_lifecycle_t<lifecycle_t, request_t>>);
+            static_assert(std::same_as<lifestyle_t, effective_lifestyle_t<lifestyle_t, request_t>>);
 
             // --- EXISTING LOGIC FOR OTHER TYPES (P1, P2, P3, P6) ---
 
-            if constexpr (std::same_as<lifecycle_t, lifecycle::singleton_t>)
+            if constexpr (std::same_as<lifestyle_t, lifestyle::singleton_t>)
             {
                 // Resolve through scope (caches automatically)
                 return as_requested<request_t>(
                     container.template resolve_singleton<provided_t, dependency_chain_t>(provider, container)
                 );
             }
-            else // It's a transient lifecycle
+            else // It's a transient lifestyle
             {
                 // Create without caching
                 return as_requested<request_t>(provider.template create<dependency_chain_t>(container));

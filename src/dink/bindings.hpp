@@ -7,7 +7,7 @@
 
 #include <dink/lib.hpp>
 #include <dink/canonical.hpp>
-#include <dink/lifecycle.hpp>
+#include <dink/lifestyle.hpp>
 #include <dink/providers.hpp>
 #include <concepts>
 #include <type_traits>
@@ -15,14 +15,14 @@
 
 namespace dink {
 
-//! complete binding configuration: from type -> to type -> provider -> lifecycle
-template <typename from_t, typename to_t, typename provider_t, typename lifecycle_t>
+//! complete binding configuration: from type -> to type -> provider -> lifestyle
+template <typename from_t, typename to_t, typename provider_t, typename lifestyle_t>
 struct binding_t
 {
     using from_type = from_t;
     using to_type = to_t;
     using provider_type = provider_t;
-    using lifecycle_type = lifecycle_t;
+    using lifestyle_type = lifestyle_t;
 
     provider_t provider;
 };
@@ -36,16 +36,16 @@ public:
     using to_type = to_t;
     using provider_type = provider_t;
 
-    // specify lifecycle (only for creators)
-    template <typename lifecycle_t>
+    // specify lifestyle (only for creators)
+    template <typename lifestyle_t>
     requires providers::is_creator<provider_t>
-    auto in() && -> binding_t<from_t, to_t, provider_t, lifecycle_t>
+    auto in() && -> binding_t<from_t, to_t, provider_t, lifestyle_t>
     {
         return {std::move(provider_)};
     }
 
-    // if no lifecycle specified, use default (or accessor has no lifecycle)
-    operator binding_t<from_t, to_t, provider_t, lifecycle::default_t>() && { return {std::move(provider_)}; }
+    // if no lifestyle specified, use default (or accessor has no lifestyle)
+    operator binding_t<from_t, to_t, provider_t, lifestyle::default_t>() && { return {std::move(provider_)}; }
 
     explicit binding_dst_t(provider_t provider) : provider_(std::move(provider)) {}
 
@@ -127,42 +127,42 @@ auto bind() -> binding_src_t<canonical_t<from_t>>
     return {};
 }
 
-//! resolve default lifecycle to provider's default (for creators) or no lifecycle (for accessors)
-template <typename from_t, typename to_t, typename provider_t, typename lifecycle_t>
-auto resolve_binding(binding_t<from_t, to_t, provider_t, lifecycle_t>&& config)
+//! resolve default lifestyle to provider's default (for creators) or no lifestyle (for accessors)
+template <typename from_t, typename to_t, typename provider_t, typename lifestyle_t>
+auto resolve_binding(binding_t<from_t, to_t, provider_t, lifestyle_t>&& config)
 {
-    if constexpr (std::same_as<lifecycle_t, lifecycle::default_t>)
+    if constexpr (std::same_as<lifestyle_t, lifestyle::default_t>)
     {
         if constexpr (providers::is_creator<provider_t>)
         {
-            // use provider's default lifecycle
-            using resolved_lifecycle_t = typename provider_t::default_lifecycle;
-            return binding_t<from_t, to_t, provider_t, resolved_lifecycle_t>{std::move(config.provider)};
+            // use provider's default lifestyle
+            using resolved_lifestyle_t = typename provider_t::default_lifestyle;
+            return binding_t<from_t, to_t, provider_t, resolved_lifestyle_t>{std::move(config.provider)};
         }
         else
         {
-            // accessors have no lifecycle
-            struct no_lifecycle_t
+            // accessors have no lifestyle
+            struct no_lifestyle_t
             {};
-            return binding_t<from_t, to_t, provider_t, no_lifecycle_t>{std::move(config.provider)};
+            return binding_t<from_t, to_t, provider_t, no_lifestyle_t>{std::move(config.provider)};
         }
     }
     else
     {
-        // lifecycle explicitly specified
-        static_assert(providers::is_creator<provider_t>, "Cannot specify lifecycle for accessor providers");
+        // lifestyle explicitly specified
+        static_assert(providers::is_creator<provider_t>, "Cannot specify lifestyle for accessor providers");
         return config; // already correct type
     }
 }
 
-//! resolve an incomplete binding builder by applying the default lifecycle
+//! resolve an incomplete binding builder by applying the default lifestyle
 template <typename from_t, typename to_t, typename provider_t>
 auto resolve_binding(binding_dst_t<from_t, to_t, provider_t>&& dst)
 {
-    // explicitly invoke the conversion operator to get a config with a default lifecycle
-    binding_t<from_t, to_t, provider_t, lifecycle::default_t> config = std::move(dst);
+    // explicitly invoke the conversion operator to get a config with a default lifestyle
+    binding_t<from_t, to_t, provider_t, lifestyle::default_t> config = std::move(dst);
 
-    // delegate to the original function to resolve the default lifecycle to the correct one
+    // delegate to the original function to resolve the default lifestyle to the correct one
     return resolve_binding(std::move(config));
 }
 
@@ -178,8 +178,8 @@ template <typename>
 struct is_binding_f : std::false_type
 {};
 
-template <typename from_p, typename to_p, typename lifecycle_p, typename provider_p>
-struct is_binding_f<binding_t<from_p, to_p, lifecycle_p, provider_p>> : std::true_type
+template <typename from_p, typename to_p, typename lifestyle_p, typename provider_p>
+struct is_binding_f<binding_t<from_p, to_p, lifestyle_p, provider_p>> : std::true_type
 {};
 
 template <typename from_p, typename to_p, typename provider_p>

@@ -20,7 +20,7 @@ list(APPEND dink_library_files
     factory_invoker.hpp
     instance_cache.hpp
     lib.hpp
-    lifecycle.hpp
+    lifestyle.hpp
     meta.hpp
     providers.hpp
     request_traits.hpp

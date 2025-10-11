@@ -7,7 +7,7 @@
 
 #include <dink/lib.hpp>
 
-namespace dink::lifecycle {
+namespace dink::lifestyle {
 
 struct transient_t
 {};
@@ -18,4 +18,4 @@ struct singleton_t
 struct default_t
 {};
 
-} // namespace dink::lifecycle
+} // namespace dink::lifestyle
