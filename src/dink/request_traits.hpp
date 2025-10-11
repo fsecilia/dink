@@ -108,21 +108,21 @@ struct request_traits_f<std::shared_ptr<requested_t>>
 
         // Case 1: Source is already a shared_ptr (e.g., from nested cache or transient).
         if constexpr (is_shared_ptr_v<clean_source_t>) { return std::forward<source_t>(source); }
-        // Case 2: Source is a pointer to a shared_ptr (from global cache).
         else if constexpr (std::is_pointer_v<clean_source_t> && is_shared_ptr_v<std::remove_pointer_t<clean_source_t>>)
         {
+            // Case 2: Source is a pointer to a shared_ptr (from global cache).
             // The global cache returns a pointer to the canonical shared_ptr. Dereference it.
             return *source;
         }
-        // Case 3: Source is a pointer to the underlying value T (from a singleton accessor).
         else if constexpr (std::is_pointer_v<clean_source_t>)
         {
+            // Case 3: Source is a pointer to the underlying value T (from a singleton accessor).
             // The source is a non-owning pointer to a singleton. Create a non-owning shared_ptr.
             return std::shared_ptr<requested_t>(source, [](auto*) {});
         }
-        // Case 4: Source is the raw value T (from a transient provider).
         else
         {
+            // Case 4: Source is the raw value T (from a transient provider).
             // The source is a temporary value. Create a new owning shared_ptr.
             return std::make_shared<requested_t>(std::forward<source_t>(source));
         }
