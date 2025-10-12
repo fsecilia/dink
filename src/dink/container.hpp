@@ -7,7 +7,8 @@
 
 #include <dink/lib.hpp>
 #include <dink/bindings.hpp>
-#include <dink/caching_policy.hpp>
+#include <dink/cache/hash_table.hpp>
+#include <dink/cache/type_indexed.hpp>
 #include <dink/config.hpp>
 #include <dink/delegation_policy.hpp>
 #include <dink/not_found.hpp>
@@ -22,7 +23,7 @@ namespace dink {
 template <typename policy_t>
 concept is_container_policy = requires {
     typename policy_t::delegation_policy_t;
-    typename policy_t::caching_policy_t;
+    typename policy_t::cache_t;
     typename policy_t::default_provider_factory_t;
 };
 
@@ -43,7 +44,7 @@ template <is_container_policy policy_t, is_config config_t>
 class container_t
 {
 public:
-    using caching_policy_t = policy_t::caching_policy_t;
+    using cache_t = policy_t::cache_t;
     using delegation_policy_t = policy_t::delegation_policy_t;
     using default_provider_factory_t = policy_t::default_provider_factory_t;
 
@@ -51,8 +52,8 @@ public:
     template <is_binding... bindings_t>
     explicit container_t(bindings_t&&... bindings)
         : container_t{
-              caching_policy_t{}, delegation_policy_t{},
-              config_t{resolve_bindings(std::forward<bindings_t>(bindings)...)}, default_provider_factory_t{}
+              cache_t{}, delegation_policy_t{}, config_t{resolve_bindings(std::forward<bindings_t>(bindings)...)},
+              default_provider_factory_t{}
           }
     {}
 
@@ -60,17 +61,17 @@ public:
     template <is_container parent_t, is_binding... bindings_t>
     explicit container_t(parent_t& parent, bindings_t&&... configs)
         : container_t{
-              caching_policy_t{}, delegation_policy_t{parent},
-              config_t{resolve_bindings(std::forward<bindings_t>(configs)...)}, default_provider_factory_t{}
+              cache_t{}, delegation_policy_t{parent}, config_t{resolve_bindings(std::forward<bindings_t>(configs)...)},
+              default_provider_factory_t{}
           }
     {}
 
     container_t(
-        caching_policy_t caching_policy, delegation_policy_t delegation_policy, config_t config,
+        cache_t cache, delegation_policy_t delegation_policy, config_t config,
         default_provider_factory_t default_provider_factory
     ) noexcept
-        : caching_policy_{std::move(caching_policy)}, delegation_policy_{std::move(delegation_policy)},
-          config_{std::move(config)}, default_provider_factory_{std::move(default_provider_factory)}
+        : cache_{std::move(cache)}, delegation_policy_{std::move(delegation_policy)}, config_{std::move(config)},
+          default_provider_factory_{std::move(default_provider_factory)}
     {}
 
     template <typename request_t, typename dependency_chain_t = type_list_t<>>
@@ -90,14 +91,14 @@ public:
             static constexpr auto check_shared_cache = is_shared_ptr_v<request_t> || is_weak_ptr_v<request_t>;
             if constexpr (check_shared_cache)
             {
-                if (auto cached = caching_policy_.template find_shared<resolved_t>())
+                if (auto cached = cache_.template get_shared<resolved_t>())
                 {
                     return as_requested<request_t>(std::move(cached));
                 }
             }
             else
             {
-                if (auto cached = caching_policy_.template find<resolved_t>())
+                if (auto cached = cache_.template get_instance<resolved_t>())
                 {
                     return as_requested<request_t>(std::move(cached));
                 }
@@ -159,22 +160,19 @@ private:
     template <typename request_t, typename dependency_chain_t, typename provider_t>
     auto invoke_provider_singleton(provider_t& provider) -> as_returnable_t<request_t>
     {
-        using provided_t = typename provider_t::provided_t;
+        using resolved_t = typename provider_t::provided_t;
+        auto const factory = [&]() { return provider.template create<dependency_chain_t>(*this); };
 
         static constexpr auto check_shared_cache = is_shared_ptr_v<request_t> || is_weak_ptr_v<request_t>;
         if constexpr (check_shared_cache)
         {
-            // caching_policy resolves a non-owning or cached shared_ptr to the singleton
-            return as_requested<request_t>(
-                caching_policy_.template resolve_shared<provided_t, dependency_chain_t>(provider, *this)
-            );
+            // cache resolves a non-owning or cached shared_ptr to the singleton
+            return as_requested<request_t>(cache_.template get_or_create_shared<resolved_t>(factory));
         }
         else
         {
-            // caching_policy resolves a reference to the singleton
-            return as_requested<request_t>(
-                caching_policy_.template resolve<provided_t, dependency_chain_t>(provider, *this)
-            );
+            // cache resolves a reference to the singleton
+            return as_requested<request_t>(cache_.template get_or_create_instance<resolved_t>(factory));
         }
     }
 
@@ -185,7 +183,7 @@ private:
         return as_requested<request_t>(provider.template create<dependency_chain_t>(*this));
     }
 
-    caching_policy_t caching_policy_{};
+    cache_t cache_{};
     delegation_policy_t delegation_policy_;
     config_t config_{};
     [[no_unique_address]] default_provider_factory_t default_provider_factory_{};
@@ -197,7 +195,7 @@ private:
 struct root_container_policy_t
 {
     using delegation_policy_t = delegation_policy::root_t;
-    using caching_policy_t = caching_policy::type_indexed_t<>;
+    using cache_t = cache::type_indexed_t<>;
     using default_provider_factory_t = provider::default_factory_t;
 };
 
@@ -206,7 +204,7 @@ template <typename parent_t>
 struct nested_container_policy_t
 {
     using delegation_policy_t = delegation_policy::nested_t<parent_t>;
-    using caching_policy_t = caching_policy::hash_table_t<>;
+    using cache_t = cache::hash_table_t;
     using default_provider_factory_t = provider::default_factory_t;
 };
 
