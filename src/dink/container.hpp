@@ -35,18 +35,10 @@ concept is_container_policy = requires {
 // Container detection
 // ---------------------------------------------------------------------------------------------------------------------
 
-template <is_container_policy policy_t, is_config config_t>
-class container_t;
-
-template <typename>
-struct is_container_f : std::false_type
-{};
-
-template <is_container_policy policy_t, is_config config_t>
-struct is_container_f<container_t<policy_t, config_t>> : std::true_type
-{};
-
-template <typename value_t> concept is_container = is_container_f<std::remove_cvref_t<value_t>>::value;
+template <typename container_t>
+concept is_container = requires(container_t& container) {
+    { container.template resolve<meta::concept_probe_t, type_list_t<>>() } -> std::same_as<meta::concept_probe_t>;
+};
 
 // ---------------------------------------------------------------------------------------------------------------------
 // Container implementation
