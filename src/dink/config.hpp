@@ -13,34 +13,33 @@
 #include <utility>
 
 namespace dink {
-
 namespace detail {
 
-//! finds bound scope for
-template <std::size_t index, typename bindings_tuple_p>
+//! finds binding index for resolved_t in bindings_tuple_t
+template <typename resolved_t, std::size_t index, typename bindings_tuple_t>
+struct binding_index_f;
+
+template <typename resolved_t, typename bindings_tuple_t>
+inline static constexpr std::size_t binding_index_v = binding_index_f<resolved_t, 0, bindings_tuple_t>::value;
+
+// ---------------------------------------------------------------------------------------------------------------------
+
+//! finds bound scope for given index, or default for npos.
+template <std::size_t index, typename bindings_tuple_t>
 struct bound_scope_f;
 
-//! general case where binding is found at a valid index
-template <std::size_t index, typename bindings_tuple_p>
-struct bound_scope_f
-{
-    using binding_t = std::tuple_element_t<index, bindings_tuple_p>;
-    using type = typename binding_t::scope_type;
-};
-
-//! specialization when the binding is not found
-template <typename bindings_tuple_p>
-struct bound_scope_f<npos, bindings_tuple_p>
-{
-    using type = scope::transient_t;
-};
+template <std::size_t index, typename bindings_tuple_t>
+using bound_scope_t = typename bound_scope_f<index, bindings_tuple_t>::type;
 
 } // namespace detail
 
-// Manages finding a binding for a given type
+//! bindings container; allows searching for bindings by type and bound scope by type
 template <typename... bindings_t>
 class config_t
 {
+    using bindings_tuple_t = std::tuple<bindings_t...>;
+    bindings_tuple_t bindings_;
+
 public:
     explicit config_t(std::tuple<bindings_t...> bindings) : bindings_{std::move(bindings)} {}
 
@@ -51,46 +50,15 @@ public:
     template <typename resolved_t>
     auto find_binding() -> auto
     {
-        constexpr auto index = binding_index_v<resolved_t>;
+        static constexpr auto index = detail::binding_index_v<resolved_t, bindings_tuple_t>;
         if constexpr (index != npos) return &std::get<index>(bindings_);
         else return not_found;
     }
 
-private:
-    // Compute binding index at compile time
-    template <typename resolved_t>
-    static constexpr std::size_t compute_binding_index()
-    {
-        if constexpr (sizeof...(bindings_t) == 0) return npos;
-        else
-        {
-            return []<std::size_t... indices>(std::index_sequence<indices...>) consteval {
-                // build array of matches
-                constexpr bool matches[] = {std::same_as<
-                    resolved_t, typename std::tuple_element_t<indices, std::tuple<bindings_t...>>::from_type>...};
-
-                // find first match in array
-                for (std::size_t index = 0; index < sizeof...(indices); ++index)
-                {
-                    if (matches[index]) return index;
-                }
-
-                // no match was found
-                return npos;
-            }(std::index_sequence_for<bindings_t...>{});
-        }
-    }
-
-    template <typename resolved_t>
-    static constexpr std::size_t binding_index_v = compute_binding_index<resolved_t>();
-
-    using bindings_tuple_t = std::tuple<bindings_t...>;
-    bindings_tuple_t bindings_;
-
-public:
     // determines the scope type from binding index
     template <typename resolved_t>
-    using bound_scope_t = typename detail::bound_scope_f<binding_index_v<resolved_t>, bindings_tuple_t>::type;
+    using bound_scope_t
+        = detail::bound_scope_t<detail::binding_index_v<resolved_t, bindings_tuple_t>, bindings_tuple_t>;
 };
 
 template <typename... bindings_t>
@@ -103,6 +71,44 @@ concept is_config = requires(config_t& config) {
 };
 
 namespace detail {
+
+//! base case: not found
+template <typename resolved_t, std::size_t index, typename bindings_tuple_t>
+struct binding_index_f
+{
+    static constexpr std::size_t value = npos;
+};
+
+// recursive case: check current binding
+template <typename resolved_t, std::size_t index, typename bindings_tuple_t>
+requires(index < std::tuple_size_v<bindings_tuple_t>)
+struct binding_index_f<resolved_t, index, bindings_tuple_t>
+{
+    using current_binding_t = std::tuple_element_t<index, bindings_tuple_t>;
+
+    static constexpr std::size_t value = std::same_as<resolved_t, typename current_binding_t::from_type>
+        ? index
+        : binding_index_f<resolved_t, index + 1, bindings_tuple_t>::value;
+};
+
+// ---------------------------------------------------------------------------------------------------------------------
+
+//! general case where binding is found at a valid index
+template <std::size_t index, typename bindings_tuple_t>
+struct bound_scope_f
+{
+    using binding_t = std::tuple_element_t<index, bindings_tuple_t>;
+    using type = typename binding_t::scope_type;
+};
+
+//! specialization when the binding is not found
+template <typename bindings_tuple_t>
+struct bound_scope_f<npos, bindings_tuple_t>
+{
+    using type = scope::transient_t;
+};
+
+// ---------------------------------------------------------------------------------------------------------------------
 
 //! metafunction to create a config type from a tuple of bindings
 template <typename tuple_t>
