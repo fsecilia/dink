@@ -19,28 +19,34 @@
 
 namespace dink {
 
-template <
-    typename delegation_policy_t, typename caching_policy_t, typename config_t, typename default_provider_factory_t>
+template <typename policy_t>
+concept is_container_policy = requires {
+    typename policy_t::delegation_policy_t;
+    typename policy_t::caching_policy_t;
+    typename policy_t::default_provider_factory_t;
+};
+
+template <is_container_policy policy_t, is_config config_t>
 class container_t;
 
 template <typename>
 struct is_container_f : std::false_type
 {};
 
-template <
-    typename delegation_policy_t, typename caching_policy_t, typename config_t, typename default_provider_factory_t>
-struct is_container_f<container_t<delegation_policy_t, caching_policy_t, config_t, default_provider_factory_t>>
-    : std::true_type
+template <is_container_policy policy_t, is_config config_t>
+struct is_container_f<container_t<policy_t, config_t>> : std::true_type
 {};
 
 template <typename value_t> concept is_container = is_container_f<std::remove_cvref_t<value_t>>::value;
 
-template <
-    typename delegation_policy_t, typename caching_policy_t, typename config_t,
-    typename default_provider_factory_t = provider::default_factory_t>
+template <is_container_policy policy_t, is_config config_t>
 class container_t
 {
 public:
+    using delegation_policy_t = policy_t::delegation_policy_t;
+    using caching_policy_t = policy_t::caching_policy_t;
+    using default_provider_factory_t = policy_t::default_provider_factory_t;
+
     //! default ctor; produces container with root caching_policy and no bindings
     container_t() = default;
 
@@ -53,42 +59,35 @@ public:
     )
     explicit container_t(first_binding_t&& first, remaining_bindings_t&&... rest)
         : container_t{
-              delegation_policy_t{},
-              caching_policy_t{},
+              caching_policy_t{}, delegation_policy_t{},
               config_t{
                   resolve_bindings(std::forward<first_binding_t>(first), std::forward<remaining_bindings_t>(rest)...)
               },
-              default_provider_factory_t{},
+              default_provider_factory_t{}
           }
     {}
 
     //! nested caching_policy ctor; produces container with nested caching_policy and given bindings
-    template <
-        typename parent_delegation_policy_t, typename parent_caching_policy_t, typename parent_config_t,
-        typename parent_default_provider_factory_t, typename... bindings_t>
+    template <typename parent_policy_t, typename parent_config_t, typename... bindings_t>
     requires(is_binding<bindings_t> && ...)
-    explicit container_t(
-        container_t<
-            parent_delegation_policy_t, parent_caching_policy_t, parent_config_t, parent_default_provider_factory_t>&
-            parent,
-        bindings_t&&... configs
-    )
+    explicit container_t(container_t<parent_policy_t, parent_config_t>& parent, bindings_t&&... configs)
         : container_t{
-              delegation_policy_t{parent}, caching_policy_t{},
+              caching_policy_t{}, delegation_policy_t{parent},
               config_t{resolve_bindings(std::forward<bindings_t>(configs)...)}, default_provider_factory_t{}
           }
     {}
 
     // basic ctor; must be constrained or it is too greedy for clang when using deduction guides
     template <
-        delegation_policy::is_delegation_policy delegation_policy_p, caching_policy::is_caching_policy caching_policy_p,
-        is_config config_p, typename default_provider_factory_p>
+        std::same_as<caching_policy_t> caching_policy_p, std::same_as<delegation_policy_t> delegation_policy_p,
+        std::same_as<config_t> config_p, std::same_as<default_provider_factory_t> default_provider_factory_p>
     container_t(
-        delegation_policy_p&& delegation_policy, caching_policy_p&& caching_policy, config_p&& config,
+        caching_policy_p&& caching_policy, delegation_policy_p&& delegation_policy, config_p&& config,
         default_provider_factory_p&& default_provider_factory = {}
     ) noexcept
-        : delegation_policy_{std::forward<delegation_policy_p>(delegation_policy)},
-          caching_policy_{std::forward<caching_policy_p>(caching_policy)}, config_{std::forward<config_p>(config)},
+        : caching_policy_{std::forward<caching_policy_p>(caching_policy)},
+          delegation_policy_{std::forward<delegation_policy_p>(delegation_policy)},
+          config_{std::forward<config_p>(config)},
           default_provider_factory_{std::forward<default_provider_factory_p>(default_provider_factory)}
     {}
 
@@ -189,10 +188,25 @@ private:
         }
     }
 
-    delegation_policy_t delegation_policy_;
     caching_policy_t caching_policy_{};
+    delegation_policy_t delegation_policy_;
     config_t config_{};
     [[no_unique_address]] default_provider_factory_t default_provider_factory_{};
+};
+
+struct root_container_policy_t
+{
+    using delegation_policy_t = delegation_policy::root_t;
+    using caching_policy_t = caching_policy::type_indexed_t<>;
+    using default_provider_factory_t = provider::default_factory_t;
+};
+
+template <typename parent_t>
+struct nested_container_policy_t
+{
+    using delegation_policy_t = delegation_policy::nested_t<parent_t>;
+    using caching_policy_t = caching_policy::hash_table_t<>;
+    using default_provider_factory_t = provider::default_factory_t;
 };
 
 /*
@@ -207,13 +221,6 @@ private:
     be converted to a concept.
 */
 
-using root_delegation_policy_t = delegation_policy::root_t;
-using root_caching_policy_t = caching_policy::type_indexed_t<>;
-
-template <typename parent_t>
-using nested_delegation_policy_t = delegation_policy::nested_t<parent_t>;
-using nested_caching_policy_t = caching_policy::hash_table_t<>;
-
 //! deduction guide for nonempty root containers
 template <
     typename first_binding_p, typename... rest_bindings_p,
@@ -224,46 +231,30 @@ template <
         int>
     = 0>
 container_t(first_binding_p&&, rest_bindings_p&&...) -> container_t<
-    root_delegation_policy_t, root_caching_policy_t,
+    root_container_policy_t,
     typename config_from_tuple_f<
-        decltype(resolve_bindings(std::declval<first_binding_p>(), std::declval<rest_bindings_p>()...))>::type,
-    provider::default_factory_t>;
+        decltype(resolve_bindings(std::declval<first_binding_p>(), std::declval<rest_bindings_p>()...))>::type>;
 
 //! deduction guide for empty root containers
-container_t() -> container_t<root_delegation_policy_t, root_caching_policy_t, config_t<>, provider::default_factory_t>;
+container_t() -> container_t<root_container_policy_t, config_t<>>;
 
 //! deduction guide for nested containers
-template <
-    typename parent_delegation_policy_t, typename parent_caching_policy_t, typename parent_config_t,
-    typename parent_default_factory_t, typename... bindings_t>
+template <typename parent_container_policy_t, typename parent_config_t, typename... bindings_t>
 requires(is_binding<bindings_t> && ...)
-container_t(
-    container_t<parent_delegation_policy_t, parent_caching_policy_t, parent_config_t, parent_default_factory_t>& parent,
-    bindings_t&&...
-)
-    -> container_t<
-        nested_delegation_policy_t<container_t<
-            parent_delegation_policy_t, parent_caching_policy_t, parent_config_t, parent_default_factory_t>>,
-        nested_caching_policy_t,
-        typename config_from_tuple_f<decltype(resolve_bindings(std::declval<bindings_t>()...))>::type,
-        provider::default_factory_t>;
+container_t(container_t<parent_container_policy_t, parent_config_t>& parent, bindings_t&&...) -> container_t<
+    nested_container_policy_t<container_t<parent_container_policy_t, parent_config_t>>,
+    typename config_from_tuple_f<decltype(resolve_bindings(std::declval<bindings_t>()...))>::type>;
 
 // type aliases
 
 template <typename... bindings_t>
 using root_container_t = container_t<
-    root_delegation_policy_t, root_caching_policy_t,
-    typename config_from_tuple_f<decltype(resolve_bindings(std::declval<bindings_t>()...))>::type,
-    provider::default_factory_t>;
+    root_container_policy_t,
+    typename config_from_tuple_f<decltype(resolve_bindings(std::declval<bindings_t>()...))>::type>;
 
-template <
-    typename parent_delegation_policy_t, typename parent_caching_policy_t, typename parent_config_t,
-    typename parent_default_factory_t, typename... bindings_t>
+template <typename parent_container_policy_t, typename parent_config_t, typename... bindings_t>
 using nested_container_t = container_t<
-    nested_delegation_policy_t<
-        container_t<parent_delegation_policy_t, parent_caching_policy_t, parent_config_t, parent_default_factory_t>>,
-    nested_caching_policy_t,
-    typename config_from_tuple_f<decltype(resolve_bindings(std::declval<bindings_t>()...))>::type,
-    provider::default_factory_t>;
+    nested_container_policy_t<container_t<parent_container_policy_t, parent_config_t>>,
+    typename config_from_tuple_f<decltype(resolve_bindings(std::declval<bindings_t>()...))>::type>;
 
 } // namespace dink
