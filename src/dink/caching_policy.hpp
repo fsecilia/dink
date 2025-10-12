@@ -59,7 +59,8 @@ public:
     template <typename instance_t>
     auto find_shared() -> std::shared_ptr<instance_t>
     {
-        return *cache_.template get<std::shared_ptr<instance_t>>();
+        auto result = cache_.template get<std::shared_ptr<instance_t>>();
+        return result ? *result : nullptr;
     }
 
     explicit type_indexed_t(cache_t cache) : cache_{std::move(cache)} {}

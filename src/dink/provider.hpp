@@ -36,7 +36,6 @@ struct creator_t
     auto create(container_t& container, factory_invoker_t&& factory_invoker) -> constructed_t
     {
         return std::forward<factory_invoker_t>(factory_invoker)(factory, container);
-        // return std::invoke(std::forward<factory_invoker_t>(factory_invoker), factory, container);
     }
 };
 

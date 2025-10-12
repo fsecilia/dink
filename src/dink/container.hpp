@@ -79,8 +79,22 @@ public:
         using traits = request_traits_f<request_t>;
         using resolved_t = typename traits::value_type;
 
-        static constexpr auto check_cache
-            = std::same_as<typename traits::transitive_lifestyle_type, lifestyle::singleton_t>;
+        // search for local binding
+        auto local_binding = config_.template find_binding<resolved_t>();
+
+        // determine effective lifestyle from local binding and request type
+        auto lifestyle_instance = []<typename binding_p>(binding_p const&) {
+            if constexpr (std::is_same_v<binding_p, not_found_t>) return lifestyle::transient_t{};
+            else
+            {
+                using pointed_to_binding_t = std::remove_pointer_t<binding_p>;
+                return typename pointed_to_binding_t::lifestyle_type{};
+            }
+        }(local_binding);
+        using effective_lifestyle_t = effective_lifestyle_t<decltype(lifestyle_instance), request_t>;
+
+        // check cache if necessary
+        static constexpr auto check_cache = std::same_as<effective_lifestyle_t, lifestyle::singleton_t>;
         if constexpr (check_cache)
         {
             static constexpr auto check_shared_cache = is_shared_ptr_v<request_t> || is_weak_ptr_v<request_t>;
@@ -100,15 +114,18 @@ public:
             }
         }
 
+        // type is not cached or not a singleton
+
+        static_assert(std::is_same_v<decltype(local_binding), std::remove_cvref_t<decltype(local_binding)>>);
+
         // check local bindings
-        auto local_binding = config_.template find_binding<resolved_t>();
         static constexpr auto binding_found = !std::is_same_v<decltype(local_binding), not_found_t>;
         if constexpr (binding_found) return create_from_binding<request_t, dependency_chain_t>(*local_binding);
 
-        // try delegating to parent
+        // try delegating
         decltype(auto) delegate_result = delegation_policy_.template delegate<request_t, dependency_chain_t>();
         static constexpr auto delegate_succeeded = !std::is_same_v<decltype(delegate_result), not_found_t>;
-        if constexpr (delegate_succeeded) return as_requested<request_t>(delegate_result);
+        if constexpr (delegate_succeeded) { return as_requested<request_t>(delegate_result); }
 
         // no cached instances or bindings were found; create and optionally cache using default provider
         return invoke_default_provider<request_t, dependency_chain_t>();
