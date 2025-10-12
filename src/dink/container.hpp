@@ -79,11 +79,8 @@ public:
         using traits = request_traits_f<request_t>;
         using resolved_t = typename traits::value_type;
 
-        // search for local binding
-        auto local_binding = config_.template find_binding<resolved_t>();
-
         // determine effective scope from local binding and request type
-        using binding_scope_t = get_binding_scope_t<decltype(local_binding)>;
+        using binding_scope_t = typename config_t::template binding_scope_t<resolved_t>;
         using effective_scope_t = effective_scope_t<binding_scope_t, request_t>;
 
         // check cache if necessary
@@ -109,9 +106,8 @@ public:
 
         // type is not cached or not a singleton
 
-        static_assert(std::is_same_v<decltype(local_binding), std::remove_cvref_t<decltype(local_binding)>>);
-
         // check local bindings
+        auto local_binding = config_.template find_binding<resolved_t>();
         static constexpr auto binding_found = !std::is_same_v<decltype(local_binding), not_found_t>;
         if constexpr (binding_found) return create_from_binding<request_t, dependency_chain_t>(*local_binding);
 

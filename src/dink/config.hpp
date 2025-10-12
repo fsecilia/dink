@@ -13,6 +13,29 @@
 
 namespace dink {
 
+namespace detail {
+
+// \brief Selects a scope type based on a compile-time condition.
+template <bool is_found, auto index, typename bindings_tuple_p>
+struct scope_selector_f;
+
+// \brief Specialization for when the binding is found.
+template <auto index, typename bindings_tuple_p>
+struct scope_selector_f<true, index, bindings_tuple_p>
+{
+    using binding_t = std::tuple_element_t<index, bindings_tuple_p>;
+    using type = typename binding_t::scope_type;
+};
+
+// \brief Specialization for when the binding is not found.
+template <auto index, typename bindings_tuple_p>
+struct scope_selector_f<false, index, bindings_tuple_p>
+{
+    using type = scope::transient_t;
+};
+
+} // namespace detail
+
 // Manages finding a binding for a given type
 template <typename... bindings_t>
 class config_t
@@ -60,7 +83,14 @@ private:
     template <typename resolved_t>
     static constexpr std::size_t binding_index_v = compute_binding_index<resolved_t>();
 
-    std::tuple<bindings_t...> bindings_;
+    using bindings_tuple_t = std::tuple<bindings_t...>;
+    bindings_tuple_t bindings_;
+
+public:
+    // determines the scope type from binding index
+    template <typename resolved_t>
+    using binding_scope_t = typename detail::scope_selector_f<
+        binding_index_v<resolved_t> != npos, binding_index_v<resolved_t>, bindings_tuple_t>::type;
 };
 
 template <typename... bindings_t>
@@ -86,30 +116,5 @@ struct config_from_tuple_f<tuple_p<bindings_t...>>
 {
     using type = config_t<bindings_t...>;
 };
-
-/*!
-    determines scope from a potential binding
-*/
-template <typename binding_or_not_found_t>
-struct get_binding_scope_f;
-
-// \brief Computes the scope type from a potential binding.
-// \details Primary template handles the case where a binding pointer is found.
-template <typename binding_t>
-struct get_binding_scope_f
-{
-    using type = typename std::remove_pointer_t<binding_t>::scope_type;
-};
-
-// \brief Full specialization for when no binding is found.
-template <>
-struct get_binding_scope_f<not_found_t>
-{
-    using type = scope::transient_t;
-};
-
-// \brief Alias template for convenience.
-template <typename binding_or_not_found_p>
-using get_binding_scope_t = typename get_binding_scope_f<binding_or_not_found_p>::type;
 
 } // namespace dink
