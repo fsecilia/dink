@@ -3,10 +3,10 @@
     Copyright (C) 2025 Frank Secilia
 */
 
-#include "instance_cache.hpp"
+#include "hash_table.hpp"
 #include <dink/test.hpp>
 
-namespace dink {
+namespace dink::cache {
 namespace {
 
 #if 0
@@ -86,4 +86,4 @@ TEST_F(instance_cache_test_t, nonconst_find_matches_const_find)
 #endif
 
 } // namespace
-} // namespace dink
+} // namespace dink::cache

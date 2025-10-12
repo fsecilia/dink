@@ -36,8 +36,8 @@ public:
         return create(std::forward<factory_t>(factory));
     }
 
-    //! returns cached instance or nullptr
-    auto get_if_initialized() const noexcept -> instance_t* { return atomic.load(std::memory_order_acquire); }
+    //! returns cached instance or nullptr if not yet initialized
+    auto get() const noexcept -> instance_t* { return atomic.load(std::memory_order_acquire); }
 
 private:
     //! instance is stored in a union so we can control when ctor and dtor are called without using heap
@@ -66,7 +66,7 @@ private:
         auto* storage_ptr = &storage.instance;
 
         // call ctor
-        new (storage_ptr) instance_t(factory());
+        new (storage_ptr) instance_t(std::forward<factory_t>(factory)());
 
         // capture instance
         instance.reset(storage_ptr);

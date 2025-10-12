@@ -11,25 +11,25 @@ list(APPEND dink_library_files
     arg.hpp
     arity.hpp
     bindings.hpp
+    cache/hash_table.hpp
+    cache/type_indexed.hpp
+    caching_policy.hpp
     canonical.hpp
     config.hpp
     container.hpp
     ctor_factory.hpp
-    delegation_strategy.hpp
+    delegation_policy.hpp
     dink.hpp
     double_checked_storage.hpp
     exceptions.hpp
     factory_invoker.hpp
-    instance_cache.hpp
     lib.hpp
     lifestyle.hpp
     meta.hpp
     not_found.hpp
     provider.hpp
     request_traits.hpp
-    scope.hpp
     smart_pointer_traits.hpp
-    type_indexed_storage.hpp
     type_list.hpp
     version.hpp
 )
@@ -38,19 +38,19 @@ list(APPEND dink_unit_test_files
     arg_test.cpp
     arity_test.cpp
     bindings_test.cpp
+    cache/hash_table_test.cpp
+    cache/type_indexed_test.cpp
+    caching_policy_test.cpp
     canonical_test.cpp
     config_test.cpp
     container_test.cpp
     ctor_factory_test.cpp
-    delegation_strategy_test.cpp
+    delegation_policy_test.cpp
     double_checked_storage_test.cpp
     factory_invoker_test.cpp
-    instance_cache_test.cpp
     provider_test.cpp
     request_traits_test.cpp
-    scope_test.cpp
     smart_pointer_traits_test.cpp
-    type_indexed_storage_test.cpp
     type_list_test.cpp
     version_test.cpp
 )
