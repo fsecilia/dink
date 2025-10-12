@@ -29,7 +29,7 @@ struct request_traits_f
     using transitive_scope_type = scope::default_t;
 
     template <typename cache_p>
-    static auto find_in_cache(cache_p& cache) -> auto
+    static auto find_in_cache(cache_p& cache) noexcept -> auto
     {
         return cache.template get_instance<value_type>();
     }
@@ -60,7 +60,7 @@ struct request_traits_f<requested_t&>
     using transitive_scope_type = scope::singleton_t;
 
     template <typename cache_p>
-    static auto find_in_cache(cache_p& cache) -> auto
+    static auto find_in_cache(cache_p& cache) noexcept -> auto
     {
         return cache.template get_instance<value_type>();
     }
@@ -85,7 +85,7 @@ struct request_traits_f<requested_t*>
     using transitive_scope_type = scope::singleton_t;
 
     template <typename cache_p>
-    static auto find_in_cache(cache_p& cache) -> auto
+    static auto find_in_cache(cache_p& cache) noexcept -> auto
     {
         return cache.template get_instance<value_type>();
     }
@@ -112,7 +112,7 @@ struct request_traits_f<std::unique_ptr<requested_t, deleter_t>>
 
     // unique_ptr is always transient, so it never interacts with the cache
     template <typename cache_p>
-    static auto find_in_cache(cache_p& cache) -> auto
+    static auto find_in_cache(cache_p& cache) noexcept -> auto
     {
         return cache.template get_instance<value_type>();
     }
@@ -137,7 +137,7 @@ struct request_traits_f<std::shared_ptr<requested_t>>
     using transitive_scope_type = scope::default_t;
 
     template <typename cache_p>
-    static auto find_in_cache(cache_p& cache) -> auto
+    static auto find_in_cache(cache_p& cache) noexcept -> auto
     {
         return cache.template get_shared<value_type>();
     }
