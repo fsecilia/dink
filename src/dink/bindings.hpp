@@ -140,6 +140,28 @@ auto bind() -> binding_src_t<canonical_t<from_t>>
     return {};
 }
 
+namespace detail {
+
+template <typename>
+struct is_binding_f : std::false_type
+{};
+
+template <typename from_t, typename to_t, typename lifestyle_t, typename provider_t>
+struct is_binding_f<binding_t<from_t, to_t, lifestyle_t, provider_t>> : std::true_type
+{};
+
+template <typename from_t, typename to_t, typename provider_t>
+struct is_binding_f<binding_dst_t<from_t, to_t, provider_t>> : std::true_type
+{};
+
+template <typename from_t>
+struct is_binding_f<binding_src_t<from_t>> : std::true_type
+{};
+
+} // namespace detail
+
+template <typename T> concept is_binding = detail::is_binding_f<std::remove_cvref_t<T>>::value;
+
 //! resolve default lifestyle to provider's default (for creators) or no lifestyle (for accessors)
 template <typename from_t, typename to_t, typename provider_t, typename lifestyle_t>
 auto resolve_binding(binding_t<from_t, to_t, provider_t, lifestyle_t>&& config)
@@ -180,28 +202,10 @@ auto resolve_binding(binding_dst_t<from_t, to_t, provider_t>&& dst)
     return resolve_binding(std::move(config));
 }
 
-template <typename... bindings_t>
+template <is_binding... bindings_t>
 auto resolve_bindings(bindings_t&&... bindings)
 {
     return std::make_tuple(resolve_binding(std::forward<bindings_t>(bindings))...);
 }
-
-namespace detail {
-
-template <typename>
-struct is_binding_f : std::false_type
-{};
-
-template <typename from_p, typename to_p, typename lifestyle_p, typename provider_p>
-struct is_binding_f<binding_t<from_p, to_p, lifestyle_p, provider_p>> : std::true_type
-{};
-
-template <typename from_p, typename to_p, typename provider_p>
-struct is_binding_f<binding_dst_t<from_p, to_p, provider_p>> : std::true_type
-{};
-
-} // namespace detail
-
-template <typename T> concept is_binding = detail::is_binding_f<std::remove_cvref_t<T>>::value;
 
 } // namespace dink
