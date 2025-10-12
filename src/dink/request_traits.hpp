@@ -28,24 +28,29 @@ struct request_traits_f
     using value_type = requested_t;
     using transitive_scope_type = scope::default_t;
 
+    template <typename cache_p>
+    static auto find_in_cache(cache_p& cache) -> decltype(cache.template get_instance<value_type>())
+    {
+        return cache.template get_instance<value_type>();
+    }
+
+    template <typename provided_t, typename cache_p, typename factory_p>
+    static auto resolve_from_cache(cache_p& cache, factory_p&& factory) -> decltype(auto)
+    {
+        return cache.template get_or_create_instance<provided_t>(std::forward<factory_p>(factory));
+    }
+
     template <typename source_t>
     static auto as_requested(source_t&& source) -> requested_t
     {
-        return std::move(element_type(std::forward<source_t>(source)));
+        return element_type(std::forward<source_t>(source));
     }
 };
 
 template <typename requested_t>
-struct request_traits_f<requested_t&&>
+struct request_traits_f<requested_t&&> : request_traits_f<requested_t>
 {
-    using value_type = requested_t;
     using transitive_scope_type = scope::transient_t;
-
-    template <typename source_t>
-    static auto as_requested(source_t&& source) -> requested_t
-    {
-        return std::move(element_type(std::forward<source_t>(source)));
-    }
 };
 
 template <typename requested_t>
@@ -54,10 +59,22 @@ struct request_traits_f<requested_t&>
     using value_type = requested_t;
     using transitive_scope_type = scope::singleton_t;
 
+    template <typename cache_p>
+    static auto find_in_cache(cache_p& cache) -> decltype(cache.template get_instance<value_type>())
+    {
+        return cache.template get_instance<value_type>();
+    }
+
+    template <typename provided_t, typename cache_p, typename factory_p>
+    static auto resolve_from_cache(cache_p& cache, factory_p&& factory) -> decltype(auto)
+    {
+        return cache.template get_or_create_instance<provided_t>(std::forward<factory_p>(factory));
+    }
+
     template <typename source_t>
     static auto as_requested(source_t&& source) -> requested_t&
     {
-        return static_cast<requested_t&>(element_type(std::forward<source_t>(source)));
+        return element_type(std::forward<source_t>(source));
     }
 };
 
@@ -67,9 +84,22 @@ struct request_traits_f<requested_t*>
     using value_type = requested_t;
     using transitive_scope_type = scope::singleton_t;
 
+    template <typename cache_p>
+    static auto find_in_cache(cache_p& cache) -> decltype(cache.template get_instance<value_type>())
+    {
+        return cache.template get_instance<value_type>();
+    }
+
+    template <typename provided_t, typename cache_p, typename factory_p>
+    static auto resolve_from_cache(cache_p& cache, factory_p&& factory) -> decltype(auto)
+    {
+        return &cache.template get_or_create_instance<provided_t>(std::forward<factory_p>(factory));
+    }
+
     template <typename source_t>
     static auto as_requested(source_t&& source) -> requested_t*
     {
+        // for requested_t*, source will never be a temporary
         return &element_type(std::forward<source_t>(source));
     }
 };
@@ -78,14 +108,25 @@ template <typename requested_t, typename deleter_t>
 struct request_traits_f<std::unique_ptr<requested_t, deleter_t>>
 {
     using value_type = std::remove_cvref_t<requested_t>;
-    using transitive_scope_type = scope::transient_t;
+    using transitive_scope_type = scope::default_t;
+
+    // unique_ptr is always transient, so it never interacts with the cache
+    template <typename cache_p>
+    static auto find_in_cache(cache_p& cache)
+    {
+        return cache.template get_instance<value_type>();
+    }
+
+    template <typename provided_t, typename cache_p, typename factory_p>
+    static auto resolve_from_cache(cache_p& cache, factory_p&& factory)
+    {
+        return cache.template get_or_create_instance<provided_t>(std::forward<factory_p>(factory));
+    }
 
     template <typename source_t>
     static auto as_requested(source_t&& source) -> std::unique_ptr<requested_t, deleter_t>
     {
-        // std::make_unique will copy from an lvalue (the singleton T&)
-        // and move from an rvalue (a transient T&&). This is perfect.
-        return std::make_unique<requested_t>(std::forward<source_t>(source));
+        return std::make_unique<requested_t>(element_type(std::forward<source_t>(source)));
     }
 };
 
@@ -95,44 +136,43 @@ struct request_traits_f<std::shared_ptr<requested_t>>
     using value_type = std::remove_cvref_t<requested_t>;
     using transitive_scope_type = scope::default_t;
 
+    template <typename cache_p>
+    static auto find_in_cache(cache_p& cache)
+    {
+        return cache.template get_shared<value_type>();
+    }
+
+    template <typename provided_t, typename cache_p, typename factory_p>
+    static auto resolve_from_cache(cache_p& cache, factory_p&& factory)
+    {
+        return cache.template get_or_create_shared<provided_t>(std::forward<factory_p>(factory));
+    }
+
     template <typename source_t>
     static auto as_requested(source_t&& source) -> std::shared_ptr<requested_t>
     {
-        using clean_source_t = std::remove_cvref_t<source_t>;
-
-        if constexpr (is_shared_ptr_v<clean_source_t>)
+        // incredibly simple: the source is either the correct shared_ptr or a raw type
+        if constexpr (is_shared_ptr_v<std::remove_cvref_t<source_t>>)
         {
-            // source is already a shared_ptr, either transient or from the nested cache
-            return std::forward<source_t>(source);
-        }
-        else if constexpr (std::is_pointer_v<clean_source_t> && is_shared_ptr_v<std::remove_pointer_t<clean_source_t>>)
-        {
-            // source is a pointer to a canonical shared_ptr from the root cache
-            return *source;
-        }
-        else if constexpr (std::is_pointer_v<clean_source_t>)
-        {
-            // source is a pointer to the underlying value T from the root cache; create a non-owning shared_ptr
-            return std::shared_ptr<requested_t>(source, [](auto*) {});
+            return std::forward<source_t>(source); // from cache or transient provider
         }
         else
         {
-            // source is the raw value T from a transient provider; create a new owning shared_ptr
+            // from a raw transient provider
             return std::make_shared<requested_t>(std::forward<source_t>(source));
         }
     }
 };
 
 template <typename requested_t>
-struct request_traits_f<std::weak_ptr<requested_t>>
+struct request_traits_f<std::weak_ptr<requested_t>> : request_traits_f<std::shared_ptr<requested_t>>
 {
-    using value_type = std::remove_cvref_t<requested_t>;
     using transitive_scope_type = scope::singleton_t;
 
     template <typename source_t>
     static auto as_requested(source_t&& source) -> std::weak_ptr<requested_t>
     {
-        // delegate to shared_ptr path, then convert to weak_ptr
+        // delegate to shared_ptr logic and convert
         return request_traits_f<std::shared_ptr<requested_t>>::as_requested(std::forward<source_t>(source));
     }
 };

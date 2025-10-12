@@ -88,21 +88,7 @@ public:
         static constexpr auto check_cache = std::same_as<effective_scope_t, scope::singleton_t>;
         if constexpr (check_cache)
         {
-            static constexpr auto check_shared_cache = is_shared_ptr_v<request_t> || is_weak_ptr_v<request_t>;
-            if constexpr (check_shared_cache)
-            {
-                if (auto cached = cache_.template get_shared<resolved_t>())
-                {
-                    return as_requested<request_t>(std::move(cached));
-                }
-            }
-            else
-            {
-                if (auto cached = cache_.template get_instance<resolved_t>())
-                {
-                    return as_requested<request_t>(std::move(cached));
-                }
-            }
+            if (auto cached = traits::find_in_cache(cache_)) return as_requested<request_t>(cached);
         }
 
         // type is not cached or not a singleton
@@ -160,20 +146,21 @@ private:
     template <typename request_t, typename dependency_chain_t, typename provider_t>
     auto invoke_provider_singleton(provider_t& provider) -> as_returnable_t<request_t>
     {
-        using resolved_t = typename provider_t::provided_t;
-        auto const factory = [&]() { return provider.template create<dependency_chain_t>(*this); };
+#if 0
+        return as_requested<request_t>(request_traits_f<typename provider_t::provided_t>::resolve_from_cache(
+            cache_, [&]() { return provider.template create<dependency_chain_t>(*this); }
+        ));
+#else
+        // Use the traits from the original request (e.g., std::shared_ptr<T>)
+        using traits = request_traits_f<request_t>;
+        // Get the concrete type to be created (e.g., implementation_t)
+        using concrete_t = typename provider_t::provided_t;
 
-        static constexpr auto check_shared_cache = is_shared_ptr_v<request_t> || is_weak_ptr_v<request_t>;
-        if constexpr (check_shared_cache)
-        {
-            // cache resolves a non-owning or cached shared_ptr to the singleton
-            return as_requested<request_t>(cache_.template get_or_create_shared<resolved_t>(factory));
-        }
-        else
-        {
-            // cache resolves a reference to the singleton
-            return as_requested<request_t>(cache_.template get_or_create_instance<resolved_t>(factory));
-        }
+        auto factory = [&]() { return provider.template create<dependency_chain_t>(*this); };
+
+        // Call the correct trait method, but explicitly tell it the concrete type to cache.
+        return as_requested<request_t>(traits::template resolve_from_cache<concrete_t>(cache_, factory));
+#endif
     }
 
     template <typename request_t, typename dependency_chain_t, typename provider_t>

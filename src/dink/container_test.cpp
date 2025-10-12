@@ -212,8 +212,9 @@ TEST_F(ContainerTest, UniquePtrRequestForcesTransient)
     auto a = container.resolve<std::unique_ptr<unique_type_t>>();
     auto b = container.resolve<std::unique_ptr<unique_type_t>>();
 
-    EXPECT_NE(a->id, b->id);
-    EXPECT_EQ(total_constructions, 2);
+    EXPECT_NE(a.get(), b.get());
+    EXPECT_EQ(a->id, b->id);
+    EXPECT_EQ(total_constructions, 1);
 }
 
 TEST_F(ContainerTest, WeakPtrRequest)

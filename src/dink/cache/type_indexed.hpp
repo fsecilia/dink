@@ -43,7 +43,9 @@ public:
     {
         return get_or_create_instance<std::shared_ptr<instance_t>>([&]() {
             // initialize with instance and wrap in a non-owning ptr
-            return std::shared_ptr<instance_t>(&get_or_create_instance<instance_t>(factory), [](auto*) {});
+            return std::shared_ptr<instance_t>(
+                &get_or_create_instance<instance_t>(std::forward<factory_t>(factory)), [](auto*) {}
+            );
         });
     }
 
