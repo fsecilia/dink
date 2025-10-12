@@ -43,14 +43,14 @@ template <is_container_policy policy_t, is_config config_t>
 class container_t
 {
 public:
-    using delegation_policy_t = policy_t::delegation_policy_t;
     using caching_policy_t = policy_t::caching_policy_t;
+    using delegation_policy_t = policy_t::delegation_policy_t;
     using default_provider_factory_t = policy_t::default_provider_factory_t;
 
-    //! default ctor; produces container with root caching_policy and no bindings
+    //! default ctor; produces container with root container policy and no bindings
     container_t() = default;
 
-    //! root caching_policy ctor; produces container with root caching_policy and given bindings
+    //! root container ctor; produces container with root container policy and given bindings
     template <typename first_binding_t, typename... remaining_bindings_t>
     requires(
         !is_container<std::remove_cvref_t<first_binding_t>>
@@ -67,7 +67,7 @@ public:
           }
     {}
 
-    //! nested caching_policy ctor; produces container with nested caching_policy and given bindings
+    //! nested container ctor; produces container with nested container policy and given bindings
     template <typename parent_policy_t, typename parent_config_t, typename... bindings_t>
     requires(is_binding<bindings_t> && ...)
     explicit container_t(container_t<parent_policy_t, parent_config_t>& parent, bindings_t&&... configs)
@@ -77,18 +77,13 @@ public:
           }
     {}
 
-    // basic ctor; must be constrained or it is too greedy for clang when using deduction guides
-    template <
-        std::same_as<caching_policy_t> caching_policy_p, std::same_as<delegation_policy_t> delegation_policy_p,
-        std::same_as<config_t> config_p, std::same_as<default_provider_factory_t> default_provider_factory_p>
+    // fundamental ctor
     container_t(
-        caching_policy_p&& caching_policy, delegation_policy_p&& delegation_policy, config_p&& config,
-        default_provider_factory_p&& default_provider_factory = {}
+        caching_policy_t caching_policy, delegation_policy_t delegation_policy, config_t config,
+        default_provider_factory_t default_provider_factory
     ) noexcept
-        : caching_policy_{std::forward<caching_policy_p>(caching_policy)},
-          delegation_policy_{std::forward<delegation_policy_p>(delegation_policy)},
-          config_{std::forward<config_p>(config)},
-          default_provider_factory_{std::forward<default_provider_factory_p>(default_provider_factory)}
+        : caching_policy_{std::move(caching_policy)}, delegation_policy_{std::move(delegation_policy)},
+          config_{std::move(config)}, default_provider_factory_{std::move(default_provider_factory)}
     {}
 
     template <typename request_t, typename dependency_chain_t = type_list_t<>>
@@ -194,6 +189,9 @@ private:
     [[no_unique_address]] default_provider_factory_t default_provider_factory_{};
 };
 
+// named policies
+
+//! policy used to construct a root container
 struct root_container_policy_t
 {
     using delegation_policy_t = delegation_policy::root_t;
@@ -201,6 +199,7 @@ struct root_container_policy_t
     using default_provider_factory_t = provider::default_factory_t;
 };
 
+//! policy used to construct a nested container
 template <typename parent_t>
 struct nested_container_policy_t
 {
