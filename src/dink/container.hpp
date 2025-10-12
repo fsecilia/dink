@@ -120,14 +120,14 @@ private:
     {
         if constexpr (provider::is_accessor<typename binding_t::provider_type>)
         {
-            // accessor - just get the instance
+            // accessor - get the instance, bypassing caching mechanisms
             return as_requested<request_t>(binding.provider.get());
         }
         else
         {
-            // creator - check effective lifestyle
-            using binding_lifestyle_t = typename binding_t::lifestyle_type;
-            using effective_lifestyle_t = effective_lifestyle_t<binding_lifestyle_t, request_t>;
+            // creator - cache using effective lifestyle
+            using bound_lifestyle_t = typename binding_t::lifestyle_type;
+            using effective_lifestyle_t = effective_lifestyle_t<bound_lifestyle_t, request_t>;
             return invoke_provider<request_t, dependency_chain_t, effective_lifestyle_t>(binding.provider);
         }
     }
@@ -144,30 +144,38 @@ private:
     template <typename request_t, typename dependency_chain_t, typename lifestyle_t, typename provider_t>
     auto invoke_provider(provider_t& provider) -> returned_t<request_t>
     {
+        static constexpr auto is_singleton = std::same_as<lifestyle_t, lifestyle::singleton_t>;
+        if constexpr (is_singleton) return invoke_provider_singleton<request_t, dependency_chain_t>(provider);
+        else return invoke_provider_transient<request_t, dependency_chain_t>(provider);
+    }
+
+    template <typename request_t, typename dependency_chain_t, typename provider_t>
+    auto invoke_provider_singleton(provider_t& provider) -> returned_t<request_t>
+    {
         using provided_t = typename provider_t::provided_t;
 
-        if constexpr (std::same_as<lifestyle_t, lifestyle::singleton_t>)
+        static constexpr auto check_shared_cache = is_shared_ptr_v<request_t> || is_weak_ptr_v<request_t>;
+        if constexpr (check_shared_cache)
         {
-            if constexpr (is_shared_ptr_v<request_t> || is_weak_ptr_v<request_t>)
-            {
-                // caching_policy resolves a non-owning or cached shared_ptr to the singleton
-                return as_requested<request_t>(
-                    caching_policy_.template resolve_shared<provided_t, dependency_chain_t>(provider, *this)
-                );
-            }
-            else
-            {
-                // caching_policy resolves a reference to the singleton
-                return as_requested<request_t>(
-                    caching_policy_.template resolve<provided_t, dependency_chain_t>(provider, *this)
-                );
-            }
+            // caching_policy resolves a non-owning or cached shared_ptr to the singleton
+            return as_requested<request_t>(
+                caching_policy_.template resolve_shared<provided_t, dependency_chain_t>(provider, *this)
+            );
         }
-        else // --- TRANSIENT LIFESTYLE LOGIC ---
+        else
         {
-            // Create a new instance every time, without caching.
-            return as_requested<request_t>(provider.template create<dependency_chain_t>(*this));
+            // caching_policy resolves a reference to the singleton
+            return as_requested<request_t>(
+                caching_policy_.template resolve<provided_t, dependency_chain_t>(provider, *this)
+            );
         }
+    }
+
+    template <typename request_t, typename dependency_chain_t, typename provider_t>
+    auto invoke_provider_transient(provider_t& provider) -> returned_t<request_t>
+    {
+        // create a new instance every time, without caching
+        return as_requested<request_t>(provider.template create<dependency_chain_t>(*this));
     }
 
     caching_policy_t caching_policy_{};
