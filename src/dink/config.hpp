@@ -66,6 +66,16 @@ private:
 template <typename... bindings_t>
 config_t(bindings_t&&...) -> config_t<std::remove_cvref_t<bindings_t>...>;
 
+template <typename>
+struct is_config_f : std::false_type
+{};
+
+template <typename... Bindings>
+struct is_config_f<config_t<Bindings...>> : std::true_type
+{};
+
+template <typename T> concept is_config = is_config_f<std::remove_cvref_t<T>>::value;
+
 /// \brief A metafunction to create a config type from a tuple of bindings.
 template <typename tuple_t>
 struct config_from_tuple_f;
@@ -77,14 +87,29 @@ struct config_from_tuple_f<tuple_p<bindings_t...>>
     using type = config_t<bindings_t...>;
 };
 
-template <typename>
-struct is_config_f : std::false_type
-{};
+/*!
+    determines scope from a potential binding
+*/
+template <typename binding_or_not_found_t>
+struct get_binding_scope_f;
 
-template <typename... Bindings>
-struct is_config_f<config_t<Bindings...>> : std::true_type
-{};
+// \brief Computes the scope type from a potential binding.
+// \details Primary template handles the case where a binding pointer is found.
+template <typename binding_t>
+struct get_binding_scope_f
+{
+    using type = typename std::remove_pointer_t<binding_t>::scope_type;
+};
 
-template <typename T> concept is_config = is_config_f<std::remove_cvref_t<T>>::value;
+// \brief Full specialization for when no binding is found.
+template <>
+struct get_binding_scope_f<not_found_t>
+{
+    using type = scope::transient_t;
+};
+
+// \brief Alias template for convenience.
+template <typename binding_or_not_found_p>
+using get_binding_scope_t = typename get_binding_scope_f<binding_or_not_found_p>::type;
 
 } // namespace dink

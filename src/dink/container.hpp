@@ -83,15 +83,8 @@ public:
         auto local_binding = config_.template find_binding<resolved_t>();
 
         // determine effective scope from local binding and request type
-        auto scope_instance = []<typename binding_p>(binding_p const&) {
-            if constexpr (std::is_same_v<binding_p, not_found_t>) return scope::transient_t{};
-            else
-            {
-                using pointed_to_binding_t = std::remove_pointer_t<binding_p>;
-                return typename pointed_to_binding_t::scope_type{};
-            }
-        }(local_binding);
-        using effective_scope_t = effective_scope_t<decltype(scope_instance), request_t>;
+        using binding_scope_t = get_binding_scope_t<decltype(local_binding)>;
+        using effective_scope_t = effective_scope_t<binding_scope_t, request_t>;
 
         // check cache if necessary
         static constexpr auto check_cache = std::same_as<effective_scope_t, scope::singleton_t>;
