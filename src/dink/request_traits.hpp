@@ -26,7 +26,6 @@ template <typename requested_t>
 struct request_traits_f
 {
     using value_type = requested_t;
-    using return_type = requested_t;
     using transitive_scope_type = scope::default_t;
 
     template <typename source_t>
@@ -40,7 +39,6 @@ template <typename requested_t>
 struct request_traits_f<requested_t&&>
 {
     using value_type = requested_t;
-    using return_type = requested_t;
     using transitive_scope_type = scope::transient_t;
 
     template <typename source_t>
@@ -54,7 +52,6 @@ template <typename requested_t>
 struct request_traits_f<requested_t&>
 {
     using value_type = requested_t;
-    using return_type = requested_t&;
     using transitive_scope_type = scope::singleton_t;
 
     template <typename source_t>
@@ -68,7 +65,6 @@ template <typename requested_t>
 struct request_traits_f<requested_t*>
 {
     using value_type = requested_t;
-    using return_type = requested_t*;
     using transitive_scope_type = scope::singleton_t;
 
     template <typename source_t>
@@ -82,7 +78,6 @@ template <typename requested_t, typename deleter_t>
 struct request_traits_f<std::unique_ptr<requested_t, deleter_t>>
 {
     using value_type = std::remove_cvref_t<requested_t>;
-    using return_type = std::unique_ptr<requested_t, deleter_t>;
     using transitive_scope_type = scope::transient_t;
 
     template <typename source_t>
@@ -98,7 +93,6 @@ template <typename requested_t>
 struct request_traits_f<std::shared_ptr<requested_t>>
 {
     using value_type = std::remove_cvref_t<requested_t>;
-    using return_type = std::shared_ptr<requested_t>;
     using transitive_scope_type = scope::default_t;
 
     template <typename source_t>
@@ -133,7 +127,6 @@ template <typename requested_t>
 struct request_traits_f<std::weak_ptr<requested_t>>
 {
     using value_type = std::remove_cvref_t<requested_t>;
-    using return_type = std::weak_ptr<requested_t>;
     using transitive_scope_type = scope::singleton_t;
 
     template <typename source_t>
@@ -160,9 +153,24 @@ struct request_traits_f<requested_t const*> : request_traits_f<requested_t*>
 template <typename requested_t>
 using resolved_t = typename request_traits_f<requested_t>::value_type;
 
-//! Type actually cached and provided for a given request
-template <typename requested_t>
-using returned_t = typename request_traits_f<requested_t>::return_type;
+// \brief Metafunction to convert a type to a valid function return type.
+// \details The primary template handles all types that are already valid.
+template <typename type_p>
+struct as_returnable_f
+{
+    using type = type_p;
+};
+
+// \brief Partial specialization to convert an rvalue reference to a value.
+template <typename type_p>
+struct as_returnable_f<type_p&&>
+{
+    using type = type_p;
+};
+
+// \brief Alias template for convenience.
+template <typename type_p>
+using as_returnable_t = typename as_returnable_f<type_p>::type;
 
 /*!
     Effective scope to use for a specific request given its immediate type and scope it was bound to

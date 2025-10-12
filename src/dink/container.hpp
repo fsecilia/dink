@@ -74,7 +74,7 @@ public:
     {}
 
     template <typename request_t, typename dependency_chain_t = type_list_t<>>
-    auto resolve() -> decltype(auto)
+    auto resolve() -> as_returnable_t<request_t>
     {
         using traits = request_traits_f<request_t>;
         using resolved_t = typename traits::value_type;
@@ -123,7 +123,7 @@ public:
 private:
     // create instance from a binding
     template <typename request_t, typename dependency_chain_t, typename binding_t>
-    auto create_from_binding(binding_t& binding) -> returned_t<request_t>
+    auto create_from_binding(binding_t& binding) -> as_returnable_t<request_t>
     {
         if constexpr (provider::is_accessor<typename binding_t::provider_type>)
         {
@@ -141,7 +141,7 @@ private:
 
     // create instance from default provider
     template <typename request_t, typename dependency_chain_t>
-    auto invoke_default_provider() -> returned_t<request_t>
+    auto invoke_default_provider() -> as_returnable_t<request_t>
     {
         using effective_scope_t = effective_scope_t<scope::transient_t, request_t>;
         auto default_provider = default_provider_factory_.template create<request_t>();
@@ -149,7 +149,7 @@ private:
     }
 
     template <typename request_t, typename dependency_chain_t, typename scope_t, typename provider_t>
-    auto invoke_provider(provider_t& provider) -> returned_t<request_t>
+    auto invoke_provider(provider_t& provider) -> as_returnable_t<request_t>
     {
         static constexpr auto is_singleton = std::same_as<scope_t, scope::singleton_t>;
         if constexpr (is_singleton) return invoke_provider_singleton<request_t, dependency_chain_t>(provider);
@@ -157,7 +157,7 @@ private:
     }
 
     template <typename request_t, typename dependency_chain_t, typename provider_t>
-    auto invoke_provider_singleton(provider_t& provider) -> returned_t<request_t>
+    auto invoke_provider_singleton(provider_t& provider) -> as_returnable_t<request_t>
     {
         using provided_t = typename provider_t::provided_t;
 
@@ -179,7 +179,7 @@ private:
     }
 
     template <typename request_t, typename dependency_chain_t, typename provider_t>
-    auto invoke_provider_transient(provider_t& provider) -> returned_t<request_t>
+    auto invoke_provider_transient(provider_t& provider) -> as_returnable_t<request_t>
     {
         // create a new instance every time, without caching
         return as_requested<request_t>(provider.template create<dependency_chain_t>(*this));
