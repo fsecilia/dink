@@ -171,7 +171,7 @@ auto resolve_binding(binding_t<from_t, to_t, provider_t, scope_t>&& config)
         if constexpr (provider::is_creator<provider_t>)
         {
             // use provider's default scope
-            using resolved_scope_t = typename provider_t::default_scope;
+            using resolved_scope_t = typename provider_t::default_scope_t;
             return binding_t<from_t, to_t, provider_t, resolved_scope_t>{std::move(config.provider)};
         }
         else

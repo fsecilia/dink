@@ -18,7 +18,7 @@ namespace dink::provider {
 template <typename constructed_t, typename factory_t = ctor_factory_t<constructed_t>>
 struct creator_t
 {
-    using default_scope = scope::transient_t;
+    using default_scope_t = scope::transient_t;
     using provided_t = constructed_t;
 
     factory_t factory;
