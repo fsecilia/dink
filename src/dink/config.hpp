@@ -7,6 +7,7 @@
 
 #include <dink/lib.hpp>
 #include <dink/bindings.hpp>
+#include <dink/meta.hpp>
 #include <dink/not_found.hpp>
 #include <tuple>
 #include <utility>
@@ -95,15 +96,11 @@ public:
 template <typename... bindings_t>
 config_t(bindings_t&&...) -> config_t<std::remove_cvref_t<bindings_t>...>;
 
-template <typename>
-struct is_config_f : std::false_type
-{};
-
-template <typename... Bindings>
-struct is_config_f<config_t<Bindings...>> : std::true_type
-{};
-
-template <typename T> concept is_config = is_config_f<std::remove_cvref_t<T>>::value;
+template <typename config_t>
+concept is_config = requires(config_t& config) {
+    config.template find_binding<meta::concept_probe_t>();
+    typename config_t::template bound_scope_t<meta::concept_probe_t>;
+};
 
 /// \brief A metafunction to create a config type from a tuple of bindings.
 template <typename tuple_t>
