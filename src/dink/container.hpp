@@ -80,8 +80,8 @@ public:
         using resolved_t = typename traits::value_type;
 
         // determine effective scope from local binding and request type
-        using binding_scope_t = typename config_t::template binding_scope_t<resolved_t>;
-        using effective_scope_t = effective_scope_t<binding_scope_t, request_t>;
+        using bound_scope_t = typename config_t::template bound_scope_t<resolved_t>;
+        using effective_scope_t = effective_scope_t<bound_scope_t, request_t>;
 
         // check cache if necessary
         static constexpr auto check_cache = std::same_as<effective_scope_t, scope::singleton_t>;

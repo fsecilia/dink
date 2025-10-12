@@ -15,21 +15,21 @@ namespace dink {
 
 namespace detail {
 
-// \brief Selects a scope type based on a compile-time condition.
-template <bool is_found, auto index, typename bindings_tuple_p>
-struct scope_selector_f;
+//! finds bound scope for
+template <std::size_t index, typename bindings_tuple_p>
+struct bound_scope_f;
 
-// \brief Specialization for when the binding is found.
-template <auto index, typename bindings_tuple_p>
-struct scope_selector_f<true, index, bindings_tuple_p>
+//! general case where binding is found at a valid index
+template <std::size_t index, typename bindings_tuple_p>
+struct bound_scope_f
 {
     using binding_t = std::tuple_element_t<index, bindings_tuple_p>;
     using type = typename binding_t::scope_type;
 };
 
-// \brief Specialization for when the binding is not found.
-template <auto index, typename bindings_tuple_p>
-struct scope_selector_f<false, index, bindings_tuple_p>
+//! specialization when the binding is not found
+template <typename bindings_tuple_p>
+struct bound_scope_f<npos, bindings_tuple_p>
 {
     using type = scope::transient_t;
 };
@@ -89,8 +89,7 @@ private:
 public:
     // determines the scope type from binding index
     template <typename resolved_t>
-    using binding_scope_t = typename detail::scope_selector_f<
-        binding_index_v<resolved_t> != npos, binding_index_v<resolved_t>, bindings_tuple_t>::type;
+    using bound_scope_t = typename detail::bound_scope_f<binding_index_v<resolved_t>, bindings_tuple_t>::type;
 };
 
 template <typename... bindings_t>
