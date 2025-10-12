@@ -33,4 +33,13 @@ inline constexpr auto dependent_bool_v = condition;
 template <typename type_t, std::size_t index>
 using indexed_type_t = type_t;
 
+/*!
+    arbitrary probing type for abstract concepts
+    
+    Some concepts check things that are so abstract, all you know is it should accept, return, or contain a type. 
+    concept_probe_t is meant as a type standardized for this purpose.
+*/
+struct concept_probe_t
+{};
+
 } // namespace dink::meta
