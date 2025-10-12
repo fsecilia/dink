@@ -102,15 +102,22 @@ concept is_config = requires(config_t& config) {
     typename config_t::template bound_scope_t<meta::concept_probe_t>;
 };
 
-/// \brief A metafunction to create a config type from a tuple of bindings.
+namespace detail {
+
+//! metafunction to create a config type from a tuple of bindings
 template <typename tuple_t>
 struct config_from_tuple_f;
 
-/// \brief Specialization that extracts the binding pack from the tuple.
-template <template <typename...> class tuple_p, typename... bindings_t>
-struct config_from_tuple_f<tuple_p<bindings_t...>>
+//! specialization to extract binding pack from tuple
+template <template <typename...> class tuple_t, typename... bindings_t>
+struct config_from_tuple_f<tuple_t<bindings_t...>>
 {
     using type = config_t<bindings_t...>;
 };
 
+//! creates a config from a tuple of bindings
+template <typename tuple_t>
+using config_from_tuple_t = typename config_from_tuple_f<tuple_t>::type;
+
+} // namespace detail
 } // namespace dink

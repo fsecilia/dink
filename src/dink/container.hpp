@@ -231,14 +231,13 @@ struct nested_container_policy_t
 //! Deduction guide for root containers
 template <is_binding... bindings_t>
 container_t(bindings_t&&...) -> container_t<
-    root_container_policy_t,
-    typename config_from_tuple_f<decltype(resolve_bindings(std::declval<bindings_t>()...))>::type>;
+    root_container_policy_t, detail::config_from_tuple_t<decltype(resolve_bindings(std::declval<bindings_t>()...))>>;
 
 //! Deduction guide for nested containers
 template <is_container parent_container_t, is_binding... bindings_t>
 container_t(parent_container_t& parent_container, bindings_t&&...) -> container_t<
     nested_container_policy_t<parent_container_t>,
-    typename config_from_tuple_f<decltype(resolve_bindings(std::declval<bindings_t>()...))>::type>;
+    detail::config_from_tuple_t<decltype(resolve_bindings(std::declval<bindings_t>()...))>>;
 
 // ---------------------------------------------------------------------------------------------------------------------
 // Type aliases
@@ -247,13 +246,12 @@ container_t(parent_container_t& parent_container, bindings_t&&...) -> container_
 //! Root container with given bindings
 template <is_binding... bindings_t>
 using root_container_t = container_t<
-    root_container_policy_t,
-    typename config_from_tuple_f<decltype(resolve_bindings(std::declval<bindings_t>()...))>::type>;
+    root_container_policy_t, detail::config_from_tuple_t<decltype(resolve_bindings(std::declval<bindings_t>()...))>>;
 
 //! Nested container with given parent and bindings
 template <is_container parent_container_t, typename... bindings_t>
 using nested_container_t = container_t<
     nested_container_policy_t<parent_container_t>,
-    typename config_from_tuple_f<decltype(resolve_bindings(std::declval<bindings_t>()...))>::type>;
+    detail::config_from_tuple_t<decltype(resolve_bindings(std::declval<bindings_t>()...))>>;
 
 } // namespace dink
