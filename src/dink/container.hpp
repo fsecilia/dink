@@ -51,12 +51,7 @@ public:
     container_t() = default;
 
     //! root container ctor; produces container with root container policy and given bindings
-    template <typename first_binding_t, typename... remaining_bindings_t>
-    requires(
-        !is_container<std::remove_cvref_t<first_binding_t>>
-        && is_binding<std::remove_cvref_t<first_binding_t>>
-        && (is_binding<std::remove_cvref_t<remaining_bindings_t>> && ...)
-    )
+    template <is_binding first_binding_t, is_binding... remaining_bindings_t>
     explicit container_t(first_binding_t&& first, remaining_bindings_t&&... rest)
         : container_t{
               caching_policy_t{}, delegation_policy_t{},
@@ -68,8 +63,7 @@ public:
     {}
 
     //! nested container ctor; produces container with nested container policy and given bindings
-    template <typename parent_policy_t, typename parent_config_t, typename... bindings_t>
-    requires(is_binding<bindings_t> && ...)
+    template <is_container_policy parent_policy_t, is_config parent_config_t, is_binding... bindings_t>
     explicit container_t(container_t<parent_policy_t, parent_config_t>& parent, bindings_t&&... configs)
         : container_t{
               caching_policy_t{}, delegation_policy_t{parent},
