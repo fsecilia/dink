@@ -95,16 +95,16 @@ public:
         return resolve<instance_t, dependency_chain_t>(provider, container);
     }
 
-    template <typename resolved_t>
-    auto find() -> resolved_t*
+    template <typename instance_t>
+    auto find() -> instance_t*
     {
-        return std::to_address(cache_.template get<resolved_t>());
+        return std::to_address(cache_.template get<instance_t>());
     }
 
-    template <typename resolved_t>
-    auto find_shared() -> std::shared_ptr<resolved_t>
+    template <typename instance_t>
+    auto find_shared() -> std::shared_ptr<instance_t>
     {
-        return find<resolved_t>();
+        return find<instance_t>();
     }
 
     explicit hash_table_t(cache_t cache) noexcept : cache_{std::move(cache)} {}
