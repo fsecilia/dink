@@ -27,7 +27,7 @@ struct request_traits_f
 {
     using value_type = requested_t;
     using return_type = requested_t;
-    static constexpr transitive_lifestyle_t transitive_lifestyle = transitive_lifestyle_t::unmodified;
+    using transitive_lifestyle_type = lifestyle::default_t;
 
     template <typename source_t>
     static auto as_requested(source_t&& source) -> requested_t
@@ -41,7 +41,7 @@ struct request_traits_f<requested_t&&>
 {
     using value_type = requested_t;
     using return_type = requested_t;
-    static constexpr transitive_lifestyle_t transitive_lifestyle = transitive_lifestyle_t::transient;
+    using transitive_lifestyle_type = lifestyle::transient_t;
 
     template <typename source_t>
     static auto as_requested(source_t&& source) -> requested_t
@@ -55,7 +55,7 @@ struct request_traits_f<requested_t&>
 {
     using value_type = requested_t;
     using return_type = requested_t&;
-    static constexpr transitive_lifestyle_t transitive_lifestyle = transitive_lifestyle_t::singleton;
+    using transitive_lifestyle_type = lifestyle::singleton_t;
 
     template <typename source_t>
     static auto as_requested(source_t&& source) -> requested_t&
@@ -69,7 +69,7 @@ struct request_traits_f<requested_t*>
 {
     using value_type = requested_t;
     using return_type = requested_t*;
-    static constexpr transitive_lifestyle_t transitive_lifestyle = transitive_lifestyle_t::singleton;
+    using transitive_lifestyle_type = lifestyle::singleton_t;
 
     template <typename source_t>
     static auto as_requested(source_t&& source) -> requested_t*
@@ -83,7 +83,7 @@ struct request_traits_f<std::unique_ptr<requested_t, deleter_t>>
 {
     using value_type = std::remove_cvref_t<requested_t>;
     using return_type = std::unique_ptr<requested_t, deleter_t>;
-    static constexpr transitive_lifestyle_t transitive_lifestyle = transitive_lifestyle_t::transient;
+    using transitive_lifestyle_type = lifestyle::transient_t;
 
     template <typename source_t>
     static auto as_requested(source_t&& source) -> std::unique_ptr<requested_t, deleter_t>
@@ -99,7 +99,7 @@ struct request_traits_f<std::shared_ptr<requested_t>>
 {
     using value_type = std::remove_cvref_t<requested_t>;
     using return_type = std::shared_ptr<requested_t>;
-    static constexpr transitive_lifestyle_t transitive_lifestyle = transitive_lifestyle_t::unmodified;
+    using transitive_lifestyle_type = lifestyle::default_t;
 
     template <typename source_t>
     static auto as_requested(source_t&& source) -> std::shared_ptr<requested_t>
@@ -134,7 +134,7 @@ struct request_traits_f<std::weak_ptr<requested_t>>
 {
     using value_type = std::remove_cvref_t<requested_t>;
     using return_type = std::weak_ptr<requested_t>;
-    static constexpr transitive_lifestyle_t transitive_lifestyle = transitive_lifestyle_t::singleton;
+    using transitive_lifestyle_type = lifestyle::singleton_t;
 
     template <typename source_t>
     static auto as_requested(source_t&& source) -> std::weak_ptr<requested_t>
@@ -172,10 +172,11 @@ using returned_t = typename request_traits_f<requested_t>::return_type;
 */
 template <typename bound_lifestyle_t, typename request_t>
 using effective_lifestyle_t = std::conditional_t<
-    request_traits_f<request_t>::transitive_lifestyle == transitive_lifestyle_t::transient, lifestyle::transient_t,
+    std::same_as<typename request_traits_f<request_t>::transitive_lifestyle_type, lifestyle::transient_t>,
+    lifestyle::transient_t,
     std::conditional_t<
-        request_traits_f<request_t>::transitive_lifestyle == transitive_lifestyle_t::singleton, lifestyle::singleton_t,
-        bound_lifestyle_t>>;
+        std::same_as<typename request_traits_f<request_t>::transitive_lifestyle_type, lifestyle::singleton_t>,
+        lifestyle::singleton_t, bound_lifestyle_t>>;
 
 /*!
     Converts type from what is cached or provided to what was actually requested.

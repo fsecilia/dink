@@ -79,7 +79,8 @@ public:
         using traits = request_traits_f<request_t>;
         using resolved_t = typename traits::value_type;
 
-        static constexpr auto check_cache = traits::transitive_lifestyle == transitive_lifestyle_t::singleton;
+        static constexpr auto check_cache
+            = std::same_as<typename traits::transitive_lifestyle_type, lifestyle::singleton_t>;
         if constexpr (check_cache)
         {
             static constexpr auto check_shared_cache = is_shared_ptr_v<request_t> || is_weak_ptr_v<request_t>;
