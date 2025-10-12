@@ -107,15 +107,15 @@ public:
     template <typename request_t, typename dependency_chain_t = type_list_t<>>
     auto resolve() -> as_returnable_t<request_t>
     {
-        using traits = request_traits_f<request_t>;
-        using resolved_t = typename traits::value_type;
+        using request_traits_t = request_traits_f<request_t>;
+        using resolved_t = typename request_traits_t::value_type;
         using bound_scope_t = typename config_t::template bound_scope_t<resolved_t>;
         using effective_scope_t = effective_scope_t<bound_scope_t, request_t>;
 
         // Step 1: Check cache for singleton requests
         if constexpr (std::same_as<effective_scope_t, scope::singleton_t>)
         {
-            if (auto cached = traits::find_in_cache(cache_)) { return as_requested<request_t>(cached); }
+            if (auto cached = request_traits_t::find_in_cache(cache_)) return as_requested<request_t>(cached);
         }
 
         // Step 2: Check local bindings
