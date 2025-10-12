@@ -100,24 +100,24 @@ struct request_traits_f<std::shared_ptr<requested_t>>
     {
         using clean_source_t = std::remove_cvref_t<source_t>;
 
-        // Case 1: Source is already a shared_ptr (e.g., from nested cache or transient).
-        if constexpr (is_shared_ptr_v<clean_source_t>) { return std::forward<source_t>(source); }
+        if constexpr (is_shared_ptr_v<clean_source_t>)
+        {
+            // source is already a shared_ptr, either transient or from the nested cache
+            return std::forward<source_t>(source);
+        }
         else if constexpr (std::is_pointer_v<clean_source_t> && is_shared_ptr_v<std::remove_pointer_t<clean_source_t>>)
         {
-            // Case 2: Source is a pointer to a shared_ptr (from root cache).
-            // The root cache returns a pointer to the canonical shared_ptr. Dereference it.
+            // source is a pointer to a canonical shared_ptr from the root cache
             return *source;
         }
         else if constexpr (std::is_pointer_v<clean_source_t>)
         {
-            // Case 3: Source is a pointer to the underlying value T (from a singleton accessor).
-            // The source is a non-owning pointer to a singleton. Create a non-owning shared_ptr.
+            // source is a pointer to the underlying value T from the root cache; create a non-owning shared_ptr
             return std::shared_ptr<requested_t>(source, [](auto*) {});
         }
         else
         {
-            // Case 4: Source is the raw value T (from a transient provider).
-            // The source is a temporary value. Create a new owning shared_ptr.
+            // source is the raw value T from a transient provider; create a new owning shared_ptr
             return std::make_shared<requested_t>(std::forward<source_t>(source));
         }
     }
@@ -189,7 +189,12 @@ using effective_scope_t = std::conditional_t<
     Converts type from what is cached or provided to what was actually requested.
     
     The mapping from provided or cached types is to requested types is n:m. A provider always returns a simple value, 
-    but that value may be cached in a singleton, which returns a reference, or a shared_ptr. The request may be for
+    but that value may be cached, which has different forms.
+    
+    The root cache returns references when the result can't be null, but pointers when it the result may not yet be
+    cached. This includes 
+    
+     in a singleton, which returns a reference or a shared_ptr. The request may be for
     a copy, a reference, an rvalue reference, a pointer, a unique_ptr, shared_ptr, or weak_ptr. as_requested() handles
     the n:m mapping by delegating to the request_traits of the request.
 */
