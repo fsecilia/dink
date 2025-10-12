@@ -13,7 +13,6 @@ list(APPEND dink_library_files
     bindings.hpp
     cache/hash_table.hpp
     cache/type_indexed.hpp
-    caching_policy.hpp
     canonical.hpp
     config.hpp
     container.hpp
@@ -40,7 +39,6 @@ list(APPEND dink_unit_test_files
     bindings_test.cpp
     cache/hash_table_test.cpp
     cache/type_indexed_test.cpp
-    caching_policy_test.cpp
     canonical_test.cpp
     config_test.cpp
     container_test.cpp

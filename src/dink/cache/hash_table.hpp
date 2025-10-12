@@ -15,7 +15,7 @@ namespace dink::cache {
 
 /*!
     caches instances in a hash table
-    
+
     This caches its instances and canonical shared_ptrs in a hash table, mapping from type_index to shared_ptr<void>.
 */
 class hash_table_t
