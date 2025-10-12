@@ -47,22 +47,19 @@ public:
     using delegation_policy_t = policy_t::delegation_policy_t;
     using default_provider_factory_t = policy_t::default_provider_factory_t;
 
-    //! default ctor; produces container with root container policy and no bindings
+    //! produces container with root container policy and no bindings
     container_t() = default;
 
-    //! root container ctor; produces container with root container policy and given bindings
-    template <is_binding first_binding_t, is_binding... remaining_bindings_t>
-    explicit container_t(first_binding_t&& first, remaining_bindings_t&&... rest)
+    //! produces container with root container policy and given bindings
+    template <is_binding... bindings_t>
+    explicit container_t(bindings_t&&... bindings)
         : container_t{
               caching_policy_t{}, delegation_policy_t{},
-              config_t{
-                  resolve_bindings(std::forward<first_binding_t>(first), std::forward<remaining_bindings_t>(rest)...)
-              },
-              default_provider_factory_t{}
+              config_t{resolve_bindings(std::forward<bindings_t>(bindings)...)}, default_provider_factory_t{}
           }
     {}
 
-    //! nested container ctor; produces container with nested container policy and given bindings
+    //! produces container with nested container policy and given bindings
     template <is_container_policy parent_policy_t, is_config parent_config_t, is_binding... bindings_t>
     explicit container_t(container_t<parent_policy_t, parent_config_t>& parent, bindings_t&&... configs)
         : container_t{
@@ -71,7 +68,6 @@ public:
           }
     {}
 
-    // fundamental ctor
     container_t(
         caching_policy_t caching_policy, delegation_policy_t delegation_policy, config_t config,
         default_provider_factory_t default_provider_factory
@@ -205,31 +201,25 @@ struct nested_container_policy_t
 /*
     deduction guides
 
-    clang matches the root deduction guide for a nested container, so there are clang-20.1-specific workarounds:
+    clang mismatches the root deduction guide for a nested container, so there are clang-20.1-specific workarounds:
         - the root deduction guides must be split into empty and nonempty so we can apply a constraint to the first
           parameter
         - the nonempty version must use enable_if_t to remove itself from consideration
 
-    When clang fixes this, the empty/nonempty split can be removed, though something like the enable_if_t will need to 
-    be converted to a concept.
+    When this is fixed in clang, the empty/nonempty split can be removed, as can the enable_if_t.
 */
+
+//! deduction guide for empty root containers
+container_t() -> container_t<root_container_policy_t, config_t<>>;
 
 //! deduction guide for nonempty root containers
 template <
-    typename first_binding_p, typename... rest_bindings_p,
-    std::enable_if_t<
-        !is_container<std::remove_cvref_t<first_binding_p>>
-            && is_binding<std::remove_cvref_t<first_binding_p>>
-            && (is_binding<std::remove_cvref_t<rest_bindings_p>> && ...),
-        int>
-    = 0>
+    is_binding first_binding_p, is_binding... rest_bindings_p,
+    std::enable_if_t<!is_container<std::remove_cvref_t<first_binding_p>>, int> = 0>
 container_t(first_binding_p&&, rest_bindings_p&&...) -> container_t<
     root_container_policy_t,
     typename config_from_tuple_f<
         decltype(resolve_bindings(std::declval<first_binding_p>(), std::declval<rest_bindings_p>()...))>::type>;
-
-//! deduction guide for empty root containers
-container_t() -> container_t<root_container_policy_t, config_t<>>;
 
 //! deduction guide for nested containers
 template <typename parent_container_policy_t, typename parent_config_t, typename... bindings_t>
@@ -240,11 +230,13 @@ container_t(container_t<parent_container_policy_t, parent_config_t>& parent, bin
 
 // type aliases
 
+//! defines a root container with given bindings
 template <typename... bindings_t>
 using root_container_t = container_t<
     root_container_policy_t,
     typename config_from_tuple_f<decltype(resolve_bindings(std::declval<bindings_t>()...))>::type>;
 
+//! defines a nested container with given parent type and given bindings
 template <typename parent_container_policy_t, typename parent_config_t, typename... bindings_t>
 using nested_container_t = container_t<
     nested_container_policy_t<container_t<parent_container_policy_t, parent_config_t>>,
