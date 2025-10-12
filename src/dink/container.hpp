@@ -146,21 +146,12 @@ private:
     template <typename request_t, typename dependency_chain_t, typename provider_t>
     auto invoke_provider_singleton(provider_t& provider) -> as_returnable_t<request_t>
     {
-#if 0
-        return as_requested<request_t>(request_traits_f<typename provider_t::provided_t>::resolve_from_cache(
-            cache_, [&]() { return provider.template create<dependency_chain_t>(*this); }
-        ));
-#else
-        // Use the traits from the original request (e.g., std::shared_ptr<T>)
-        using traits = request_traits_f<request_t>;
-        // Get the concrete type to be created (e.g., implementation_t)
-        using concrete_t = typename provider_t::provided_t;
-
-        auto factory = [&]() { return provider.template create<dependency_chain_t>(*this); };
-
-        // Call the correct trait method, but explicitly tell it the concrete type to cache.
-        return as_requested<request_t>(traits::template resolve_from_cache<concrete_t>(cache_, factory));
-#endif
+        // create a cached instance using the provider as a factory
+        return as_requested<request_t>(
+            request_traits_f<request_t>::template resolve_from_cache<typename provider_t::provided_t>(cache_, [&]() {
+                return provider.template create<dependency_chain_t>(*this);
+            })
+        );
     }
 
     template <typename request_t, typename dependency_chain_t, typename provider_t>
