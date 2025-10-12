@@ -9,8 +9,8 @@
 #include <dink/arity.hpp>
 #include <dink/ctor_factory.hpp>
 #include <dink/factory_invoker.hpp>
-#include <dink/lifestyle.hpp>
 #include <dink/request_traits.hpp>
+#include <dink/scope.hpp>
 
 namespace dink::provider {
 
@@ -18,7 +18,7 @@ namespace dink::provider {
 template <typename constructed_t, typename factory_t = ctor_factory_t<constructed_t>>
 struct creator_t
 {
-    using default_lifestyle = lifestyle::transient_t;
+    using default_scope = scope::transient_t;
     using provided_t = constructed_t;
 
     factory_t factory;

@@ -7,22 +7,22 @@
 
 #include <dink/lib.hpp>
 #include <dink/canonical.hpp>
-#include <dink/lifestyle.hpp>
 #include <dink/provider.hpp>
+#include <dink/scope.hpp>
 #include <concepts>
 #include <type_traits>
 #include <utility>
 
 namespace dink {
 
-//! binding configuration: from type -> to type -> provider -> lifestyle
-template <typename from_t, typename to_t, typename provider_t, typename lifestyle_t>
+//! binding configuration: from type -> to type -> provider -> scope
+template <typename from_t, typename to_t, typename provider_t, typename scope_t>
 struct binding_t
 {
     using from_type = from_t;
     using to_type = to_t;
     using provider_type = provider_t;
-    using lifestyle_type = lifestyle_t;
+    using scope_type = scope_t;
 
     provider_t provider;
 };
@@ -36,16 +36,16 @@ public:
     using to_type = to_t;
     using provider_type = provider_t;
 
-    //! specifies lifestyle for creators; unavailable for accessors
-    template <typename lifestyle_t>
+    //! specifies scope for creators; unavailable for accessors
+    template <typename scope_t>
     requires provider::is_creator<provider_t>
-    auto in() && -> binding_t<from_t, to_t, provider_t, lifestyle_t>
+    auto in() && -> binding_t<from_t, to_t, provider_t, scope_t>
     {
         return {std::move(provider_)};
     }
 
-    //! specifies default lifestyle
-    operator binding_t<from_t, to_t, provider_t, lifestyle::default_t>() && { return {std::move(provider_)}; }
+    //! specifies default scope
+    operator binding_t<from_t, to_t, provider_t, scope::default_t>() && { return {std::move(provider_)}; }
 
     explicit binding_dst_t(provider_t provider) : provider_(std::move(provider)) {}
 
@@ -115,15 +115,15 @@ public:
         };
     }
 
-    //! specifies lifestyle for creators; unavailable for accessors
-    template <typename lifestyle_t>
-    auto in() && -> binding_t<from_t, from_t, provider::default_t<from_t>, lifestyle_t>
+    //! specifies scope for creators; unavailable for accessors
+    template <typename scope_t>
+    auto in() && -> binding_t<from_t, from_t, provider::default_t<from_t>, scope_t>
     {
         return {provider::default_t<from_t>{}};
     }
 
-    //! converts to final binding with default provider and lifestyle
-    operator binding_t<from_t, from_t, provider::default_t<from_t>, lifestyle::default_t>() &&
+    //! converts to final binding with default provider and scope
+    operator binding_t<from_t, from_t, provider::default_t<from_t>, scope::default_t>() &&
     {
         return {provider::default_t<from_t>{}};
     }
@@ -146,8 +146,8 @@ template <typename>
 struct is_binding_f : std::false_type
 {};
 
-template <typename from_t, typename to_t, typename lifestyle_t, typename provider_t>
-struct is_binding_f<binding_t<from_t, to_t, lifestyle_t, provider_t>> : std::true_type
+template <typename from_t, typename to_t, typename scope_t, typename provider_t>
+struct is_binding_f<binding_t<from_t, to_t, scope_t, provider_t>> : std::true_type
 {};
 
 template <typename from_t, typename to_t, typename provider_t>
@@ -162,43 +162,43 @@ struct is_binding_f<binding_src_t<from_t>> : std::true_type
 
 template <typename T> concept is_binding = detail::is_binding_f<std::remove_cvref_t<T>>::value;
 
-//! resolve default lifestyle to provider's default (for creators) or no lifestyle (for accessors)
-template <typename from_t, typename to_t, typename provider_t, typename lifestyle_t>
-auto resolve_binding(binding_t<from_t, to_t, provider_t, lifestyle_t>&& config)
+//! resolve default scope to provider's default (for creators) or no scope (for accessors)
+template <typename from_t, typename to_t, typename provider_t, typename scope_t>
+auto resolve_binding(binding_t<from_t, to_t, provider_t, scope_t>&& config)
 {
-    if constexpr (std::same_as<lifestyle_t, lifestyle::default_t>)
+    if constexpr (std::same_as<scope_t, scope::default_t>)
     {
         if constexpr (provider::is_creator<provider_t>)
         {
-            // use provider's default lifestyle
-            using resolved_lifestyle_t = typename provider_t::default_lifestyle;
-            return binding_t<from_t, to_t, provider_t, resolved_lifestyle_t>{std::move(config.provider)};
+            // use provider's default scope
+            using resolved_scope_t = typename provider_t::default_scope;
+            return binding_t<from_t, to_t, provider_t, resolved_scope_t>{std::move(config.provider)};
         }
         else
         {
-            // accessors have no lifestyle
-            struct no_lifestyle_t
+            // accessors have no scope
+            struct no_scope_t
             {};
 
-            return binding_t<from_t, to_t, provider_t, no_lifestyle_t>{std::move(config.provider)};
+            return binding_t<from_t, to_t, provider_t, no_scope_t>{std::move(config.provider)};
         }
     }
     else
     {
-        // lifestyle explicitly specified
-        static_assert(provider::is_creator<provider_t>, "Cannot specify lifestyle for accessor provider");
+        // scope explicitly specified
+        static_assert(provider::is_creator<provider_t>, "Cannot specify scope for accessor provider");
         return config; // already correct type
     }
 }
 
-//! resolve an incomplete binding builder by applying the default lifestyle
+//! resolve an incomplete binding builder by applying the default scope
 template <typename from_t, typename to_t, typename provider_t>
 auto resolve_binding(binding_dst_t<from_t, to_t, provider_t>&& dst)
 {
-    // explicitly invoke the conversion operator to get a config with a default lifestyle
-    binding_t<from_t, to_t, provider_t, lifestyle::default_t> config = std::move(dst);
+    // explicitly invoke the conversion operator to get a config with a default scope
+    binding_t<from_t, to_t, provider_t, scope::default_t> config = std::move(dst);
 
-    // delegate to the original function to resolve the default lifestyle to the correct one
+    // delegate to the original function to resolve the default scope to the correct one
     return resolve_binding(std::move(config));
 }
 

@@ -24,11 +24,11 @@ list(APPEND dink_library_files
     exceptions.hpp
     factory_invoker.hpp
     lib.hpp
-    lifestyle.hpp
     meta.hpp
     not_found.hpp
     provider.hpp
     request_traits.hpp
+    scope.hpp
     smart_pointer_traits.hpp
     type_list.hpp
     version.hpp

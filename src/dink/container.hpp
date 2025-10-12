@@ -10,10 +10,10 @@
 #include <dink/caching_policy.hpp>
 #include <dink/config.hpp>
 #include <dink/delegation_policy.hpp>
-#include <dink/lifestyle.hpp>
 #include <dink/not_found.hpp>
 #include <dink/provider.hpp>
 #include <dink/request_traits.hpp>
+#include <dink/scope.hpp>
 #include <dink/type_list.hpp>
 #include <utility>
 
@@ -82,19 +82,19 @@ public:
         // search for local binding
         auto local_binding = config_.template find_binding<resolved_t>();
 
-        // determine effective lifestyle from local binding and request type
-        auto lifestyle_instance = []<typename binding_p>(binding_p const&) {
-            if constexpr (std::is_same_v<binding_p, not_found_t>) return lifestyle::transient_t{};
+        // determine effective scope from local binding and request type
+        auto scope_instance = []<typename binding_p>(binding_p const&) {
+            if constexpr (std::is_same_v<binding_p, not_found_t>) return scope::transient_t{};
             else
             {
                 using pointed_to_binding_t = std::remove_pointer_t<binding_p>;
-                return typename pointed_to_binding_t::lifestyle_type{};
+                return typename pointed_to_binding_t::scope_type{};
             }
         }(local_binding);
-        using effective_lifestyle_t = effective_lifestyle_t<decltype(lifestyle_instance), request_t>;
+        using effective_scope_t = effective_scope_t<decltype(scope_instance), request_t>;
 
         // check cache if necessary
-        static constexpr auto check_cache = std::same_as<effective_lifestyle_t, lifestyle::singleton_t>;
+        static constexpr auto check_cache = std::same_as<effective_scope_t, scope::singleton_t>;
         if constexpr (check_cache)
         {
             static constexpr auto check_shared_cache = is_shared_ptr_v<request_t> || is_weak_ptr_v<request_t>;
@@ -143,10 +143,10 @@ private:
         }
         else
         {
-            // creator - cache using effective lifestyle
-            using bound_lifestyle_t = typename binding_t::lifestyle_type;
-            using effective_lifestyle_t = effective_lifestyle_t<bound_lifestyle_t, request_t>;
-            return invoke_provider<request_t, dependency_chain_t, effective_lifestyle_t>(binding.provider);
+            // creator - cache using effective scope
+            using bound_scope_t = typename binding_t::scope_type;
+            using effective_scope_t = effective_scope_t<bound_scope_t, request_t>;
+            return invoke_provider<request_t, dependency_chain_t, effective_scope_t>(binding.provider);
         }
     }
 
@@ -154,15 +154,15 @@ private:
     template <typename request_t, typename dependency_chain_t>
     auto invoke_default_provider() -> returned_t<request_t>
     {
-        using effective_lifestyle_t = effective_lifestyle_t<lifestyle::transient_t, request_t>;
+        using effective_scope_t = effective_scope_t<scope::transient_t, request_t>;
         auto default_provider = default_provider_factory_.template create<request_t>();
-        return invoke_provider<request_t, dependency_chain_t, effective_lifestyle_t>(default_provider);
+        return invoke_provider<request_t, dependency_chain_t, effective_scope_t>(default_provider);
     }
 
-    template <typename request_t, typename dependency_chain_t, typename lifestyle_t, typename provider_t>
+    template <typename request_t, typename dependency_chain_t, typename scope_t, typename provider_t>
     auto invoke_provider(provider_t& provider) -> returned_t<request_t>
     {
-        static constexpr auto is_singleton = std::same_as<lifestyle_t, lifestyle::singleton_t>;
+        static constexpr auto is_singleton = std::same_as<scope_t, scope::singleton_t>;
         if constexpr (is_singleton) return invoke_provider_singleton<request_t, dependency_chain_t>(provider);
         else return invoke_provider_transient<request_t, dependency_chain_t>(provider);
     }

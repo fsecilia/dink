@@ -6,8 +6,8 @@
 #pragma once
 
 #include <dink/lib.hpp>
-#include <dink/lifestyle.hpp>
 #include <dink/meta.hpp>
+#include <dink/scope.hpp>
 #include <dink/smart_pointer_traits.hpp>
 #include <memory>
 #include <type_traits>
@@ -15,7 +15,7 @@
 
 namespace dink {
 
-enum class transitive_lifestyle_t
+enum class transitive_scope_t
 {
     unmodified,
     transient,
@@ -27,7 +27,7 @@ struct request_traits_f
 {
     using value_type = requested_t;
     using return_type = requested_t;
-    using transitive_lifestyle_type = lifestyle::default_t;
+    using transitive_scope_type = scope::default_t;
 
     template <typename source_t>
     static auto as_requested(source_t&& source) -> requested_t
@@ -41,7 +41,7 @@ struct request_traits_f<requested_t&&>
 {
     using value_type = requested_t;
     using return_type = requested_t;
-    using transitive_lifestyle_type = lifestyle::transient_t;
+    using transitive_scope_type = scope::transient_t;
 
     template <typename source_t>
     static auto as_requested(source_t&& source) -> requested_t
@@ -55,7 +55,7 @@ struct request_traits_f<requested_t&>
 {
     using value_type = requested_t;
     using return_type = requested_t&;
-    using transitive_lifestyle_type = lifestyle::singleton_t;
+    using transitive_scope_type = scope::singleton_t;
 
     template <typename source_t>
     static auto as_requested(source_t&& source) -> requested_t&
@@ -69,7 +69,7 @@ struct request_traits_f<requested_t*>
 {
     using value_type = requested_t;
     using return_type = requested_t*;
-    using transitive_lifestyle_type = lifestyle::singleton_t;
+    using transitive_scope_type = scope::singleton_t;
 
     template <typename source_t>
     static auto as_requested(source_t&& source) -> requested_t*
@@ -83,7 +83,7 @@ struct request_traits_f<std::unique_ptr<requested_t, deleter_t>>
 {
     using value_type = std::remove_cvref_t<requested_t>;
     using return_type = std::unique_ptr<requested_t, deleter_t>;
-    using transitive_lifestyle_type = lifestyle::transient_t;
+    using transitive_scope_type = scope::transient_t;
 
     template <typename source_t>
     static auto as_requested(source_t&& source) -> std::unique_ptr<requested_t, deleter_t>
@@ -99,7 +99,7 @@ struct request_traits_f<std::shared_ptr<requested_t>>
 {
     using value_type = std::remove_cvref_t<requested_t>;
     using return_type = std::shared_ptr<requested_t>;
-    using transitive_lifestyle_type = lifestyle::default_t;
+    using transitive_scope_type = scope::default_t;
 
     template <typename source_t>
     static auto as_requested(source_t&& source) -> std::shared_ptr<requested_t>
@@ -134,7 +134,7 @@ struct request_traits_f<std::weak_ptr<requested_t>>
 {
     using value_type = std::remove_cvref_t<requested_t>;
     using return_type = std::weak_ptr<requested_t>;
-    using transitive_lifestyle_type = lifestyle::singleton_t;
+    using transitive_scope_type = scope::singleton_t;
 
     template <typename source_t>
     static auto as_requested(source_t&& source) -> std::weak_ptr<requested_t>
@@ -165,18 +165,17 @@ template <typename requested_t>
 using returned_t = typename request_traits_f<requested_t>::return_type;
 
 /*!
-    Effective lifestyle to use for a specific request given its immediate type and lifestyle it was bound to
+    Effective scope to use for a specific request given its immediate type and scope it was bound to
     
     If type is bound transient, but you ask for type&, that request is treated as singleton.
     If type is bound singleton, but you ask for type&&, that request is treated as transient.
 */
-template <typename bound_lifestyle_t, typename request_t>
-using effective_lifestyle_t = std::conditional_t<
-    std::same_as<typename request_traits_f<request_t>::transitive_lifestyle_type, lifestyle::transient_t>,
-    lifestyle::transient_t,
+template <typename bound_scope_t, typename request_t>
+using effective_scope_t = std::conditional_t<
+    std::same_as<typename request_traits_f<request_t>::transitive_scope_type, scope::transient_t>, scope::transient_t,
     std::conditional_t<
-        std::same_as<typename request_traits_f<request_t>::transitive_lifestyle_type, lifestyle::singleton_t>,
-        lifestyle::singleton_t, bound_lifestyle_t>>;
+        std::same_as<typename request_traits_f<request_t>::transitive_scope_type, scope::singleton_t>,
+        scope::singleton_t, bound_scope_t>>;
 
 /*!
     Converts type from what is cached or provided to what was actually requested.
