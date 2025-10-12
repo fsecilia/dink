@@ -213,10 +213,11 @@ template <typename type_p>
 using as_returnable_t = typename as_returnable_f<type_p>::type;
 
 /*!
-    Effective scope to use for a specific request given its immediate type and scope it was bound to
-    
-    If type is bound transient, but you ask for type&, that request is treated as singleton.
-    If type is bound singleton, but you ask for type&&, that request is treated as transient.
+    effective scope to use for a specific request given its immediate type and scope it was bound to
+
+    If T is bound transient, but you ask for T&, T const&, T*, or weak_ptr<T> that request is treated as singleton.
+    If T is bound singleton, but you ask for T, T&& or unique_ptr<T>, that request is treated as transient and receives
+    a copy of the cached T.
 */
 template <typename bound_scope_t, typename request_t>
 using effective_scope_t = std::conditional_t<
@@ -226,17 +227,19 @@ using effective_scope_t = std::conditional_t<
         scope::singleton_t, bound_scope_t>>;
 
 /*!
-    Converts type from what is cached or provided to what was actually requested.
-    
-    The mapping from provided or cached types is to requested types is n:m. A provider always returns a simple value, 
-    but that value may be cached, which has different forms.
-    
-    The root cache returns references when the result can't be null, but pointers when it the result may not yet be
-    cached. This includes 
-    
-     in a singleton, which returns a reference or a shared_ptr. The request may be for
-    a copy, a reference, an rvalue reference, a pointer, a unique_ptr, shared_ptr, or weak_ptr. as_requested() handles
-    the n:m mapping by delegating to the request_traits of the request.
+    converts type from what is cached or provided to what was actually requested
+
+    The mapping from provided or cached types to requested types is n:m. A provider always returns a simple value type,
+    but that value may be cached, which has different forms. What the caches return depends on context. When caching or
+    requesting shared_ptrs, the result is always a shared_ptr. When caching a value, the result is a reference. When
+    requesting a value which may not yet be cached, the result is a pointer.
+
+    That means there are 4 kinds of type that may be provided: value, reference, pointer, or shared_ptr.
+
+    The request may be for a copy, a reference, a reference to const, an rvalue reference, a pointer, a unique_ptr,
+    shared_ptr, or weak_ptr. This means there are 8 kinds of types that may be requested.
+
+    as_requested() handles this n:m mapping by delegating to the request_traits of the request.
 */
 template <typename request_t, typename instance_t>
 auto as_requested(instance_t&& instance) -> decltype(auto)
