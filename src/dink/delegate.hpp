@@ -9,14 +9,14 @@
 #include <dink/not_found.hpp>
 #include <type_traits>
 
-namespace dink::delegation_policy {
+namespace dink::delegate {
 
 /*!
     root container delegation policy
     
     The root container has no parent, so no delegation occurs.
 */
-struct root_t
+struct none_t
 {
     // signals there is no parent to which to delegate
     template <typename request_t, typename dependency_chain_t>
@@ -31,33 +31,33 @@ struct root_t
     
     Nested containers delegate to their parent container.
 */
-template <typename parent_t>
-struct nested_t
+template <typename parent_container_t>
+struct to_parent_t
 {
-    parent_t* parent;
+    parent_container_t* parent_container;
 
     // delegates resolution to parent
     template <typename request_t, typename dependency_chain_t>
     auto delegate() -> decltype(auto)
     {
-        return parent->template resolve<request_t, dependency_chain_t>();
+        return parent_container->template resolve<request_t, dependency_chain_t>();
     }
 
-    explicit nested_t(parent_t& parent) : parent{&parent} {}
+    explicit to_parent_t(parent_container_t& parent) : parent_container{&parent} {}
 };
 
 template <typename value_t>
-struct is_delegation_policy_f : std::false_type
+struct is_delegate_f : std::false_type
 {};
 
 template <>
-struct is_delegation_policy_f<delegation_policy::root_t> : std::true_type
+struct is_delegate_f<delegate::none_t> : std::true_type
 {};
 
 template <typename parent_t>
-struct is_delegation_policy_f<delegation_policy::nested_t<parent_t>> : std::true_type
+struct is_delegate_f<delegate::to_parent_t<parent_t>> : std::true_type
 {};
 
-template <typename value_t> concept is_delegation_policy = is_delegation_policy_f<std::remove_cvref_t<value_t>>::value;
+template <typename value_t> concept is_delegate = is_delegate_f<std::remove_cvref_t<value_t>>::value;
 
-} // namespace dink::delegation_policy
+} // namespace dink::delegate

@@ -10,7 +10,7 @@
 #include <dink/cache/hash_table.hpp>
 #include <dink/cache/type_indexed.hpp>
 #include <dink/config.hpp>
-#include <dink/delegation_policy.hpp>
+#include <dink/delegate.hpp>
 #include <dink/not_found.hpp>
 #include <dink/provider.hpp>
 #include <dink/request_traits.hpp>
@@ -26,7 +26,7 @@ namespace dink {
 
 template <typename policy_t>
 concept is_container_policy = requires {
-    typename policy_t::delegation_policy_t;
+    typename policy_t::delegate_t;
     typename policy_t::cache_t;
     typename policy_t::default_provider_factory_t;
 };
@@ -49,7 +49,7 @@ class container_t
 {
 public:
     using cache_t = policy_t::cache_t;
-    using delegation_policy_t = policy_t::delegation_policy_t;
+    using delegate_t = policy_t::delegate_t;
     using default_provider_factory_t = policy_t::default_provider_factory_t;
 
     // -----------------------------------------------------------------------------------------------------------------
@@ -59,23 +59,22 @@ public:
     //! Constructs root container with given bindings
     template <is_binding... bindings_t>
     explicit container_t(bindings_t&&... bindings)
-        : cache_{}, delegation_policy_{}, config_{resolve_bindings(std::forward<bindings_t>(bindings)...)},
+        : cache_{}, delegate_{}, config_{resolve_bindings(std::forward<bindings_t>(bindings)...)},
           default_provider_factory_{}
     {}
 
     //! Constructs nested container with parent and given bindings
     template <is_container parent_t, is_binding... bindings_t>
     explicit container_t(parent_t& parent, bindings_t&&... bindings)
-        : cache_{}, delegation_policy_{parent}, config_{resolve_bindings(std::forward<bindings_t>(bindings)...)},
+        : cache_{}, delegate_{parent}, config_{resolve_bindings(std::forward<bindings_t>(bindings)...)},
           default_provider_factory_{}
     {}
 
     //! Direct construction from components (used by deduction guides)
     container_t(
-        cache_t cache, delegation_policy_t delegation_policy, config_t config,
-        default_provider_factory_t default_provider_factory
+        cache_t cache, delegate_t delegate, config_t config, default_provider_factory_t default_provider_factory
     ) noexcept
-        : cache_{std::move(cache)}, delegation_policy_{std::move(delegation_policy)}, config_{std::move(config)},
+        : cache_{std::move(cache)}, delegate_{std::move(delegate)}, config_{std::move(config)},
           default_provider_factory_{std::move(default_provider_factory)}
     {}
 
@@ -118,8 +117,7 @@ public:
         }
 
         // Step 3: Try delegating to parent
-        if constexpr (decltype(auto) delegate_result
-                      = delegation_policy_.template delegate<request_t, dependency_chain_t>();
+        if constexpr (decltype(auto) delegate_result = delegate_.template delegate<request_t, dependency_chain_t>();
                       !std::is_same_v<decltype(delegate_result), not_found_t>)
         {
             return as_requested<request_t>(delegate_result);
@@ -200,7 +198,7 @@ private:
     // -----------------------------------------------------------------------------------------------------------------
 
     cache_t cache_;
-    delegation_policy_t delegation_policy_;
+    delegate_t delegate_;
     config_t config_;
     [[no_unique_address]] default_provider_factory_t default_provider_factory_;
 };
@@ -212,16 +210,16 @@ private:
 //! Policy for root containers (no parent delegation)
 struct root_container_policy_t
 {
-    using delegation_policy_t = delegation_policy::root_t;
+    using delegate_t = delegate::none_t;
     using cache_t = cache::type_indexed_t<>;
     using default_provider_factory_t = provider::default_factory_t;
 };
 
 //! Policy for nested containers (delegates to parent)
-template <typename parent_t>
+template <typename parent_container_t>
 struct nested_container_policy_t
 {
-    using delegation_policy_t = delegation_policy::nested_t<parent_t>;
+    using delegate_t = delegate::to_parent_t<parent_container_t>;
     using cache_t = cache::hash_table_t;
     using default_provider_factory_t = provider::default_factory_t;
 };
@@ -237,9 +235,9 @@ container_t(bindings_t&&...) -> container_t<
     typename config_from_tuple_f<decltype(resolve_bindings(std::declval<bindings_t>()...))>::type>;
 
 //! Deduction guide for nested containers
-template <is_container parent_t, is_binding... bindings_t>
-container_t(parent_t& parent, bindings_t&&...) -> container_t<
-    nested_container_policy_t<parent_t>,
+template <is_container parent_container_t, is_binding... bindings_t>
+container_t(parent_container_t& parent_container, bindings_t&&...) -> container_t<
+    nested_container_policy_t<parent_container_t>,
     typename config_from_tuple_f<decltype(resolve_bindings(std::declval<bindings_t>()...))>::type>;
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -253,9 +251,9 @@ using root_container_t = container_t<
     typename config_from_tuple_f<decltype(resolve_bindings(std::declval<bindings_t>()...))>::type>;
 
 //! Nested container with given parent and bindings
-template <is_container parent_t, typename... bindings_t>
+template <is_container parent_container_t, typename... bindings_t>
 using nested_container_t = container_t<
-    nested_container_policy_t<parent_t>,
+    nested_container_policy_t<parent_container_t>,
     typename config_from_tuple_f<decltype(resolve_bindings(std::declval<bindings_t>()...))>::type>;
 
 } // namespace dink

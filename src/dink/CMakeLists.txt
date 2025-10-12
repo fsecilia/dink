@@ -17,7 +17,7 @@ list(APPEND dink_library_files
     config.hpp
     container.hpp
     ctor_factory.hpp
-    delegation_policy.hpp
+    delegate.hpp
     dink.hpp
     double_checked_storage.hpp
     exceptions.hpp
@@ -43,7 +43,7 @@ list(APPEND dink_unit_test_files
     config_test.cpp
     container_test.cpp
     ctor_factory_test.cpp
-    delegation_policy_test.cpp
+    delegate_test.cpp
     double_checked_storage_test.cpp
     factory_invoker_test.cpp
     provider_test.cpp

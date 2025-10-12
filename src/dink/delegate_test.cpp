@@ -3,7 +3,7 @@
     Copyright (C) 2025 Frank Secilia
 */
 
-#include "delegation_policy.hpp"
+#include "delegate.hpp"
 #include <dink/test.hpp>
 
 namespace dink {
