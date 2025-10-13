@@ -69,10 +69,10 @@ using as_returnable_t = typename as_returnable_f<type_t>::type;
 */
 template <typename bound_scope_t, typename request_t>
 using effective_scope_t = std::conditional_t<
-    std::same_as<typename request_traits_f<request_t>::transitive_scope_type, scope::transient_t>, scope::transient_t,
+    std::same_as<bound_scope_t, scope::singleton_t>, scope::singleton_t,
     std::conditional_t<
         std::same_as<typename request_traits_f<request_t>::transitive_scope_type, scope::singleton_t>,
-        scope::singleton_t, bound_scope_t>>;
+        scope::singleton_t, scope::transient_t>>;
 
 // ---------------------------------------------------------------------------------------------------------------------
 // request traits
