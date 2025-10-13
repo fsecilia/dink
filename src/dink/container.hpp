@@ -29,6 +29,7 @@ concept is_container_policy = requires {
     typename policy_t::delegate_t;
     typename policy_t::cache_t;
     typename policy_t::default_provider_factory_t;
+    typename policy_t::request_traits_adapter_t;
 };
 
 template <typename container_t>
@@ -47,6 +48,7 @@ public:
     using cache_t = policy_t::cache_t;
     using delegate_t = policy_t::delegate_t;
     using default_provider_factory_t = policy_t::default_provider_factory_t;
+    using request_traits_adapter_t = policy_t::request_traits_adapter_t;
 
     // -----------------------------------------------------------------------------------------------------------------
     // constructors
@@ -102,7 +104,10 @@ public:
         // step 1: check cache for singleton requests
         if constexpr (std::same_as<effective_scope_t, scope::singleton_t>)
         {
-            if (auto cached = request_traits_t::find_in_cache(cache_)) return as_requested<request_t>(cached);
+            if (auto cached = request_traits_.template find_in_cache<request_t>(cache_))
+            {
+                return request_traits_.template as_requested<request_t>(cached);
+            }
         }
 
         // step 2: check local bindings
@@ -116,7 +121,7 @@ public:
         if constexpr (decltype(auto) delegate_result = delegate_.template delegate<request_t, dependency_chain_t>();
                       !std::is_same_v<decltype(delegate_result), not_found_t>)
         {
-            return as_requested<request_t>(delegate_result);
+            return request_traits_.template as_requested<request_t>(delegate_result);
         }
 
         // step 4: use default provider
@@ -135,7 +140,7 @@ private:
         if constexpr (provider::is_accessor<typename binding_t::provider_type>)
         {
             // Accessor providers (references/prototypes) bypass caching
-            return as_requested<request_t>(binding.provider.get());
+            return request_traits_.template as_requested<request_t>(binding.provider.get());
         }
         else
         {
@@ -175,8 +180,8 @@ private:
     template <typename request_t, typename dependency_chain_t, typename provider_t>
     auto invoke_provider_singleton(provider_t& provider) -> as_returnable_t<request_t>
     {
-        return as_requested<request_t>(
-            request_traits_f<request_t>::template resolve_from_cache<typename provider_t::provided_t>(cache_, [&]() {
+        return request_traits_.template as_requested<request_t>(
+            request_traits_.template resolve_from_cache<request_t, typename provider_t::provided_t>(cache_, [&]() {
                 return provider.template create<dependency_chain_t>(*this);
             })
         );
@@ -186,13 +191,14 @@ private:
     template <typename request_t, typename dependency_chain_t, typename provider_t>
     auto invoke_provider_transient(provider_t& provider) -> as_returnable_t<request_t>
     {
-        return as_requested<request_t>(provider.template create<dependency_chain_t>(*this));
+        return request_traits_.template as_requested<request_t>(provider.template create<dependency_chain_t>(*this));
     }
 
     cache_t cache_;
     delegate_t delegate_;
     config_t config_;
     [[no_unique_address]] default_provider_factory_t default_provider_factory_;
+    [[no_unique_address]] request_traits_adapter_t request_traits_;
 };
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -205,6 +211,7 @@ struct root_container_policy_t
     using delegate_t = delegate::none_t;
     using cache_t = cache::type_indexed_t<>;
     using default_provider_factory_t = provider::default_factory_t;
+    using request_traits_adapter_t = request_traits_adapter_t;
 };
 
 //! policy for nested containers (delegates to parent)
@@ -214,6 +221,7 @@ struct nested_container_policy_t
     using delegate_t = delegate::to_parent_t<parent_container_t>;
     using cache_t = cache::hash_table_t;
     using default_provider_factory_t = provider::default_factory_t;
+    using request_traits_adapter_t = request_traits_adapter_t;
 };
 
 // ---------------------------------------------------------------------------------------------------------------------

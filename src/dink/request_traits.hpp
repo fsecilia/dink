@@ -64,7 +64,7 @@ using as_returnable_t = typename as_returnable_f<type_t>::type;
     - Singleton request qualifiers (T&, T const&, T*, weak_ptr<T>) override bound scope -> always singleton
     - Otherwise, use the bound scope
 
-    \tparam bound_scope_t scope type was bound with 
+    \tparam bound_scope_t scope type was bound with
     \tparam request_t actual request type (with qualifiers)
 */
 template <typename bound_scope_t, typename request_t>
@@ -73,22 +73,6 @@ using effective_scope_t = std::conditional_t<
     std::conditional_t<
         std::same_as<typename request_traits_f<request_t>::transitive_scope_type, scope::singleton_t>,
         scope::singleton_t, bound_scope_t>>;
-
-// ---------------------------------------------------------------------------------------------------------------------
-// request conversion
-// ---------------------------------------------------------------------------------------------------------------------
-
-/*!
-    converts a provided/cached instance to the requested type
-
-    Handles the n:m mapping between what providers and cache return (value, reference, pointer, shared_ptr)
-    and what can be requested (T, T&, T const&, T&&, T*, unique_ptr<T>, shared_ptr<T>, weak_ptr<T>)
-*/
-template <typename request_t, typename instance_t>
-auto as_requested(instance_t&& instance) -> decltype(auto)
-{
-    return request_traits_f<request_t>::as_requested(std::forward<instance_t>(instance));
-}
 
 // ---------------------------------------------------------------------------------------------------------------------
 // request traits
@@ -308,4 +292,44 @@ template <typename requested_t>
 struct request_traits_f<requested_t const*> : request_traits_f<requested_t*>
 {};
 
+// ---------------------------------------------------------------------------------------------------------------------
+// instance-based api
+// ---------------------------------------------------------------------------------------------------------------------
+
+/*!
+    instance-based api adapter over request_traits_t's static api
+
+    request_traits_t is a static api, which makes testing difficult. Here, we adapt an instance-based api to it that
+    can be more easily substituted during testing.
+
+    In production, this class is passthrough and optimizes away.
+*/
+struct request_traits_adapter_t
+{
+    template <typename request_t, typename cache_t>
+    auto find_in_cache(cache_t& cache) noexcept -> auto
+    {
+        return request_traits_f<request_t>::find_in_cache(cache);
+    }
+
+    template <typename request_t, typename provided_t, typename cache_t, typename factory_t>
+    auto resolve_from_cache(cache_t& cache, factory_t&& factory) -> decltype(auto)
+    {
+        return request_traits_f<request_t>::template resolve_from_cache<provided_t>(
+            cache, std::forward<factory_t>(factory)
+        );
+    }
+
+    /*!
+        converts a provided/cached instance to the requested type
+
+        Handles the n:m mapping between what providers and cache return (value, reference, pointer, shared_ptr)
+        and what can be requested (T, T&, T const&, T&&, T*, unique_ptr<T>, shared_ptr<T>, weak_ptr<T>)
+    */
+    template <typename request_t, typename source_t>
+    auto as_requested(source_t&& source) -> decltype(auto)
+    {
+        return request_traits_f<request_t>::as_requested(std::forward<source_t>(source));
+    }
+};
 } // namespace dink
