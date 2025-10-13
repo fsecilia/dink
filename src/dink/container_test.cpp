@@ -43,16 +43,18 @@ struct container_test_t : Test
     };
     StrictMock<mock_accessor_provider_t> mock_accessor_provider;
 
-    template <typename provided_t>
+    template <typename instance_t>
     struct accessor_provider_t
     {
-        auto get() const -> provided_t
+        using provided_t = std::remove_cvref_t<instance_t>;
+
+        auto get() const -> instance_t
         {
-            if constexpr (std::is_reference_v<provided_t>)
+            if constexpr (std::is_reference_v<instance_t>)
             {
-                return *std::any_cast<std::remove_reference_t<provided_t>*>(mock->get());
+                return *std::any_cast<std::remove_reference_t<instance_t>*>(mock->get());
             }
-            else return std::any_cast<provided_t>(mock->get());
+            else return std::any_cast<instance_t>(mock->get());
         }
 
         mock_accessor_provider_t* mock = nullptr;
@@ -185,8 +187,11 @@ struct container_test_with_bound_accessor_t : container_test_t
 {
     struct provided_t
     {};
-    using provider_t = accessor_provider_t<provided_t>;
+    using provider_t = accessor_provider_t<provided_t&>;
+    static_assert(provider::is_accessor<provider_t>);
+
     using binding_t = binding_t<provided_t, provided_t, provider_t, scope::default_t>;
+    static_assert(provider::is_accessor<typename std::remove_pointer_t<binding_t>::provider_type>);
 
     struct config_t
     {
@@ -220,8 +225,7 @@ TEST_F(container_test_with_bound_accessor_t, accessor_provider_bypasses_everythi
     auto expected_provided = provided_t{};
 
     EXPECT_CALL(mock_accessor_provider, get()).WillOnce(Return(std::any{&expected_provided}));
-    EXPECT_CALL(mock_request_traits, as_requested(std::any{&expected_provided}))
-        .WillOnce(Return(std::any{&expected_provided}));
+    EXPECT_CALL(mock_request_traits, as_requested(_)).WillOnce(ReturnArg<0>());
 
     ASSERT_EQ(&expected_provided, &sut.resolve<provided_t&>());
 }

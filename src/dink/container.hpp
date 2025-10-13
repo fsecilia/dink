@@ -125,6 +125,7 @@ private:
                 }
 
                 // not in cache, create and cache atomically
+                static_assert(!provider::is_accessor<typename std::remove_pointer_t<decltype(binding)>::provider_type>);
                 return invoke_provider_singleton<request_t, dependency_chain_t>(binding->provider);
             }
             else
@@ -197,7 +198,7 @@ private:
     //! invokes provider and caches result
     template <typename request_t, typename dependency_chain_t, typename provider_t>
     auto invoke_provider_singleton(provider_t& provider) -> as_returnable_t<request_t>
-    {
+    {        
         // create and cache atomically via resolve_from_cache
         return request_traits_.template as_requested<request_t>(
             request_traits_.template resolve_from_cache<request_t, typename provider_t::provided_t>(cache_, [&]() {

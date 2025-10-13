@@ -116,8 +116,8 @@ concept is_creator = requires(provider_t& provider, meta::concept_probe_t& conta
 };
 
 template <typename provider_t>
-concept is_accessor = requires(provider_t const& provider, meta::concept_probe_t& container) {
-    { provider.get() } -> std::same_as<typename provider_t::provided_t>;
+concept is_accessor = requires(provider_t const& provider) {
+    { provider.get() } -> std::convertible_to<typename provider_t::provided_t>;
 };
 
 } // namespace dink::provider
