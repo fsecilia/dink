@@ -26,8 +26,8 @@ namespace dink {
 
 template <typename policy_t>
 concept is_container_policy = requires {
-    typename policy_t::delegate_t;
     typename policy_t::cache_t;
+    typename policy_t::delegate_t;
     typename policy_t::default_provider_factory_t;
     typename policy_t::request_traits_t;
 };
@@ -68,10 +68,11 @@ public:
 
     //! direct construction from components (used by deduction guides and testing)
     container_t(
-        cache_t cache, config_t config, delegate_t delegate, default_provider_factory_t default_provider_factory
+        cache_t cache, config_t config, delegate_t delegate, default_provider_factory_t default_provider_factory,
+        request_traits_t request_traits
     ) noexcept
         : cache_{std::move(cache)}, config_{std::move(config)}, delegate_{std::move(delegate)},
-          default_provider_factory_{std::move(default_provider_factory)}
+          default_provider_factory_{std::move(default_provider_factory)}, request_traits_{std::move(request_traits)}
     {}
 
     // -----------------------------------------------------------------------------------------------------------------

@@ -110,7 +110,14 @@ struct is_creator_f<creator_t<constructed_t, factory_t>> : std::true_type
 template <typename value_t>
 inline static constexpr auto is_creator_v = is_creator_f<value_t>::value;
 
-template <typename value_t> concept is_creator = is_creator_v<value_t>;
-template <typename provider_t> concept is_accessor = !is_creator<provider_t>;
+template <typename provider_t>
+concept is_creator = requires(provider_t& provider, meta::concept_probe_t& container) {
+    { provider.template create<type_list_t<>>(container) } -> std::same_as<typename provider_t::provided_t>;
+};
+
+template <typename provider_t>
+concept is_accessor = requires(provider_t const& provider, meta::concept_probe_t& container) {
+    { provider.get() } -> std::same_as<typename provider_t::provided_t>;
+};
 
 } // namespace dink::provider
