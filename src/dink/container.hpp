@@ -58,21 +58,22 @@ public:
 
     //! constructs root container with given bindings
     template <is_binding... bindings_t>
-    explicit container_t(bindings_t&&... bindings) : config_{resolve_bindings(std::forward<bindings_t>(bindings)...)}
+    explicit container_t(bindings_t&&... bindings) noexcept
+        : config_{resolve_bindings(std::forward<bindings_t>(bindings)...)}
     {}
 
     //! constructs nested container with given parent and bindings
     template <is_container parent_t, is_binding... bindings_t>
-    explicit container_t(parent_t& parent, bindings_t&&... bindings)
-        : delegate_{parent}, config_{resolve_bindings(std::forward<bindings_t>(bindings)...)}
+    explicit container_t(parent_t& parent, bindings_t&&... bindings) noexcept
+        : config_{resolve_bindings(std::forward<bindings_t>(bindings)...)}, delegate_{parent}
     {}
 
     //! direct construction from components (used by deduction guides and testing)
     container_t(
-        cache_t cache, delegate_t delegate, config_t config, default_provider_factory_t default_provider_factory,
+        cache_t cache, config_t config, delegate_t delegate, default_provider_factory_t default_provider_factory,
         provider_invoker_t provider_invoker
     ) noexcept
-        : cache_{std::move(cache)}, delegate_{std::move(delegate)}, config_{std::move(config)},
+        : cache_{std::move(cache)}, config_{std::move(config)}, delegate_{std::move(delegate)},
           default_provider_factory_{std::move(default_provider_factory)}, provider_invoker_{std::move(provider_invoker)}
     {}
 
@@ -215,8 +216,8 @@ private:
     }
 
     cache_t cache_;
+    config_t config_;
     [[no_unique_address]] delegate_t delegate_;
-    [[no_unique_address]] config_t config_;
     [[no_unique_address]] default_provider_factory_t default_provider_factory_;
     [[no_unique_address]] request_traits_t request_traits_;
     [[no_unique_address]] provider_invoker_t provider_invoker_;
@@ -237,16 +238,16 @@ struct container_policy_t
 //! policy for root containers (no parent delegation)
 struct root_container_policy_t : container_policy_t
 {
-    using delegate_t = delegate::none_t;
     using cache_t = cache::type_indexed_t<>;
+    using delegate_t = delegate::none_t;
 };
 
 //! policy for nested containers (delegates to parent)
 template <typename parent_container_t>
 struct nested_container_policy_t : container_policy_t
 {
-    using delegate_t = delegate::to_parent_t<parent_container_t>;
     using cache_t = cache::hash_table_t;
+    using delegate_t = delegate::to_parent_t<parent_container_t>;
 };
 
 // ---------------------------------------------------------------------------------------------------------------------
