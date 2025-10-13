@@ -16,50 +16,56 @@
 namespace dink {
 
 // ---------------------------------------------------------------------------------------------------------------------
-// Forward declarations and aliases
+// forward declarations and aliases
 // ---------------------------------------------------------------------------------------------------------------------
 
 template <typename requested_t>
 struct request_traits_f;
 
-//! Type actually cached and provided for a given request
+//! type actually cached and provided for a given request
 template <typename requested_t>
 using resolved_t = typename request_traits_f<requested_t>::value_type;
 
 // ---------------------------------------------------------------------------------------------------------------------
-// Helper metafunctions
+// metafunctions
 // ---------------------------------------------------------------------------------------------------------------------
 
-//! Converts a type to a valid function return type (removes rvalue references)
+//! resolves type to a valid function return type by removing rvalue references
+template <typename type_t>
+struct as_returnable_f;
+
+//! general case is passthrough
 template <typename type_t>
 struct as_returnable_f
 {
     using type = type_t;
 };
 
+//! rvalue reference specialization resolves to unqualified value type
 template <typename type_t>
 struct as_returnable_f<type_t&&>
 {
     using type = type_t;
 };
 
+//! alias resolves type to valid function return type
 template <typename type_t>
 using as_returnable_t = typename as_returnable_f<type_t>::type;
 
 // ---------------------------------------------------------------------------------------------------------------------
-// Effective scope computation
+// effective scope
 // ---------------------------------------------------------------------------------------------------------------------
 
 /*!
-    Computes the effective scope for a request given its bound scope and request type
+    chooses effective scope for a request given its bound scope and request type
 
     Rules:
     - Transient request qualifiers (T, T&&, unique_ptr<T>) override bound scope -> always transient
     - Singleton request qualifiers (T&, T const&, T*, weak_ptr<T>) override bound scope -> always singleton
     - Otherwise, use the bound scope
 
-    \tparam bound_scope_t The scope the type was bound with
-    \tparam request_t The actual request type (with qualifiers)
+    \tparam bound_scope_t scope type was bound with 
+    \tparam request_t actual request type (with qualifiers)
 */
 template <typename bound_scope_t, typename request_t>
 using effective_scope_t = std::conditional_t<
@@ -69,11 +75,11 @@ using effective_scope_t = std::conditional_t<
         scope::singleton_t, bound_scope_t>>;
 
 // ---------------------------------------------------------------------------------------------------------------------
-// Request conversion
+// request conversion
 // ---------------------------------------------------------------------------------------------------------------------
 
 /*!
-    Converts a provided/cached instance to the requested type
+    converts a provided/cached instance to the requested type
 
     Handles the n:m mapping between what providers and cache return (value, reference, pointer, shared_ptr)
     and what can be requested (T, T&, T const&, T&&, T*, unique_ptr<T>, shared_ptr<T>, weak_ptr<T>)
@@ -85,11 +91,11 @@ auto as_requested(instance_t&& instance) -> decltype(auto)
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
-// Base request traits (value types)
+// request traits
 // ---------------------------------------------------------------------------------------------------------------------
 
 /*!
-    Request traits for value types (T)
+    request traits for value types (T)
 
     - Resolves to the type itself
     - Uses default scope behavior (respects bound scope)
@@ -120,12 +126,8 @@ struct request_traits_f
     }
 };
 
-// ---------------------------------------------------------------------------------------------------------------------
-// Reference request traits
-// ---------------------------------------------------------------------------------------------------------------------
-
 /*!
-    Request traits for rvalue references (T&&)
+    request traits for rvalue references (T&&)
 
     - Always transient (forces a new instance)
     - Returns by rvalue reference (enables move semantics)
@@ -137,7 +139,7 @@ struct request_traits_f<requested_t&&> : request_traits_f<requested_t>
 };
 
 /*!
-    Request traits for lvalue references (T&)
+    request traits for lvalue references (T&)
 
     - Always singleton (requires stable address)
     - Returns by lvalue reference
@@ -167,12 +169,8 @@ struct request_traits_f<requested_t&>
     }
 };
 
-// ---------------------------------------------------------------------------------------------------------------------
-// Pointer request traits
-// ---------------------------------------------------------------------------------------------------------------------
-
 /*!
-    Request traits for raw pointers (T*)
+    request traits for raw pointers (T*)
 
     - Always singleton (pointer implies shared lifetime)
     - Returns address of cached instance
@@ -202,12 +200,8 @@ struct request_traits_f<requested_t*>
     }
 };
 
-// ---------------------------------------------------------------------------------------------------------------------
-// Smart pointer request traits
-// ---------------------------------------------------------------------------------------------------------------------
-
 /*!
-    Request traits for unique_ptr<T>
+    request traits for unique_ptr<T>
 
     - Always transient (unique ownership semantics)
     - Never cached (each request gets a new unique_ptr)
@@ -239,7 +233,7 @@ struct request_traits_f<std::unique_ptr<requested_t, deleter_t>>
 };
 
 /*!
-    Request traits for shared_ptr<T>
+    request traits for shared_ptr<T>
 
     - Uses default scope behavior
     - Caches canonical shared_ptr instances
@@ -280,7 +274,7 @@ struct request_traits_f<std::shared_ptr<requested_t>>
 };
 
 /*!
-    Request traits for weak_ptr<T>
+    request traits for weak_ptr<T>
 
     - Always singleton (weak_ptr requires cached shared_ptr)
     - Leverages shared_ptr caching
@@ -299,21 +293,17 @@ struct request_traits_f<std::weak_ptr<requested_t>> : request_traits_f<std::shar
     }
 };
 
-// ---------------------------------------------------------------------------------------------------------------------
-// Const-qualified request traits
-// ---------------------------------------------------------------------------------------------------------------------
-
-//! Request traits for const value types - delegates to non-const version
+//! request traits for const value types - delegates to non-const version
 template <typename requested_t>
 struct request_traits_f<requested_t const> : request_traits_f<requested_t>
 {};
 
-//! Request traits for const lvalue references - delegates to non-const reference version
+//! request traits for const lvalue references - delegates to non-const reference version
 template <typename requested_t>
 struct request_traits_f<requested_t const&> : request_traits_f<requested_t&>
 {};
 
-//! Request traits for const pointers - delegates to non-const pointer version
+//! request traits for const pointers - delegates to non-const pointer version
 template <typename requested_t>
 struct request_traits_f<requested_t const*> : request_traits_f<requested_t*>
 {};
