@@ -296,15 +296,8 @@ struct request_traits_f<requested_t const*> : request_traits_f<requested_t*>
 // instance-based api
 // ---------------------------------------------------------------------------------------------------------------------
 
-/*!
-    instance-based api adapter over request_traits_t's static api
-
-    request_traits_t is a static api, which makes testing difficult. Here, we adapt an instance-based api to it that
-    can be more easily substituted during testing.
-
-    In production, this class is passthrough and optimizes away.
-*/
-struct request_traits_adapter_t
+//! instance-based api adapter over request_traits_t's static api
+struct request_traits_t
 {
     template <typename request_t, typename cache_t>
     auto find_in_cache(cache_t& cache) noexcept -> auto
@@ -332,4 +325,5 @@ struct request_traits_adapter_t
         return request_traits_f<request_t>::as_requested(std::forward<source_t>(source));
     }
 };
+
 } // namespace dink

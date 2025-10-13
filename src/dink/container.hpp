@@ -29,7 +29,8 @@ concept is_container_policy = requires {
     typename policy_t::delegate_t;
     typename policy_t::cache_t;
     typename policy_t::default_provider_factory_t;
-    typename policy_t::request_traits_adapter_t;
+    typename policy_t::request_traits_t;
+    typename policy_t::provider_invoker_t;
 };
 
 template <typename container_t>
@@ -48,7 +49,8 @@ public:
     using cache_t = policy_t::cache_t;
     using delegate_t = policy_t::delegate_t;
     using default_provider_factory_t = policy_t::default_provider_factory_t;
-    using request_traits_adapter_t = policy_t::request_traits_adapter_t;
+    using request_traits_t = policy_t::request_traits_t;
+    using provider_invoker_t = policy_t::provider_invoker_t;
 
     // -----------------------------------------------------------------------------------------------------------------
     // constructors
@@ -56,24 +58,22 @@ public:
 
     //! constructs root container with given bindings
     template <is_binding... bindings_t>
-    explicit container_t(bindings_t&&... bindings)
-        : cache_{}, delegate_{}, config_{resolve_bindings(std::forward<bindings_t>(bindings)...)},
-          default_provider_factory_{}
+    explicit container_t(bindings_t&&... bindings) : config_{resolve_bindings(std::forward<bindings_t>(bindings)...)}
     {}
 
     //! constructs nested container with given parent and bindings
     template <is_container parent_t, is_binding... bindings_t>
     explicit container_t(parent_t& parent, bindings_t&&... bindings)
-        : cache_{}, delegate_{parent}, config_{resolve_bindings(std::forward<bindings_t>(bindings)...)},
-          default_provider_factory_{}
+        : delegate_{parent}, config_{resolve_bindings(std::forward<bindings_t>(bindings)...)}
     {}
 
     //! direct construction from components (used by deduction guides and testing)
     container_t(
-        cache_t cache, delegate_t delegate, config_t config, default_provider_factory_t default_provider_factory
+        cache_t cache, delegate_t delegate, config_t config, default_provider_factory_t default_provider_factory,
+        provider_invoker_t provider_invoker
     ) noexcept
         : cache_{std::move(cache)}, delegate_{std::move(delegate)}, config_{std::move(config)},
-          default_provider_factory_{std::move(default_provider_factory)}
+          default_provider_factory_{std::move(default_provider_factory)}, provider_invoker_{std::move(provider_invoker)}
     {}
 
     // -----------------------------------------------------------------------------------------------------------------
@@ -197,10 +197,10 @@ private:
     template <typename request_t, typename dependency_chain_t, typename provider_t>
     auto invoke_provider_singleton(provider_t& provider) -> as_returnable_t<request_t>
     {
-        // Create and cache atomically via resolve_from_cache
+        // create and cache atomically via resolve_from_cache
         return request_traits_.template as_requested<request_t>(
             request_traits_.template resolve_from_cache<request_t, typename provider_t::provided_t>(cache_, [&]() {
-                return provider.template create<dependency_chain_t>(*this);
+                return provider_invoker_.template invoke<dependency_chain_t>(provider, *this);
             })
         );
     }
@@ -209,37 +209,44 @@ private:
     template <typename request_t, typename dependency_chain_t, typename provider_t>
     auto invoke_provider_transient(provider_t& provider) -> as_returnable_t<request_t>
     {
-        return request_traits_.template as_requested<request_t>(provider.template create<dependency_chain_t>(*this));
+        return request_traits_.template as_requested<request_t>(
+            provider_invoker_.template invoke<dependency_chain_t>(provider, *this)
+        );
     }
 
     cache_t cache_;
-    delegate_t delegate_;
-    config_t config_;
+    [[no_unique_address]] delegate_t delegate_;
+    [[no_unique_address]] config_t config_;
     [[no_unique_address]] default_provider_factory_t default_provider_factory_;
-    [[no_unique_address]] request_traits_adapter_t request_traits_;
+    [[no_unique_address]] request_traits_t request_traits_;
+    [[no_unique_address]] provider_invoker_t provider_invoker_;
 };
 
 // ---------------------------------------------------------------------------------------------------------------------
 // named policies
 // ---------------------------------------------------------------------------------------------------------------------
 
+//! common policy
+struct container_policy_t
+{
+    using default_provider_factory_t = provider::default_factory_t;
+    using request_traits_t = request_traits_t;
+    using provider_invoker_t = provider::invoker_t;
+};
+
 //! policy for root containers (no parent delegation)
-struct root_container_policy_t
+struct root_container_policy_t : container_policy_t
 {
     using delegate_t = delegate::none_t;
     using cache_t = cache::type_indexed_t<>;
-    using default_provider_factory_t = provider::default_factory_t;
-    using request_traits_adapter_t = request_traits_adapter_t;
 };
 
 //! policy for nested containers (delegates to parent)
 template <typename parent_container_t>
-struct nested_container_policy_t
+struct nested_container_policy_t : container_policy_t
 {
     using delegate_t = delegate::to_parent_t<parent_container_t>;
     using cache_t = cache::hash_table_t;
-    using default_provider_factory_t = provider::default_factory_t;
-    using request_traits_adapter_t = request_traits_adapter_t;
 };
 
 // ---------------------------------------------------------------------------------------------------------------------

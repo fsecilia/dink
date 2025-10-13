@@ -113,4 +113,13 @@ inline static constexpr auto is_creator_v = is_creator_f<value_t>::value;
 template <typename value_t> concept is_creator = is_creator_v<value_t>;
 template <typename provider_t> concept is_accessor = !is_creator<provider_t>;
 
+struct invoker_t
+{
+    template <typename dependency_chain_t, typename provider_t, typename container_t>
+    auto invoke(provider_t& provider, container_t& container) -> auto
+    {
+        return provider.template create<dependency_chain_t>(container);
+    }
+};
+
 } // namespace dink::provider
