@@ -36,10 +36,7 @@ class config_t;
     - querying bound scope for a type
 */
 template <typename config_t>
-concept is_config = requires(config_t& config) {
-    config.template find_binding<meta::concept_probe_t>();
-    typename config_t::template bound_scope_t<meta::concept_probe_t>;
-};
+concept is_config = requires(config_t& config) { config.template find_binding<meta::concept_probe_t>(); };
 
 // ---------------------------------------------------------------------------------------------------------------------
 // implementation details
@@ -80,36 +77,6 @@ struct binding_index_f<resolved_t, index, bindings_tuple_t>
 //! alias for finding binding index
 template <typename resolved_t, typename bindings_tuple_t>
 inline static constexpr auto binding_index_v = binding_index_f<resolved_t, 0, bindings_tuple_t>::value;
-
-// ---------------------------------------------------------------------------------------------------------------------
-
-/*!
-    extracts the scope type from a binding at the given index
-
-    \tparam index index of binding in tuple
-    \tparam bindings_tuple_t tuple of binding types
-*/
-template <std::size_t index, typename bindings_tuple_t>
-struct bound_scope_f;
-
-//! general case - binding is found at given index
-template <std::size_t index, typename bindings_tuple_t>
-struct bound_scope_f
-{
-    using binding_t = std::tuple_element_t<index, bindings_tuple_t>;
-    using type = typename binding_t::scope_type;
-};
-
-//! specialization when binding is not found - defaults to transient scope
-template <typename bindings_tuple_t>
-struct bound_scope_f<npos, bindings_tuple_t>
-{
-    using type = scope::transient_t;
-};
-
-//! alias for extracting bound scope
-template <std::size_t index, typename bindings_tuple_t>
-using bound_scope_t = typename bound_scope_f<index, bindings_tuple_t>::type;
 
 // ---------------------------------------------------------------------------------------------------------------------
 
@@ -189,18 +156,6 @@ public:
     // -----------------------------------------------------------------------------------------------------------------
     // scope lookup
     // -----------------------------------------------------------------------------------------------------------------
-
-    /*!
-        gets the bound scope for a resolved type
-
-        If no binding exists, defaults to transient scope.
-
-        \tparam resolved_t canonical type to query
-        \return scope type (transient_t, singleton_t, etc.)
-    */
-    template <typename resolved_t>
-    using bound_scope_t
-        = detail::bound_scope_t<detail::binding_index_v<resolved_t, bindings_tuple_t>, bindings_tuple_t>;
 
 private:
     bindings_tuple_t bindings_;
