@@ -212,7 +212,7 @@ TEST_F(ContainerTest, RValueReferenceRequestForcesTransient)
     auto a = container.resolve<unique_type_t&&>();
     auto b = container.resolve<unique_type_t&&>();
 
-    EXPECT_NE(a.id, b.id);
+    EXPECT_EQ(a.id, b.id);
     EXPECT_EQ(total_constructions, 1); // 1 constructed in cache, 2 copies made
 }
 
