@@ -30,7 +30,6 @@ concept is_container_policy = requires {
     typename policy_t::cache_t;
     typename policy_t::default_provider_factory_t;
     typename policy_t::request_traits_t;
-    typename policy_t::provider_invoker_t;
 };
 
 template <typename container_t>
@@ -50,7 +49,6 @@ public:
     using delegate_t = policy_t::delegate_t;
     using default_provider_factory_t = policy_t::default_provider_factory_t;
     using request_traits_t = policy_t::request_traits_t;
-    using provider_invoker_t = policy_t::provider_invoker_t;
 
     // -----------------------------------------------------------------------------------------------------------------
     // constructors
@@ -70,11 +68,10 @@ public:
 
     //! direct construction from components (used by deduction guides and testing)
     container_t(
-        cache_t cache, config_t config, delegate_t delegate, default_provider_factory_t default_provider_factory,
-        provider_invoker_t provider_invoker
+        cache_t cache, config_t config, delegate_t delegate, default_provider_factory_t default_provider_factory
     ) noexcept
         : cache_{std::move(cache)}, config_{std::move(config)}, delegate_{std::move(delegate)},
-          default_provider_factory_{std::move(default_provider_factory)}, provider_invoker_{std::move(provider_invoker)}
+          default_provider_factory_{std::move(default_provider_factory)}
     {}
 
     // -----------------------------------------------------------------------------------------------------------------
@@ -87,55 +84,33 @@ public:
         using resolved_t = resolved_t<request_t>;
 
         // check for local binding
-        auto local_binding = config_.template find_binding<resolved_t>();
-        static constexpr bool has_local_binding = !std::is_same_v<decltype(local_binding), not_found_t>;
-        if constexpr (has_local_binding)
+        auto binding = config_.template find_binding<resolved_t>();
+        static constexpr bool has_binding = !std::is_same_v<decltype(binding), not_found_t>;
+        if constexpr (has_binding) return resolve_with_binding<request_t, dependency_chain_t>(binding);
+        else return resolve_without_binding<request_t, dependency_chain_t>();
+    }
+
+private:
+    // -----------------------------------------------------------------------------------------------------------------
+    // resolution implementation
+    // -----------------------------------------------------------------------------------------------------------------
+
+    template <typename request_t, typename dependency_chain_t>
+    auto resolve_with_binding(auto binding) -> as_returnable_t<request_t>
+    {
+        // check for accessor
+        if constexpr (provider::is_accessor<typename std::remove_pointer_t<decltype(binding)>::provider_type>)
         {
-            // has binding
-
-            // check for accessor
-            if constexpr (provider::is_accessor<typename std::remove_pointer_t<decltype(local_binding)>::provider_type>)
-            {
-                // accessor: bypass everything
-                return request_traits_.template as_requested<request_t>(local_binding->provider.get());
-            }
-            else
-            {
-                // creator: use scope and cache
-
-                // determine effective scope
-                using bound_scope_t = typename std::remove_pointer_t<decltype(local_binding)>::scope_type;
-                using effective_scope_t = effective_scope_t<bound_scope_t, request_t>;
-
-                // singleton or transient?
-                if constexpr (std::same_as<effective_scope_t, scope::singleton_t>)
-                {
-                    // singleton
-
-                    // check cache
-                    if (auto cached = request_traits_.template find_in_cache<request_t>(cache_))
-                    {
-                        return request_traits_.template as_requested<request_t>(cached);
-                    }
-
-                    // not in cache, create and cache atomically
-                    return invoke_provider_singleton<request_t, dependency_chain_t>(local_binding->provider);
-                }
-                else
-                {
-                    // transient
-
-                    // create without caching
-                    return invoke_provider_transient<request_t, dependency_chain_t>(local_binding->provider);
-                }
-            }
+            // accessor: bypass everything
+            return request_traits_.template as_requested<request_t>(binding->provider.get());
         }
         else
         {
-            // does not have binding
+            // creator: use scope and cache
 
             // determine effective scope
-            using effective_scope_t = effective_scope_t<scope::default_t, request_t>;
+            using bound_scope_t = typename std::remove_pointer_t<decltype(binding)>::scope_type;
+            using effective_scope_t = effective_scope_t<bound_scope_t, request_t>;
 
             // singleton or transient?
             if constexpr (std::same_as<effective_scope_t, scope::singleton_t>)
@@ -147,25 +122,49 @@ public:
                 {
                     return request_traits_.template as_requested<request_t>(cached);
                 }
-            }
 
-            // delegate?
-            if constexpr (decltype(auto) delegate_result = delegate_.template delegate<request_t, dependency_chain_t>();
-                          !std::is_same_v<decltype(delegate_result), not_found_t>)
+                // not in cache, create and cache atomically
+                return invoke_provider_singleton<request_t, dependency_chain_t>(binding->provider);
+            }
+            else
             {
-                // delegate
-                return request_traits_.template as_requested<request_t>(delegate_result);
-            }
+                // transient
 
-            // use default provider
-            return resolve_with_default_provider<request_t, dependency_chain_t>();
+                // create without caching
+                return invoke_provider_transient<request_t, dependency_chain_t>(binding->provider);
+            }
         }
     }
 
-private:
-    // -----------------------------------------------------------------------------------------------------------------
-    // resolution implementation
-    // -----------------------------------------------------------------------------------------------------------------
+    template <typename request_t, typename dependency_chain_t>
+    auto resolve_without_binding() -> as_returnable_t<request_t>
+    {
+        // determine effective scope
+        using effective_scope_t = effective_scope_t<scope::default_t, request_t>;
+
+        // singleton or transient?
+        if constexpr (std::same_as<effective_scope_t, scope::singleton_t>)
+        {
+            // singleton
+
+            // check cache
+            if (auto cached = request_traits_.template find_in_cache<request_t>(cache_))
+            {
+                return request_traits_.template as_requested<request_t>(cached);
+            }
+        }
+
+        // delegate?
+        if constexpr (decltype(auto) delegate_result = delegate_.template delegate<request_t, dependency_chain_t>();
+                      !std::is_same_v<decltype(delegate_result), not_found_t>)
+        {
+            // delegate
+            return request_traits_.template as_requested<request_t>(delegate_result);
+        }
+
+        // use default provider
+        return resolve_with_default_provider<request_t, dependency_chain_t>();
+    }
 
     //! resolves using default provider (auto-wired constructor)
     template <typename request_t, typename dependency_chain_t>
@@ -201,7 +200,7 @@ private:
         // create and cache atomically via resolve_from_cache
         return request_traits_.template as_requested<request_t>(
             request_traits_.template resolve_from_cache<request_t, typename provider_t::provided_t>(cache_, [&]() {
-                return provider_invoker_.template invoke<dependency_chain_t>(provider, *this);
+                return provider.template create<dependency_chain_t>(*this);
             })
         );
     }
@@ -210,9 +209,7 @@ private:
     template <typename request_t, typename dependency_chain_t, typename provider_t>
     auto invoke_provider_transient(provider_t& provider) -> as_returnable_t<request_t>
     {
-        return request_traits_.template as_requested<request_t>(
-            provider_invoker_.template invoke<dependency_chain_t>(provider, *this)
-        );
+        return request_traits_.template as_requested<request_t>(provider.template create<dependency_chain_t>(*this));
     }
 
     cache_t cache_;
@@ -220,7 +217,6 @@ private:
     [[no_unique_address]] delegate_t delegate_;
     [[no_unique_address]] default_provider_factory_t default_provider_factory_;
     [[no_unique_address]] request_traits_t request_traits_;
-    [[no_unique_address]] provider_invoker_t provider_invoker_;
 };
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -232,7 +228,6 @@ struct container_policy_t
 {
     using default_provider_factory_t = provider::default_factory_t;
     using request_traits_t = request_traits_t;
-    using provider_invoker_t = provider::invoker_t;
 };
 
 //! policy for root containers (no parent delegation)
