@@ -113,28 +113,16 @@ private:
             using bound_scope_t = typename std::remove_pointer_t<decltype(binding)>::scope_type;
             using effective_scope_t = effective_scope_t<bound_scope_t, request_t>;
 
-            // singleton or transient?
             if constexpr (std::same_as<effective_scope_t, scope::singleton_t>)
             {
-                // singleton
-
                 // check cache
                 if (auto cached = request_traits_.template find_in_cache<request_t>(cache_))
                 {
                     return request_traits_.template as_requested<request_t>(cached);
                 }
-
-                // not in cache, create and cache atomically
-                static_assert(!provider::is_accessor<typename std::remove_pointer_t<decltype(binding)>::provider_type>);
-                return invoke_provider_singleton<request_t, dependency_chain_t>(binding->provider);
             }
-            else
-            {
-                // transient
 
-                // create without caching
-                return invoke_provider_transient<request_t, dependency_chain_t>(binding->provider);
-            }
+            return invoke_provider<request_t, dependency_chain_t, effective_scope_t>(binding->provider);
         }
     }
 
@@ -165,12 +153,16 @@ private:
         }
 
         // use default provider
-        return resolve_with_default_provider<request_t, dependency_chain_t>();
+        return invoke_default_provider<request_t, dependency_chain_t>();
     }
 
-    //! resolves using default provider (auto-wired constructor)
+    // -----------------------------------------------------------------------------------------------------------------
+    // provider invocation
+    // -----------------------------------------------------------------------------------------------------------------
+
+    //! invokes using default provider determined by request
     template <typename request_t, typename dependency_chain_t>
-    auto resolve_with_default_provider() -> as_returnable_t<request_t>
+    auto invoke_default_provider() -> as_returnable_t<request_t>
     {
         auto default_provider = default_provider_factory_.template create<request_t>();
         using default_provider_t = decltype(default_provider);
@@ -179,10 +171,6 @@ private:
         using default_effective_scope_t = effective_scope_t<typename default_provider_t::default_scope_t, request_t>;
         return invoke_provider<request_t, dependency_chain_t, default_effective_scope_t>(default_provider);
     }
-
-    // -----------------------------------------------------------------------------------------------------------------
-    // provider invocation
-    // -----------------------------------------------------------------------------------------------------------------
 
     //! invokes provider respecting the effective scope
     template <typename request_t, typename dependency_chain_t, typename scope_t, typename provider_t>
