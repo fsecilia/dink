@@ -24,7 +24,7 @@ struct binding_t
     using provider_type = provider_t;
     using scope_type = scope_t;
 
-    provider_t provider;
+    [[no_unique_address]] provider_t provider;
 };
 
 //! binding builder after destination type is specified

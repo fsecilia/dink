@@ -6,8 +6,6 @@
 #pragma once
 
 #include <dink/lib.hpp>
-#include <dink/meta.hpp>
-#include <dink/scope.hpp>
 #include <dink/smart_pointer_traits.hpp>
 #include <memory>
 #include <type_traits>
@@ -53,28 +51,6 @@ template <typename type_t>
 using as_returnable_t = typename as_returnable_f<type_t>::type;
 
 // ---------------------------------------------------------------------------------------------------------------------
-// effective scope
-// ---------------------------------------------------------------------------------------------------------------------
-
-/*!
-    chooses effective scope for a request given its bound scope and request type
-
-    Rules:
-    - Transient request qualifiers (T, T&&, unique_ptr<T>) override bound scope -> always transient
-    - Singleton request qualifiers (T&, T const&, T*, weak_ptr<T>) override bound scope -> always singleton
-    - Otherwise, use the bound scope
-
-    \tparam bound_scope_t scope type was bound with
-    \tparam request_t actual request type (with qualifiers)
-*/
-template <typename bound_scope_t, typename request_t>
-using effective_scope_t = std::conditional_t<
-    std::same_as<bound_scope_t, scope::singleton_t>, scope::singleton_t,
-    std::conditional_t<
-        std::same_as<typename request_traits_f<request_t>::transitive_scope_type, scope::singleton_t>,
-        scope::singleton_t, scope::transient_t>>;
-
-// ---------------------------------------------------------------------------------------------------------------------
 // request traits
 // ---------------------------------------------------------------------------------------------------------------------
 
@@ -89,19 +65,6 @@ template <typename requested_t>
 struct request_traits_f
 {
     using value_type = requested_t;
-    using transitive_scope_type = scope::default_t;
-
-    template <typename cache_t>
-    static auto find_in_cache(cache_t& cache) noexcept -> auto
-    {
-        return cache.template get_instance<value_type>();
-    }
-
-    template <typename provided_t, typename cache_t, typename factory_t>
-    static auto resolve_from_cache(cache_t& cache, factory_t&& factory) -> decltype(auto)
-    {
-        return cache.template get_or_create_instance<provided_t>(std::forward<factory_t>(factory));
-    }
 
     template <typename source_t>
     static auto as_requested(source_t&& source) -> requested_t
@@ -112,14 +75,12 @@ struct request_traits_f
 
 /*!
     request traits for rvalue references (T&&)
-
-    - Always transient (forces a new instance)
-    - Returns by rvalue reference (enables move semantics)
+    
+    rvalue references are treated the same as value types
 */
 template <typename requested_t>
 struct request_traits_f<requested_t&&> : request_traits_f<requested_t>
 {
-    using transitive_scope_type = scope::transient_t;
 };
 
 /*!
@@ -132,19 +93,6 @@ template <typename requested_t>
 struct request_traits_f<requested_t&>
 {
     using value_type = requested_t;
-    using transitive_scope_type = scope::singleton_t;
-
-    template <typename cache_t>
-    static auto find_in_cache(cache_t& cache) noexcept -> auto
-    {
-        return cache.template get_instance<value_type>();
-    }
-
-    template <typename provided_t, typename cache_t, typename factory_t>
-    static auto resolve_from_cache(cache_t& cache, factory_t&& factory) -> decltype(auto)
-    {
-        return cache.template get_or_create_instance<provided_t>(std::forward<factory_t>(factory));
-    }
 
     template <typename source_t>
     static auto as_requested(source_t&& source) -> requested_t&
@@ -163,19 +111,6 @@ template <typename requested_t>
 struct request_traits_f<requested_t*>
 {
     using value_type = requested_t;
-    using transitive_scope_type = scope::singleton_t;
-
-    template <typename cache_t>
-    static auto find_in_cache(cache_t& cache) noexcept -> auto
-    {
-        return cache.template get_instance<value_type>();
-    }
-
-    template <typename provided_t, typename cache_t, typename factory_t>
-    static auto resolve_from_cache(cache_t& cache, factory_t&& factory) -> decltype(auto)
-    {
-        return &cache.template get_or_create_instance<provided_t>(std::forward<factory_t>(factory));
-    }
 
     template <typename source_t>
     static auto as_requested(source_t&& source) -> requested_t*
@@ -195,19 +130,6 @@ template <typename requested_t, typename deleter_t>
 struct request_traits_f<std::unique_ptr<requested_t, deleter_t>>
 {
     using value_type = std::remove_cvref_t<requested_t>;
-    using transitive_scope_type = scope::default_t;
-
-    template <typename cache_t>
-    static auto find_in_cache(cache_t& cache) noexcept -> auto
-    {
-        return cache.template get_instance<value_type>();
-    }
-
-    template <typename provided_t, typename cache_t, typename factory_t>
-    static auto resolve_from_cache(cache_t& cache, factory_t&& factory)
-    {
-        return cache.template get_or_create_instance<provided_t>(std::forward<factory_t>(factory));
-    }
 
     template <typename source_t>
     static auto as_requested(source_t&& source) -> std::unique_ptr<requested_t, deleter_t>
@@ -227,19 +149,6 @@ template <typename requested_t>
 struct request_traits_f<std::shared_ptr<requested_t>>
 {
     using value_type = std::remove_cvref_t<requested_t>;
-    using transitive_scope_type = scope::default_t;
-
-    template <typename cache_t>
-    static auto find_in_cache(cache_t& cache) noexcept -> auto
-    {
-        return cache.template get_shared<value_type>();
-    }
-
-    template <typename provided_t, typename cache_t, typename factory_t>
-    static auto resolve_from_cache(cache_t& cache, factory_t&& factory)
-    {
-        return cache.template get_or_create_shared<provided_t>(std::forward<factory_t>(factory));
-    }
 
     template <typename source_t>
     static auto as_requested(source_t&& source) -> std::shared_ptr<requested_t>
@@ -267,8 +176,6 @@ struct request_traits_f<std::shared_ptr<requested_t>>
 template <typename requested_t>
 struct request_traits_f<std::weak_ptr<requested_t>> : request_traits_f<std::shared_ptr<requested_t>>
 {
-    using transitive_scope_type = scope::singleton_t;
-
     template <typename source_t>
     static auto as_requested(source_t&& source) -> std::weak_ptr<requested_t>
     {
@@ -299,20 +206,6 @@ struct request_traits_f<requested_t const*> : request_traits_f<requested_t*>
 //! instance-based api adapter over request_traits_t's static api
 struct request_traits_t
 {
-    template <typename request_t, typename cache_t>
-    auto find_in_cache(cache_t& cache) noexcept -> auto
-    {
-        return request_traits_f<request_t>::find_in_cache(cache);
-    }
-
-    template <typename request_t, typename provided_t, typename cache_t, typename factory_t>
-    auto resolve_from_cache(cache_t& cache, factory_t&& factory) -> decltype(auto)
-    {
-        return request_traits_f<request_t>::template resolve_from_cache<provided_t>(
-            cache, std::forward<factory_t>(factory)
-        );
-    }
-
     /*!
         converts a provided/cached instance to the requested type
 

@@ -9,6 +9,7 @@
 #include <dink/bindings.hpp>
 #include <dink/cache/hash_table.hpp>
 #include <dink/cache/type_indexed.hpp>
+#include <dink/cache_traits.hpp>
 #include <dink/config.hpp>
 #include <dink/delegate.hpp>
 #include <dink/not_found.hpp>
@@ -27,6 +28,7 @@ namespace dink {
 template <typename policy_t>
 concept is_container_policy = requires {
     typename policy_t::cache_t;
+    typename policy_t::cache_traits_t;
     typename policy_t::delegate_t;
     typename policy_t::default_provider_factory_t;
     typename policy_t::request_traits_t;
@@ -46,6 +48,7 @@ class container_t
 {
 public:
     using cache_t = policy_t::cache_t;
+    using cache_traits_t = policy_t::cache_traits_t;
     using delegate_t = policy_t::delegate_t;
     using default_provider_factory_t = policy_t::default_provider_factory_t;
     using request_traits_t = policy_t::request_traits_t;
@@ -68,11 +71,12 @@ public:
 
     //! direct construction from components (used by deduction guides and testing)
     container_t(
-        cache_t cache, config_t config, delegate_t delegate, default_provider_factory_t default_provider_factory,
-        request_traits_t request_traits
+        cache_t cache, cache_traits_t cache_traits, config_t config, delegate_t delegate,
+        default_provider_factory_t default_provider_factory, request_traits_t request_traits
     ) noexcept
-        : cache_{std::move(cache)}, config_{std::move(config)}, delegate_{std::move(delegate)},
-          default_provider_factory_{std::move(default_provider_factory)}, request_traits_{std::move(request_traits)}
+        : cache_{std::move(cache)}, cache_traits_{std::move(cache_traits)}, config_{std::move(config)},
+          delegate_{std::move(delegate)}, default_provider_factory_{std::move(default_provider_factory)},
+          request_traits_{std::move(request_traits)}
     {}
 
     // -----------------------------------------------------------------------------------------------------------------
@@ -84,126 +88,124 @@ public:
     {
         using resolved_t = resolved_t<request_t>;
 
-        // check for local binding
         auto binding = config_.template find_binding<resolved_t>();
         static constexpr bool has_binding = !std::is_same_v<decltype(binding), not_found_t>;
-        if constexpr (has_binding) return resolve_with_binding<request_t, dependency_chain_t>(binding);
-        else return resolve_without_binding<request_t, dependency_chain_t>();
+        if constexpr (has_binding) return dispatch<request_t, dependency_chain_t>(binding, binding->provider);
+        else
+        {
+            // try delegating to parent
+            if constexpr (decltype(auto) delegate_result = delegate_.template delegate<request_t, dependency_chain_t>();
+                          !std::is_same_v<decltype(delegate_result), not_found_t>)
+            {
+                return request_traits_.template as_requested<request_t>(delegate_result);
+            }
+
+            auto default_provider = default_provider_factory_.template create<request_t>();
+            return dispatch<request_t, dependency_chain_t>(binding, default_provider);
+        }
+    }
+
+    template <typename request_t, typename dependency_chain_t, typename binding_t, typename provider_t>
+    auto dispatch(binding_t binding, provider_t& provider) -> as_returnable_t<request_t>
+    {
+        static constexpr auto operation = select_operation<request_t, binding_t>();
+        if constexpr (operation == operation_t::use_accessor)
+        {
+            return use_accessor<request_t, dependency_chain_t>(binding, provider);
+        }
+        else if constexpr (operation == operation_t::create_transient)
+        {
+            return create_transient<request_t, dependency_chain_t>(binding, provider);
+        }
+        else if constexpr (operation == operation_t::get_or_create_singleton)
+        {
+            return get_or_create_singleton<request_t, dependency_chain_t>(binding, provider);
+        }
+        else if constexpr (operation == operation_t::get_or_create_promoted_singleton)
+        {
+            return get_or_create_promoted_singleton<request_t, dependency_chain_t>(binding, provider);
+        }
+        else if constexpr (operation == operation_t::get_or_create_singleton_copy)
+        {
+            return get_or_create_singleton_copy<request_t, dependency_chain_t>(binding, provider);
+        }
+        else if constexpr (operation == operation_t::create_transient_shared)
+        {
+            return create_transient_shared<request_t, dependency_chain_t>(binding, provider);
+        }
+        else if constexpr (operation == operation_t::get_or_create_singleton_shared)
+        {
+            return get_or_create_singleton_shared<request_t, dependency_chain_t>(binding, provider);
+        }
+        else if constexpr (operation == operation_t::delegate_to_shared)
+        {
+            return delegate_to_shared<request_t, dependency_chain_t>(binding, provider);
+        }
     }
 
 private:
     // -----------------------------------------------------------------------------------------------------------------
-    // resolution implementation
+    // operations
     // -----------------------------------------------------------------------------------------------------------------
 
-    template <typename request_t, typename dependency_chain_t>
-    auto resolve_with_binding(auto binding) -> as_returnable_t<request_t>
+    template <typename request_t, typename dependency_chain_t, typename binding_t, typename provider_t>
+    auto use_accessor(binding_t, provider_t& provider) -> as_returnable_t<request_t>
     {
-        // check for accessor
-        if constexpr (provider::is_accessor<typename std::remove_pointer_t<decltype(binding)>::provider_type>)
-        {
-            // accessor: bypass everything
-            return request_traits_.template as_requested<request_t>(binding->provider.get());
-        }
-        else
-        {
-            // creator: use scope and cache
-
-            // determine effective scope
-            using bound_scope_t = typename std::remove_pointer_t<decltype(binding)>::scope_type;
-            using effective_scope_t = effective_scope_t<bound_scope_t, request_t>;
-
-            if constexpr (std::same_as<effective_scope_t, scope::singleton_t>)
-            {
-                // check cache
-                if (auto cached = request_traits_.template find_in_cache<request_t>(cache_))
-                {
-                    return request_traits_.template as_requested<request_t>(cached);
-                }
-            }
-
-            return invoke_provider<request_t, dependency_chain_t, effective_scope_t>(binding->provider);
-        }
+        // accessor bypasses all caching
+        return request_traits_.template as_requested<request_t>(provider.get());
     }
 
-    template <typename request_t, typename dependency_chain_t>
-    auto resolve_without_binding() -> as_returnable_t<request_t>
+    template <typename request_t, typename dependency_chain_t, typename binding_t, typename provider_t>
+    auto create_transient(binding_t, provider_t& provider) -> as_returnable_t<request_t>
     {
-        // determine effective scope
-        using effective_scope_t = effective_scope_t<scope::default_t, request_t>;
-
-        // singleton or transient?
-        if constexpr (std::same_as<effective_scope_t, scope::singleton_t>)
-        {
-            // singleton
-
-            // check cache
-            if (auto cached = request_traits_.template find_in_cache<request_t>(cache_))
-            {
-                return request_traits_.template as_requested<request_t>(cached);
-            }
-        }
-
-        // delegate?
-        if constexpr (decltype(auto) delegate_result = delegate_.template delegate<request_t, dependency_chain_t>();
-                      !std::is_same_v<decltype(delegate_result), not_found_t>)
-        {
-            // delegate
-            return request_traits_.template as_requested<request_t>(delegate_result);
-        }
-
-        // use default provider
-        return invoke_default_provider<request_t, dependency_chain_t>();
+        return request_traits_.template as_requested<request_t>(provider.template create<dependency_chain_t>(*this));
     }
 
-    // -----------------------------------------------------------------------------------------------------------------
-    // provider invocation
-    // -----------------------------------------------------------------------------------------------------------------
-
-    //! invokes using default provider determined by request
-    template <typename request_t, typename dependency_chain_t>
-    auto invoke_default_provider() -> as_returnable_t<request_t>
+    template <typename request_t, typename dependency_chain_t, typename binding_t, typename provider_t>
+    auto get_or_create_singleton(binding_t, provider_t& provider) -> as_returnable_t<request_t>
     {
-        auto default_provider = default_provider_factory_.template create<request_t>();
-        using default_provider_t = decltype(default_provider);
-
-        // default providers have default scope
-        using default_effective_scope_t = effective_scope_t<typename default_provider_t::default_scope_t, request_t>;
-        return invoke_provider<request_t, dependency_chain_t, default_effective_scope_t>(default_provider);
-    }
-
-    //! invokes provider respecting the effective scope
-    template <typename request_t, typename dependency_chain_t, typename scope_t, typename provider_t>
-    auto invoke_provider(provider_t& provider) -> as_returnable_t<request_t>
-    {
-        if constexpr (std::same_as<scope_t, scope::singleton_t>)
-        {
-            return invoke_provider_singleton<request_t, dependency_chain_t>(provider);
-        }
-        else { return invoke_provider_transient<request_t, dependency_chain_t>(provider); }
-    }
-
-    //! invokes provider and caches result
-    template <typename request_t, typename dependency_chain_t, typename provider_t>
-    auto invoke_provider_singleton(provider_t& provider) -> as_returnable_t<request_t>
-    {        
-        // create and cache atomically via resolve_from_cache
         return request_traits_.template as_requested<request_t>(
-            request_traits_.template resolve_from_cache<request_t, typename provider_t::provided_t>(cache_, [&]() {
+            cache_traits_.template resolve_from_cache<request_t, typename provider_t::provided_t>(cache_, [&]() {
                 return provider.template create<dependency_chain_t>(*this);
             })
         );
     }
 
-    //! invokes provider without caching
-    template <typename request_t, typename dependency_chain_t, typename provider_t>
-    auto invoke_provider_transient(provider_t& provider) -> as_returnable_t<request_t>
+    template <typename request_t, typename dependency_chain_t, typename binding_t, typename provider_t>
+    auto get_or_create_promoted_singleton(binding_t binding, provider_t& provider) -> as_returnable_t<request_t>
     {
-        return request_traits_.template as_requested<request_t>(provider.template create<dependency_chain_t>(*this));
+        // the implementations for these operations are the same, but they have different causes
+        return get_or_create_singleton<request_t, dependency_chain_t>(binding, provider);
+    }
+
+    template <typename request_t, typename dependency_chain_t, typename binding_t, typename provider_t>
+    auto get_or_create_singleton_copy(binding_t binding, provider_t& provider) -> as_returnable_t<request_t>
+    {
+        // the backend performs the same operation, but as_requested() will make a copy
+        return get_or_create_singleton<request_t, dependency_chain_t>(binding, provider);
+    }
+
+    template <typename request_t, typename dependency_chain_t, typename binding_t, typename provider_t>
+    auto create_transient_shared(binding_t binding, provider_t& provider) -> as_returnable_t<request_t>
+    {
+        return create_transient<request_t, dependency_chain_t>(binding, provider);
+    }
+
+    template <typename request_t, typename dependency_chain_t, typename binding_t, typename provider_t>
+    auto get_or_create_singleton_shared(binding_t binding, provider_t& provider) -> as_returnable_t<request_t>
+    {
+        return get_or_create_singleton<request_t, dependency_chain_t>(binding, provider);
+    }
+
+    template <typename request_t, typename dependency_chain_t, typename binding_t, typename provider_t>
+    auto delegate_to_shared(binding_t binding, provider_t& provider) -> as_returnable_t<request_t>
+    {
+        return get_or_create_singleton_shared<request_t, dependency_chain_t>(binding, provider);
     }
 
     cache_t cache_;
-    config_t config_;
+    [[no_unique_address]] cache_traits_t cache_traits_;
+    [[no_unique_address]] config_t config_;
     [[no_unique_address]] delegate_t delegate_;
     [[no_unique_address]] default_provider_factory_t default_provider_factory_;
     [[no_unique_address]] request_traits_t request_traits_;
@@ -217,6 +219,7 @@ private:
 struct container_policy_t
 {
     using default_provider_factory_t = provider::default_factory_t;
+    using cache_traits_t = cache_traits_t;
     using request_traits_t = request_traits_t;
 };
 

@@ -387,7 +387,7 @@ TEST_F(ContainerTest, ExternalPrototypeBinding)
 // Container Hierarchy Tests
 // =============================================================================
 
-TEST_F(ContainerTest, NestedResolvesFromroot)
+TEST_F(ContainerTest, NestedResolvesFromRoot)
 {
     struct unique_type_t : no_deps_t
     {};

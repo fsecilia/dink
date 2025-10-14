@@ -21,7 +21,7 @@ struct creator_t
     using default_scope_t = scope::transient_t;
     using provided_t = constructed_t;
 
-    factory_t factory;
+    [[no_unique_address]] factory_t factory;
 
     template <typename dependency_chain_t, typename container_t>
     auto create(container_t& container) -> constructed_t

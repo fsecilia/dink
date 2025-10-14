@@ -15,6 +15,38 @@ struct container_test_t : Test
     struct cache_t
     {};
 
+    struct mock_cache_traits_t
+    {
+        MOCK_METHOD(std::any, find_in_cache, (std::any cache));
+        MOCK_METHOD(std::any, resolve_from_cache, (std::any cache, std::any factory));
+
+        virtual ~mock_cache_traits_t() = default;
+    };
+    StrictMock<mock_cache_traits_t> mock_cache_traits;
+
+    struct cache_traits_t
+    {
+        template <typename request_t, typename cache_t>
+        auto find_in_cache(cache_t& cache) noexcept -> std::remove_cvref_t<request_t>*
+        {
+            return std::any_cast<std::remove_cvref_t<request_t>*>(mock->find_in_cache(std::any{&cache}));
+        }
+
+        template <typename request_t, typename provided_t, typename cache_t, typename factory_t>
+        auto resolve_from_cache(cache_t& cache, factory_t&& factory) -> provided_t
+        {
+            if constexpr (std::is_reference_v<provided_t>)
+            {
+                return *std::any_cast<std::remove_reference_t<provided_t>*>(
+                    mock->resolve_from_cache(std::any{&cache}, std::any{&factory})
+                );
+            }
+            else return std::any_cast<provided_t>(mock->resolve_from_cache(std::any{&cache}, std::any{&factory}));
+        }
+
+        mock_cache_traits_t* mock = nullptr;
+    };
+
     struct mock_delegate_t
     {
         MOCK_METHOD(std::any, delegate, ());
@@ -96,8 +128,6 @@ struct container_test_t : Test
 
     struct mock_request_traits_t
     {
-        MOCK_METHOD(std::any, find_in_cache, (std::any cache));
-        MOCK_METHOD(std::any, resolve_from_cache, (std::any cache, std::any factory));
         MOCK_METHOD(std::any, as_requested, (std::any source));
 
         virtual ~mock_request_traits_t() = default;
@@ -106,36 +136,6 @@ struct container_test_t : Test
 
     struct request_traits_t
     {
-        template <typename request_t, typename cache_t>
-        auto find_in_cache(cache_t& cache) noexcept -> std::remove_cvref_t<request_t>*
-        {
-            return std::any_cast<std::remove_cvref_t<request_t>*>(mock->find_in_cache(std::any{&cache}));
-        }
-
-        template <typename request_t, typename provided_t, typename cache_t, typename factory_t>
-        auto resolve_from_cache(cache_t& cache, factory_t&& factory) -> provided_t
-        {
-            if constexpr (std::is_reference_v<provided_t>)
-            {
-                return *std::any_cast<std::remove_reference_t<provided_t>*>(
-                    mock->resolve_from_cache(std::any{&cache}, std::any{&factory})
-                );
-            }
-            else return std::any_cast<provided_t>(mock->resolve_from_cache(std::any{&cache}, std::any{&factory}));
-        }
-
-#if 0
-        // my old version
-        template <typename request_t, typename source_t>
-        auto as_requested(source_t&& source) -> request_t
-        {
-            if constexpr (std::is_reference_v<request_t>)
-            {
-                return *std::any_cast<std::remove_reference_t<request_t>*>(mock->as_requested(std::any{&source}));
-            }
-            else { return std::any_cast<request_t>(mock->as_requested(std::any{&source})); }
-        }
-#else
         // sonnet's current version
         template <typename request_t, typename source_t>
         auto as_requested(source_t&& source) -> request_t
@@ -147,7 +147,6 @@ struct container_test_t : Test
             }
             else { return *std::any_cast<std::remove_reference_t<request_t>*>(mock->as_requested(std::any{&source})); }
         }
-#endif
 
         mock_request_traits_t* mock = nullptr;
     };
@@ -169,6 +168,7 @@ struct container_test_without_binding_t : container_test_t
     struct policy_t
     {
         using cache_t = cache_t;
+        using cache_traits_t = cache_traits_t;
         using delegate_t = delegate_t;
         using default_provider_factory_t = default_provider_factory_t;
         using request_traits_t = request_traits_t;
@@ -176,7 +176,11 @@ struct container_test_without_binding_t : container_test_t
 
     using sut_t = container_t<policy_t, config_t>;
     sut_t sut{
-        cache_t{}, config_t{}, delegate_t{&mock_delegate}, default_provider_factory_t{&mock_creator_provider},
+        cache_t{},
+        cache_traits_t{&mock_cache_traits},
+        config_t{},
+        delegate_t{&mock_delegate},
+        default_provider_factory_t{&mock_creator_provider},
         request_traits_t{&mock_request_traits}
     };
 };
@@ -208,6 +212,7 @@ struct container_test_with_bound_accessor_t : container_test_t
     struct policy_t
     {
         using cache_t = cache_t;
+        using cache_traits_t = cache_traits_t;
         using delegate_t = delegate_t;
         using default_provider_factory_t = default_provider_factory_t;
         using request_traits_t = request_traits_t;
@@ -215,8 +220,12 @@ struct container_test_with_bound_accessor_t : container_test_t
 
     using sut_t = container_t<policy_t, config_t>;
     sut_t sut{
-        cache_t{}, config_t{provider_t{&mock_accessor_provider}}, delegate_t{&mock_delegate},
-        default_provider_factory_t{&mock_creator_provider}, request_traits_t{&mock_request_traits}
+        cache_t{},
+        cache_traits_t{&mock_cache_traits},
+        config_t{provider_t{&mock_accessor_provider}},
+        delegate_t{&mock_delegate},
+        default_provider_factory_t{&mock_creator_provider},
+        request_traits_t{&mock_request_traits}
     };
 };
 

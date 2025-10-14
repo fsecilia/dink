@@ -11,6 +11,7 @@ list(APPEND dink_library_files
     arg.hpp
     arity.hpp
     bindings.hpp
+    cache_traits.hpp
     cache/hash_table.hpp
     cache/type_indexed.hpp
     canonical.hpp
@@ -37,6 +38,7 @@ list(APPEND dink_unit_test_files
     arg_test.cpp
     arity_test.cpp
     bindings_test.cpp
+    cache_traits_test.cpp
     cache/hash_table_test.cpp
     cache/type_indexed_test.cpp
     canonical_test.cpp
