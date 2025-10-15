@@ -23,6 +23,27 @@ enum class resolution_strategy_t {
     copy_from_cache    // check cache (creating/caching if needed), return copy/move of cached value
 };
 
+// determines what type to use as the cache key for a given request type
+template <typename request_t>
+struct cache_key_f {
+    using type = resolved_t<request_t>;  // default: strip to value type
+};
+
+// shared_ptr requests cache the shared_ptr itself (the canonical shared ownership)
+template <typename T>
+struct cache_key_f<std::shared_ptr<T>> {
+    using type = std::shared_ptr<T>;
+};
+
+// weak_ptr uses same cache key as shared_ptr
+template <typename T>
+struct cache_key_f<std::weak_ptr<T>> {
+    using type = std::shared_ptr<T>;
+};
+
+template <typename request_t>
+using cache_key_t = typename cache_key_f<request_t>::type;
+
 // selects strategy based on request type and binding (or lack thereof)
 template <typename request_t, typename binding_or_not_found_t>
 consteval auto select_resolution_strategy() -> resolution_strategy_t {
@@ -99,17 +120,22 @@ template <>
 struct resolution_strategy<resolution_strategy_t::cached_singleton> {
     template <typename request_t, typename cache_t, typename cache_traits_t>
     static auto check_cache(cache_t& cache, cache_traits_t& cache_traits) -> auto {
-        using resolved_t = resolved_t<request_t>;
-        return cache_traits.template find<resolved_t>(cache);
+        using cache_key = cache_key_t<request_t>;
+        return cache_traits.template find<cache_key>(cache);
     }
 
     template <typename request_t, typename dependency_chain_t, typename cache_t, typename cache_traits_t,
               typename provider_t, typename request_traits_t, typename container_t>
     static auto resolve(cache_t& cache, cache_traits_t& cache_traits, provider_t& provider,
                         request_traits_t& request_traits, container_t& container) -> as_returnable_t<request_t> {
-        // create and cache (get_or_create handles double-checked locking internally)
+        using cache_key_t = cache_key_t<request_t>;
+        using provided_t  = typename provider_t::provided_t;
+
+        // get_or_create returns the right thing based on cache_key_t:
+        // - if cache_key_t is shared_ptr<T>, returns shared_ptr<T>
+        // - if cache_key_t is T, returns T&
         return request_traits.template as_requested<request_t>(
-            cache_traits.template get_or_create<request_t, typename provider_t::provided_t>(
+            cache_traits.template get_or_create<cache_key_t, provided_t>(
                 cache, [&]() { return provider.template create<dependency_chain_t>(container); }));
     }
 };
@@ -141,18 +167,21 @@ template <>
 struct resolution_strategy<resolution_strategy_t::copy_from_cache> {
     template <typename request_t, typename cache_t, typename cache_traits_t>
     static auto check_cache(cache_t& cache, cache_traits_t& cache_traits) -> auto {
-        using resolved_t = resolved_t<request_t>;
-        return cache_traits.template find<resolved_t>(cache);
+        using cache_key = cache_key_t<request_t>;
+        return cache_traits.template find<cache_key>(cache);
     }
 
     template <typename request_t, typename dependency_chain_t, typename cache_t, typename cache_traits_t,
               typename provider_t, typename request_traits_t, typename container_t>
     static auto resolve(cache_t& cache, cache_traits_t& cache_traits, provider_t& provider,
                         request_traits_t& request_traits, container_t& container) -> as_returnable_t<request_t> {
+        using cache_key_t = cache_key_t<request_t>;
+        using provided_t  = typename provider_t::provided_t;
+
         // create and cache (get_or_create handles double-checked locking internally)
         // return copy from cached
         return request_traits.template as_requested<request_t>(
-            element_type(cache_traits.template get_or_create<request_t, typename provider_t::provided_t>(
+            element_type(cache_traits.template get_or_create<cache_key_t, provided_t>(
                 cache, [&]() { return provider.template create<dependency_chain_t>(container); })));
     }
 };
