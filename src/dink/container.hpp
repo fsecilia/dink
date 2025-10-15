@@ -15,6 +15,7 @@
 #include <dink/not_found.hpp>
 #include <dink/provider.hpp>
 #include <dink/request_traits.hpp>
+#include <dink/resolution_strategy.hpp>
 #include <dink/scope.hpp>
 #include <dink/type_list.hpp>
 #include <utility>
@@ -84,35 +85,35 @@ public:
     auto resolve() -> as_returnable_t<request_t> {
         using resolved_t = resolved_t<request_t>;
 
-        auto                  binding       = config_.template find_binding<resolved_t>();
-        static constexpr auto binding_found = !std::is_same_v<decltype(binding), not_found_t>;
-        if constexpr (binding_found) {
-#if 0
-            // check cache (under what conditions? it depends on request and binding)
-            if (auto cached = cache_traits_.template find<resolved_t>(cache_)) {
-                return request_traits_.template from_cached<request_t>(cached);
-            }
-#endif
+        auto           binding     = config_.template find_binding<resolved_t>();
+        constexpr bool has_binding = !std::is_same_v<decltype(binding), not_found_t>;
 
-            // dispatch with bound provider
-            return dispatch<request_t, dependency_chain_t>(binding, binding->provider);
-        } else {
-#if 0
-            // check cache (under what conditions? it depends on request alone)
-            if (auto cached = cache_traits_.template find<resolved_t>(cache_)) {
-                return request_traits_.template from_cached<request_t>(cached);
-            }
-#endif
+        // select strategy based on request type and binding
+        constexpr auto strategy = select_resolution_strategy<request_t, decltype(binding)>();
 
-            // try delegating to parent
-            if constexpr (decltype(auto) delegate_result = delegate_.template delegate<request_t, dependency_chain_t>();
+        // check local cache (strategies that don't cache return nullptr immediately)
+        if constexpr (auto cached =
+                          resolution_strategy<strategy>::template check_cache<request_t>(cache_, cache_traits_);
+                      !std::is_same_v<decltype(cached), std::nullptr_t>) {
+            if (cached) return request_traits_.template from_cached<request_t>(cached);
+        }
+
+        // if no local binding and cache miss, try delegation to parent
+        if constexpr (!has_binding) {
+            if constexpr (auto delegate_result = delegate_.template delegate<request_t, dependency_chain_t>();
                           !std::is_same_v<decltype(delegate_result), not_found_t>) {
                 return request_traits_.template as_requested<request_t>(delegate_result);
             }
+        }
 
-            // dispatch with default provider
-            auto default_provider = default_provider_factory_.template create<request_t>();
-            return dispatch<request_t, dependency_chain_t>(binding, default_provider);
+        // execute strategy with appropriate provider
+        if constexpr (has_binding) {
+            return resolution_strategy<strategy>::template resolve<request_t, dependency_chain_t>(
+                cache_, cache_traits_, binding->provider, request_traits_, *this);
+        } else {
+            auto default_provider = default_provider_factory_.template create<resolved_t>();
+            return resolution_strategy<strategy>::template resolve<request_t, dependency_chain_t>(
+                cache_, cache_traits_, default_provider, request_traits_, *this);
         }
     }
 
