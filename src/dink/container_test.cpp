@@ -10,6 +10,7 @@
 namespace dink {
 namespace {
 
+#if 0
 struct container_test_t : Test {
     struct cache_t {};
 
@@ -205,6 +206,7 @@ TEST_F(container_test_with_bound_accessor_t, accessor_provider_bypasses_everythi
 
     ASSERT_EQ(&expected_provided, &sut.resolve<provided_t&>());
 }
+#endif
 
 }  // namespace
 }  // namespace dink

@@ -8,35 +8,27 @@
 #include <dink/lib.hpp>
 #include <dink/not_found.hpp>
 #include <type_traits>
+#include <utility>
 
 namespace dink::delegate {
 
-/*!
-    root container delegation policy
-
-    The root container has no parent, so no delegation occurs.
-*/
+// root container has no parent - executes the "not found" continuation
 struct none_t {
-    // signals there is no parent to which to delegate
-    template <typename request_t, typename dependency_chain_t>
-    auto delegate() -> auto {
-        return not_found;
+    template <typename request_t, typename on_found_t, typename on_not_found_t>
+    auto search(on_found_t&&, on_not_found_t&& on_not_found) -> decltype(auto) {
+        return on_not_found();
     }
 };
 
-/*!
-    nested container delegation policy
-
-    Nested containers delegate to their parent container.
-*/
+// nested container delegates to parent, passing continuations through
 template <typename parent_container_t>
 struct to_parent_t {
     parent_container_t* parent_container;
 
-    // delegates resolution to parent
-    template <typename request_t, typename dependency_chain_t>
-    auto delegate() -> decltype(auto) {
-        return parent_container->template resolve<request_t, dependency_chain_t>();
+    template <typename request_t, typename on_found_t, typename on_not_found_t>
+    auto search(on_found_t&& on_found, on_not_found_t&& on_not_found) -> decltype(auto) {
+        return parent_container->template search_impl<request_t>(std::forward<on_found_t>(on_found),
+                                                                 std::forward<on_not_found_t>(on_not_found));
     }
 
     explicit to_parent_t(parent_container_t& parent) : parent_container{&parent} {}

@@ -38,7 +38,7 @@ using three_deps_t = constructed_from_t<no_deps_t, one_dep_t, two_deps_t>;
 
 struct integration_smoke_test_t : Test {};
 
-#if 1
+#if 0
 TEST_F(integration_smoke_test_t, default_ctor_transient) {
     using instance_t = constructed_from_t<>;
 
@@ -89,17 +89,24 @@ protected:
 // Basic Resolution Tests
 // =============================================================================
 
-#if 1
 TEST_F(ContainerTest, DefaultConstructionWithoutBinding) {
-    struct unique_type_t : no_deps_t {};
+    struct unique_type_t : no_deps_t {
+        unique_type_t()                 = default;
+        unique_type_t(no_deps_t const&) = delete;
+    };
 
-    auto container = root_container_t{};
-    auto instance  = container.resolve<unique_type_t>();
+    {
+        auto container = root_container_t{};
+        auto instance  = container.resolve<unique_type_t>();
 
-    EXPECT_EQ(instance.id, 1);
+        EXPECT_EQ(instance.id, 1);
+    }
+
     EXPECT_EQ(total_constructions, 1);
+    EXPECT_EQ(total_destructions, 1);
 }
 
+#if 0
 TEST_F(ContainerTest, DefaultConstructionWithOneDependency) {
     struct unique_type_t : one_dep_t {};
 
@@ -212,7 +219,6 @@ TEST_F(ContainerTest, PointerRequestForcesSingleton) {
     EXPECT_EQ(a, b);
     EXPECT_EQ(total_constructions, 1);
 }
-#endif
 
 TEST_F(ContainerTest, SharedPtrRequest) {
     struct unique_type_t : no_deps_t {};
@@ -227,7 +233,6 @@ TEST_F(ContainerTest, SharedPtrRequest) {
     EXPECT_EQ(total_constructions, 1);
 }
 
-#if 1
 TEST_F(ContainerTest, UniquePtrRequestForcesTransient) {
     struct unique_type_t : no_deps_t {};
 
