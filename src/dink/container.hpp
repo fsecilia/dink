@@ -87,15 +87,30 @@ public:
         auto                  binding       = config_.template find_binding<resolved_t>();
         static constexpr auto binding_found = !std::is_same_v<decltype(binding), not_found_t>;
         if constexpr (binding_found) {
-            // dispatch
+#if 0
+            // check cache (under what conditions? it depends on request and binding)
+            if (auto cached = cache_traits_.template find<resolved_t>(cache_)) {
+                return request_traits_.template from_cached<request_t>(cached);
+            }
+#endif
+
+            // dispatch with bound provider
             return dispatch<request_t, dependency_chain_t>(binding, binding->provider);
         } else {
+#if 0
+            // check cache (under what conditions? it depends on request alone)
+            if (auto cached = cache_traits_.template find<resolved_t>(cache_)) {
+                return request_traits_.template from_cached<request_t>(cached);
+            }
+#endif
+
             // try delegating to parent
             if constexpr (decltype(auto) delegate_result = delegate_.template delegate<request_t, dependency_chain_t>();
                           !std::is_same_v<decltype(delegate_result), not_found_t>) {
                 return request_traits_.template as_requested<request_t>(delegate_result);
             }
 
+            // dispatch with default provider
             auto default_provider = default_provider_factory_.template create<request_t>();
             return dispatch<request_t, dependency_chain_t>(binding, default_provider);
         }
