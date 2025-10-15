@@ -84,10 +84,17 @@ public:
     auto resolve() -> as_returnable_t<request_t> {
         using resolved_t = resolved_t<request_t>;
 
-        auto                  binding     = config_.template find_binding<resolved_t>();
-        static constexpr bool has_binding = !std::is_same_v<decltype(binding), not_found_t>;
-        if constexpr (has_binding) return dispatch<request_t, dependency_chain_t>(binding, binding->provider);
-        else {
+        auto                  binding       = config_.template find_binding<resolved_t>();
+        static constexpr auto binding_found = !std::is_same_v<decltype(binding), not_found_t>;
+        if constexpr (binding_found) {
+            // check cache
+
+            // dispatch
+
+            return dispatch<request_t, dependency_chain_t>(binding, binding->provider);
+        } else {
+            // check cache
+
             // try delegating to parent
             if constexpr (decltype(auto) delegate_result = delegate_.template delegate<request_t, dependency_chain_t>();
                           !std::is_same_v<decltype(delegate_result), not_found_t>) {
@@ -101,29 +108,20 @@ public:
 
     template <typename request_t, typename dependency_chain_t, typename binding_t, typename provider_t>
     auto dispatch(binding_t binding, provider_t& provider) -> as_returnable_t<request_t> {
-        static constexpr auto operation = select_operation<request_t, binding_t>();
-        if constexpr (operation == operation_t::use_accessor) {
+        static constexpr auto resolution     = select_resolution<request_t, binding_t>();
+        static constexpr auto implementation = resolution_to_implementation(resolution);
+        if constexpr (implementation == implementation_t::use_accessor) {
             return use_accessor<request_t, dependency_chain_t>(binding, provider);
-        } else if constexpr (operation == operation_t::create) {
+        } else if constexpr (implementation == implementation_t::create) {
             return create<request_t, dependency_chain_t>(binding, provider);
-        } else if constexpr (operation == operation_t::cache) {
+        } else if constexpr (implementation == implementation_t::cache) {
             return cache<request_t, dependency_chain_t>(binding, provider);
-        } else if constexpr (operation == operation_t::cache_promoted) {
-            return cache_promoted<request_t, dependency_chain_t>(binding, provider);
-        } else if constexpr (operation == operation_t::copy_from_cache) {
-            return copy_from_cache<request_t, dependency_chain_t>(binding, provider);
-        } else if constexpr (operation == operation_t::create_shared) {
-            return create_shared<request_t, dependency_chain_t>(binding, provider);
-        } else if constexpr (operation == operation_t::cache_shared) {
-            return cache_shared<request_t, dependency_chain_t>(binding, provider);
-        } else if constexpr (operation == operation_t::defer_shared) {
-            return defer_shared<request_t, dependency_chain_t>(binding, provider);
         }
     }
 
 private:
     // -----------------------------------------------------------------------------------------------------------------
-    // operations
+    // unique operation implementation
     // -----------------------------------------------------------------------------------------------------------------
 
     template <typename request_t, typename dependency_chain_t, typename binding_t, typename provider_t>
@@ -140,35 +138,8 @@ private:
     template <typename request_t, typename dependency_chain_t, typename binding_t, typename provider_t>
     auto cache(binding_t, provider_t& provider) -> as_returnable_t<request_t> {
         return request_traits_.template as_requested<request_t>(
-            cache_traits_.template resolve_from_cache<request_t, typename provider_t::provided_t>(
+            cache_traits_.template resolve<request_t, typename provider_t::provided_t>(
                 cache_, [&]() { return provider.template create<dependency_chain_t>(*this); }));
-    }
-
-    template <typename request_t, typename dependency_chain_t, typename binding_t, typename provider_t>
-    auto cache_promoted(binding_t binding, provider_t& provider) -> as_returnable_t<request_t> {
-        // the implementations for these operations are the same, but they have different causes
-        return cache<request_t, dependency_chain_t>(binding, provider);
-    }
-
-    template <typename request_t, typename dependency_chain_t, typename binding_t, typename provider_t>
-    auto copy_from_cache(binding_t binding, provider_t& provider) -> as_returnable_t<request_t> {
-        // the backend performs the same operation, but as_requested() will make a copy
-        return cache<request_t, dependency_chain_t>(binding, provider);
-    }
-
-    template <typename request_t, typename dependency_chain_t, typename binding_t, typename provider_t>
-    auto create_shared(binding_t binding, provider_t& provider) -> as_returnable_t<request_t> {
-        return create<request_t, dependency_chain_t>(binding, provider);
-    }
-
-    template <typename request_t, typename dependency_chain_t, typename binding_t, typename provider_t>
-    auto cache_shared(binding_t binding, provider_t& provider) -> as_returnable_t<request_t> {
-        return cache<request_t, dependency_chain_t>(binding, provider);
-    }
-
-    template <typename request_t, typename dependency_chain_t, typename binding_t, typename provider_t>
-    auto defer_shared(binding_t binding, provider_t& provider) -> as_returnable_t<request_t> {
-        return cache_shared<request_t, dependency_chain_t>(binding, provider);
     }
 
     cache_t                                          cache_;
