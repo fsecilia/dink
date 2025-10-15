@@ -90,13 +90,6 @@ public:
             // dispatch
             return dispatch<request_t, dependency_chain_t>(binding, binding->provider);
         } else {
-#if 0
-            // check cache
-            if (auto cached = cache_traits_.template find<request_t>(cache_)) {
-                return request_traits_.template from_pointer<request_t>(cached);
-            }
-#endif
-
             // try delegating to parent
             if constexpr (decltype(auto) delegate_result = delegate_.template delegate<request_t, dependency_chain_t>();
                           !std::is_same_v<decltype(delegate_result), not_found_t>) {
@@ -115,13 +108,6 @@ public:
         if constexpr (implementation == implementation_t::use_accessor) {
             return use_accessor<request_t, dependency_chain_t>(binding, provider);
         }
-
-#if 0
-        // check cache
-        if (auto cached = cache_traits_.template find<request_t>(cache_)) {
-            return request_traits_.template from_pointer<request_t>(cached);
-        }
-#endif
 
         if constexpr (implementation == implementation_t::create) {
             return create<request_t, dependency_chain_t>(binding, provider);

@@ -67,6 +67,12 @@ struct request_traits_f {
     static auto as_requested(source_t&& source) -> requested_t {
         return element_type(std::forward<source_t>(source));
     }
+
+    template <typename cached_t>
+    static auto from_cached(cached_t&& cached) -> requested_t {
+        if constexpr (std::is_pointer_v<std::remove_cvref_t<cached_t>>) return std::move(*cached);
+        else return *cached;
+    }
 };
 
 /*!
@@ -91,6 +97,11 @@ struct request_traits_f<requested_t&> {
     static auto as_requested(source_t&& source) -> requested_t& {
         return element_type(std::forward<source_t>(source));
     }
+
+    template <typename cached_t>
+    static auto from_cached(cached_t&& cached) -> requested_t& {
+        return *cached;
+    }
 };
 
 /*!
@@ -106,6 +117,12 @@ struct request_traits_f<requested_t*> {
     template <typename source_t>
     static auto as_requested(source_t&& source) -> requested_t* {
         return &element_type(std::forward<source_t>(source));
+    }
+
+    template <typename cached_t>
+    static auto from_cached(cached_t&& cached) -> requested_t* {
+        if constexpr (std::is_pointer_v<std::remove_cvref_t<cached_t>>) return cached;
+        else return cached.get();
     }
 };
 
@@ -123,6 +140,11 @@ struct request_traits_f<std::unique_ptr<requested_t, deleter_t>> {
     template <typename source_t>
     static auto as_requested(source_t&& source) -> std::unique_ptr<requested_t, deleter_t> {
         return std::make_unique<requested_t>(element_type(std::forward<source_t>(source)));
+    }
+
+    template <typename cached_t>
+    static auto from_cached(cached_t&& cached) -> std::unique_ptr<requested_t, deleter_t> {
+        return std::make_unique<requested_t>(std::move(*cached));
     }
 };
 
@@ -147,6 +169,15 @@ struct request_traits_f<std::shared_ptr<requested_t>> {
             return std::make_shared<requested_t>(std::forward<source_t>(source));
         }
     }
+
+    template <typename source_t>
+    static auto from_cached(source_t&& source) -> std::shared_ptr<requested_t> {
+        if constexpr (is_shared_ptr_v<std::remove_cvref_t<source_t>>) {
+            return std::forward<source_t>(source);
+        } else {
+            return std::make_shared<requested_t>(element_type(std::forward<source_t>(source)));
+        }
+    }
 };
 
 /*!
@@ -158,11 +189,13 @@ struct request_traits_f<std::shared_ptr<requested_t>> {
 */
 template <typename requested_t>
 struct request_traits_f<std::weak_ptr<requested_t>> : request_traits_f<std::shared_ptr<requested_t>> {
+#if 0
     template <typename source_t>
     static auto as_requested(source_t&& source) -> std::weak_ptr<requested_t> {
         // Delegate to shared_ptr logic and convert to weak_ptr
         return request_traits_f<std::shared_ptr<requested_t>>::as_requested(std::forward<source_t>(source));
     }
+#endif
 };
 
 //! request traits for const value types - delegates to non-const version
@@ -192,6 +225,11 @@ struct request_traits_t {
     template <typename request_t, typename source_t>
     auto as_requested(source_t&& source) -> decltype(auto) {
         return request_traits_f<request_t>::as_requested(std::forward<source_t>(source));
+    }
+
+    template <typename request_t, typename cached_t>
+    auto from_cached(cached_t&& cached) -> decltype(auto) {
+        return request_traits_f<request_t>::from_cached(std::forward<cached_t>(cached));
     }
 };
 

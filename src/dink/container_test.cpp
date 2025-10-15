@@ -102,15 +102,25 @@ struct container_test_t : Test {
 
     struct mock_request_traits_t {
         MOCK_METHOD(std::any, as_requested, (std::any source));
+        MOCK_METHOD(std::any, from_cached, (std::any source));
 
         virtual ~mock_request_traits_t() = default;
     };
     StrictMock<mock_request_traits_t> mock_request_traits;
 
     struct request_traits_t {
-        // sonnet's current version
         template <typename request_t, typename source_t>
         auto as_requested(source_t&& source) -> request_t {
+            if constexpr (std::is_reference_v<request_t>) {
+                auto* ptr = std::any_cast<std::remove_reference_t<request_t>*>(mock->as_requested(std::any{&source}));
+                return *ptr;
+            } else {
+                return *std::any_cast<std::remove_reference_t<request_t>*>(mock->as_requested(std::any{&source}));
+            }
+        }
+
+        template <typename request_t, typename source_t>
+        auto from_cached(source_t&& source) -> request_t {
             if constexpr (std::is_reference_v<request_t>) {
                 auto* ptr = std::any_cast<std::remove_reference_t<request_t>*>(mock->as_requested(std::any{&source}));
                 return *ptr;
