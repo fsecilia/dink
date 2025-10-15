@@ -87,13 +87,15 @@ public:
         auto                  binding       = config_.template find_binding<resolved_t>();
         static constexpr auto binding_found = !std::is_same_v<decltype(binding), not_found_t>;
         if constexpr (binding_found) {
-            // check cache
-
             // dispatch
-
             return dispatch<request_t, dependency_chain_t>(binding, binding->provider);
         } else {
+#if 0
             // check cache
+            if (auto cached = cache_traits_.template find<request_t>(cache_)) {
+                return request_traits_.template from_pointer<request_t>(cached);
+            }
+#endif
 
             // try delegating to parent
             if constexpr (decltype(auto) delegate_result = delegate_.template delegate<request_t, dependency_chain_t>();
@@ -112,7 +114,16 @@ public:
         static constexpr auto implementation = resolution_to_implementation(resolution);
         if constexpr (implementation == implementation_t::use_accessor) {
             return use_accessor<request_t, dependency_chain_t>(binding, provider);
-        } else if constexpr (implementation == implementation_t::create) {
+        }
+
+#if 0
+        // check cache
+        if (auto cached = cache_traits_.template find<request_t>(cache_)) {
+            return request_traits_.template from_pointer<request_t>(cached);
+        }
+#endif
+
+        if constexpr (implementation == implementation_t::create) {
             return create<request_t, dependency_chain_t>(binding, provider);
         } else if constexpr (implementation == implementation_t::cache) {
             return cache<request_t, dependency_chain_t>(binding, provider);
