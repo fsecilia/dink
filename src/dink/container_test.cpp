@@ -14,8 +14,8 @@ struct container_test_t : Test {
     struct cache_t {};
 
     struct mock_cache_traits_t {
-        MOCK_METHOD(std::any, find_in_cache, (std::any cache));
-        MOCK_METHOD(std::any, resolve_from_cache, (std::any cache, std::any factory));
+        MOCK_METHOD(std::any, find, (std::any cache));
+        MOCK_METHOD(std::any, get_or_create, (std::any cache, std::any factory));
 
         virtual ~mock_cache_traits_t() = default;
     };
@@ -23,16 +23,16 @@ struct container_test_t : Test {
 
     struct cache_traits_t {
         template <typename request_t, typename cache_t>
-        auto find_in_cache(cache_t& cache) noexcept -> std::remove_cvref_t<request_t>* {
-            return std::any_cast<std::remove_cvref_t<request_t>*>(mock->find_in_cache(std::any{&cache}));
+        auto find(cache_t& cache) noexcept -> std::remove_cvref_t<request_t>* {
+            return std::any_cast<std::remove_cvref_t<request_t>*>(mock->find(std::any{&cache}));
         }
 
         template <typename request_t, typename provided_t, typename cache_t, typename factory_t>
-        auto resolve_from_cache(cache_t& cache, factory_t&& factory) -> provided_t {
+        auto get(cache_t& cache, factory_t&& factory) -> provided_t {
             if constexpr (std::is_reference_v<provided_t>) {
                 return *std::any_cast<std::remove_reference_t<provided_t>*>(
-                    mock->resolve_from_cache(std::any{&cache}, std::any{&factory}));
-            } else return std::any_cast<provided_t>(mock->resolve_from_cache(std::any{&cache}, std::any{&factory}));
+                    mock->get_or_create(std::any{&cache}, std::any{&factory}));
+            } else return std::any_cast<provided_t>(mock->get_or_create(std::any{&cache}, std::any{&factory}));
         }
 
         mock_cache_traits_t* mock = nullptr;

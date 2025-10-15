@@ -138,7 +138,7 @@ private:
     template <typename request_t, typename dependency_chain_t, typename binding_t, typename provider_t>
     auto cache(binding_t, provider_t& provider) -> as_returnable_t<request_t> {
         return request_traits_.template as_requested<request_t>(
-            cache_traits_.template resolve<request_t, typename provider_t::provided_t>(
+            cache_traits_.template get_or_create<request_t, typename provider_t::provided_t>(
                 cache_, [&]() { return provider.template create<dependency_chain_t>(*this); }));
     }
 

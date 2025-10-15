@@ -114,7 +114,7 @@ struct cache_traits_f {
     }
 
     template <typename provided_t, typename cache_t, typename factory_t>
-    static auto resolve(cache_t& cache, factory_t&& factory) -> decltype(auto) {
+    static auto get_or_create(cache_t& cache, factory_t&& factory) -> decltype(auto) {
         return cache.template get_or_create_instance<provided_t>(std::forward<factory_t>(factory));
     }
 };
@@ -130,7 +130,7 @@ struct cache_traits_f<std::shared_ptr<T>> {
     }
 
     template <typename provided_t, typename cache_t, typename factory_t>
-    static auto resolve(cache_t& cache, factory_t&& factory) -> decltype(auto) {
+    static auto get_or_create(cache_t& cache, factory_t&& factory) -> decltype(auto) {
         return cache.template get_or_create_shared<provided_t>(std::forward<factory_t>(factory));
     }
 };
@@ -146,8 +146,8 @@ struct cache_traits_t {
     }
 
     template <typename request_t, typename provided_t, typename cache_t, typename factory_t>
-    auto resolve(cache_t& cache, factory_t&& factory) -> decltype(auto) {
-        return cache_traits_f<request_t>::template resolve<provided_t>(cache, std::forward<factory_t>(factory));
+    auto get_or_create(cache_t& cache, factory_t&& factory) -> decltype(auto) {
+        return cache_traits_f<request_t>::template get_or_create<provided_t>(cache, std::forward<factory_t>(factory));
     }
 };
 
