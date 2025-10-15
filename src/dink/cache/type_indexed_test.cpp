@@ -6,10 +6,10 @@
 #include "type_indexed.hpp"
 #include <dink/test.hpp>
 
-namespace dink {
+namespace dink::caches {
 namespace {
 
 //
 
 } // namespace
-} // namespace dink
+} // namespace dink::caches

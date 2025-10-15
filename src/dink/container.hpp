@@ -226,7 +226,7 @@ struct container_policy_t
 //! policy for root containers (no parent delegation)
 struct root_container_policy_t : container_policy_t
 {
-    using cache_t = cache::type_indexed_t<>;
+    using cache_t = caches::type_indexed_t<>;
     using delegate_t = delegate::none_t;
 };
 
@@ -234,7 +234,7 @@ struct root_container_policy_t : container_policy_t
 template <typename parent_container_t>
 struct nested_container_policy_t : container_policy_t
 {
-    using cache_t = cache::hash_table_t;
+    using cache_t = caches::hash_table_t;
     using delegate_t = delegate::to_parent_t<parent_container_t>;
 };
 

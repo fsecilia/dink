@@ -11,7 +11,7 @@
 #include <typeindex>
 #include <unordered_map>
 
-namespace dink::cache {
+namespace dink::caches {
 
 /*!
     caches instances in a hash table
@@ -57,4 +57,4 @@ private:
     std::unordered_map<std::type_index, std::shared_ptr<void>> map_;
 };
 
-} // namespace dink::cache
+} // namespace dink::caches

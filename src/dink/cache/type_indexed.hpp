@@ -9,7 +9,7 @@
 #include <dink/double_checked_storage.hpp>
 #include <utility>
 
-namespace dink::cache {
+namespace dink::caches {
 
 /*!
     caches instances using type-indexed storage
@@ -67,4 +67,4 @@ private:
     }
 };
 
-} // namespace dink::cache
+} // namespace dink::caches
