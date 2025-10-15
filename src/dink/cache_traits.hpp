@@ -107,6 +107,7 @@ consteval auto resolution_to_implementation(resolution_t operation) noexcept -> 
 template <typename request_t>
 struct cache_traits_f {
     using value_type = std::remove_cvref_t<request_t>;
+    using key_type   = resolved_t<request_t>;
 
     template <typename cache_t>
     static auto find(cache_t& cache) -> auto {
@@ -123,6 +124,7 @@ struct cache_traits_f {
 template <typename T>
 struct cache_traits_f<std::shared_ptr<T>> {
     using value_type = std::remove_cvref_t<T>;
+    using key_type   = std::shared_ptr<T>;
 
     template <typename cache_t>
     static auto find(cache_t& cache) -> auto {
@@ -150,5 +152,8 @@ struct cache_traits_t {
         return cache_traits_f<request_t>::template get_or_create<provided_t>(cache, std::forward<factory_t>(factory));
     }
 };
+
+template <typename request_t>
+using cache_key_t = typename cache_traits_f<request_t>::key_type;
 
 }  // namespace dink

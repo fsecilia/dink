@@ -107,16 +107,13 @@ public:
     // continuation-passing style: calls on_found if binding found, otherwise recurses or calls on_not_found
     template <typename request_t, typename on_found_t, typename on_not_found_t>
     auto search_impl(on_found_t&& on_found, on_not_found_t&& on_not_found) -> as_returnable_t<request_t> {
-        using resolved_t = resolved_t<request_t>;
-        using cache_key  = cache_key_t<request_t>;
-
         // 1. Check local cache - if found, return it directly
-        if (auto cached = cache_traits_.template find<cache_key>(cache_)) {
+        if (auto cached = cache_traits_.template find<cache_key_t<request_t>>(cache_)) {
             return request_traits_.template from_cached<request_t>(cached);
         }
 
         // 2. Check local binding - if found, call on_found continuation (executes in originator context)
-        auto local_binding = config_.template find_binding<resolved_t>();
+        auto local_binding = config_.template find_binding<resolved_t<request_t>>();
         if constexpr (!std::is_same_v<decltype(local_binding), not_found_t>) { return on_found(local_binding); }
 
         // 3. Recurse to parent with same continuations
