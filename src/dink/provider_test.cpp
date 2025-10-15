@@ -11,5 +11,5 @@ namespace {
 
 //
 
-} // namespace
-} // namespace dink
+}  // namespace
+}  // namespace dink

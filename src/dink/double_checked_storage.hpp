@@ -15,13 +15,11 @@ namespace dink {
 
 //! initializes an instance using the double-checked locking pattern
 template <typename instance_t>
-struct double_checked_storage_t
-{
+struct double_checked_storage_t {
 public:
     //! returns cached instance or creates it using factory
     template <typename factory_t>
-    auto get_or_create(factory_t&& factory) -> instance_t&
-    {
+    auto get_or_create(factory_t&& factory) -> instance_t& {
         // try loading outside of lock
         auto* result = atomic.load(std::memory_order_acquire);
         if (result != nullptr) return *result;
@@ -41,8 +39,7 @@ public:
 
 private:
     //! instance is stored in a union so we can control when ctor and dtor are called without using heap
-    union union_t
-    {
+    union union_t {
         union_t() {}
         ~union_t() {}
         instance_t instance;
@@ -60,8 +57,7 @@ private:
 
     //! creates instance under lock, replicates to atomic
     template <typename factory_t>
-    auto create(factory_t&& factory) -> instance_t&
-    {
+    auto create(factory_t&& factory) -> instance_t& {
         // find where to put instance
         auto* storage_ptr = &storage.instance;
 
@@ -78,4 +74,4 @@ private:
     }
 };
 
-} // namespace dink
+}  // namespace dink

@@ -7,8 +7,4 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-namespace dink {
-
-using namespace testing;
-
-} // namespace dink
+namespace dink { using namespace testing; }  // namespace dink

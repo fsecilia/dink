@@ -9,9 +9,8 @@
 namespace dink {
 
 //! catch-all base exception type for all dink-specific exceptions
-struct dink_x : std::runtime_error
-{
+struct dink_x : std::runtime_error {
     using std::runtime_error::runtime_error;
 };
 
-} // namespace dink
+}  // namespace dink

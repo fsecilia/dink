@@ -57,21 +57,19 @@ struct binding_index_f;
 
 //! base case: value is not found
 template <typename resolved_t, std::size_t index, typename bindings_tuple_t>
-struct binding_index_f
-{
+struct binding_index_f {
     static constexpr auto value = npos;
 };
 
 //! recursive case: check if current binding matches, otherwise continue
 template <typename resolved_t, std::size_t index, typename bindings_tuple_t>
-requires(index < std::tuple_size_v<bindings_tuple_t>)
-struct binding_index_f<resolved_t, index, bindings_tuple_t>
-{
+    requires(index < std::tuple_size_v<bindings_tuple_t>)
+struct binding_index_f<resolved_t, index, bindings_tuple_t> {
     using current_binding_t = std::tuple_element_t<index, bindings_tuple_t>;
 
     static constexpr auto value = std::same_as<resolved_t, typename current_binding_t::from_type>
-        ? index
-        : binding_index_f<resolved_t, index + 1, bindings_tuple_t>::value;
+                                      ? index
+                                      : binding_index_f<resolved_t, index + 1, bindings_tuple_t>::value;
 };
 
 //! alias for finding binding index
@@ -90,8 +88,7 @@ struct config_from_tuple_f;
 
 //! specialization to extract bindings from given tuple
 template <template <typename...> class tuple_t, typename... bindings_t>
-struct config_from_tuple_f<tuple_t<bindings_t...>>
-{
+struct config_from_tuple_f<tuple_t<bindings_t...>> {
     using type = config_t<bindings_t...>;
 };
 
@@ -99,7 +96,7 @@ struct config_from_tuple_f<tuple_t<bindings_t...>>
 template <typename tuple_t>
 using config_from_tuple_t = typename config_from_tuple_f<tuple_t>::type;
 
-} // namespace detail
+}  // namespace detail
 
 // ---------------------------------------------------------------------------------------------------------------------
 // configuration class
@@ -117,8 +114,7 @@ using config_from_tuple_t = typename config_from_tuple_f<tuple_t>::type;
     \tparam bindings_t pack of binding_t types
 */
 template <typename... bindings_t>
-class config_t
-{
+class config_t {
 public:
     using bindings_tuple_t = std::tuple<bindings_t...>;
 
@@ -131,8 +127,7 @@ public:
 
     //! construct from individual binding arguments
     template <typename... args_t>
-    explicit config_t(args_t&&... args) : bindings_{std::forward<args_t>(args)...}
-    {}
+    explicit config_t(args_t&&... args) : bindings_{std::forward<args_t>(args)...} {}
 
     // -----------------------------------------------------------------------------------------------------------------
     // binding lookup
@@ -145,12 +140,14 @@ public:
         \return pointer to binding if found, otherwise not_found sentinel
     */
     template <typename resolved_t>
-    auto find_binding() -> auto
-    {
+    auto find_binding() -> auto {
         static constexpr auto index = detail::binding_index_v<resolved_t, bindings_tuple_t>;
 
-        if constexpr (index != npos) { return &std::get<index>(bindings_); }
-        else { return not_found; }
+        if constexpr (index != npos) {
+            return &std::get<index>(bindings_);
+        } else {
+            return not_found;
+        }
     }
 
     // -----------------------------------------------------------------------------------------------------------------
@@ -169,4 +166,4 @@ private:
 template <typename... bindings_t>
 config_t(bindings_t&&...) -> config_t<std::remove_cvref_t<bindings_t>...>;
 
-} // namespace dink
+}  // namespace dink

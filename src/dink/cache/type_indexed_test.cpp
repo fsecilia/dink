@@ -11,5 +11,5 @@ namespace {
 
 //
 
-} // namespace
-} // namespace dink::caches
+}  // namespace
+}  // namespace dink::caches

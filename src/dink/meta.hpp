@@ -1,7 +1,7 @@
 /*!
     \file
     Copyright (C) 2025 Frank Secilia
-    
+
     \brief metaprogramming utilities
 */
 
@@ -35,11 +35,10 @@ using indexed_type_t = type_t;
 
 /*!
     arbitrary probing type for abstract concepts
-    
-    Some concepts check things that are so abstract, all you know is it should accept, return, or contain a type. 
+
+    Some concepts check things that are so abstract, all you know is it should accept, return, or contain a type.
     concept_probe_t is meant as a type standardized for this purpose.
 */
-struct concept_probe_t
-{};
+struct concept_probe_t {};
 
-} // namespace dink::meta
+}  // namespace dink::meta

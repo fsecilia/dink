@@ -15,4 +15,4 @@ using groundwork::long_t;
 using groundwork::uint_t;
 using groundwork::ulong_t;
 
-} // namespace dink
+}  // namespace dink

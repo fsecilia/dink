@@ -16,33 +16,29 @@ namespace dink::provider {
 
 //! unified creator provider - handles both ctors and user factories
 template <typename constructed_t, typename factory_t = ctor_factory_t<constructed_t>>
-struct creator_t
-{
+struct creator_t {
     using default_scope_t = scope::transient_t;
-    using provided_t = constructed_t;
+    using provided_t      = constructed_t;
 
     [[no_unique_address]] factory_t factory;
 
     template <typename dependency_chain_t, typename container_t>
-    auto create(container_t& container) -> constructed_t
-    {
-        using arg_t = arg_t<container_t, dependency_chain_t>;
-        using single_arg_t = single_arg_t<constructed_t, arg_t>;
+    auto create(container_t& container) -> constructed_t {
+        using arg_t                 = arg_t<container_t, dependency_chain_t>;
+        using single_arg_t          = single_arg_t<constructed_t, arg_t>;
         static constexpr auto arity = arity_v<constructed_t, factory_t>;
         return create<dependency_chain_t>(container, factory_invoker_t<constructed_t, arity, arg_t, single_arg_t>{});
     }
 
     template <typename dependency_chain_t, typename container_t, typename factory_invoker_t>
-    auto create(container_t& container, factory_invoker_t&& factory_invoker) -> constructed_t
-    {
+    auto create(container_t& container, factory_invoker_t&& factory_invoker) -> constructed_t {
         return std::forward<factory_invoker_t>(factory_invoker)(factory, container);
     }
 };
 
 //! references an instance owned by the container (moved/copied in)
 template <typename instance_t>
-struct internal_reference_t
-{
+struct internal_reference_t {
     using provided_t = instance_t;
     instance_t instance;
 
@@ -52,8 +48,7 @@ struct internal_reference_t
 
 //! references an instance owned externally (pointer stored)
 template <typename instance_t>
-struct external_reference_t
-{
+struct external_reference_t {
     using provided_t = instance_t;
     instance_t* instance;
 
@@ -63,8 +58,7 @@ struct external_reference_t
 
 //! copies from a prototype owned by the container
 template <typename instance_t>
-struct internal_prototype_t
-{
+struct internal_prototype_t {
     using provided_t = instance_t;
     instance_t prototype;
 
@@ -73,8 +67,7 @@ struct internal_prototype_t
 
 //! copies from an externally-owned prototype
 template <typename instance_t>
-struct external_prototype_t
-{
+struct external_prototype_t {
     using provided_t = instance_t;
     instance_t const* prototype;
 
@@ -87,11 +80,9 @@ using default_t = creator_t<resolved_t<request_t>>;
 
 //! factory for providers
 template <template <typename provided_t> class provider_t>
-struct provider_factory_t
-{
+struct provider_factory_t {
     template <typename provided_t>
-    auto create() -> provider_t<provided_t>
-    {
+    auto create() -> provider_t<provided_t> {
         return provider_t<provided_t>{};
     }
 };
@@ -100,12 +91,10 @@ struct provider_factory_t
 using default_factory_t = provider_factory_t<default_t>;
 
 template <typename value_t>
-struct is_creator_f : std::false_type
-{};
+struct is_creator_f : std::false_type {};
 
 template <typename constructed_t, typename factory_t>
-struct is_creator_f<creator_t<constructed_t, factory_t>> : std::true_type
-{};
+struct is_creator_f<creator_t<constructed_t, factory_t>> : std::true_type {};
 
 template <typename value_t>
 inline static constexpr auto is_creator_v = is_creator_f<value_t>::value;
@@ -120,4 +109,4 @@ concept is_accessor = requires(provider_t const& provider) {
     { provider.get() } -> std::convertible_to<typename provider_t::provided_t>;
 };
 
-} // namespace dink::provider
+}  // namespace dink::provider

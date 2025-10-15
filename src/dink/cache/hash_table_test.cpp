@@ -85,5 +85,5 @@ TEST_F(instance_cache_test_t, nonconst_find_matches_const_find)
 }
 #endif
 
-} // namespace
-} // namespace dink::caches
+}  // namespace
+}  // namespace dink::caches

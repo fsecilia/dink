@@ -10,27 +10,22 @@ namespace dink {
 namespace {
 
 // arbitrary unique type
-struct type_t
-{};
+struct type_t {};
 
 // deleter for unique_ptrs
-struct deleter_t
-{};
+struct deleter_t {};
 
 // arbitrary size for arrays
 constexpr auto array_size = 10;
 
 // return type for functions
-struct return_t
-{};
+struct return_t {};
 
 // arg type for functions
-struct arg_1_t
-{};
+struct arg_1_t {};
 
 // arg type for functions
-struct arg_2_t
-{};
+struct arg_2_t {};
 
 // basic types
 static_assert(std::is_same_v<canonical_t<type_t>, type_t>);
@@ -94,5 +89,5 @@ static_assert(std::is_same_v<canonical_t<std::weak_ptr<type_t const> const>, typ
 
 static_assert(std::is_same_v<canonical_t<std::unique_ptr<std::reference_wrapper<type_t const&>> const&>, type_t>);
 
-} // namespace
-} // namespace dink
+}  // namespace
+}  // namespace dink

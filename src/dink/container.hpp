@@ -44,14 +44,13 @@ concept is_container = requires(container_t& container) {
 // ---------------------------------------------------------------------------------------------------------------------
 
 template <is_container_policy policy_t, is_config config_t>
-class container_t
-{
+class container_t {
 public:
-    using cache_t = policy_t::cache_t;
-    using cache_traits_t = policy_t::cache_traits_t;
-    using delegate_t = policy_t::delegate_t;
+    using cache_t                    = policy_t::cache_t;
+    using cache_traits_t             = policy_t::cache_traits_t;
+    using delegate_t                 = policy_t::delegate_t;
     using default_provider_factory_t = policy_t::default_provider_factory_t;
-    using request_traits_t = policy_t::request_traits_t;
+    using request_traits_t           = policy_t::request_traits_t;
 
     // -----------------------------------------------------------------------------------------------------------------
     // constructors
@@ -60,43 +59,38 @@ public:
     //! constructs root container with given bindings
     template <is_binding... bindings_t>
     explicit container_t(bindings_t&&... bindings) noexcept
-        : config_{resolve_bindings(std::forward<bindings_t>(bindings)...)}
-    {}
+        : config_{resolve_bindings(std::forward<bindings_t>(bindings)...)} {}
 
     //! constructs nested container with given parent and bindings
     template <is_container parent_t, is_binding... bindings_t>
     explicit container_t(parent_t& parent, bindings_t&&... bindings) noexcept
-        : config_{resolve_bindings(std::forward<bindings_t>(bindings)...)}, delegate_{parent}
-    {}
+        : config_{resolve_bindings(std::forward<bindings_t>(bindings)...)}, delegate_{parent} {}
 
     //! direct construction from components (used by deduction guides and testing)
-    container_t(
-        cache_t cache, cache_traits_t cache_traits, config_t config, delegate_t delegate,
-        default_provider_factory_t default_provider_factory, request_traits_t request_traits
-    ) noexcept
-        : cache_{std::move(cache)}, cache_traits_{std::move(cache_traits)}, config_{std::move(config)},
-          delegate_{std::move(delegate)}, default_provider_factory_{std::move(default_provider_factory)},
-          request_traits_{std::move(request_traits)}
-    {}
+    container_t(cache_t cache, cache_traits_t cache_traits, config_t config, delegate_t delegate,
+                default_provider_factory_t default_provider_factory, request_traits_t request_traits) noexcept
+        : cache_{std::move(cache)},
+          cache_traits_{std::move(cache_traits)},
+          config_{std::move(config)},
+          delegate_{std::move(delegate)},
+          default_provider_factory_{std::move(default_provider_factory)},
+          request_traits_{std::move(request_traits)} {}
 
     // -----------------------------------------------------------------------------------------------------------------
     // resolution
     // -----------------------------------------------------------------------------------------------------------------
 
     template <typename request_t, typename dependency_chain_t = type_list_t<>>
-    auto resolve() -> as_returnable_t<request_t>
-    {
+    auto resolve() -> as_returnable_t<request_t> {
         using resolved_t = resolved_t<request_t>;
 
-        auto binding = config_.template find_binding<resolved_t>();
+        auto                  binding     = config_.template find_binding<resolved_t>();
         static constexpr bool has_binding = !std::is_same_v<decltype(binding), not_found_t>;
         if constexpr (has_binding) return dispatch<request_t, dependency_chain_t>(binding, binding->provider);
-        else
-        {
+        else {
             // try delegating to parent
             if constexpr (decltype(auto) delegate_result = delegate_.template delegate<request_t, dependency_chain_t>();
-                          !std::is_same_v<decltype(delegate_result), not_found_t>)
-            {
+                          !std::is_same_v<decltype(delegate_result), not_found_t>) {
                 return request_traits_.template as_requested<request_t>(delegate_result);
             }
 
@@ -106,39 +100,23 @@ public:
     }
 
     template <typename request_t, typename dependency_chain_t, typename binding_t, typename provider_t>
-    auto dispatch(binding_t binding, provider_t& provider) -> as_returnable_t<request_t>
-    {
+    auto dispatch(binding_t binding, provider_t& provider) -> as_returnable_t<request_t> {
         static constexpr auto operation = select_operation<request_t, binding_t>();
-        if constexpr (operation == operation_t::use_accessor)
-        {
+        if constexpr (operation == operation_t::use_accessor) {
             return use_accessor<request_t, dependency_chain_t>(binding, provider);
-        }
-        else if constexpr (operation == operation_t::create)
-        {
+        } else if constexpr (operation == operation_t::create) {
             return create<request_t, dependency_chain_t>(binding, provider);
-        }
-        else if constexpr (operation == operation_t::cache)
-        {
+        } else if constexpr (operation == operation_t::cache) {
             return cache<request_t, dependency_chain_t>(binding, provider);
-        }
-        else if constexpr (operation == operation_t::cache_promoted)
-        {
+        } else if constexpr (operation == operation_t::cache_promoted) {
             return cache_promoted<request_t, dependency_chain_t>(binding, provider);
-        }
-        else if constexpr (operation == operation_t::copy_from_cache)
-        {
+        } else if constexpr (operation == operation_t::copy_from_cache) {
             return copy_from_cache<request_t, dependency_chain_t>(binding, provider);
-        }
-        else if constexpr (operation == operation_t::create_shared)
-        {
+        } else if constexpr (operation == operation_t::create_shared) {
             return create_shared<request_t, dependency_chain_t>(binding, provider);
-        }
-        else if constexpr (operation == operation_t::cache_shared)
-        {
+        } else if constexpr (operation == operation_t::cache_shared) {
             return cache_shared<request_t, dependency_chain_t>(binding, provider);
-        }
-        else if constexpr (operation == operation_t::defer_shared)
-        {
+        } else if constexpr (operation == operation_t::defer_shared) {
             return defer_shared<request_t, dependency_chain_t>(binding, provider);
         }
     }
@@ -149,66 +127,56 @@ private:
     // -----------------------------------------------------------------------------------------------------------------
 
     template <typename request_t, typename dependency_chain_t, typename binding_t, typename provider_t>
-    auto use_accessor(binding_t, provider_t& provider) -> as_returnable_t<request_t>
-    {
+    auto use_accessor(binding_t, provider_t& provider) -> as_returnable_t<request_t> {
         // accessor bypasses all caching
         return request_traits_.template as_requested<request_t>(provider.get());
     }
 
     template <typename request_t, typename dependency_chain_t, typename binding_t, typename provider_t>
-    auto create(binding_t, provider_t& provider) -> as_returnable_t<request_t>
-    {
+    auto create(binding_t, provider_t& provider) -> as_returnable_t<request_t> {
         return request_traits_.template as_requested<request_t>(provider.template create<dependency_chain_t>(*this));
     }
 
     template <typename request_t, typename dependency_chain_t, typename binding_t, typename provider_t>
-    auto cache(binding_t, provider_t& provider) -> as_returnable_t<request_t>
-    {
+    auto cache(binding_t, provider_t& provider) -> as_returnable_t<request_t> {
         return request_traits_.template as_requested<request_t>(
-            cache_traits_.template resolve_from_cache<request_t, typename provider_t::provided_t>(cache_, [&]() {
-                return provider.template create<dependency_chain_t>(*this);
-            })
-        );
+            cache_traits_.template resolve_from_cache<request_t, typename provider_t::provided_t>(
+                cache_, [&]() { return provider.template create<dependency_chain_t>(*this); }));
     }
 
     template <typename request_t, typename dependency_chain_t, typename binding_t, typename provider_t>
-    auto cache_promoted(binding_t binding, provider_t& provider) -> as_returnable_t<request_t>
-    {
+    auto cache_promoted(binding_t binding, provider_t& provider) -> as_returnable_t<request_t> {
         // the implementations for these operations are the same, but they have different causes
         return cache<request_t, dependency_chain_t>(binding, provider);
     }
 
     template <typename request_t, typename dependency_chain_t, typename binding_t, typename provider_t>
-    auto copy_from_cache(binding_t binding, provider_t& provider) -> as_returnable_t<request_t>
-    {
+    auto copy_from_cache(binding_t binding, provider_t& provider) -> as_returnable_t<request_t> {
         // the backend performs the same operation, but as_requested() will make a copy
         return cache<request_t, dependency_chain_t>(binding, provider);
     }
 
     template <typename request_t, typename dependency_chain_t, typename binding_t, typename provider_t>
-    auto create_shared(binding_t binding, provider_t& provider) -> as_returnable_t<request_t>
-    {
+    auto create_shared(binding_t binding, provider_t& provider) -> as_returnable_t<request_t> {
         return create<request_t, dependency_chain_t>(binding, provider);
     }
 
     template <typename request_t, typename dependency_chain_t, typename binding_t, typename provider_t>
-    auto cache_shared(binding_t binding, provider_t& provider) -> as_returnable_t<request_t>
-    {
+    auto cache_shared(binding_t binding, provider_t& provider) -> as_returnable_t<request_t> {
         return cache<request_t, dependency_chain_t>(binding, provider);
     }
 
     template <typename request_t, typename dependency_chain_t, typename binding_t, typename provider_t>
-    auto defer_shared(binding_t binding, provider_t& provider) -> as_returnable_t<request_t>
-    {
+    auto defer_shared(binding_t binding, provider_t& provider) -> as_returnable_t<request_t> {
         return cache_shared<request_t, dependency_chain_t>(binding, provider);
     }
 
-    cache_t cache_;
-    [[no_unique_address]] cache_traits_t cache_traits_;
-    [[no_unique_address]] config_t config_;
-    [[no_unique_address]] delegate_t delegate_;
+    cache_t                                          cache_;
+    [[no_unique_address]] cache_traits_t             cache_traits_;
+    [[no_unique_address]] config_t                   config_;
+    [[no_unique_address]] delegate_t                 delegate_;
     [[no_unique_address]] default_provider_factory_t default_provider_factory_;
-    [[no_unique_address]] request_traits_t request_traits_;
+    [[no_unique_address]] request_traits_t           request_traits_;
 };
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -216,25 +184,22 @@ private:
 // ---------------------------------------------------------------------------------------------------------------------
 
 //! common policy
-struct container_policy_t
-{
+struct container_policy_t {
     using default_provider_factory_t = provider::default_factory_t;
-    using cache_traits_t = cache_traits_t;
-    using request_traits_t = request_traits_t;
+    using cache_traits_t             = cache_traits_t;
+    using request_traits_t           = request_traits_t;
 };
 
 //! policy for root containers (no parent delegation)
-struct root_container_policy_t : container_policy_t
-{
-    using cache_t = caches::type_indexed_t<>;
+struct root_container_policy_t : container_policy_t {
+    using cache_t    = caches::type_indexed_t<>;
     using delegate_t = delegate::none_t;
 };
 
 //! policy for nested containers (delegates to parent)
 template <typename parent_container_t>
-struct nested_container_policy_t : container_policy_t
-{
-    using cache_t = caches::hash_table_t;
+struct nested_container_policy_t : container_policy_t {
+    using cache_t    = caches::hash_table_t;
     using delegate_t = delegate::to_parent_t<parent_container_t>;
 };
 
@@ -244,14 +209,15 @@ struct nested_container_policy_t : container_policy_t
 
 //! deduction guide for root containers
 template <is_binding... bindings_t>
-container_t(bindings_t&&...) -> container_t<
-    root_container_policy_t, detail::config_from_tuple_t<decltype(resolve_bindings(std::declval<bindings_t>()...))>>;
+container_t(bindings_t&&...)
+    -> container_t<root_container_policy_t,
+                   detail::config_from_tuple_t<decltype(resolve_bindings(std::declval<bindings_t>()...))>>;
 
 //! deduction guide for nested containers
 template <is_container parent_container_t, is_binding... bindings_t>
-container_t(parent_container_t& parent_container, bindings_t&&...) -> container_t<
-    nested_container_policy_t<parent_container_t>,
-    detail::config_from_tuple_t<decltype(resolve_bindings(std::declval<bindings_t>()...))>>;
+container_t(parent_container_t& parent_container, bindings_t&&...)
+    -> container_t<nested_container_policy_t<parent_container_t>,
+                   detail::config_from_tuple_t<decltype(resolve_bindings(std::declval<bindings_t>()...))>>;
 
 // ---------------------------------------------------------------------------------------------------------------------
 // type aliases
@@ -259,13 +225,14 @@ container_t(parent_container_t& parent_container, bindings_t&&...) -> container_
 
 //! root container with given bindings
 template <is_binding... bindings_t>
-using root_container_t = container_t<
-    root_container_policy_t, detail::config_from_tuple_t<decltype(resolve_bindings(std::declval<bindings_t>()...))>>;
+using root_container_t =
+    container_t<root_container_policy_t,
+                detail::config_from_tuple_t<decltype(resolve_bindings(std::declval<bindings_t>()...))>>;
 
 //! nested container with given parent and bindings
 template <is_container parent_container_t, typename... bindings_t>
-using nested_container_t = container_t<
-    nested_container_policy_t<parent_container_t>,
-    detail::config_from_tuple_t<decltype(resolve_bindings(std::declval<bindings_t>()...))>>;
+using nested_container_t =
+    container_t<nested_container_policy_t<parent_container_t>,
+                detail::config_from_tuple_t<decltype(resolve_bindings(std::declval<bindings_t>()...))>>;
 
-} // namespace dink
+}  // namespace dink
