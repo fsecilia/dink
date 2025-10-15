@@ -88,16 +88,20 @@ protected:
 // =============================================================================
 
 TEST_F(ContainerTest, DefaultConstructionWithoutBinding) {
+    struct unique_type_t : no_deps_t {};
+
     auto container = root_container_t{};
-    auto instance  = container.resolve<no_deps_t>();
+    auto instance  = container.resolve<unique_type_t>();
 
     EXPECT_EQ(instance.id, 1);
     EXPECT_EQ(total_constructions, 1);
 }
 
 TEST_F(ContainerTest, DefaultConstructionWithOneDependency) {
+    struct unique_type_t : one_dep_t {};
+
     auto container = root_container_t{};
-    auto instance  = container.resolve<one_dep_t>();
+    auto instance  = container.resolve<unique_type_t>();
 
     EXPECT_EQ(instance.id, 2);
     EXPECT_EQ(total_constructions, 2);  // 1 dep + 1 main
