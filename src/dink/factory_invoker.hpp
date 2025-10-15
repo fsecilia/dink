@@ -41,7 +41,7 @@ struct arity_dispatcher_t<constructed_t, indexed_arg_factory_t, std::index_seque
 //! invokes a constructed_t factory using arity to determine how many args backed by a container to pass, and what type.
 template <typename constructed_t, std::size_t arity, typename arg_t, typename single_arg_t>
 class factory_invoker_t {
-    static_assert(npos != arity);
+    static_assert(npos != arity, "could not deduce arity");
 
 public:
     constexpr auto operator()(auto& factory, auto& container) const -> constructed_t {

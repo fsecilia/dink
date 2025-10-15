@@ -11,36 +11,68 @@ namespace dink {
 namespace {
 
 // Test instrumentation
-inline static int_t next_id             = 1;
-inline static int_t total_constructions = 0;
-inline static int_t total_destructions  = 0;
+inline static int_t next_index         = 0;
+inline static int_t next_id            = 0;
+inline static int_t total_dtors        = 0;
+inline static int_t total_ctors        = 0;
+inline static int_t total_copy_ctors   = 0;
+inline static int_t total_move_ctors   = 0;
+inline static int_t total_copy_assigns = 0;
+inline static int_t total_move_assigns = 0;
 
 void reset_test_counters() {
-    next_id             = 1;
-    total_constructions = 0;
-    total_destructions  = 0;
+    next_index         = 0;
+    next_id            = 0;
+    total_dtors        = 0;
+    total_ctors        = 0;
+    total_copy_ctors   = 0;
+    total_move_ctors   = 0;
+    total_copy_assigns = 0;
+    total_move_assigns = 0;
 }
 
-template <typename... args_t>
+template <typename tag_t, typename... args_t>
 struct constructed_from_t {
-    int_t id = next_id++;
-    constructed_from_t(args_t...) noexcept { ++total_constructions; }
-    ~constructed_from_t() { ++total_destructions; }
+    int_t index = next_index++;
+    int_t id    = next_id++;
+    constructed_from_t(args_t...) noexcept { ++total_ctors; }
+    ~constructed_from_t() { ++total_dtors; }
+    constructed_from_t(constructed_from_t const& src) : id{src.id} { ++total_copy_ctors; }
+    constructed_from_t(constructed_from_t&& src) : id{src.id} { ++total_move_ctors; }
 
-    constructed_from_t(constructed_from_t const&) = default;
+    auto operator=(constructed_from_t const& src) -> constructed_from_t& {
+        ++total_copy_ctors;
+        id = src.id;
+        return *this;
+    }
+
+    auto operator=(constructed_from_t&& src) -> constructed_from_t& {
+        ++total_move_ctors;
+        id = src.id;
+        return *this;
+    }
 };
 
 // Type aliases for common test types
-using no_deps_t    = constructed_from_t<>;
-using one_dep_t    = constructed_from_t<no_deps_t>;
-using two_deps_t   = constructed_from_t<no_deps_t, one_dep_t>;
-using three_deps_t = constructed_from_t<no_deps_t, one_dep_t, two_deps_t>;
+struct no_deps_t : constructed_from_t<no_deps_t> {
+    using constructed_from_t<no_deps_t>::constructed_from_t;
+};
+struct one_dep_t : constructed_from_t<one_dep_t, no_deps_t> {
+    using constructed_from_t<one_dep_t, no_deps_t>::constructed_from_t;
+};
+struct two_deps_t : constructed_from_t<two_deps_t, no_deps_t, one_dep_t> {
+    using constructed_from_t<two_deps_t, no_deps_t, one_dep_t>::constructed_from_t;
+};
+struct three_deps_t : constructed_from_t<three_deps_t, no_deps_t, one_dep_t, two_deps_t> {
+    using constructed_from_t<three_deps_t, no_deps_t, one_dep_t, two_deps_t>::constructed_from_t;
+};
 
 struct integration_smoke_test_t : Test {};
 
-#if 0
+#if 1
 TEST_F(integration_smoke_test_t, default_ctor_transient) {
-    using instance_t = constructed_from_t<>;
+    struct unique_tag_t {};
+    using instance_t = constructed_from_t<unique_tag_t>;
 
     auto container = root_container_t<>{};
     auto a1        = container.resolve<instance_t>();
@@ -50,7 +82,8 @@ TEST_F(integration_smoke_test_t, default_ctor_transient) {
 }
 
 TEST_F(integration_smoke_test_t, default_ctor_singleton) {
-    using instance_t = constructed_from_t<>;
+    struct unique_tag_t {};
+    using instance_t = constructed_from_t<unique_tag_t>;
 
     auto  container = root_container_t<>{};
     auto& a1        = container.resolve<instance_t&>();
@@ -60,7 +93,9 @@ TEST_F(integration_smoke_test_t, default_ctor_singleton) {
 }
 
 TEST_F(integration_smoke_test_t, dependency_graph) {
-    using instance_t = constructed_from_t<constructed_from_t<>, constructed_from_t<constructed_from_t<>>>;
+    struct unique_tag_t {};
+    using instance_t = constructed_from_t<unique_tag_t, constructed_from_t<unique_tag_t>,
+                                          constructed_from_t<unique_tag_t, constructed_from_t<unique_tag_t>>>;
 
     auto container = root_container_t<>{};
     auto c         = container.resolve<instance_t>();
@@ -69,7 +104,8 @@ TEST_F(integration_smoke_test_t, dependency_graph) {
 }
 
 TEST_F(integration_smoke_test_t, explicit_binding) {
-    using instance_t = constructed_from_t<>;
+    struct unique_tag_t {};
+    using instance_t = constructed_from_t<unique_tag_t>;
 
     auto container = root_container_t{bind<instance_t>().to<instance_t>().in<scope::singleton_t>()};
     auto a1        = container.resolve<instance_t>();
@@ -90,39 +126,48 @@ protected:
 // =============================================================================
 
 TEST_F(ContainerTest, DefaultConstructionWithoutBinding) {
-    struct unique_type_t : no_deps_t {
-        unique_type_t()                 = default;
-        unique_type_t(no_deps_t const&) = delete;
-    };
+    auto container = root_container_t{};
 
     {
-        auto container = root_container_t{};
-        auto instance  = container.resolve<unique_type_t>();
+        // 1 temporary constructed, then moved into named instance
+        auto instance = container.resolve<no_deps_t>();
 
-        EXPECT_EQ(instance.id, 1);
+        EXPECT_EQ(instance.id, 0);
+        EXPECT_EQ(instance.index, 1);
+
+        EXPECT_EQ(total_ctors, 1);
+        EXPECT_EQ(total_dtors, 1);
+        EXPECT_EQ(total_copy_ctors, 0);
+        EXPECT_EQ(total_move_ctors, 1);
+        EXPECT_EQ(total_copy_assigns, 0);
+        EXPECT_EQ(total_move_assigns, 0);
     }
 
-    EXPECT_EQ(total_constructions, 1);
-    EXPECT_EQ(total_destructions, 1);
+    EXPECT_EQ(total_ctors, 1);
+    EXPECT_EQ(total_dtors, 2);
+    EXPECT_EQ(total_copy_ctors, 0);
+    EXPECT_EQ(total_move_ctors, 1);
+    EXPECT_EQ(total_copy_assigns, 0);
+    EXPECT_EQ(total_move_assigns, 0);
 }
 
-#if 0
+#if 1
 TEST_F(ContainerTest, DefaultConstructionWithOneDependency) {
     struct unique_type_t : one_dep_t {};
 
     auto container = root_container_t{};
     auto instance  = container.resolve<unique_type_t>();
 
-    EXPECT_EQ(instance.id, 2);
-    EXPECT_EQ(total_constructions, 2);  // 1 dep + 1 main
+    EXPECT_EQ(instance.id, 1);
+    EXPECT_EQ(total_ctors, 2);  // 1 dep + 1 main
 }
 
 TEST_F(ContainerTest, DefaultConstructionWithDependencies) {
     auto container = root_container_t{};
     auto instance  = container.resolve<three_deps_t>();
 
-    EXPECT_EQ(instance.id, 8);
-    EXPECT_EQ(total_constructions, 8);
+    EXPECT_EQ(instance.id, 7);
+    EXPECT_EQ(total_ctors, 8);
 }
 
 TEST_F(ContainerTest, ExplicitBindingToImplementation) {
@@ -133,7 +178,7 @@ TEST_F(ContainerTest, ExplicitBindingToImplementation) {
         interface_t(interface_t&&)      = default;
         interface_t(interface_t const&) = delete;
     };
-    struct implementation_t : interface_t, constructed_from_t<> {
+    struct implementation_t : interface_t, no_deps_t {
         implementation_t()                        = default;
         implementation_t(implementation_t&&)      = default;
         implementation_t(implementation_t const&) = delete;
@@ -156,7 +201,7 @@ TEST_F(ContainerTest, TransientscopeCreatesNewInstances) {
     auto b = container.resolve<no_deps_t>();
 
     EXPECT_NE(a.id, b.id);
-    EXPECT_EQ(total_constructions, 2);
+    EXPECT_EQ(total_ctors, 2);
 }
 
 TEST_F(ContainerTest, SingletonscopeReusesSameInstance) {
@@ -168,7 +213,7 @@ TEST_F(ContainerTest, SingletonscopeReusesSameInstance) {
     auto b = container.resolve<unique_type_t>();
 
     EXPECT_EQ(a.id, b.id);
-    EXPECT_EQ(total_constructions, 1);
+    EXPECT_EQ(total_ctors, 1);
 }
 
 TEST_F(ContainerTest, DefaultscopeIsTransient) {
@@ -178,7 +223,7 @@ TEST_F(ContainerTest, DefaultscopeIsTransient) {
     auto b = container.resolve<no_deps_t>();
 
     EXPECT_NE(a.id, b.id);
-    EXPECT_EQ(total_constructions, 2);
+    EXPECT_EQ(total_ctors, 2);
 }
 
 // =============================================================================
@@ -194,7 +239,7 @@ TEST_F(ContainerTest, ReferenceRequestForcesSingleton) {
     auto& b = container.resolve<unique_type_t&>();
 
     EXPECT_EQ(&a, &b);
-    EXPECT_EQ(total_constructions, 1);
+    EXPECT_EQ(total_ctors, 1);
 }
 
 TEST_F(ContainerTest, RValueReferenceRequestForcesTransient) {
@@ -205,7 +250,7 @@ TEST_F(ContainerTest, RValueReferenceRequestForcesTransient) {
     auto b         = container.resolve<unique_type_t&&>();
 
     EXPECT_EQ(a.id, b.id);
-    EXPECT_EQ(total_constructions, 1);  // 1 constructed in cache, 2 copies made
+    EXPECT_EQ(total_ctors, 1);  // 1 constructed in cache, 2 copies made
 }
 
 TEST_F(ContainerTest, PointerRequestForcesSingleton) {
@@ -217,7 +262,7 @@ TEST_F(ContainerTest, PointerRequestForcesSingleton) {
     auto* b = container.resolve<unique_type_t*>();
 
     EXPECT_EQ(a, b);
-    EXPECT_EQ(total_constructions, 1);
+    EXPECT_EQ(total_ctors, 1);
 }
 
 TEST_F(ContainerTest, SharedPtrRequest) {
@@ -230,7 +275,7 @@ TEST_F(ContainerTest, SharedPtrRequest) {
 
     EXPECT_EQ(a->id, b->id);
     EXPECT_EQ(a.get(), b.get());
-    EXPECT_EQ(total_constructions, 1);
+    EXPECT_EQ(total_ctors, 1);
 }
 
 TEST_F(ContainerTest, UniquePtrRequestForcesTransient) {
@@ -243,7 +288,7 @@ TEST_F(ContainerTest, UniquePtrRequestForcesTransient) {
 
     EXPECT_NE(a.get(), b.get());
     EXPECT_EQ(a->id, b->id);
-    EXPECT_EQ(total_constructions, 1);
+    EXPECT_EQ(total_ctors, 1);
 }
 
 TEST_F(ContainerTest, WeakPtrRequest) {
@@ -257,7 +302,7 @@ TEST_F(ContainerTest, WeakPtrRequest) {
     auto locked = weak.lock();
     ASSERT_NE(locked, nullptr);
     EXPECT_EQ(locked->id, shared->id);
-    EXPECT_EQ(total_constructions, 1);
+    EXPECT_EQ(total_ctors, 1);
 }
 
 // =============================================================================
@@ -283,17 +328,17 @@ TEST_F(ContainerTest, CustomFactory) {
 }
 
 TEST_F(ContainerTest, FactoryWithDependencies) {
-    struct unique_type_t : two_deps_t {
+    struct local_type_t : two_deps_t {
         using two_deps_t::two_deps_t;
     };
 
-    auto container = root_container_t{bind<unique_type_t>().template to_factory<unique_type_t>(
-        [](no_deps_t a, one_dep_t b) { return unique_type_t{a, b}; })};
+    auto container = root_container_t{bind<local_type_t>().template to_factory<local_type_t>(
+        [](no_deps_t a, one_dep_t b) { return local_type_t{a, b}; })};
 
-    auto instance = container.resolve<unique_type_t>();
+    auto instance = container.resolve<local_type_t>();
 
     EXPECT_GT(instance.id, 0);
-    EXPECT_EQ(total_constructions, 4);  // arg no_deps(1) + arg one_dep(2) + final two_deps(1)
+    EXPECT_EQ(total_ctors, 4);  // arg no_deps(1) + arg one_dep(2) + final two_deps(1)
 }
 
 // =============================================================================
@@ -370,7 +415,7 @@ TEST_F(ContainerTest, NestedResolvesFromRoot) {
     auto& from_nested = nested.resolve<unique_type_t&>();
 
     EXPECT_EQ(&from_root, &from_nested);
-    EXPECT_EQ(total_constructions, 1);
+    EXPECT_EQ(total_ctors, 1);
 }
 
 TEST_F(ContainerTest, NestedOverridesrootBinding) {
@@ -385,7 +430,7 @@ TEST_F(ContainerTest, NestedOverridesrootBinding) {
 
     EXPECT_NE(from_root.id, from_nested1.id);
     EXPECT_NE(from_nested1.id, from_nested2.id);
-    EXPECT_EQ(total_constructions, 3);
+    EXPECT_EQ(total_ctors, 3);
 }
 
 TEST_F(ContainerTest, NestedContainerSingletonScoping) {
@@ -401,7 +446,7 @@ TEST_F(ContainerTest, NestedContainerSingletonScoping) {
 
     EXPECT_EQ(&from_nested1_a, &from_nested1_b);  // Same within nested1
     EXPECT_NE(&from_nested1_a, &from_nested2);    // Different across nestedren
-    EXPECT_EQ(total_constructions, 2);
+    EXPECT_EQ(total_ctors, 2);
 }
 
 // =============================================================================
@@ -410,44 +455,43 @@ TEST_F(ContainerTest, NestedContainerSingletonScoping) {
 
 TEST_F(ContainerTest, DeepDependencyChain) {
     // A -> B -> C -> D
-    struct d_t : constructed_from_t<> {};
+    struct d_t : constructed_from_t<d_t> {};
 
-    struct c_t : constructed_from_t<d_t> {};
+    struct c_t : constructed_from_t<d_t, d_t> {};
 
-    struct b_t : constructed_from_t<c_t> {};
+    struct b_t : constructed_from_t<b_t, c_t> {};
 
-    struct a_t : constructed_from_t<b_t> {};
+    struct a_t : constructed_from_t<a_t, b_t> {};
 
     auto container = root_container_t{};
     auto instance  = container.resolve<a_t>();
 
     EXPECT_GT(instance.id, 0);
-    EXPECT_EQ(total_constructions, 4);
+    EXPECT_EQ(total_ctors, 4);
 }
 
 TEST_F(ContainerTest, DiamondDependency) {
     // A -> B -> D
     // A -> C -> D
     // D should be singleton to avoid double construction
-    struct d_t : constructed_from_t<> {};
+    struct d_t : constructed_from_t<d_t> {};
 
-    struct b_t : constructed_from_t<d_t&> {};
+    struct b_t : constructed_from_t<b_t, d_t&> {};
 
-    struct c_t : constructed_from_t<d_t&> {};
+    struct c_t : constructed_from_t<c_t, d_t&> {};
 
-    struct a_t : constructed_from_t<b_t, c_t> {};
+    struct a_t : constructed_from_t<a_t, b_t, c_t> {};
 
     auto container = root_container_t{};
     auto instance  = container.resolve<a_t>();
 
     EXPECT_GT(instance.id, 0);
-    EXPECT_EQ(total_constructions, 4);  // D (once), B, C, A
+    EXPECT_EQ(total_ctors, 4);  // D (once), B, C, A
 }
 
-TEST_F(ContainerTest, MixedscopesInDependencyChain) {
-    struct dep_t : constructed_from_t<> {};
-
-    using service_t = constructed_from_t<dep_t>;
+TEST_F(ContainerTest, MixedScopesInDependencyChain) {
+    struct dep_t : constructed_from_t<dep_t> {};
+    struct service_t : constructed_from_t<service_t> {};
 
     auto container = root_container_t{bind<dep_t>().to<dep_t>().in<scope::singleton_t>(),
                                       bind<service_t>().to<service_t>().in<scope::transient_t>()};
@@ -456,7 +500,7 @@ TEST_F(ContainerTest, MixedscopesInDependencyChain) {
     auto b = container.resolve<service_t>();
 
     EXPECT_NE(a.id, b.id);              // Service is transient
-    EXPECT_EQ(total_constructions, 3);  // 1 singleton dep, 2 transient services
+    EXPECT_EQ(total_ctors, 2);          // 1 singleton dep, 2 transient services
 }
 
 // =============================================================================
@@ -483,7 +527,7 @@ TEST_F(ContainerTest, MultipleBindingsFirstWins) {
 }
 
 TEST_F(ContainerTest, MoveOnlyType) {
-    struct move_only_t : constructed_from_t<> {
+    struct move_only_t : constructed_from_t<move_only_t> {
         move_only_t()                              = default;
         move_only_t(move_only_t const&)            = delete;
         move_only_t& operator=(move_only_t const&) = delete;
@@ -494,10 +538,12 @@ TEST_F(ContainerTest, MoveOnlyType) {
     auto container = root_container_t{};
 
     auto instance = container.resolve<move_only_t>();
-    EXPECT_GT(instance.id, 0);
+    EXPECT_EQ(instance.id, 0);
+    EXPECT_EQ(instance.index, 0);
 
     auto ptr = container.resolve<std::unique_ptr<move_only_t>>();
-    EXPECT_GT(ptr->id, 0);
+    EXPECT_EQ(ptr->id, 1);
+    EXPECT_EQ(ptr->index, 1);
 }
 
 TEST_F(ContainerTest, ConstRequestTypes) {
@@ -509,7 +555,7 @@ TEST_F(ContainerTest, ConstRequestTypes) {
     auto const* const_ptr = container.resolve<unique_type_t const*>();
 
     EXPECT_EQ(const_ptr, &const_ref);
-    EXPECT_EQ(total_constructions, 1);
+    EXPECT_EQ(total_ctors, 1);
 }
 
 // =============================================================================
@@ -517,21 +563,17 @@ TEST_F(ContainerTest, ConstRequestTypes) {
 // =============================================================================
 
 TEST_F(ContainerTest, LargeDependencyGraphPerformance) {
-    struct level5_t : constructed_from_t<> {};
-
-    struct level4_t : constructed_from_t<level5_t, level5_t, level5_t> {};
-
-    struct level3_t : constructed_from_t<level4_t, level4_t> {};
-
-    struct level2_t : constructed_from_t<level3_t, level3_t> {};
-
-    struct level1_t : constructed_from_t<level2_t> {};
+    struct level5_t : constructed_from_t<level5_t> {};
+    struct level4_t : constructed_from_t<level4_t, level5_t, level5_t, level5_t> {};
+    struct level3_t : constructed_from_t<level3_t, level4_t, level4_t> {};
+    struct level2_t : constructed_from_t<level2_t, level3_t, level3_t> {};
+    struct level1_t : constructed_from_t<level1_t, level2_t> {};
 
     auto container = root_container_t{bind<level5_t>().to<level5_t>().in<scope::singleton_t>()};
 
-    auto start_constructions = total_constructions;
+    auto start_constructions = total_ctors;
     auto instance            = container.resolve<level1_t>();
-    auto constructions_made  = total_constructions - start_constructions;
+    auto constructions_made  = total_ctors - start_constructions;
 
     EXPECT_GT(instance.id, 0);
     EXPECT_EQ(constructions_made, 9);  // 5 4 4 3 4 4 3 2 1
@@ -553,7 +595,7 @@ TEST_F(ContainerTest, ThreadSafetyOfRootSingletons) {
     thread2.join();
 
     EXPECT_EQ(ptr1, ptr2);
-    EXPECT_EQ(total_constructions, 1);
+    EXPECT_EQ(total_ctors, 1);
 }
 #endif
 
