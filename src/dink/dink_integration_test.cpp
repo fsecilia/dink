@@ -38,6 +38,7 @@ using three_deps_t = constructed_from_t<no_deps_t, one_dep_t, two_deps_t>;
 
 struct integration_smoke_test_t : Test {};
 
+#if 1
 TEST_F(integration_smoke_test_t, default_ctor_transient) {
     using instance_t = constructed_from_t<>;
 
@@ -76,6 +77,7 @@ TEST_F(integration_smoke_test_t, explicit_binding) {
 
     ASSERT_EQ(a1.id, a2.id);  // Explicitly bound singleton
 }
+#endif
 
 // Base test fixture
 class ContainerTest : public Test {
@@ -87,6 +89,7 @@ protected:
 // Basic Resolution Tests
 // =============================================================================
 
+#if 1
 TEST_F(ContainerTest, DefaultConstructionWithoutBinding) {
     struct unique_type_t : no_deps_t {};
 
@@ -209,6 +212,7 @@ TEST_F(ContainerTest, PointerRequestForcesSingleton) {
     EXPECT_EQ(a, b);
     EXPECT_EQ(total_constructions, 1);
 }
+#endif
 
 TEST_F(ContainerTest, SharedPtrRequest) {
     struct unique_type_t : no_deps_t {};
@@ -223,6 +227,7 @@ TEST_F(ContainerTest, SharedPtrRequest) {
     EXPECT_EQ(total_constructions, 1);
 }
 
+#if 1
 TEST_F(ContainerTest, UniquePtrRequestForcesTransient) {
     struct unique_type_t : no_deps_t {};
 
@@ -545,6 +550,7 @@ TEST_F(ContainerTest, ThreadSafetyOfRootSingletons) {
     EXPECT_EQ(ptr1, ptr2);
     EXPECT_EQ(total_constructions, 1);
 }
+#endif
 
 }  // namespace
 }  // namespace dink
