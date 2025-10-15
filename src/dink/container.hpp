@@ -113,33 +113,33 @@ public:
         {
             return use_accessor<request_t, dependency_chain_t>(binding, provider);
         }
-        else if constexpr (operation == operation_t::create_transient)
+        else if constexpr (operation == operation_t::create)
         {
-            return create_transient<request_t, dependency_chain_t>(binding, provider);
+            return create<request_t, dependency_chain_t>(binding, provider);
         }
-        else if constexpr (operation == operation_t::get_or_create_singleton)
+        else if constexpr (operation == operation_t::cache)
         {
-            return get_or_create_singleton<request_t, dependency_chain_t>(binding, provider);
+            return cache<request_t, dependency_chain_t>(binding, provider);
         }
-        else if constexpr (operation == operation_t::get_or_create_promoted_singleton)
+        else if constexpr (operation == operation_t::cache_promoted)
         {
-            return get_or_create_promoted_singleton<request_t, dependency_chain_t>(binding, provider);
+            return cache_promoted<request_t, dependency_chain_t>(binding, provider);
         }
-        else if constexpr (operation == operation_t::get_or_create_singleton_copy)
+        else if constexpr (operation == operation_t::copy_from_cache)
         {
-            return get_or_create_singleton_copy<request_t, dependency_chain_t>(binding, provider);
+            return copy_from_cache<request_t, dependency_chain_t>(binding, provider);
         }
-        else if constexpr (operation == operation_t::create_transient_shared)
+        else if constexpr (operation == operation_t::create_shared)
         {
-            return create_transient_shared<request_t, dependency_chain_t>(binding, provider);
+            return create_shared<request_t, dependency_chain_t>(binding, provider);
         }
-        else if constexpr (operation == operation_t::get_or_create_singleton_shared)
+        else if constexpr (operation == operation_t::cache_shared)
         {
-            return get_or_create_singleton_shared<request_t, dependency_chain_t>(binding, provider);
+            return cache_shared<request_t, dependency_chain_t>(binding, provider);
         }
-        else if constexpr (operation == operation_t::delegate_to_shared)
+        else if constexpr (operation == operation_t::defer_shared)
         {
-            return delegate_to_shared<request_t, dependency_chain_t>(binding, provider);
+            return defer_shared<request_t, dependency_chain_t>(binding, provider);
         }
     }
 
@@ -156,13 +156,13 @@ private:
     }
 
     template <typename request_t, typename dependency_chain_t, typename binding_t, typename provider_t>
-    auto create_transient(binding_t, provider_t& provider) -> as_returnable_t<request_t>
+    auto create(binding_t, provider_t& provider) -> as_returnable_t<request_t>
     {
         return request_traits_.template as_requested<request_t>(provider.template create<dependency_chain_t>(*this));
     }
 
     template <typename request_t, typename dependency_chain_t, typename binding_t, typename provider_t>
-    auto get_or_create_singleton(binding_t, provider_t& provider) -> as_returnable_t<request_t>
+    auto cache(binding_t, provider_t& provider) -> as_returnable_t<request_t>
     {
         return request_traits_.template as_requested<request_t>(
             cache_traits_.template resolve_from_cache<request_t, typename provider_t::provided_t>(cache_, [&]() {
@@ -172,35 +172,35 @@ private:
     }
 
     template <typename request_t, typename dependency_chain_t, typename binding_t, typename provider_t>
-    auto get_or_create_promoted_singleton(binding_t binding, provider_t& provider) -> as_returnable_t<request_t>
+    auto cache_promoted(binding_t binding, provider_t& provider) -> as_returnable_t<request_t>
     {
         // the implementations for these operations are the same, but they have different causes
-        return get_or_create_singleton<request_t, dependency_chain_t>(binding, provider);
+        return cache<request_t, dependency_chain_t>(binding, provider);
     }
 
     template <typename request_t, typename dependency_chain_t, typename binding_t, typename provider_t>
-    auto get_or_create_singleton_copy(binding_t binding, provider_t& provider) -> as_returnable_t<request_t>
+    auto copy_from_cache(binding_t binding, provider_t& provider) -> as_returnable_t<request_t>
     {
         // the backend performs the same operation, but as_requested() will make a copy
-        return get_or_create_singleton<request_t, dependency_chain_t>(binding, provider);
+        return cache<request_t, dependency_chain_t>(binding, provider);
     }
 
     template <typename request_t, typename dependency_chain_t, typename binding_t, typename provider_t>
-    auto create_transient_shared(binding_t binding, provider_t& provider) -> as_returnable_t<request_t>
+    auto create_shared(binding_t binding, provider_t& provider) -> as_returnable_t<request_t>
     {
-        return create_transient<request_t, dependency_chain_t>(binding, provider);
+        return create<request_t, dependency_chain_t>(binding, provider);
     }
 
     template <typename request_t, typename dependency_chain_t, typename binding_t, typename provider_t>
-    auto get_or_create_singleton_shared(binding_t binding, provider_t& provider) -> as_returnable_t<request_t>
+    auto cache_shared(binding_t binding, provider_t& provider) -> as_returnable_t<request_t>
     {
-        return get_or_create_singleton<request_t, dependency_chain_t>(binding, provider);
+        return cache<request_t, dependency_chain_t>(binding, provider);
     }
 
     template <typename request_t, typename dependency_chain_t, typename binding_t, typename provider_t>
-    auto delegate_to_shared(binding_t binding, provider_t& provider) -> as_returnable_t<request_t>
+    auto defer_shared(binding_t binding, provider_t& provider) -> as_returnable_t<request_t>
     {
-        return get_or_create_singleton_shared<request_t, dependency_chain_t>(binding, provider);
+        return cache_shared<request_t, dependency_chain_t>(binding, provider);
     }
 
     cache_t cache_;

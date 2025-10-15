@@ -20,13 +20,13 @@ namespace dink {
 enum class operation_t
 {
     use_accessor, // bound to accessor provider - bypass cache
-    create_transient, // make new instance, don't cache
-    get_or_create_singleton, // cache because bound singleton
-    get_or_create_promoted_singleton, // cache because request forces it
-    get_or_create_singleton_copy, // cache but return copy
-    create_transient_shared, // new shared_ptr, don't cache
-    get_or_create_singleton_shared, // cache shared_ptr
-    delegate_to_shared // defer to shared_ptr logic
+    create, // make new instance, don't cache
+    cache, // cache because bound singleton
+    cache_promoted, // cache because request forces it
+    copy_from_cache, // cache but return copy
+    create_shared, // new shared_ptr, don't cache
+    cache_shared, // cache shared_ptr
+    defer_shared // defer to shared_ptr logic
 };
 
 template <typename binding_t>
@@ -65,37 +65,31 @@ consteval auto select_operation() noexcept -> operation_t
     if constexpr (is_weak_ptr_v<unqualified_request_t>)
     {
         // weak_ptr always delegates
-        return operation_t::delegate_to_shared;
+        return operation_t::defer_shared;
     }
     else if constexpr (is_shared_ptr_v<unqualified_request_t>)
     {
         // shared_ptr operations
-        if constexpr (std::same_as<bound_scope_t, scope::singleton_t>)
-        {
-            return operation_t::get_or_create_singleton_shared;
-        }
-        else { return operation_t::create_transient_shared; }
+        if constexpr (std::same_as<bound_scope_t, scope::singleton_t>) { return operation_t::cache_shared; }
+        else { return operation_t::create_shared; }
     }
     else if constexpr (is_unique_ptr_v<unqualified_request_t> || std::is_rvalue_reference_v<request_t>)
     {
         // unique_ptr and T&& - exclusive ownership
-        if constexpr (std::same_as<bound_scope_t, scope::singleton_t>)
-        {
-            return operation_t::get_or_create_singleton_copy;
-        }
-        else { return operation_t::create_transient; }
+        if constexpr (std::same_as<bound_scope_t, scope::singleton_t>) { return operation_t::copy_from_cache; }
+        else { return operation_t::create; }
     }
     else if constexpr (std::is_lvalue_reference_v<request_t> || std::is_pointer_v<unqualified_request_t>)
     {
         // T&, T* - stable address required
-        if constexpr (std::same_as<bound_scope_t, scope::singleton_t>) { return operation_t::get_or_create_singleton; }
-        else { return operation_t::get_or_create_promoted_singleton; }
+        if constexpr (std::same_as<bound_scope_t, scope::singleton_t>) { return operation_t::cache; }
+        else { return operation_t::cache_promoted; }
     }
     else
     {
         // T - value, follows bound scope
-        if constexpr (std::same_as<bound_scope_t, scope::singleton_t>) { return operation_t::get_or_create_singleton; }
-        else { return operation_t::create_transient; }
+        if constexpr (std::same_as<bound_scope_t, scope::singleton_t>) { return operation_t::cache; }
+        else { return operation_t::create; }
     }
 }
 
