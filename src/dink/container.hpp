@@ -15,6 +15,7 @@
 #include <dink/not_found.hpp>
 #include <dink/provider.hpp>
 #include <dink/request_traits.hpp>
+#include <dink/resolution_engine.hpp>
 #include <dink/resolution_strategy.hpp>
 #include <dink/scope.hpp>
 #include <dink/type_list.hpp>
@@ -29,11 +30,8 @@ namespace dink {
 template <typename policy_t>
 concept is_container_policy = requires {
     typename policy_t::cache_t;
-    typename policy_t::cache_traits_t;
     typename policy_t::delegate_t;
     typename policy_t::default_provider_factory_t;
-    typename policy_t::request_traits_t;
-    typename policy_t::resolution_strategy_t;
 };
 
 template <typename container_t>
@@ -49,11 +47,8 @@ template <is_container_policy policy_t, is_config config_t>
 class container_impl_t {
 public:
     using cache_t                    = policy_t::cache_t;
-    using cache_traits_t             = policy_t::cache_traits_t;
     using delegate_t                 = policy_t::delegate_t;
     using default_provider_factory_t = policy_t::default_provider_factory_t;
-    using request_traits_t           = policy_t::request_traits_t;
-    using resolution_strategy_t      = policy_t::resolution_strategy_t;
 
     // -----------------------------------------------------------------------------------------------------------------
     // constructors
@@ -70,16 +65,12 @@ public:
         : config_{resolve_bindings(std::forward<bindings_t>(bindings)...)}, delegate_{parent} {}
 
     //! direct construction from components
-    container_impl_t(cache_t cache, cache_traits_t cache_traits, config_t config, delegate_t delegate,
-                     default_provider_factory_t default_provider_factory, request_traits_t request_traits,
-                     resolution_strategy_t resolution_strategy) noexcept
+    container_impl_t(cache_t cache, config_t config, delegate_t delegate,
+                     default_provider_factory_t default_provider_factory) noexcept
         : cache_{std::move(cache)},
-          cache_traits_{std::move(cache_traits)},
           config_{std::move(config)},
           delegate_{std::move(delegate)},
-          default_provider_factory_{std::move(default_provider_factory)},
-          request_traits_{std::move(request_traits)},
-          resolution_strategy_{std::move(resolution_strategy)} {}
+          default_provider_factory_{std::move(default_provider_factory)} {}
 
     // -----------------------------------------------------------------------------------------------------------------
     // resolution
@@ -89,62 +80,34 @@ public:
     template <typename request_t, typename dependency_chain_t = type_list_t<>,
               stability_t stability = stability_t::transient>
     auto resolve() -> as_returnable_t<request_t> {
-        // search self and ancestor chain with two continuations
-        return resolve_or_delegate<request_t>(
-            // on_found: binding found (locally or in ancestor chain), create in originator context
-            [&](auto found_binding) -> as_returnable_t<request_t> {
-                return resolve_with_bound_provider<request_t, dependency_chain_t, stability>(found_binding);
-            },
-
-            // on_not_found: nothing found anywhere, create with default provider in originator context
-            [&]() -> as_returnable_t<request_t> {
-                return resolve_with_default_provider<request_t, dependency_chain_t, stability>();
-            });
+        auto resolver = resolver_t<cache_traits_t<request_t>, request_traits_t<request_t>, dependency_chain_t,
+                                   stability, container_impl_t>{*this, cache_};
+        return resolver.resolve();
     }
 
     // resolve_or_delegate implementation - called by children during delegation
-    // continuation-passing style: calls on_found if binding found, otherwise recurses or calls on_not_found
     template <typename request_t, typename on_found_t, typename on_not_found_t>
     auto resolve_or_delegate(on_found_t&& on_found, on_not_found_t&& on_not_found) -> as_returnable_t<request_t> {
-        // 1. Check local cache - if found, return it directly
-        if (auto cached = cache_traits_.template find<cache_key_t<request_t>>(cache_)) {
-            return request_traits_.template from_cached<request_t>(cached);
+        // check local cache
+        auto cache_traits = cache_traits_t<request_t>{};
+        if (auto cached = cache_traits.find(cache_)) {
+            auto request_traits = request_traits_t<request_t>{};
+            return request_traits.from_cached(cached);
         }
 
-        // 2. Check local binding - if found, call on_found continuation (executes in originator context)
+        // check local binding
         auto local_binding = config_.template find_binding<resolved_t<request_t>>();
         if constexpr (!std::is_same_v<decltype(local_binding), not_found_t>) { return on_found(local_binding); }
 
-        // 3. Recurse to parent with same continuations
+        // recurse to parent
         return delegate_.template find_in_parent<request_t>(std::forward<on_found_t>(on_found),
                                                             std::forward<on_not_found_t>(on_not_found));
     }
 
-private:
-    //! resolves locally using provider in a binding after a successful search
-    template <typename request_t, typename dependency_chain_t, stability_t stability, typename found_binding_t>
-    auto resolve_with_bound_provider(found_binding_t found_binding) -> as_returnable_t<request_t> {
-        static constexpr auto resolution = select_resolution<request_t, decltype(found_binding)>();
-        return resolution_strategy_.template resolve<resolution, request_t, dependency_chain_t, stability>(
-            cache_, cache_traits_, found_binding->provider, request_traits_, *this);
-    }
-
-    //! resolves locally using default provider after an unsuccessful search
-    template <typename request_t, typename dependency_chain_t, stability_t stability>
-    auto resolve_with_default_provider() -> as_returnable_t<request_t> {
-        auto                  default_provider = default_provider_factory_.template create<resolved_t<request_t>>();
-        static constexpr auto resolution       = select_resolution<request_t, not_found_t>();
-        return resolution_strategy_.template resolve<resolution, request_t, dependency_chain_t, stability>(
-            cache_, cache_traits_, default_provider, request_traits_, *this);
-    }
-
     cache_t                                          cache_;
-    [[no_unique_address]] cache_traits_t             cache_traits_;
     [[no_unique_address]] config_t                   config_;
     [[no_unique_address]] delegate_t                 delegate_;
     [[no_unique_address]] default_provider_factory_t default_provider_factory_;
-    [[no_unique_address]] request_traits_t           request_traits_;
-    [[no_unique_address]] resolution_strategy_t      resolution_strategy_;
 };
 
 template <is_container_policy policy_t, is_config config_t>
@@ -184,9 +147,6 @@ public:
 //! common policy
 struct container_policy_t {
     using default_provider_factory_t = provider::default_factory_t;
-    using cache_traits_t             = cache_traits_t;
-    using request_traits_t           = request_traits_t;
-    using resolution_strategy_t      = resolution_strategy_t;
 };
 
 //! policy for root containers (no parent delegation)

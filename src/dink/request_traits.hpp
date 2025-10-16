@@ -14,17 +14,6 @@
 namespace dink {
 
 // ---------------------------------------------------------------------------------------------------------------------
-// forward declarations and aliases
-// ---------------------------------------------------------------------------------------------------------------------
-
-template <typename requested_t>
-struct request_traits_f;
-
-//! type actually cached and provided for a given request
-template <typename requested_t>
-using resolved_t = typename request_traits_f<requested_t>::value_type;
-
-// ---------------------------------------------------------------------------------------------------------------------
 // metafunctions
 // ---------------------------------------------------------------------------------------------------------------------
 
@@ -49,8 +38,19 @@ template <typename type_t>
 using as_returnable_t = typename as_returnable_f<type_t>::type;
 
 // ---------------------------------------------------------------------------------------------------------------------
-// request traits
+// forward declaration
 // ---------------------------------------------------------------------------------------------------------------------
+
+template <typename requested_t>
+struct request_traits_t;
+
+//! type actually cached and provided for a given request
+template <typename requested_t>
+using resolved_t = typename request_traits_t<requested_t>::value_type;
+
+// =====================================================================================================================
+// Request Traits - instance-based, parameterized on request_t
+// =====================================================================================================================
 
 /*!
     request traits for value types (T)
@@ -60,16 +60,17 @@ using as_returnable_t = typename as_returnable_f<type_t>::type;
     - Returns by value (copy or move)
 */
 template <typename requested_t>
-struct request_traits_f {
+struct request_traits_t {
+    using request_t  = requested_t;
     using value_type = requested_t;
 
     template <typename source_t>
-    static auto as_requested(source_t&& source) -> requested_t {
+    auto as_requested(source_t&& source) const -> requested_t {
         return element_type(std::forward<source_t>(source));
     }
 
     template <typename cached_t>
-    static auto from_cached(cached_t&& cached) -> requested_t {
+    auto from_cached(cached_t&& cached) const -> requested_t {
         if constexpr (std::is_pointer_v<std::remove_cvref_t<cached_t>>) return std::move(*cached);
         else return *cached;
     }
@@ -81,7 +82,7 @@ struct request_traits_f {
     rvalue references are treated the same as value types
 */
 template <typename requested_t>
-struct request_traits_f<requested_t&&> : request_traits_f<requested_t> {};
+struct request_traits_t<requested_t&&> : request_traits_t<requested_t> {};
 
 /*!
     request traits for lvalue references (T&)
@@ -90,16 +91,17 @@ struct request_traits_f<requested_t&&> : request_traits_f<requested_t> {};
     - Returns by lvalue reference
 */
 template <typename requested_t>
-struct request_traits_f<requested_t&> {
+struct request_traits_t<requested_t&> {
+    using request_t  = requested_t&;
     using value_type = requested_t;
 
     template <typename source_t>
-    static auto as_requested(source_t&& source) -> requested_t& {
+    auto as_requested(source_t&& source) const -> decltype(auto) {
         return element_type(std::forward<source_t>(source));
     }
 
     template <typename cached_t>
-    static auto from_cached(cached_t&& cached) -> requested_t& {
+    auto from_cached(cached_t&& cached) const -> requested_t& {
         return *cached;
     }
 };
@@ -111,18 +113,19 @@ struct request_traits_f<requested_t&> {
     - Returns address of cached instance
 */
 template <typename requested_t>
-struct request_traits_f<requested_t*> {
+struct request_traits_t<requested_t*> {
+    using request_t  = requested_t*;
     using value_type = requested_t;
 
     template <typename source_t>
-    static auto as_requested(source_t&& source) -> requested_t* {
+    auto as_requested(source_t&& source) const -> requested_t* {
         return &element_type(std::forward<source_t>(source));
     }
 
     template <typename cached_t>
-    static auto from_cached(cached_t&& cached) -> requested_t* {
-        if constexpr (std::is_pointer_v<std::remove_cvref_t<cached_t>>) return cached;
-        else return cached.get();
+    auto from_cached(cached_t&& cached) const -> requested_t* {
+        // cached is already T* from cache.get_instance<T>()
+        return cached;
     }
 };
 
@@ -134,11 +137,12 @@ struct request_traits_f<requested_t*> {
     - Wraps result in unique_ptr
 */
 template <typename requested_t, typename deleter_t>
-struct request_traits_f<std::unique_ptr<requested_t, deleter_t>> {
+struct request_traits_t<std::unique_ptr<requested_t, deleter_t>> {
+    using request_t  = std::unique_ptr<requested_t, deleter_t>;
     using value_type = std::remove_cvref_t<requested_t>;
 
     template <typename source_t>
-    static auto as_requested(source_t&& source) -> std::unique_ptr<requested_t, deleter_t> {
+    auto as_requested(source_t&& source) const -> std::unique_ptr<requested_t, deleter_t> {
         if constexpr (is_unique_ptr_v<std::remove_cvref_t<source_t>>) {
             return std::forward<source_t>(source);
         } else {
@@ -147,7 +151,7 @@ struct request_traits_f<std::unique_ptr<requested_t, deleter_t>> {
     }
 
     template <typename cached_t>
-    static auto from_cached(cached_t&& cached) -> std::unique_ptr<requested_t, deleter_t> {
+    auto from_cached(cached_t&& cached) const -> std::unique_ptr<requested_t, deleter_t> {
         return std::make_unique<requested_t>(std::move(*cached));
     }
 };
@@ -160,11 +164,12 @@ struct request_traits_f<std::unique_ptr<requested_t, deleter_t>> {
     - Returns shared ownership
 */
 template <typename requested_t>
-struct request_traits_f<std::shared_ptr<requested_t>> {
+struct request_traits_t<std::shared_ptr<requested_t>> {
+    using request_t  = std::shared_ptr<requested_t>;
     using value_type = std::remove_cvref_t<requested_t>;
 
     template <typename source_t>
-    static auto as_requested(source_t&& source) -> std::shared_ptr<requested_t> {
+    auto as_requested(source_t&& source) const -> std::shared_ptr<requested_t> {
         if constexpr (is_shared_ptr_v<std::remove_cvref_t<source_t>>) {
             return std::forward<source_t>(source);
         } else {
@@ -173,7 +178,7 @@ struct request_traits_f<std::shared_ptr<requested_t>> {
     }
 
     template <typename source_t>
-    static auto from_cached(source_t&& source) -> std::shared_ptr<requested_t> {
+    auto from_cached(source_t&& source) const -> std::shared_ptr<requested_t> {
         if constexpr (is_shared_ptr_v<std::remove_cvref_t<source_t>>) {
             return std::forward<source_t>(source);
         } else {
@@ -190,49 +195,18 @@ struct request_traits_f<std::shared_ptr<requested_t>> {
     - Returns weak reference to cached shared_ptr
 */
 template <typename requested_t>
-struct request_traits_f<std::weak_ptr<requested_t>> : request_traits_f<std::shared_ptr<requested_t>> {
-#if 0
-    template <typename source_t>
-    static auto as_requested(source_t&& source) -> std::weak_ptr<requested_t> {
-        // Delegate to shared_ptr logic and convert to weak_ptr
-        return request_traits_f<std::shared_ptr<requested_t>>::as_requested(std::forward<source_t>(source));
-    }
-#endif
-};
+struct request_traits_t<std::weak_ptr<requested_t>> : request_traits_t<std::shared_ptr<requested_t>> {};
 
 //! request traits for const value types - delegates to non-const version
 template <typename requested_t>
-struct request_traits_f<requested_t const> : request_traits_f<requested_t> {};
+struct request_traits_t<requested_t const> : request_traits_t<requested_t> {};
 
 //! request traits for const lvalue references - delegates to non-const reference version
 template <typename requested_t>
-struct request_traits_f<requested_t const&> : request_traits_f<requested_t&> {};
+struct request_traits_t<requested_t const&> : request_traits_t<requested_t&> {};
 
 //! request traits for const pointers - delegates to non-const pointer version
 template <typename requested_t>
-struct request_traits_f<requested_t const*> : request_traits_f<requested_t*> {};
-
-// ---------------------------------------------------------------------------------------------------------------------
-// instance-based api
-// ---------------------------------------------------------------------------------------------------------------------
-
-//! instance-based api adapter over request_traits_t's static api
-struct request_traits_t {
-    /*!
-        converts a provided/cached instance to the requested type
-
-        Handles the n:m mapping between what providers and cache return (value, reference, pointer, shared_ptr)
-        and what can be requested (T, T&, T const&, T&&, T*, unique_ptr<T>, shared_ptr<T>, weak_ptr<T>)
-    */
-    template <typename request_t, typename source_t>
-    auto as_requested(source_t&& source) -> decltype(auto) {
-        return request_traits_f<request_t>::as_requested(std::forward<source_t>(source));
-    }
-
-    template <typename request_t, typename cached_t>
-    auto from_cached(cached_t&& cached) -> decltype(auto) {
-        return request_traits_f<request_t>::from_cached(std::forward<cached_t>(cached));
-    }
-};
+struct request_traits_t<requested_t const*> : request_traits_t<requested_t*> {};
 
 }  // namespace dink

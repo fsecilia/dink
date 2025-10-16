@@ -78,9 +78,12 @@ public:
         return constructed_t{std::forward<args_t>(args)...};
     }
 };
-struct integration_smoke_test_t : Test {};
 
-#if 1
+struct integration_smoke_test_t : Test {
+protected:
+    void SetUp() override { reset_test_counters(); }
+};
+
 TEST_F(integration_smoke_test_t, default_ctor_transient) {
     struct unique_tag_t {};
     using instance_t = constructed_from_t<unique_tag_t>;
@@ -124,7 +127,6 @@ TEST_F(integration_smoke_test_t, explicit_binding) {
 
     ASSERT_EQ(a1.id, a2.id);  // Explicitly bound singleton
 }
-#endif
 
 // Base test fixture
 class ContainerTest : public Test {
@@ -166,7 +168,6 @@ TEST_F(ContainerTest, DefaultConstructionWithoutBinding) {
     EXPECT_EQ(total_move_assigns, 0);
 }
 
-#if 1
 TEST_F(ContainerTest, DefaultConstructionWithOneDependency) {
     struct unique_type_t : one_dep_t {};
 
@@ -606,7 +607,6 @@ TEST_F(ContainerTest, ThreadSafetyOfRootSingletons) {
     EXPECT_EQ(ptr1, ptr2);
     EXPECT_EQ(total_ctors, 1);
 }
-#endif
 
 }  // namespace
 }  // namespace dink
