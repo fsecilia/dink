@@ -27,8 +27,8 @@ struct to_parent_t {
 
     template <typename request_t, typename on_found_t, typename on_not_found_t>
     auto search(on_found_t&& on_found, on_not_found_t&& on_not_found) -> decltype(auto) {
-        return parent_container->template search_impl<request_t>(std::forward<on_found_t>(on_found),
-                                                                 std::forward<on_not_found_t>(on_not_found));
+        return parent_container->template search<request_t>(std::forward<on_found_t>(on_found),
+                                                            std::forward<on_not_found_t>(on_not_found));
     }
 
     explicit to_parent_t(parent_container_t& parent) : parent_container{&parent} {}
