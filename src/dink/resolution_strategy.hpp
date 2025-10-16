@@ -17,7 +17,7 @@ namespace dink {
 // Strategy Selection
 // =====================================================================================================================
 
-enum class resolution_strategy_t {
+enum class resolution_t {
     use_accessor,      // accessor providers bypass all caching and creation
     always_create,     // never check cache, always create fresh (truly transient)
     cached_singleton,  // check cache, create and cache if needed, return reference/pointer to cached
@@ -26,7 +26,7 @@ enum class resolution_strategy_t {
 
 // selects strategy based on request type and binding (or lack thereof)
 template <typename request_t, typename binding_or_not_found_t>
-consteval auto select_resolution_strategy() -> resolution_strategy_t {
+consteval auto select_resolution() -> resolution_t {
     constexpr bool has_binding = !std::is_same_v<binding_or_not_found_t, not_found_t>;
 
     if constexpr (has_binding) {
@@ -36,32 +36,32 @@ consteval auto select_resolution_strategy() -> resolution_strategy_t {
 
         if constexpr (provider::is_accessor<provider_t>) {
             // accessor providers always bypass caching
-            return resolution_strategy_t::use_accessor;
+            return resolution_t::use_accessor;
         } else if constexpr (std::is_reference_v<request_t> || std::is_pointer_v<request_t>) {
             // reference and pointer requests force singleton behavior
-            return resolution_strategy_t::cached_singleton;
+            return resolution_t::cached_singleton;
         } else if constexpr (is_shared_ptr_v<request_t> || is_weak_ptr_v<request_t>) {
             // shared_ptr requests use canonical cached shared_ptr
-            return resolution_strategy_t::cached_singleton;
+            return resolution_t::cached_singleton;
         } else if constexpr (is_unique_ptr_v<request_t>) {
             // unique_ptr requests are always transient semantically
             // but if bound as singleton, copy from the cached instance
-            if constexpr (std::same_as<scope_t, scope::singleton_t>) { return resolution_strategy_t::copy_from_cache; }
-            return resolution_strategy_t::always_create;
+            if constexpr (std::same_as<scope_t, scope::singleton_t>) { return resolution_t::copy_from_cache; }
+            return resolution_t::always_create;
         }
         if constexpr (std::same_as<scope_t, scope::singleton_t>) {
             // value and rvalue reference requests respect bound scope
-            return resolution_strategy_t::copy_from_cache;
+            return resolution_t::copy_from_cache;
         } else {
-            return resolution_strategy_t::always_create;
+            return resolution_t::always_create;
         }
     } else {
         // no binding - use default behavior based on request type
         // references and pointers need singleton behavior for stable addresses
         if constexpr (std::is_reference_v<request_t> || std::is_pointer_v<request_t> || is_shared_ptr_v<request_t>) {
-            return resolution_strategy_t::cached_singleton;
+            return resolution_t::cached_singleton;
         } else {
-            return resolution_strategy_t::always_create;
+            return resolution_t::always_create;
         }
     }
 }
@@ -70,15 +70,15 @@ consteval auto select_resolution_strategy() -> resolution_strategy_t {
 // Strategy Implementations
 // =====================================================================================================================
 
-template <resolution_strategy_t strategy>
-struct resolution_strategy;
+template <resolution_t resolution>
+struct resolution_strategy_t;
 
 // --------------------------------------------------------------------------------------------------------------------
 // use_accessor: accessor providers bypass all caching
 // --------------------------------------------------------------------------------------------------------------------
 
 template <>
-struct resolution_strategy<resolution_strategy_t::use_accessor> {
+struct resolution_strategy_t<resolution_t::use_accessor> {
     template <typename request_t, typename cache_t, typename cache_traits_t>
     static auto check_cache(cache_t&, cache_traits_t&) -> std::nullptr_t {
         return nullptr;  // never checks cache
@@ -97,7 +97,7 @@ struct resolution_strategy<resolution_strategy_t::use_accessor> {
 // --------------------------------------------------------------------------------------------------------------------
 
 template <>
-struct resolution_strategy<resolution_strategy_t::always_create> {
+struct resolution_strategy_t<resolution_t::always_create> {
     template <typename request_t, typename cache_t, typename cache_traits_t>
     static auto check_cache(cache_t&, cache_traits_t&) -> std::nullptr_t {
         return nullptr;  // never checks cache
@@ -117,7 +117,7 @@ struct resolution_strategy<resolution_strategy_t::always_create> {
 // --------------------------------------------------------------------------------------------------------------------
 
 template <>
-struct resolution_strategy<resolution_strategy_t::cached_singleton> {
+struct resolution_strategy_t<resolution_t::cached_singleton> {
     template <typename request_t, typename cache_t, typename cache_traits_t>
     static auto check_cache(cache_t& cache, cache_traits_t& cache_traits) -> auto {
         return cache_traits.template find<cache_key_t<request_t>>(cache);
@@ -142,7 +142,7 @@ struct resolution_strategy<resolution_strategy_t::cached_singleton> {
 // --------------------------------------------------------------------------------------------------------------------
 
 template <>
-struct resolution_strategy<resolution_strategy_t::copy_from_cache> {
+struct resolution_strategy_t<resolution_t::copy_from_cache> {
     template <typename request_t, typename cache_t, typename cache_traits_t>
     static auto check_cache(cache_t& cache, cache_traits_t& cache_traits) -> auto {
         return cache_traits.template find<cache_key_t<request_t>>(cache);

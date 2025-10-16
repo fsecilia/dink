@@ -113,18 +113,17 @@ private:
     // on_found: binding found (locally or in parent), create in originator context
     template <typename request_t, typename dependency_chain_t, typename found_binding_t>
     auto on_binding_found(found_binding_t found_binding) -> as_returnable_t<request_t> {
-        static_assert(!std::is_same_v<decltype(found_binding), not_found_t>);
-        static constexpr auto found_strategy = select_resolution_strategy<request_t, decltype(found_binding)>();
-        return resolution_strategy<found_strategy>::template resolve<request_t, dependency_chain_t>(
+        static constexpr auto resolution = select_resolution<request_t, decltype(found_binding)>();
+        return resolution_strategy_t<resolution>::template resolve<request_t, dependency_chain_t>(
             cache_, cache_traits_, found_binding->provider, request_traits_, *this);
     }
 
     // on_not_found: nothing found anywhere, create with default provider in originator context
     template <typename request_t, typename dependency_chain_t>
     auto on_binding_not_found() -> as_returnable_t<request_t> {
-        static constexpr auto strategy         = select_resolution_strategy<request_t, not_found_t>();
+        static constexpr auto resolution       = select_resolution<request_t, not_found_t>();
         auto                  default_provider = default_provider_factory_.template create<resolved_t<request_t>>();
-        return resolution_strategy<strategy>::template resolve<request_t, dependency_chain_t>(
+        return resolution_strategy_t<resolution>::template resolve<request_t, dependency_chain_t>(
             cache_, cache_traits_, default_provider, request_traits_, *this);
     }
 
