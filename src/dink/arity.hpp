@@ -57,8 +57,8 @@ struct arity_f<constructed_t, factory_t, std::index_sequence<index, remaining_in
         constexpr auto cur_arity = sizeof...(remaining_indices) + 1;
         using cur_arg_t          = std::conditional_t<cur_arity == 1, single_probe_arg_t<constructed_t>, probe_arg_t>;
         if constexpr (std::is_invocable_v<factory_t, cur_arg_t, args_t<remaining_indices>...>) {
-            if constexpr (std::is_convertible_v<constructed_t, std::invoke_result_t<factory_t, cur_arg_t,
-                                                                                    args_t<remaining_indices>...>>) {
+            if constexpr (std::is_same_v<constructed_t,
+                                         std::invoke_result_t<factory_t, cur_arg_t, args_t<remaining_indices>...>>) {
                 return cur_arity;
             } else {
                 return next_arity_f::value;
