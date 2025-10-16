@@ -15,8 +15,8 @@
 #include <dink/not_found.hpp>
 #include <dink/provider.hpp>
 #include <dink/request_traits.hpp>
-#include <dink/resolution_engine.hpp>
 #include <dink/resolution_strategy.hpp>
+#include <dink/resolver.hpp>
 #include <dink/scope.hpp>
 #include <dink/type_list.hpp>
 #include <utility>

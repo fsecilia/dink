@@ -3,7 +3,7 @@
     Copyright (C) 2025 Frank Secilia
 */
 
-#include "resolution_engine.hpp"
+#include "resolver.hpp"
 #include <dink/test.hpp>
 
 namespace dink {

@@ -27,8 +27,8 @@ list(APPEND dink_library_files
     not_found.hpp
     provider.hpp
     request_traits.hpp
-    resolution_engine.hpp
     resolution_strategy.hpp
+    resolver.hpp
     scope.hpp
     smart_pointer_traits.hpp
     type_list.hpp
@@ -50,8 +50,8 @@ list(APPEND dink_unit_test_files
     invoker_test.cpp
     provider_test.cpp
     request_traits_test.cpp
-    resolution_engine_test.cpp
     resolution_strategy_test.cpp
+    resolver_test.cpp
     smart_pointer_traits_test.cpp
     type_list_test.cpp
     version_test.cpp
