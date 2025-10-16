@@ -8,6 +8,7 @@
 #include <dink/lib.hpp>
 #include <dink/canonical.hpp>
 #include <dink/meta.hpp>
+#include <dink/scope.hpp>
 #include <dink/type_list.hpp>
 #include <concepts>
 #include <utility>
@@ -15,7 +16,7 @@
 namespace dink {
 
 //! matches any argument type to produce an instance from a container; not fit to match single-argument ctors
-template <typename container_t, typename dependency_chain_t>
+template <typename container_t, typename dependency_chain_t, stability_t stability>
 class arg_t {
 public:
     /*!
@@ -56,7 +57,7 @@ private:
     constexpr auto resolve() const -> deduced_t {
         assert_noncircular<canonical_deduced_t>();
         using next_dependency_chain_t = type_list::append_t<dependency_chain_t, canonical_deduced_t>;
-        return container_.template resolve<deduced_t, next_dependency_chain_t>();
+        return container_.template resolve<deduced_t, next_dependency_chain_t, stability>();
     }
 };
 
@@ -75,7 +76,7 @@ public:
 
         deliberately not const for the same reason as in arg_t
 
-        /sa arg_t<resolved_t, dependency_chain_t>::operator deduced_t()
+        /sa arg_t<resolved_t, dependency_chain_t, stability>::operator deduced_t()
     */
     template <single_arg_deducible<resolved_t> deduced_t>
     constexpr operator deduced_t() {
@@ -85,7 +86,7 @@ public:
     /*!
         reference conversion
 
-        /sa arg_t<resolved_t, dependency_chain_t>::operator deduced_t&()
+        /sa arg_t<resolved_t, dependency_chain_t, stability>::operator deduced_t&()
     */
     template <single_arg_deducible<resolved_t> deduced_t>
     constexpr operator deduced_t&() const {

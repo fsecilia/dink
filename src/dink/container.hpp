@@ -38,7 +38,9 @@ concept is_container_policy = requires {
 
 template <typename container_t>
 concept is_container = requires(container_t& container) {
-    { container.template resolve<meta::concept_probe_t, type_list_t<>>() } -> std::same_as<meta::concept_probe_t>;
+    {
+        container.template resolve<meta::concept_probe_t, type_list_t<>, stability_t::transient>()
+    } -> std::same_as<meta::concept_probe_t>;
 };
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -85,14 +87,17 @@ public:
     // resolution
     // -----------------------------------------------------------------------------------------------------------------
 
-    template <typename request_t, typename dependency_chain_t = type_list_t<>>
+    template <typename request_t, typename dependency_chain_t = type_list_t<>,
+              stability_t stability = stability_t::transient>
     auto resolve() -> as_returnable_t<request_t> {
         // search self and parent chain with two continuations
         return search<request_t>(
             [&](auto found_binding) -> as_returnable_t<request_t> {
-                return on_binding_found<request_t, dependency_chain_t>(found_binding);
+                return on_binding_found<request_t, dependency_chain_t, stability>(found_binding);
             },
-            [&]() -> as_returnable_t<request_t> { return on_binding_not_found<request_t, dependency_chain_t>(); });
+            [&]() -> as_returnable_t<request_t> {
+                return on_binding_not_found<request_t, dependency_chain_t, stability>();
+            });
     }
 
     // search implementation - called by children during delegation
@@ -115,19 +120,19 @@ public:
 
 private:
     // on_found: binding found (locally or in parent), create in originator context
-    template <typename request_t, typename dependency_chain_t, typename found_binding_t>
+    template <typename request_t, typename dependency_chain_t, stability_t stability, typename found_binding_t>
     auto on_binding_found(found_binding_t found_binding) -> as_returnable_t<request_t> {
         static constexpr auto resolution = select_resolution<request_t, decltype(found_binding)>();
-        return resolution_strategy_.template resolve<resolution, request_t, dependency_chain_t>(
+        return resolution_strategy_.template resolve<resolution, request_t, dependency_chain_t, stability>(
             cache_, cache_traits_, found_binding->provider, request_traits_, *this);
     }
 
     // on_not_found: nothing found anywhere, create with default provider in originator context
-    template <typename request_t, typename dependency_chain_t>
+    template <typename request_t, typename dependency_chain_t, stability_t stability>
     auto on_binding_not_found() -> as_returnable_t<request_t> {
         static constexpr auto resolution       = select_resolution<request_t, not_found_t>();
         auto                  default_provider = default_provider_factory_.template create<resolved_t<request_t>>();
-        return resolution_strategy_.template resolve<resolution, request_t, dependency_chain_t>(
+        return resolution_strategy_.template resolve<resolution, request_t, dependency_chain_t, stability>(
             cache_, cache_traits_, default_provider, request_traits_, *this);
     }
 
