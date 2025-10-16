@@ -33,20 +33,6 @@ using append_t = append_f<type_list_t, element_t>::type;
 
 // ---------------------------------------------------------------------------------------------------------------------
 
-template <typename left_t, typename right_t>
-struct cat_f;
-
-template <typename... left_t, typename... right_t>
-struct cat_f<type_list_t<left_t...>, type_list_t<right_t...>> {
-    using type = type_list_t<left_t..., right_t...>;
-};
-
-//! concatenates two type lists into one, preserving order
-template <typename left_t, typename right_t>
-using cat_t = cat_f<left_t, right_t>::type;
-
-// ---------------------------------------------------------------------------------------------------------------------
-
 template <typename type_list_t, typename element_t>
 struct contains_f;
 
@@ -57,60 +43,6 @@ struct contains_f<type_list_t<elements_t...>, element_t> : std::disjunction<std:
 template <typename type_list_t, typename element_t>
 inline constexpr auto contains_v = contains_f<type_list_t, element_t>::value;
 
-// ---------------------------------------------------------------------------------------------------------------------
-
-//! conditionally appends element to type list if not already present
-template <typename type_list_t, typename element_t>
-using append_unique_t =
-    std::conditional_t<contains_v<type_list_t, element_t>, type_list_t, append_t<type_list_t, element_t>>;
-
-// ---------------------------------------------------------------------------------------------------------------------
-
-template <typename type_list_t, typename element_t, std::size_t index>
-struct index_of_f;
-
-//! generic case: when element is not the current element, advance to next index
-template <typename element_t, typename current_element_t, typename... remaining_elements_t, std::size_t index>
-struct index_of_f<type_list_t<current_element_t, remaining_elements_t...>, element_t, index> {
-    static inline constexpr auto const value =
-        index_of_f<type_list_t<remaining_elements_t...>, element_t, index + 1>::value;
-};
-
-//! terminating case: when element is the current element, the element was found at the current index
-template <typename element_t, typename... remaining_elements_t, std::size_t index>
-struct index_of_f<type_list_t<element_t, remaining_elements_t...>, element_t, index> {
-    static inline constexpr auto const value = index;
-};
-
-//! terminating case: element was not found
-template <typename element_t, std::size_t index>
-struct index_of_f<type_list_t<>, element_t, index> {
-    static inline constexpr auto const value = npos;
-};
-
-//! resolves to index of first element type in type_list_t if found; npos if not
-template <typename type_list_t, typename element_t>
-inline constexpr auto const index_of_v = index_of_f<type_list_t, element_t, 0>::value;
-
-// ---------------------------------------------------------------------------------------------------------------------
-
-template <typename accumulated_type_list_t, typename remaining_type_list_t>
-struct unique_f;
-
-template <typename accumulated_type_list_t, typename next_element_t, typename... remaining_elements_t>
-struct unique_f<accumulated_type_list_t, type_list_t<next_element_t, remaining_elements_t...>>
-    : unique_f<std::conditional_t<contains_v<accumulated_type_list_t, next_element_t>, accumulated_type_list_t,
-                                  append_t<accumulated_type_list_t, next_element_t>>,
-               type_list_t<remaining_elements_t...>> {};
-
-template <typename accumulated_type_list_t>
-struct unique_f<accumulated_type_list_t, type_list_t<>> {
-    using type = accumulated_type_list_t;
-};
-
-//! produces new type_list_t containing only first instance of each element; order is preserved
-template <typename src_t>
-using unique_t = unique_f<type_list_t<>, src_t>::type;
 
 }  // namespace type_list
 }  // namespace dink

@@ -34,16 +34,4 @@ struct to_parent_t {
     explicit to_parent_t(parent_container_t& parent) : parent_container{&parent} {}
 };
 
-template <typename value_t>
-struct is_delegate_f : std::false_type {};
-
-template <>
-struct is_delegate_f<delegate::none_t> : std::true_type {};
-
-template <typename parent_t>
-struct is_delegate_f<delegate::to_parent_t<parent_t>> : std::true_type {};
-
-template <typename value_t>
-concept is_delegate = is_delegate_f<std::remove_cvref_t<value_t>>::value;
-
 }  // namespace dink::delegate

@@ -12,9 +12,7 @@
 #include <utility>
 
 namespace dink {
-
 namespace arity {
-
 namespace detail {
 
 //! lightweight version of \ref `arg_t` used for probing arity
