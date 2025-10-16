@@ -11,9 +11,9 @@ list(APPEND dink_library_files
     arg.hpp
     arity.hpp
     bindings.hpp
-    cache_traits.hpp
     cache/hash_table.hpp
     cache/type_indexed.hpp
+    cache_traits.hpp
     canonical.hpp
     config.hpp
     container.hpp
@@ -22,7 +22,7 @@ list(APPEND dink_library_files
     dink.hpp
     double_checked_storage.hpp
     exceptions.hpp
-    factory_invoker.hpp
+    invoker.hpp
     lib.hpp
     meta.hpp
     not_found.hpp
@@ -39,16 +39,16 @@ list(APPEND dink_unit_test_files
     arg_test.cpp
     arity_test.cpp
     bindings_test.cpp
-    cache_traits_test.cpp
     cache/hash_table_test.cpp
     cache/type_indexed_test.cpp
+    cache_traits_test.cpp
     canonical_test.cpp
     config_test.cpp
     container_test.cpp
     ctor_factory_test.cpp
     delegate_test.cpp
     double_checked_storage_test.cpp
-    factory_invoker_test.cpp
+    invoker_test.cpp
     provider_test.cpp
     request_traits_test.cpp
     resolution_strategy_test.cpp

@@ -8,7 +8,7 @@
 #include <dink/lib.hpp>
 #include <dink/arity.hpp>
 #include <dink/ctor_factory.hpp>
-#include <dink/factory_invoker.hpp>
+#include <dink/invoker.hpp>
 #include <dink/request_traits.hpp>
 #include <dink/scope.hpp>
 

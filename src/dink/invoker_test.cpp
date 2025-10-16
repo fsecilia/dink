@@ -3,7 +3,7 @@
     Copyright (C) 2025 Frank Secilia
 */
 
-#include "factory_invoker.hpp"
+#include "invoker.hpp"
 #include <dink/test.hpp>
 
 namespace dink {
