@@ -34,6 +34,10 @@ struct arity_dispatcher_t<constructed_t, indexed_arg_factory_t, std::index_seque
     constexpr auto invoke_factory(auto& instance_factory, auto& container) const -> constructed_t {
         return instance_factory(indexed_arg_factory_t{}.template create<sizeof...(indices), indices>(container)...);
     }
+
+    constexpr auto invoke_ctor(auto& container) const -> constructed_t {
+        return constructed_t{indexed_arg_factory_t{}.template create<sizeof...(indices), indices>(container)...};
+    }
 };
 
 }  // namespace factory_invoker::detail
@@ -50,6 +54,10 @@ class invoker_t {
 public:
     constexpr auto invoke_factory(auto& factory, auto& container) const -> constructed_t {
         return arity_dispatcher_t{}.invoke_factory(factory, container);
+    }
+
+    constexpr auto invoke_ctor(auto& container) const -> constructed_t {
+        return arity_dispatcher_t{}.invoke_ctor(container);
     }
 };
 

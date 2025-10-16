@@ -14,6 +14,46 @@
 
 namespace dink::provider {
 
+template <typename constructed_t>
+struct ctor_invoker_t {
+    using default_scope_t = scope::transient_t;
+    using provided_t      = constructed_t;
+
+    template <typename dependency_chain_t, typename container_t>
+    auto create(container_t& container) -> constructed_t {
+        using arg_t                 = arg_t<container_t, dependency_chain_t>;
+        using single_arg_t          = single_arg_t<constructed_t, arg_t>;
+        static constexpr auto arity = arity_v<constructed_t, void>;
+        return create<dependency_chain_t>(container, invoker_t<constructed_t, arity, arg_t, single_arg_t>{});
+    }
+
+    template <typename dependency_chain_t, typename container_t, typename invoker_t>
+    auto create(container_t& container, invoker_t&& invoker) -> constructed_t {
+        return std::forward<invoker_t>(invoker).invoke_ctor(container);
+    }
+};
+
+template <typename constructed_t, typename factory_t>
+struct factory_invoker_t {
+    using default_scope_t = scope::transient_t;
+    using provided_t      = constructed_t;
+
+    [[no_unique_address]] factory_t factory;
+
+    template <typename dependency_chain_t, typename container_t>
+    auto create(container_t& container) -> constructed_t {
+        using arg_t                 = arg_t<container_t, dependency_chain_t>;
+        using single_arg_t          = single_arg_t<constructed_t, arg_t>;
+        static constexpr auto arity = arity_v<constructed_t, factory_t>;
+        return create<dependency_chain_t>(container, invoker_t<constructed_t, arity, arg_t, single_arg_t>{});
+    }
+
+    template <typename dependency_chain_t, typename container_t, typename invoker_t>
+    auto create(container_t& container, invoker_t&& invoker) -> constructed_t {
+        return std::forward<invoker_t>(invoker).invoke_factory(factory, container);
+    }
+};
+
 //! unified creator provider - handles both ctors and user factories
 template <typename constructed_t, typename factory_t = ctor_factory_t<constructed_t>>
 struct creator_t {
@@ -76,7 +116,7 @@ struct external_prototype_t {
 
 //! default provider, if unspecified, invokes the resolved type's ctor
 template <typename request_t>
-using default_t = creator_t<resolved_t<request_t>>;
+using default_t = ctor_invoker_t<resolved_t<request_t>>;
 
 //! factory for providers
 template <template <typename provided_t> class provider_t>

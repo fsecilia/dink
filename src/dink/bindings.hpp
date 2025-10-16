@@ -56,54 +56,51 @@ class binding_src_t {
 public:
     // bind to type using ctor
     template <typename to_t>
-    auto to() const -> binding_dst_t<from_t, to_t, provider::creator_t<to_t>> {
-        return binding_dst_t<from_t, to_t, provider::creator_t<to_t>>{provider::creator_t<to_t>{}};
+    auto to() const -> auto {
+        using provider_t = provider::ctor_invoker_t<to_t>;
+        return binding_dst_t<from_t, to_t, provider_t>{provider_t{}};
     }
 
     // bind to type using factory
     template <typename to_t, typename factory_t>
-    auto to_factory(factory_t&& factory) const
-        -> binding_dst_t<from_t, to_t, provider::creator_t<to_t, std::decay_t<factory_t>>> {
-        return binding_dst_t<from_t, to_t, provider::creator_t<to_t, std::decay_t<factory_t>>>{
-            provider::creator_t<to_t, std::decay_t<factory_t>>{std::forward<factory_t>(factory)}};
+    auto to_factory(factory_t&& factory) const -> auto {
+        using provider_t = provider::factory_invoker_t<to_t, std::decay_t<factory_t>>;
+        return binding_dst_t<from_t, to_t, provider_t>{provider_t{std::forward<factory_t>(factory)}};
     }
 
     // bind to internal reference
     template <typename to_t>
-    auto to_internal_reference(to_t&& instance) const
-        -> binding_dst_t<from_t, to_t, provider::internal_reference_t<std::remove_cvref_t<to_t>>> {
-        return binding_dst_t<from_t, to_t, provider::internal_reference_t<std::remove_cvref_t<to_t>>>{
-            provider::internal_reference_t<std::remove_cvref_t<to_t>>{std::forward<to_t>(instance)}};
+    auto to_internal_reference(to_t&& instance) const -> auto {
+        using provider_t = provider::internal_reference_t<std::remove_cvref_t<to_t>>;
+        return binding_dst_t<from_t, to_t, provider_t>{provider_t{std::forward<to_t>(instance)}};
     }
 
     // bind to external reference
     template <typename to_t>
-    auto to_external_reference(to_t& instance) const
-        -> binding_dst_t<from_t, to_t, provider::external_reference_t<to_t>> {
-        return binding_dst_t<from_t, to_t, provider::external_reference_t<to_t>>{
-            provider::external_reference_t<to_t>{&instance}};
+    auto to_external_reference(to_t& instance) const -> auto {
+        using provider_t = provider::external_reference_t<to_t>;
+        return binding_dst_t<from_t, to_t, provider_t>{provider_t{&instance}};
     }
 
     // bind to internal prototype
     template <typename to_t>
-    auto to_internal_prototype(to_t&& instance) const
-        -> binding_dst_t<from_t, to_t, provider::internal_prototype_t<std::remove_cvref_t<to_t>>> {
-        return binding_dst_t<from_t, to_t, provider::internal_prototype_t<std::remove_cvref_t<to_t>>>{
-            provider::internal_prototype_t<std::remove_cvref_t<to_t>>{std::forward<to_t>(instance)}};
+    auto to_internal_prototype(to_t&& instance) const -> auto {
+        using provider_t = provider::internal_prototype_t<std::remove_cvref_t<to_t>>;
+        return binding_dst_t<from_t, to_t, provider_t>{provider_t{std::forward<to_t>(instance)}};
     }
 
     // bind to external prototype
     template <typename to_t>
-    auto to_external_prototype(to_t const& instance) const
-        -> binding_dst_t<from_t, to_t, provider::external_prototype_t<to_t>> {
-        return binding_dst_t<from_t, to_t, provider::external_prototype_t<to_t>>{
-            provider::external_prototype_t<to_t>{&instance}};
+    auto to_external_prototype(to_t const& instance) const -> auto {
+        using provider_t = provider::external_prototype_t<to_t>;
+        return binding_dst_t<from_t, to_t, provider_t>{provider_t{&instance}};
     }
 
     //! specifies scope for creators; unavailable for accessors
     template <typename scope_t>
-    auto in() && -> binding_t<from_t, from_t, provider::default_t<from_t>, scope_t> {
-        return {provider::default_t<from_t>{}};
+    auto in() && -> auto {
+        using provider_t = provider::default_t<from_t>;
+        return binding_t<from_t, from_t, provider_t, scope_t>{provider_t{}};
     }
 
     //! converts to final binding with default provider and scope
