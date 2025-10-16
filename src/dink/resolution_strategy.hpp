@@ -131,8 +131,9 @@ struct resolution_strategy<resolution_strategy_t::cached_singleton> {
         // - if cache_key_t is shared_ptr<T>, returns shared_ptr<T>
         // - if cache_key_t is T, returns T&
         return request_traits.template as_requested<request_t>(
-            cache_traits.template get_or_create<cache_key_t<request_t>, typename provider_t::provided_t>(
-                cache, [&]() { return provider.template create<request_t, dependency_chain_t>(container); }));
+            cache_traits.template get_or_create<cache_key_t<request_t>, typename provider_t::provided_t>(cache, [&]() {
+                return provider.template create<resolved_t<request_t>, dependency_chain_t>(container);
+            }));
     }
 };
 
@@ -153,9 +154,10 @@ struct resolution_strategy<resolution_strategy_t::copy_from_cache> {
                         request_traits_t& request_traits, container_t& container) -> as_returnable_t<request_t> {
         // create and cache (get_or_create handles double-checked locking internally)
         // return copy from cached
-        return request_traits.template as_requested<request_t>(
-            element_type(cache_traits.template get_or_create<cache_key_t<request_t>, typename provider_t::provided_t>(
-                cache, [&]() { return provider.template create<request_t, dependency_chain_t>(container); })));
+        return request_traits.template as_requested<request_t>(element_type(
+            cache_traits.template get_or_create<cache_key_t<request_t>, typename provider_t::provided_t>(cache, [&]() {
+                return provider.template create<resolved_t<request_t>, dependency_chain_t>(container);
+            })));
     }
 };
 

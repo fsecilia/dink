@@ -558,7 +558,7 @@ TEST_F(ContainerTest, MoveOnlyType) {
 
     auto ptr = container.resolve<std::unique_ptr<move_only_t>>();
     EXPECT_EQ(ptr->id, 1);
-    EXPECT_EQ(ptr->index, 3);
+    EXPECT_EQ(ptr->index, 2);
 }
 
 TEST_F(ContainerTest, ConstRequestTypes) {

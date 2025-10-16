@@ -20,7 +20,7 @@ struct ctor_invoker_t {
     using provided_t      = constructed_t;
 
     template <typename request_t, typename dependency_chain_t, typename container_t>
-    auto create(container_t& container) -> constructed_t {
+    auto create(container_t& container) -> auto {
         using arg_t                 = arg_t<container_t, dependency_chain_t>;
         using single_arg_t          = single_arg_t<constructed_t, arg_t>;
         static constexpr auto arity = arity_v<constructed_t, void>;
@@ -28,20 +28,16 @@ struct ctor_invoker_t {
     }
 
     template <typename request_t, typename dependency_chain_t, typename container_t, typename invoker_t>
-    auto create(container_t& container, invoker_t&& invoker) -> constructed_t {
+    auto create(container_t& container, invoker_t&& invoker) -> auto {
         if constexpr (is_unique_ptr_v<request_t>) {
             // construct directly into unique_ptr
-
-            // (temporarily still constructs T, returns and expects request_traits to handle the conversion)
-            return std::forward<invoker_t>(invoker).invoke_ctor(container);
+            return std::forward<invoker_t>(invoker).create_unique(container);
         } else if constexpr (is_shared_ptr_v<request_t>) {
             // construct directly into shared_ptr
-
-            // (temporarily still constructs T, returns and expects request_traits to handle the conversion)
-            return std::forward<invoker_t>(invoker).invoke_ctor(container);
+            return std::forward<invoker_t>(invoker).create_shared(container);
         } else {
             // construct T
-            return std::forward<invoker_t>(invoker).invoke_ctor(container);
+            return std::forward<invoker_t>(invoker).create_value(container);
         }
     }
 };
@@ -54,7 +50,7 @@ struct factory_invoker_t {
     [[no_unique_address]] factory_t factory;
 
     template <typename request_t, typename dependency_chain_t, typename container_t>
-    auto create(container_t& container) -> constructed_t {
+    auto create(container_t& container) -> auto {
         using arg_t                 = arg_t<container_t, dependency_chain_t>;
         using single_arg_t          = single_arg_t<constructed_t, arg_t>;
         static constexpr auto arity = arity_v<constructed_t, factory_t>;
@@ -62,20 +58,16 @@ struct factory_invoker_t {
     }
 
     template <typename request_t, typename dependency_chain_t, typename container_t, typename invoker_t>
-    auto create(container_t& container, invoker_t&& invoker) -> constructed_t {
+    auto create(container_t& container, invoker_t&& invoker) -> auto {
         if constexpr (is_unique_ptr_v<request_t>) {
             // construct directly into unique_ptr
-
-            // (temporarily still constructs T, returns and expects request_traits to handle the conversion)
-            return std::forward<invoker_t>(invoker).invoke_factory(factory, container);
+            return std::forward<invoker_t>(invoker).create_unique(factory, container);
         } else if constexpr (is_shared_ptr_v<request_t>) {
             // construct directly into shared_ptr
-
-            // (temporarily still constructs T, returns and expects request_traits to handle the conversion)
-            return std::forward<invoker_t>(invoker).invoke_factory(factory, container);
+            return std::forward<invoker_t>(invoker).create_shared(factory, container);
         } else {
             // construct T
-            return std::forward<invoker_t>(invoker).invoke_factory(factory, container);
+            return std::forward<invoker_t>(invoker).create_value(factory, container);
         }
     }
 };
@@ -135,10 +127,9 @@ struct provider_factory_t {
 using default_factory_t = provider_factory_t<default_t>;
 
 template <typename provider_t>
-concept is_creator = requires(provider_t& provider, meta::concept_probe_t& container) {
-    {
-        provider.template create<typename provider_t::provided_t, type_list_t<>>(container)
-    } -> std::same_as<typename provider_t::provided_t>;
+concept is_creator = requires {
+    typename provider_t::provided_t;
+    typename provider_t::default_scope_t;
 };
 
 template <typename provider_t>

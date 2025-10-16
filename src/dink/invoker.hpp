@@ -31,12 +31,32 @@ struct arity_dispatcher_t;
 
 template <typename constructed_t, typename indexed_arg_factory_t, std::size_t... indices>
 struct arity_dispatcher_t<constructed_t, indexed_arg_factory_t, std::index_sequence<indices...>> {
-    constexpr auto invoke_factory(auto& instance_factory, auto& container) const -> constructed_t {
+    constexpr auto create_value(auto& instance_factory, auto& container) const -> constructed_t {
         return instance_factory(indexed_arg_factory_t{}.template create<sizeof...(indices), indices>(container)...);
     }
 
-    constexpr auto invoke_ctor(auto& container) const -> constructed_t {
+    constexpr auto create_shared(auto& instance_factory, auto& container) const -> std::shared_ptr<constructed_t> {
+        return std::make_shared<constructed_t>(
+            instance_factory(indexed_arg_factory_t{}.template create<sizeof...(indices), indices>(container)...));
+    }
+
+    constexpr auto create_unique(auto& instance_factory, auto& container) const -> std::unique_ptr<constructed_t> {
+        return std::make_unique<constructed_t>(
+            instance_factory(indexed_arg_factory_t{}.template create<sizeof...(indices), indices>(container)...));
+    }
+
+    constexpr auto create_value(auto& container) const -> constructed_t {
         return constructed_t{indexed_arg_factory_t{}.template create<sizeof...(indices), indices>(container)...};
+    }
+
+    constexpr auto create_shared(auto& container) const -> std::shared_ptr<constructed_t> {
+        return std::make_shared<constructed_t>(
+            indexed_arg_factory_t{}.template create<sizeof...(indices), indices>(container)...);
+    }
+
+    constexpr auto create_unique(auto& container) const -> std::unique_ptr<constructed_t> {
+        return std::make_unique<constructed_t>(
+            indexed_arg_factory_t{}.template create<sizeof...(indices), indices>(container)...);
     }
 };
 
@@ -52,12 +72,28 @@ class invoker_t {
                                                                               std::make_index_sequence<arity>>;
 
 public:
-    constexpr auto invoke_factory(auto& factory, auto& container) const -> constructed_t {
-        return arity_dispatcher_t{}.invoke_factory(factory, container);
+    constexpr auto create_value(auto& factory, auto& container) const -> constructed_t {
+        return arity_dispatcher_t{}.create_value(factory, container);
     }
 
-    constexpr auto invoke_ctor(auto& container) const -> constructed_t {
-        return arity_dispatcher_t{}.invoke_ctor(container);
+    constexpr auto create_shared(auto& factory, auto& container) const -> std::shared_ptr<constructed_t> {
+        return arity_dispatcher_t{}.create_shared(factory, container);
+    }
+
+    constexpr auto create_unique(auto& factory, auto& container) const -> std::unique_ptr<constructed_t> {
+        return arity_dispatcher_t{}.create_unique(factory, container);
+    }
+
+    constexpr auto create_value(auto& container) const -> constructed_t {
+        return arity_dispatcher_t{}.create_value(container);
+    }
+
+    constexpr auto create_shared(auto& container) const -> std::shared_ptr<constructed_t> {
+        return arity_dispatcher_t{}.create_shared(container);
+    }
+
+    constexpr auto create_unique(auto& container) const -> std::unique_ptr<constructed_t> {
+        return arity_dispatcher_t{}.create_unique(container);
     }
 };
 

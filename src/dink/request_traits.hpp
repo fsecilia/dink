@@ -139,7 +139,11 @@ struct request_traits_f<std::unique_ptr<requested_t, deleter_t>> {
 
     template <typename source_t>
     static auto as_requested(source_t&& source) -> std::unique_ptr<requested_t, deleter_t> {
-        return std::make_unique<requested_t>(element_type(std::forward<source_t>(source)));
+        if constexpr (is_unique_ptr_v<std::remove_cvref_t<source_t>>) {
+            return std::forward<source_t>(source);
+        } else {
+            return std::make_unique<requested_t>(element_type(std::forward<source_t>(source)));
+        }
     }
 
     template <typename cached_t>
@@ -162,10 +166,8 @@ struct request_traits_f<std::shared_ptr<requested_t>> {
     template <typename source_t>
     static auto as_requested(source_t&& source) -> std::shared_ptr<requested_t> {
         if constexpr (is_shared_ptr_v<std::remove_cvref_t<source_t>>) {
-            // Already a shared_ptr from cache
             return std::forward<source_t>(source);
         } else {
-            // Raw value from transient provider
             return std::make_shared<requested_t>(std::forward<source_t>(source));
         }
     }

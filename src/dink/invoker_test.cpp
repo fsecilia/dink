@@ -90,21 +90,21 @@ struct factory_invoker_detail_dispatcher_test_t : factory_invoker_detail_test_t 
 TEST_F(factory_invoker_detail_dispatcher_test_t, arity_0_constructs_with_0_args) {
     auto       sut              = sut_t<0>{};
     auto       instance_factory = instance_factory_t{.container = &container};
-    auto const constructed      = sut.invoke_factory(instance_factory, container);
+    auto const constructed      = sut.create_value(instance_factory, container);
     ASSERT_EQ(0, constructed.arity);
 }
 
 TEST_F(factory_invoker_detail_dispatcher_test_t, arity_1_constructs_with_1_args) {
     auto       sut              = sut_t<1>{};
     auto       instance_factory = instance_factory_t{.container = &container};
-    auto const constructed      = sut.invoke_factory(instance_factory, container);
+    auto const constructed      = sut.create_value(instance_factory, container);
     ASSERT_EQ(1, constructed.arity);
 }
 
 TEST_F(factory_invoker_detail_dispatcher_test_t, arity_2_constructs_with_2_args) {
     auto       sut              = sut_t<2>{};
     auto       instance_factory = instance_factory_t{.container = &container};
-    auto const constructed      = sut.invoke_factory(instance_factory, container);
+    auto const constructed      = sut.create_value(instance_factory, container);
     ASSERT_EQ(2, constructed.arity);
 }
 
@@ -138,7 +138,7 @@ struct factory_invoker_test_t : Test {
 TEST_F(factory_invoker_test_t, invokes_factory_with_zero_args) {
     auto factory = [&]() { return constructed_t{0}; };
 
-    auto const result = sut_t<0>{}.invoke_factory(factory, container);
+    auto const result = sut_t<0>{}.create_value(factory, container);
 
     ASSERT_EQ(result.arity, 0);
 }
@@ -146,7 +146,7 @@ TEST_F(factory_invoker_test_t, invokes_factory_with_zero_args) {
 TEST_F(factory_invoker_test_t, invokes_factory_with_single_arg) {
     auto factory = [&](single_arg_t const&) { return constructed_t{1}; };
 
-    auto const result = sut_t<1>{}.invoke_factory(factory, container);
+    auto const result = sut_t<1>{}.create_value(factory, container);
 
     ASSERT_EQ(result.arity, 1);
 }
@@ -154,7 +154,7 @@ TEST_F(factory_invoker_test_t, invokes_factory_with_single_arg) {
 TEST_F(factory_invoker_test_t, invokes_factory_with_multiple_args) {
     auto factory = [&](arg_t const&, arg_t const&) { return constructed_t{2}; };
 
-    auto const result = sut_t<2>{}.invoke_factory(factory, container);
+    auto const result = sut_t<2>{}.create_value(factory, container);
 
     ASSERT_EQ(result.arity, 2);
 }
