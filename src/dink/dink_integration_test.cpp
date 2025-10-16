@@ -129,8 +129,12 @@ TEST_F(ContainerTest, DefaultConstructionWithoutBinding) {
     auto container = root_container_t{};
 
     {
+        struct local_type_t : no_deps_t {
+            using no_deps_t::no_deps_t;
+        };
+
         // 1 temporary constructed, then moved into named instance
-        auto instance = container.resolve<no_deps_t>();
+        auto instance = container.resolve<local_type_t>();
 
         EXPECT_EQ(instance.id, 0);
         EXPECT_EQ(instance.index, 1);
