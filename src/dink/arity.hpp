@@ -7,7 +7,6 @@
 
 #include <dink/lib.hpp>
 #include <dink/arg.hpp>
-#include <dink/ctor_factory.hpp>
 #include <dink/meta.hpp>
 #include <dink/not_found.hpp>
 #include <utility>

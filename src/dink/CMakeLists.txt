@@ -17,7 +17,6 @@ list(APPEND dink_library_files
     canonical.hpp
     config.hpp
     container.hpp
-    ctor_factory.hpp
     delegate.hpp
     dink.hpp
     double_checked_storage.hpp
@@ -45,7 +44,6 @@ list(APPEND dink_unit_test_files
     canonical_test.cpp
     config_test.cpp
     container_test.cpp
-    ctor_factory_test.cpp
     delegate_test.cpp
     double_checked_storage_test.cpp
     invoker_test.cpp

@@ -67,6 +67,17 @@ struct three_deps_t : constructed_from_t<three_deps_t, no_deps_t, one_dep_t, two
     using constructed_from_t<three_deps_t, no_deps_t, one_dep_t, two_deps_t>::constructed_from_t;
 };
 
+//! factory that forwards directly to ctors; this adapts direct ctor calls to the generic discoverable factory api
+// this isn't used atm, but it will be used to mirror a few tests
+template <typename constructed_t>
+class ctor_factory_t {
+public:
+    template <typename... args_t>
+        requires std::constructible_from<constructed_t, args_t...>
+    constexpr auto operator()(args_t&&... args) const -> constructed_t {
+        return constructed_t{std::forward<args_t>(args)...};
+    }
+};
 struct integration_smoke_test_t : Test {};
 
 #if 1
