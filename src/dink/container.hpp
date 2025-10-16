@@ -38,9 +38,7 @@ concept is_container_policy = requires {
 
 template <typename container_t>
 concept is_container = requires(container_t& container) {
-    {
-        container.template resolve<meta::concept_probe_t, type_list_t<>, stability_t::transient>()
-    } -> std::same_as<meta::concept_probe_t>;
+    { container.template resolve<meta::concept_probe_t>() } -> std::same_as<meta::concept_probe_t>;
 };
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -48,7 +46,7 @@ concept is_container = requires(container_t& container) {
 // ---------------------------------------------------------------------------------------------------------------------
 
 template <is_container_policy policy_t, is_config config_t>
-class container_t {
+class container_impl_t {
 public:
     using cache_t                    = policy_t::cache_t;
     using cache_traits_t             = policy_t::cache_traits_t;
@@ -63,18 +61,18 @@ public:
 
     //! constructs root container with given bindings
     template <is_binding... bindings_t>
-    explicit container_t(bindings_t&&... bindings) noexcept
+    explicit container_impl_t(bindings_t&&... bindings) noexcept
         : config_{resolve_bindings(std::forward<bindings_t>(bindings)...)} {}
 
     //! constructs nested container with given parent and bindings
     template <is_container parent_t, is_binding... bindings_t>
-    explicit container_t(parent_t& parent, bindings_t&&... bindings) noexcept
+    explicit container_impl_t(parent_t& parent, bindings_t&&... bindings) noexcept
         : config_{resolve_bindings(std::forward<bindings_t>(bindings)...)}, delegate_{parent} {}
 
     //! direct construction from components
-    container_t(cache_t cache, cache_traits_t cache_traits, config_t config, delegate_t delegate,
-                default_provider_factory_t default_provider_factory, request_traits_t request_traits,
-                resolution_strategy_t resolution_strategy) noexcept
+    container_impl_t(cache_t cache, cache_traits_t cache_traits, config_t config, delegate_t delegate,
+                     default_provider_factory_t default_provider_factory, request_traits_t request_traits,
+                     resolution_strategy_t resolution_strategy) noexcept
         : cache_{std::move(cache)},
           cache_traits_{std::move(cache_traits)},
           config_{std::move(config)},
@@ -143,6 +141,35 @@ private:
     [[no_unique_address]] default_provider_factory_t default_provider_factory_;
     [[no_unique_address]] request_traits_t           request_traits_;
     [[no_unique_address]] resolution_strategy_t      resolution_strategy_;
+};
+
+template <is_container_policy policy_t, is_config config_t>
+class container_t : public container_impl_t<policy_t, config_t> {
+    using impl_t = container_impl_t<policy_t, config_t>;
+
+public:
+    using impl_t::impl_t;
+
+    template <typename T>
+    auto resolve() -> as_returnable_t<T> {
+        using canonical_t = canonical_t<T>;
+
+        static_assert(std::is_object_v<canonical_t> || std::is_reference_v<T>,
+                      "Cannot resolve: request_t must be an object type, reference, or pointer");
+
+        static_assert(!std::is_void_v<canonical_t>, "Cannot resolve void");
+
+        static_assert(!std::is_function_v<std::remove_pointer_t<canonical_t>>,
+                      "Cannot resolve function types directly");
+
+        static_assert(!std::is_const_v<std::remove_reference_t<T>> || std::is_reference_v<T> || std::is_pointer_v<T>,
+                      "Requesting 'const T' by value - did you mean 'const T&'?");
+
+        static_assert(!std::is_array_v<std::remove_reference_t<T>>,
+                      "Cannot resolve arrays directly - request the element type instead");
+
+        return impl_t::template resolve<T>();
+    }
 };
 
 // ---------------------------------------------------------------------------------------------------------------------

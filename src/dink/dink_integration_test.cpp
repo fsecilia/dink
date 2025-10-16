@@ -471,11 +471,8 @@ TEST_F(ContainerTest, NestedContainerSingletonScoping) {
 TEST_F(ContainerTest, DeepDependencyChain) {
     // A -> B -> C -> D
     struct d_t : constructed_from_t<d_t> {};
-
     struct c_t : constructed_from_t<d_t, d_t> {};
-
     struct b_t : constructed_from_t<b_t, c_t> {};
-
     struct a_t : constructed_from_t<a_t, b_t> {};
 
     auto container = root_container_t{};
@@ -490,11 +487,8 @@ TEST_F(ContainerTest, DiamondDependency) {
     // A -> C -> D
     // D should be singleton to avoid double construction
     struct d_t : constructed_from_t<d_t> {};
-
     struct b_t : constructed_from_t<b_t, d_t&> {};
-
     struct c_t : constructed_from_t<c_t, d_t&> {};
-
     struct a_t : constructed_from_t<a_t, b_t, c_t> {};
 
     auto container = root_container_t{};
