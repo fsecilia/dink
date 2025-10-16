@@ -85,23 +85,27 @@ public:
     // resolution
     // -----------------------------------------------------------------------------------------------------------------
 
+    //! finds or creates an instance of type request_t
     template <typename request_t, typename dependency_chain_t = type_list_t<>,
               stability_t stability = stability_t::transient>
     auto resolve() -> as_returnable_t<request_t> {
-        // search self and parent chain with two continuations
-        return search<request_t>(
+        // search self and ancestor chain with two continuations
+        return resolve_or_delegate<request_t>(
+            // on_found: binding found (locally or in ancestor chain), create in originator context
             [&](auto found_binding) -> as_returnable_t<request_t> {
-                return on_binding_found<request_t, dependency_chain_t, stability>(found_binding);
+                return resolve_with_bound_provider<request_t, dependency_chain_t, stability>(found_binding);
             },
+
+            // on_not_found: nothing found anywhere, create with default provider in originator context
             [&]() -> as_returnable_t<request_t> {
-                return on_binding_not_found<request_t, dependency_chain_t, stability>();
+                return resolve_with_default_provider<request_t, dependency_chain_t, stability>();
             });
     }
 
-    // search implementation - called by children during delegation
+    // resolve_or_delegate implementation - called by children during delegation
     // continuation-passing style: calls on_found if binding found, otherwise recurses or calls on_not_found
     template <typename request_t, typename on_found_t, typename on_not_found_t>
-    auto search(on_found_t&& on_found, on_not_found_t&& on_not_found) -> as_returnable_t<request_t> {
+    auto resolve_or_delegate(on_found_t&& on_found, on_not_found_t&& on_not_found) -> as_returnable_t<request_t> {
         // 1. Check local cache - if found, return it directly
         if (auto cached = cache_traits_.template find<cache_key_t<request_t>>(cache_)) {
             return request_traits_.template from_cached<request_t>(cached);
@@ -112,24 +116,24 @@ public:
         if constexpr (!std::is_same_v<decltype(local_binding), not_found_t>) { return on_found(local_binding); }
 
         // 3. Recurse to parent with same continuations
-        return delegate_.template search<request_t>(std::forward<on_found_t>(on_found),
-                                                    std::forward<on_not_found_t>(on_not_found));
+        return delegate_.template find_in_parent<request_t>(std::forward<on_found_t>(on_found),
+                                                            std::forward<on_not_found_t>(on_not_found));
     }
 
 private:
-    // on_found: binding found (locally or in parent), create in originator context
+    //! resolves locally using provider in a binding after a successful search
     template <typename request_t, typename dependency_chain_t, stability_t stability, typename found_binding_t>
-    auto on_binding_found(found_binding_t found_binding) -> as_returnable_t<request_t> {
+    auto resolve_with_bound_provider(found_binding_t found_binding) -> as_returnable_t<request_t> {
         static constexpr auto resolution = select_resolution<request_t, decltype(found_binding)>();
         return resolution_strategy_.template resolve<resolution, request_t, dependency_chain_t, stability>(
             cache_, cache_traits_, found_binding->provider, request_traits_, *this);
     }
 
-    // on_not_found: nothing found anywhere, create with default provider in originator context
+    //! resolves locally using default provider after an unsuccessful search
     template <typename request_t, typename dependency_chain_t, stability_t stability>
-    auto on_binding_not_found() -> as_returnable_t<request_t> {
-        static constexpr auto resolution       = select_resolution<request_t, not_found_t>();
+    auto resolve_with_default_provider() -> as_returnable_t<request_t> {
         auto                  default_provider = default_provider_factory_.template create<resolved_t<request_t>>();
+        static constexpr auto resolution       = select_resolution<request_t, not_found_t>();
         return resolution_strategy_.template resolve<resolution, request_t, dependency_chain_t, stability>(
             cache_, cache_traits_, default_provider, request_traits_, *this);
     }
@@ -150,6 +154,7 @@ class container_t : public container_impl_t<policy_t, config_t> {
 public:
     using impl_t::impl_t;
 
+    //! finds or creates an instance of type T
     template <typename T>
     auto resolve() -> as_returnable_t<T> {
         using canonical_t = canonical_t<T>;
