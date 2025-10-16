@@ -80,7 +80,7 @@ public:
     template <typename request_t, typename dependency_chain_t = type_list_t<>,
               stability_t stability = stability_t::transient>
     auto resolve() -> as_returnable_t<request_t> {
-        auto resolver = resolver_t<cache_traits_t<request_t>, request_traits_t<request_t>, dependency_chain_t,
+        auto resolver = resolver_t<cache_adapter_t<request_t>, request_adapter_t<request_t>, dependency_chain_t,
                                    stability, container_impl_t>{*this, cache_};
         return resolver.resolve();
     }
@@ -89,10 +89,10 @@ public:
     template <typename request_t, typename on_found_t, typename on_not_found_t>
     auto resolve_or_delegate(on_found_t&& on_found, on_not_found_t&& on_not_found) -> as_returnable_t<request_t> {
         // check local cache
-        auto cache_traits = cache_traits_t<request_t>{};
-        if (auto cached = cache_traits.find(cache_)) {
-            auto request_traits = request_traits_t<request_t>{};
-            return request_traits.from_cached(cached);
+        auto cache_adapter = cache_adapter_t<request_t>{};
+        if (auto cached = cache_adapter.find(cache_)) {
+            auto request_adapter = request_adapter_t<request_t>{};
+            return request_adapter.from_cached(cached);
         }
 
         // check local binding

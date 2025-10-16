@@ -42,11 +42,11 @@ using as_returnable_t = typename as_returnable_f<type_t>::type;
 // ---------------------------------------------------------------------------------------------------------------------
 
 template <typename requested_t>
-struct request_traits_t;
+struct request_adapter_t;
 
 //! type actually cached and provided for a given request
 template <typename requested_t>
-using resolved_t = typename request_traits_t<requested_t>::value_type;
+using resolved_t = typename request_adapter_t<requested_t>::value_type;
 
 // =====================================================================================================================
 // Request Traits - instance-based, parameterized on request_t
@@ -60,7 +60,7 @@ using resolved_t = typename request_traits_t<requested_t>::value_type;
     - Returns by value (copy or move)
 */
 template <typename requested_t>
-struct request_traits_t {
+struct request_adapter_t {
     using request_t  = requested_t;
     using value_type = requested_t;
 
@@ -82,7 +82,7 @@ struct request_traits_t {
     rvalue references are treated the same as value types
 */
 template <typename requested_t>
-struct request_traits_t<requested_t&&> : request_traits_t<requested_t> {};
+struct request_adapter_t<requested_t&&> : request_adapter_t<requested_t> {};
 
 /*!
     request traits for lvalue references (T&)
@@ -91,7 +91,7 @@ struct request_traits_t<requested_t&&> : request_traits_t<requested_t> {};
     - Returns by lvalue reference
 */
 template <typename requested_t>
-struct request_traits_t<requested_t&> {
+struct request_adapter_t<requested_t&> {
     using request_t  = requested_t&;
     using value_type = requested_t;
 
@@ -113,7 +113,7 @@ struct request_traits_t<requested_t&> {
     - Returns address of cached instance
 */
 template <typename requested_t>
-struct request_traits_t<requested_t*> {
+struct request_adapter_t<requested_t*> {
     using request_t  = requested_t*;
     using value_type = requested_t;
 
@@ -137,7 +137,7 @@ struct request_traits_t<requested_t*> {
     - Wraps result in unique_ptr
 */
 template <typename requested_t, typename deleter_t>
-struct request_traits_t<std::unique_ptr<requested_t, deleter_t>> {
+struct request_adapter_t<std::unique_ptr<requested_t, deleter_t>> {
     using request_t  = std::unique_ptr<requested_t, deleter_t>;
     using value_type = std::remove_cvref_t<requested_t>;
 
@@ -164,7 +164,7 @@ struct request_traits_t<std::unique_ptr<requested_t, deleter_t>> {
     - Returns shared ownership
 */
 template <typename requested_t>
-struct request_traits_t<std::shared_ptr<requested_t>> {
+struct request_adapter_t<std::shared_ptr<requested_t>> {
     using request_t  = std::shared_ptr<requested_t>;
     using value_type = std::remove_cvref_t<requested_t>;
 
@@ -195,18 +195,18 @@ struct request_traits_t<std::shared_ptr<requested_t>> {
     - Returns weak reference to cached shared_ptr
 */
 template <typename requested_t>
-struct request_traits_t<std::weak_ptr<requested_t>> : request_traits_t<std::shared_ptr<requested_t>> {};
+struct request_adapter_t<std::weak_ptr<requested_t>> : request_adapter_t<std::shared_ptr<requested_t>> {};
 
 //! request traits for const value types - delegates to non-const version
 template <typename requested_t>
-struct request_traits_t<requested_t const> : request_traits_t<requested_t> {};
+struct request_adapter_t<requested_t const> : request_adapter_t<requested_t> {};
 
 //! request traits for const lvalue references - delegates to non-const reference version
 template <typename requested_t>
-struct request_traits_t<requested_t const&> : request_traits_t<requested_t&> {};
+struct request_adapter_t<requested_t const&> : request_adapter_t<requested_t&> {};
 
 //! request traits for const pointers - delegates to non-const pointer version
 template <typename requested_t>
-struct request_traits_t<requested_t const*> : request_traits_t<requested_t*> {};
+struct request_adapter_t<requested_t const*> : request_adapter_t<requested_t*> {};
 
 }  // namespace dink

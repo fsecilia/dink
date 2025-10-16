@@ -81,12 +81,12 @@ template <typename request_t, typename dependency_chain_t, stability_t stability
 struct resolution_strategy_t<request_t, dependency_chain_t, stability, resolution_t::use_accessor> {
     static constexpr stability_t resolved_stability = stability_t::singleton;
 
-    template <typename cache_t, typename cache_traits_t, typename provider_t, typename request_traits_t,
+    template <typename cache_t, typename cache_adapter_t, typename provider_t, typename request_adapter_t,
               typename container_t>
-    auto resolve(cache_t&, cache_traits_t&, provider_t& provider, request_traits_t& request_traits, container_t&) const
-        -> as_returnable_t<request_t> {
+    auto resolve(cache_t&, cache_adapter_t&, provider_t& provider, request_adapter_t& request_adapter,
+                 container_t&) const -> as_returnable_t<request_t> {
         assert_noncaptive<stability, resolved_stability>();
-        return request_traits.as_requested(provider.get());
+        return request_adapter.as_requested(provider.get());
     }
 };
 
@@ -98,12 +98,12 @@ template <typename request_t, typename dependency_chain_t, stability_t stability
 struct resolution_strategy_t<request_t, dependency_chain_t, stability, resolution_t::always_create> {
     static constexpr stability_t resolved_stability = stability_t::transient;
 
-    template <typename cache_t, typename cache_traits_t, typename provider_t, typename request_traits_t,
+    template <typename cache_t, typename cache_adapter_t, typename provider_t, typename request_adapter_t,
               typename container_t>
-    auto resolve(cache_t&, cache_traits_t&, provider_t& provider, request_traits_t& request_traits,
+    auto resolve(cache_t&, cache_adapter_t&, provider_t& provider, request_adapter_t& request_adapter,
                  container_t& container) const -> as_returnable_t<request_t> {
         assert_noncaptive<stability, resolved_stability>();
-        return request_traits.as_requested(
+        return request_adapter.as_requested(
             provider.template create<request_t, dependency_chain_t, stability_t::transient>(container));
     }
 };
@@ -116,13 +116,13 @@ template <typename request_t, typename dependency_chain_t, stability_t stability
 struct resolution_strategy_t<request_t, dependency_chain_t, stability, resolution_t::cached_singleton> {
     static constexpr stability_t resolved_stability = stability_t::singleton;
 
-    template <typename cache_t, typename cache_traits_t, typename provider_t, typename request_traits_t,
+    template <typename cache_t, typename cache_adapter_t, typename provider_t, typename request_adapter_t,
               typename container_t>
-    auto resolve(cache_t& cache, cache_traits_t& cache_traits, provider_t& provider, request_traits_t& request_traits,
-                 container_t& container) const -> as_returnable_t<request_t> {
+    auto resolve(cache_t& cache, cache_adapter_t& cache_adapter, provider_t& provider,
+                 request_adapter_t& request_adapter, container_t& container) const -> as_returnable_t<request_t> {
         assert_noncaptive<stability, resolved_stability>();
-        return request_traits.as_requested(
-            cache_traits.template get_or_create<typename provider_t::provided_t>(cache, [&]() {
+        return request_adapter.as_requested(
+            cache_adapter.template get_or_create<typename provider_t::provided_t>(cache, [&]() {
                 return provider.template create<resolved_t<request_t>, dependency_chain_t, stability>(container);
             }));
     }
@@ -136,13 +136,13 @@ template <typename request_t, typename dependency_chain_t, stability_t stability
 struct resolution_strategy_t<request_t, dependency_chain_t, stability, resolution_t::copy_from_cache> {
     static constexpr stability_t resolved_stability = stability_t::transient;
 
-    template <typename cache_t, typename cache_traits_t, typename provider_t, typename request_traits_t,
+    template <typename cache_t, typename cache_adapter_t, typename provider_t, typename request_adapter_t,
               typename container_t>
-    auto resolve(cache_t& cache, cache_traits_t& cache_traits, provider_t& provider, request_traits_t& request_traits,
-                 container_t& container) const -> as_returnable_t<request_t> {
+    auto resolve(cache_t& cache, cache_adapter_t& cache_adapter, provider_t& provider,
+                 request_adapter_t& request_adapter, container_t& container) const -> as_returnable_t<request_t> {
         assert_noncaptive<stability, resolved_stability>();
-        return request_traits.as_requested(
-            element_type(cache_traits.template get_or_create<typename provider_t::provided_t>(cache, [&]() {
+        return request_adapter.as_requested(
+            element_type(cache_adapter.template get_or_create<typename provider_t::provided_t>(cache, [&]() {
                 return provider.template create<resolved_t<request_t>, dependency_chain_t, stability_t::transient>(
                     container);
             })));
