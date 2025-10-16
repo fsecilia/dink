@@ -27,12 +27,12 @@ struct creator_t {
         using arg_t                 = arg_t<container_t, dependency_chain_t>;
         using single_arg_t          = single_arg_t<constructed_t, arg_t>;
         static constexpr auto arity = arity_v<constructed_t, factory_t>;
-        return create<dependency_chain_t>(container, factory_invoker_t<constructed_t, arity, arg_t, single_arg_t>{});
+        return create<dependency_chain_t>(container, invoker_t<constructed_t, arity, arg_t, single_arg_t>{});
     }
 
     template <typename dependency_chain_t, typename container_t, typename factory_invoker_t>
     auto create(container_t& container, factory_invoker_t&& factory_invoker) -> constructed_t {
-        return std::forward<factory_invoker_t>(factory_invoker)(factory, container);
+        return std::forward<factory_invoker_t>(factory_invoker).invoke_factory(factory, container);
     }
 };
 
