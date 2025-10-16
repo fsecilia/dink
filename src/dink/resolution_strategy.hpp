@@ -112,7 +112,7 @@ struct resolution_strategy<resolution_strategy_t::cached_singleton> {
         // - if cache_key_t is T, returns T&
         return request_traits.template as_requested<request_t>(
             cache_traits.template get_or_create<cache_key_t<request_t>, typename provider_t::provided_t>(
-                cache, [&]() { return provider.template create<dependency_chain_t>(container); }));
+                cache, [&]() { return provider.template create<request_t, dependency_chain_t>(container); }));
     }
 };
 
@@ -131,7 +131,8 @@ struct resolution_strategy<resolution_strategy_t::always_create> {
               typename provider_t, typename request_traits_t, typename container_t>
     static auto resolve(cache_t&, cache_traits_t&, provider_t& provider, request_traits_t& request_traits,
                         container_t& container) -> as_returnable_t<request_t> {
-        return request_traits.template as_requested<request_t>(provider.template create<dependency_chain_t>(container));
+        return request_traits.template as_requested<request_t>(
+            provider.template create<request_t, dependency_chain_t>(container));
     }
 };
 
@@ -154,7 +155,7 @@ struct resolution_strategy<resolution_strategy_t::copy_from_cache> {
         // return copy from cached
         return request_traits.template as_requested<request_t>(
             element_type(cache_traits.template get_or_create<cache_key_t<request_t>, typename provider_t::provided_t>(
-                cache, [&]() { return provider.template create<dependency_chain_t>(container); })));
+                cache, [&]() { return provider.template create<request_t, dependency_chain_t>(container); })));
     }
 };
 

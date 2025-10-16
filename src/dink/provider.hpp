@@ -10,6 +10,7 @@
 #include <dink/invoker.hpp>
 #include <dink/request_traits.hpp>
 #include <dink/scope.hpp>
+#include <dink/smart_pointer_traits.hpp>
 
 namespace dink::provider {
 
@@ -18,17 +19,30 @@ struct ctor_invoker_t {
     using default_scope_t = scope::transient_t;
     using provided_t      = constructed_t;
 
-    template <typename dependency_chain_t, typename container_t>
+    template <typename request_t, typename dependency_chain_t, typename container_t>
     auto create(container_t& container) -> constructed_t {
         using arg_t                 = arg_t<container_t, dependency_chain_t>;
         using single_arg_t          = single_arg_t<constructed_t, arg_t>;
         static constexpr auto arity = arity_v<constructed_t, void>;
-        return create<dependency_chain_t>(container, invoker_t<constructed_t, arity, arg_t, single_arg_t>{});
+        return create<request_t, dependency_chain_t>(container, invoker_t<constructed_t, arity, arg_t, single_arg_t>{});
     }
 
-    template <typename dependency_chain_t, typename container_t, typename invoker_t>
+    template <typename request_t, typename dependency_chain_t, typename container_t, typename invoker_t>
     auto create(container_t& container, invoker_t&& invoker) -> constructed_t {
-        return std::forward<invoker_t>(invoker).invoke_ctor(container);
+        if constexpr (is_unique_ptr_v<request_t>) {
+            // construct directly into unique_ptr
+
+            // (temporarily still constructs T, returns and expects request_traits to handle the conversion)
+            return std::forward<invoker_t>(invoker).invoke_ctor(container);
+        } else if constexpr (is_shared_ptr_v<request_t>) {
+            // construct directly into shared_ptr
+
+            // (temporarily still constructs T, returns and expects request_traits to handle the conversion)
+            return std::forward<invoker_t>(invoker).invoke_ctor(container);
+        } else {
+            // construct T
+            return std::forward<invoker_t>(invoker).invoke_ctor(container);
+        }
     }
 };
 
@@ -39,17 +53,30 @@ struct factory_invoker_t {
 
     [[no_unique_address]] factory_t factory;
 
-    template <typename dependency_chain_t, typename container_t>
+    template <typename request_t, typename dependency_chain_t, typename container_t>
     auto create(container_t& container) -> constructed_t {
         using arg_t                 = arg_t<container_t, dependency_chain_t>;
         using single_arg_t          = single_arg_t<constructed_t, arg_t>;
         static constexpr auto arity = arity_v<constructed_t, factory_t>;
-        return create<dependency_chain_t>(container, invoker_t<constructed_t, arity, arg_t, single_arg_t>{});
+        return create<request_t, dependency_chain_t>(container, invoker_t<constructed_t, arity, arg_t, single_arg_t>{});
     }
 
-    template <typename dependency_chain_t, typename container_t, typename invoker_t>
+    template <typename request_t, typename dependency_chain_t, typename container_t, typename invoker_t>
     auto create(container_t& container, invoker_t&& invoker) -> constructed_t {
-        return std::forward<invoker_t>(invoker).invoke_factory(factory, container);
+        if constexpr (is_unique_ptr_v<request_t>) {
+            // construct directly into unique_ptr
+
+            // (temporarily still constructs T, returns and expects request_traits to handle the conversion)
+            return std::forward<invoker_t>(invoker).invoke_factory(factory, container);
+        } else if constexpr (is_shared_ptr_v<request_t>) {
+            // construct directly into shared_ptr
+
+            // (temporarily still constructs T, returns and expects request_traits to handle the conversion)
+            return std::forward<invoker_t>(invoker).invoke_factory(factory, container);
+        } else {
+            // construct T
+            return std::forward<invoker_t>(invoker).invoke_factory(factory, container);
+        }
     }
 };
 
@@ -109,7 +136,9 @@ using default_factory_t = provider_factory_t<default_t>;
 
 template <typename provider_t>
 concept is_creator = requires(provider_t& provider, meta::concept_probe_t& container) {
-    { provider.template create<type_list_t<>>(container) } -> std::same_as<typename provider_t::provided_t>;
+    {
+        provider.template create<typename provider_t::provided_t, type_list_t<>>(container)
+    } -> std::same_as<typename provider_t::provided_t>;
 };
 
 template <typename provider_t>
