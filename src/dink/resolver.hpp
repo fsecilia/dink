@@ -6,9 +6,9 @@
 #pragma once
 
 #include <dink/lib.hpp>
-#include <dink/cache_traits.hpp>
+#include <dink/cache_adapter.hpp>
 #include <dink/not_found.hpp>
-#include <dink/request_traits.hpp>
+#include <dink/request_adapter.hpp>
 #include <dink/resolution_strategy.hpp>
 #include <utility>
 

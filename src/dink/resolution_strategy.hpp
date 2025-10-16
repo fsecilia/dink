@@ -6,7 +6,7 @@
 #pragma once
 
 #include <dink/lib.hpp>
-#include <dink/cache_traits.hpp>
+#include <dink/cache_adapter.hpp>
 #include <dink/provider.hpp>
 #include <dink/scope.hpp>
 #include <dink/smart_pointer_traits.hpp>

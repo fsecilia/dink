@@ -9,12 +9,12 @@
 #include <dink/bindings.hpp>
 #include <dink/cache/hash_table.hpp>
 #include <dink/cache/type_indexed.hpp>
-#include <dink/cache_traits.hpp>
+#include <dink/cache_adapter.hpp>
 #include <dink/config.hpp>
 #include <dink/delegate.hpp>
 #include <dink/not_found.hpp>
 #include <dink/provider.hpp>
-#include <dink/request_traits.hpp>
+#include <dink/request_adapter.hpp>
 #include <dink/resolution_strategy.hpp>
 #include <dink/resolver.hpp>
 #include <dink/scope.hpp>

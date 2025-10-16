@@ -13,7 +13,7 @@ list(APPEND dink_library_files
     bindings.hpp
     cache/hash_table.hpp
     cache/type_indexed.hpp
-    cache_traits.hpp
+    cache_adapter.hpp
     canonical.hpp
     config.hpp
     container.hpp
@@ -26,7 +26,7 @@ list(APPEND dink_library_files
     meta.hpp
     not_found.hpp
     provider.hpp
-    request_traits.hpp
+    request_adapter.hpp
     resolution_strategy.hpp
     resolver.hpp
     scope.hpp
@@ -41,7 +41,7 @@ list(APPEND dink_unit_test_files
     bindings_test.cpp
     cache/hash_table_test.cpp
     cache/type_indexed_test.cpp
-    cache_traits_test.cpp
+    cache_adapter_test.cpp
     canonical_test.cpp
     config_test.cpp
     container_test.cpp
@@ -49,7 +49,7 @@ list(APPEND dink_unit_test_files
     double_checked_storage_test.cpp
     invoker_test.cpp
     provider_test.cpp
-    request_traits_test.cpp
+    request_adapter_test.cpp
     resolution_strategy_test.cpp
     resolver_test.cpp
     smart_pointer_traits_test.cpp
