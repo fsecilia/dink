@@ -19,8 +19,8 @@ namespace dink {
 
 enum class resolution_strategy_t {
     use_accessor,      // accessor providers bypass all caching and creation
-    cached_singleton,  // check cache, create and cache if needed, return reference/pointer to cached
     always_create,     // never check cache, always create fresh (truly transient)
+    cached_singleton,  // check cache, create and cache if needed, return reference/pointer to cached
     copy_from_cache    // check cache (creating/caching if needed), return copy/move of cached value
 };
 
@@ -93,6 +93,26 @@ struct resolution_strategy<resolution_strategy_t::use_accessor> {
 };
 
 // --------------------------------------------------------------------------------------------------------------------
+// always_create: never check cache, always create fresh
+// --------------------------------------------------------------------------------------------------------------------
+
+template <>
+struct resolution_strategy<resolution_strategy_t::always_create> {
+    template <typename request_t, typename cache_t, typename cache_traits_t>
+    static auto check_cache(cache_t&, cache_traits_t&) -> std::nullptr_t {
+        return nullptr;  // never checks cache
+    }
+
+    template <typename request_t, typename dependency_chain_t, typename cache_t, typename cache_traits_t,
+              typename provider_t, typename request_traits_t, typename container_t>
+    static auto resolve(cache_t&, cache_traits_t&, provider_t& provider, request_traits_t& request_traits,
+                        container_t& container) -> as_returnable_t<request_t> {
+        return request_traits.template as_requested<request_t>(
+            provider.template create<request_t, dependency_chain_t>(container));
+    }
+};
+
+// --------------------------------------------------------------------------------------------------------------------
 // cached_singleton: check cache, create and cache if needed, return reference/pointer to cached
 // --------------------------------------------------------------------------------------------------------------------
 
@@ -113,26 +133,6 @@ struct resolution_strategy<resolution_strategy_t::cached_singleton> {
         return request_traits.template as_requested<request_t>(
             cache_traits.template get_or_create<cache_key_t<request_t>, typename provider_t::provided_t>(
                 cache, [&]() { return provider.template create<request_t, dependency_chain_t>(container); }));
-    }
-};
-
-// --------------------------------------------------------------------------------------------------------------------
-// always_create: never check cache, always create fresh
-// --------------------------------------------------------------------------------------------------------------------
-
-template <>
-struct resolution_strategy<resolution_strategy_t::always_create> {
-    template <typename request_t, typename cache_t, typename cache_traits_t>
-    static auto check_cache(cache_t&, cache_traits_t&) -> std::nullptr_t {
-        return nullptr;  // never checks cache
-    }
-
-    template <typename request_t, typename dependency_chain_t, typename cache_t, typename cache_traits_t,
-              typename provider_t, typename request_traits_t, typename container_t>
-    static auto resolve(cache_t&, cache_traits_t&, provider_t& provider, request_traits_t& request_traits,
-                        container_t& container) -> as_returnable_t<request_t> {
-        return request_traits.template as_requested<request_t>(
-            provider.template create<request_t, dependency_chain_t>(container));
     }
 };
 
