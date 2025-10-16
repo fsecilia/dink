@@ -71,14 +71,14 @@ consteval auto select_resolution() -> resolution_t {
 // =====================================================================================================================
 
 template <resolution_t resolution>
-struct resolution_strategy_t;
+struct resolution_strategy_f;
 
 // --------------------------------------------------------------------------------------------------------------------
 // use_accessor: accessor providers bypass all caching
 // --------------------------------------------------------------------------------------------------------------------
 
 template <>
-struct resolution_strategy_t<resolution_t::use_accessor> {
+struct resolution_strategy_f<resolution_t::use_accessor> {
     template <typename request_t, typename cache_t, typename cache_traits_t>
     static auto check_cache(cache_t&, cache_traits_t&) -> std::nullptr_t {
         return nullptr;  // never checks cache
@@ -97,7 +97,7 @@ struct resolution_strategy_t<resolution_t::use_accessor> {
 // --------------------------------------------------------------------------------------------------------------------
 
 template <>
-struct resolution_strategy_t<resolution_t::always_create> {
+struct resolution_strategy_f<resolution_t::always_create> {
     template <typename request_t, typename cache_t, typename cache_traits_t>
     static auto check_cache(cache_t&, cache_traits_t&) -> std::nullptr_t {
         return nullptr;  // never checks cache
@@ -117,7 +117,7 @@ struct resolution_strategy_t<resolution_t::always_create> {
 // --------------------------------------------------------------------------------------------------------------------
 
 template <>
-struct resolution_strategy_t<resolution_t::cached_singleton> {
+struct resolution_strategy_f<resolution_t::cached_singleton> {
     template <typename request_t, typename cache_t, typename cache_traits_t>
     static auto check_cache(cache_t& cache, cache_traits_t& cache_traits) -> auto {
         return cache_traits.template find<cache_key_t<request_t>>(cache);
@@ -142,7 +142,7 @@ struct resolution_strategy_t<resolution_t::cached_singleton> {
 // --------------------------------------------------------------------------------------------------------------------
 
 template <>
-struct resolution_strategy_t<resolution_t::copy_from_cache> {
+struct resolution_strategy_f<resolution_t::copy_from_cache> {
     template <typename request_t, typename cache_t, typename cache_traits_t>
     static auto check_cache(cache_t& cache, cache_traits_t& cache_traits) -> auto {
         return cache_traits.template find<cache_key_t<request_t>>(cache);
@@ -158,6 +158,21 @@ struct resolution_strategy_t<resolution_t::copy_from_cache> {
             cache_traits.template get_or_create<cache_key_t<request_t>, typename provider_t::provided_t>(cache, [&]() {
                 return provider.template create<resolved_t<request_t>, dependency_chain_t>(container);
             })));
+    }
+};
+
+struct resolution_strategy_t {
+    template <resolution_t resolution, typename request_t, typename cache_t, typename cache_traits_t>
+    auto check_cache(cache_t& cache, cache_traits_t& cache_traits) -> auto {
+        return resolution_strategy_f<resolution>{}.template check_cache<request_t>(cache, cache_traits);
+    }
+
+    template <resolution_t resolution, typename request_t, typename dependency_chain_t, typename cache_t,
+              typename cache_traits_t, typename provider_t, typename request_traits_t, typename container_t>
+    auto resolve(cache_t& cache, cache_traits_t& cache_traits, provider_t& provider, request_traits_t& request_traits,
+                 container_t& container) -> as_returnable_t<request_t> {
+        return resolution_strategy_f<resolution>{}.template resolve<request_t, dependency_chain_t>(
+            cache, cache_traits, provider, request_traits, container);
     }
 };
 

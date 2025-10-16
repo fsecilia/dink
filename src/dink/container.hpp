@@ -33,6 +33,7 @@ concept is_container_policy = requires {
     typename policy_t::delegate_t;
     typename policy_t::default_provider_factory_t;
     typename policy_t::request_traits_t;
+    typename policy_t::resolution_strategy_t;
 };
 
 template <typename container_t>
@@ -52,6 +53,7 @@ public:
     using delegate_t                 = policy_t::delegate_t;
     using default_provider_factory_t = policy_t::default_provider_factory_t;
     using request_traits_t           = policy_t::request_traits_t;
+    using resolution_strategy_t      = policy_t::resolution_strategy_t;
 
     // -----------------------------------------------------------------------------------------------------------------
     // constructors
@@ -67,15 +69,17 @@ public:
     explicit container_t(parent_t& parent, bindings_t&&... bindings) noexcept
         : config_{resolve_bindings(std::forward<bindings_t>(bindings)...)}, delegate_{parent} {}
 
-    //! direct construction from components (used by deduction guides and testing)
+    //! direct construction from components
     container_t(cache_t cache, cache_traits_t cache_traits, config_t config, delegate_t delegate,
-                default_provider_factory_t default_provider_factory, request_traits_t request_traits) noexcept
+                default_provider_factory_t default_provider_factory, request_traits_t request_traits,
+                resolution_strategy_t resolution_strategy) noexcept
         : cache_{std::move(cache)},
           cache_traits_{std::move(cache_traits)},
           config_{std::move(config)},
           delegate_{std::move(delegate)},
           default_provider_factory_{std::move(default_provider_factory)},
-          request_traits_{std::move(request_traits)} {}
+          request_traits_{std::move(request_traits)},
+          resolution_strategy_{std::move(resolution_strategy)} {}
 
     // -----------------------------------------------------------------------------------------------------------------
     // resolution
@@ -114,7 +118,7 @@ private:
     template <typename request_t, typename dependency_chain_t, typename found_binding_t>
     auto on_binding_found(found_binding_t found_binding) -> as_returnable_t<request_t> {
         static constexpr auto resolution = select_resolution<request_t, decltype(found_binding)>();
-        return resolution_strategy_t<resolution>::template resolve<request_t, dependency_chain_t>(
+        return resolution_strategy_.template resolve<resolution, request_t, dependency_chain_t>(
             cache_, cache_traits_, found_binding->provider, request_traits_, *this);
     }
 
@@ -123,7 +127,7 @@ private:
     auto on_binding_not_found() -> as_returnable_t<request_t> {
         static constexpr auto resolution       = select_resolution<request_t, not_found_t>();
         auto                  default_provider = default_provider_factory_.template create<resolved_t<request_t>>();
-        return resolution_strategy_t<resolution>::template resolve<request_t, dependency_chain_t>(
+        return resolution_strategy_.template resolve<resolution, request_t, dependency_chain_t>(
             cache_, cache_traits_, default_provider, request_traits_, *this);
     }
 
@@ -133,6 +137,7 @@ private:
     [[no_unique_address]] delegate_t                 delegate_;
     [[no_unique_address]] default_provider_factory_t default_provider_factory_;
     [[no_unique_address]] request_traits_t           request_traits_;
+    [[no_unique_address]] resolution_strategy_t      resolution_strategy_;
 };
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -144,6 +149,7 @@ struct container_policy_t {
     using default_provider_factory_t = provider::default_factory_t;
     using cache_traits_t             = cache_traits_t;
     using request_traits_t           = request_traits_t;
+    using resolution_strategy_t      = resolution_strategy_t;
 };
 
 //! policy for root containers (no parent delegation)
