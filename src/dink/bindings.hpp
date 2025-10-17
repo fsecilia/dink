@@ -79,7 +79,7 @@ public:
     template <typename to_t>
     auto to_external_reference(to_t& instance) const -> auto {
         using provider_t = provider::external_reference_t<to_t>;
-        return binding_dst_t<from_t, to_t, provider_t>{provider_t{&instance}};
+        return binding_dst_t<from_t, to_t, provider_t>{provider_t{instance}};
     }
 
     // bind to internal prototype
@@ -91,9 +91,9 @@ public:
 
     // bind to external prototype
     template <typename to_t>
-    auto to_external_prototype(to_t const& instance) const -> auto {
+    auto to_external_prototype(to_t& instance) const -> auto {
         using provider_t = provider::external_prototype_t<to_t>;
-        return binding_dst_t<from_t, to_t, provider_t>{provider_t{&instance}};
+        return binding_dst_t<from_t, to_t, provider_t>{provider_t{instance}};
     }
 
     //! specifies scope for creators; unavailable for accessors

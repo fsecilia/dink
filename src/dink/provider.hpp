@@ -81,40 +81,62 @@ private:
 
 //! references an instance owned by the container (moved/copied in)
 template <typename instance_t>
-struct internal_reference_t {
+class internal_reference_t {
+public:
     using provided_t = instance_t;
-    instance_t instance;
 
-    auto get() -> instance_t& { return instance; }
-    auto get() const -> instance_t const& { return instance; }
+    auto get() -> instance_t& { return instance_; }
+    auto get() const -> instance_t const& { return instance_; }
+
+    explicit internal_reference_t(instance_t&& instance) noexcept : instance_{std::move(instance)} {}
+
+private:
+    instance_t instance_;
 };
 
 //! references an instance owned externally (pointer stored)
 template <typename instance_t>
-struct external_reference_t {
+class external_reference_t {
+public:
     using provided_t = instance_t;
-    instance_t* instance;
 
-    auto get() -> instance_t& { return *instance; }
-    auto get() const -> instance_t const& { return *instance; }
+    auto get() -> instance_t& { return *instance_; }
+    auto get() const -> instance_t const& { return *instance_; }
+
+    explicit external_reference_t(instance_t& instance) noexcept : instance_{&instance} {}
+
+private:
+    instance_t* instance_;
 };
 
-//! copies from a prototype owned by the container
+//! copies from a prototype owned by the container (moved/copied in)
 template <typename instance_t>
-struct internal_prototype_t {
+class internal_prototype_t {
+public:
     using provided_t = instance_t;
-    instance_t prototype;
 
-    auto get() const -> instance_t { return prototype; }
+    auto get() -> instance_t { return instance_; }
+    auto get() const -> instance_t const { return instance_; }
+
+    explicit internal_prototype_t(instance_t&& instance) noexcept : instance_{std::move(instance)} {}
+
+private:
+    instance_t instance_;
 };
 
-//! copies from an externally-owned prototype
+//! copies from an externally-owned prototype (pointer stored)
 template <typename instance_t>
-struct external_prototype_t {
+class external_prototype_t {
+public:
     using provided_t = instance_t;
-    instance_t const* prototype;
 
-    auto get() const -> instance_t { return *prototype; }
+    auto get() -> instance_t { return *instance_; }
+    auto get() const -> instance_t const { return *instance_; }
+
+    explicit external_prototype_t(instance_t& instance) noexcept : instance_{&instance} {}
+
+private:
+    instance_t* instance_;
 };
 
 //! default provider, if unspecified, invokes the resolved type's ctor
@@ -123,7 +145,8 @@ using default_t = ctor_invoker_t<resolved_t<request_t>>;
 
 //! factory for providers
 template <template <typename provided_t> class provider_t>
-struct provider_factory_t {
+class provider_factory_t {
+public:
     template <typename provided_t>
     auto create() -> provider_t<provided_t> {
         return provider_t<provided_t>{};

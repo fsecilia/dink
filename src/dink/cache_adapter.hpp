@@ -16,20 +16,14 @@
 
 namespace dink {
 
-// forward declaration for resolved_t
-template <typename requested_t>
-struct request_adapter_t;
-
-template <typename requested_t>
-using resolved_t = typename request_adapter_t<requested_t>::value_type;
-
 // =====================================================================================================================
 // Cache Traits - instance-based, parameterized on request_t
 // =====================================================================================================================
 
 // base template for value types
 template <typename request_p>
-struct cache_adapter_t {
+class cache_adapter_t {
+public:
     using request_t  = request_p;
     using value_type = resolved_t<request_t>;
     using key_type   = resolved_t<request_t>;
@@ -47,7 +41,8 @@ struct cache_adapter_t {
 
 // specialization for shared_ptr<T>
 template <typename T>
-struct cache_adapter_t<std::shared_ptr<T>> {
+class cache_adapter_t<std::shared_ptr<T>> {
+public:
     using request_t  = std::shared_ptr<T>;
     using value_type = std::remove_cvref_t<T>;
     using key_type   = std::shared_ptr<T>;
@@ -65,7 +60,7 @@ struct cache_adapter_t<std::shared_ptr<T>> {
 
 // specialization for weak_ptr<T>
 template <typename T>
-struct cache_adapter_t<std::weak_ptr<T>> : cache_adapter_t<std::shared_ptr<T>> {};
+class cache_adapter_t<std::weak_ptr<T>> : public cache_adapter_t<std::shared_ptr<T>> {};
 
 template <typename request_t>
 using cache_key_t = typename cache_adapter_t<request_t>::key_type;
