@@ -44,9 +44,6 @@ public:
           strategy_factory_{std::move(policy).strategy_factory} {}
 
     auto resolve() -> as_returnable_t<request_t> {
-        // check cache first
-        if (auto cached = cache_adapter_.find(cache_)) { return request_adapter_.from_cached(cached); }
-
         // search for binding in container hierarchy
         return resolve_or_delegate(
             [&](auto binding) -> as_returnable_t<request_t> { return resolve_with_binding(binding); },
@@ -55,7 +52,7 @@ public:
 
 private:
     auto resolve_or_delegate(auto&& on_found, auto&& on_not_found) -> as_returnable_t<request_t> {
-        // check local cache again (might have been populated by a parent)
+        // check local cache
         if (auto cached = cache_adapter_.find(cache_)) { return request_adapter_.from_cached(cached); }
 
         // check local binding
