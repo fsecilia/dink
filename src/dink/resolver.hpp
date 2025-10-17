@@ -14,8 +14,12 @@
 
 namespace dink {
 
-template <typename request_t, typename dependency_chain_t, stability_t stability>
+template <typename request_p, typename dependency_chain_p, stability_t stability_p>
 struct resolver_policy_t {
+    using request_t                               = request_p;
+    using dependency_chain_t                      = dependency_chain_p;
+    inline static constexpr stability_t stability = stability_p;
+
     using cache_adapter_t    = cache_adapter_t<request_t>;
     using request_adapter_t  = request_adapter_t<request_t>;
     using strategy_factory_t = resolution::strategy_factory_t<request_t, dependency_chain_t, stability>;
@@ -26,12 +30,16 @@ struct resolver_policy_t {
 };
 
 //! per-request resolution engine - encapsulates resolution logic for a specific request type
-template <typename policy_t, typename request_t, typename dependency_chain_t, stability_t stability>
+template <typename policy_t>
 class resolver_t {
 public:
+    using request_t          = policy_t::request_t;
+    using dependency_chain_t = policy_t::dependency_chain_t;
     using cache_adapter_t    = policy_t::cache_adapter_t;
     using request_adapter_t  = policy_t::request_adapter_t;
     using strategy_factory_t = policy_t::strategy_factory_t;
+
+    inline static constexpr auto stability = policy_t::stability;
 
     explicit resolver_t(policy_t policy)
         : cache_adapter_{std::move(policy).cache_adapter},
@@ -91,7 +99,7 @@ struct resolver_factory_t {
     template <typename request_t, typename dependency_chain_t, stability_t stability>
     auto create() {
         using policy_t = resolver_policy_t<request_t, dependency_chain_t, stability>;
-        return resolver_t<policy_t, request_t, dependency_chain_t, stability>{policy_t{}};
+        return resolver_t<policy_t>{policy_t{}};
     }
 };
 
