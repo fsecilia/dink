@@ -23,8 +23,15 @@ struct ctor_invoker_t {
     auto create(container_t& container) -> auto {
         using arg_t                 = arg_t<container_t, dependency_chain_t, stability>;
         using single_arg_t          = single_arg_t<constructed_t, arg_t>;
+        using indexed_arg_factory_t = indexed_arg_factory_t<arg_t, single_arg_t>;
+
         static constexpr auto arity = arity_v<constructed_t, void>;
-        return create<request_t>(container, invoker_t<constructed_t, arity, arg_t, single_arg_t>{});
+        static_assert(npos != arity, "could not deduce arity");
+        using arity_dispatcher_t =
+            arity_dispatcher_t<constructed_t, indexed_arg_factory_t, std::make_index_sequence<arity>>;
+        using invoker_t = invoker_t<constructed_t, arity_dispatcher_t>;
+
+        return create<request_t>(container, invoker_t{});
     }
 
     template <typename request_t, typename container_t, typename invoker_t>
@@ -53,8 +60,15 @@ struct factory_invoker_t {
     auto create(container_t& container) -> auto {
         using arg_t                 = arg_t<container_t, dependency_chain_t, stability>;
         using single_arg_t          = single_arg_t<constructed_t, arg_t>;
+        using indexed_arg_factory_t = indexed_arg_factory_t<arg_t, single_arg_t>;
+
         static constexpr auto arity = arity_v<constructed_t, factory_t>;
-        return create<request_t>(container, invoker_t<constructed_t, arity, arg_t, single_arg_t>{});
+        static_assert(npos != arity, "could not deduce arity");
+        using arity_dispatcher_t =
+            arity_dispatcher_t<constructed_t, indexed_arg_factory_t, std::make_index_sequence<arity>>;
+        using invoker_t = invoker_t<constructed_t, arity_dispatcher_t>;
+
+        return create<request_t>(container, invoker_t{});
     }
 
     template <typename request_t, typename container_t, typename invoker_t>

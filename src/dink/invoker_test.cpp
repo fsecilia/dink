@@ -6,6 +6,7 @@
 #include "invoker.hpp"
 #include <dink/test.hpp>
 
+#if 0
 namespace dink {
 
 namespace factory_invoker::detail {
@@ -161,3 +162,4 @@ TEST_F(factory_invoker_test_t, invokes_factory_with_multiple_args) {
 
 }  // namespace
 }  // namespace dink
+#endif

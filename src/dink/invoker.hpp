@@ -12,8 +12,6 @@
 
 namespace dink {
 
-namespace factory_invoker::detail {
-
 //! consumes indices to produce args backed by a container
 template <typename arg_t, typename single_arg_t>
 struct indexed_arg_factory_t {
@@ -70,41 +68,39 @@ private:
     indexed_arg_factory_t indexed_arg_factory_{};
 };
 
-}  // namespace factory_invoker::detail
-
-//! invokes a constructed_t factory using arity to determine how many args backed by a container to pass, and what type.
-template <typename constructed_t, std::size_t arity, typename arg_t, typename single_arg_t>
+//! dispatches to arity based on constructed type
+template <typename constructed_t, typename arity_dispatcher_t>
 class invoker_t {
-    static_assert(npos != arity, "could not deduce arity");
-
-    using indexed_arg_factory_t = factory_invoker::detail::indexed_arg_factory_t<arg_t, single_arg_t>;
-    using arity_dispatcher_t    = factory_invoker::detail::arity_dispatcher_t<constructed_t, indexed_arg_factory_t,
-                                                                              std::make_index_sequence<arity>>;
-
 public:
     constexpr auto create_value(auto& factory, auto& container) const -> constructed_t {
-        return arity_dispatcher_t{}.create_value(factory, container);
+        return arity_dispatcher_.create_value(factory, container);
     }
 
     constexpr auto create_shared(auto& factory, auto& container) const -> std::shared_ptr<constructed_t> {
-        return arity_dispatcher_t{}.create_shared(factory, container);
+        return arity_dispatcher_.create_shared(factory, container);
     }
 
     constexpr auto create_unique(auto& factory, auto& container) const -> std::unique_ptr<constructed_t> {
-        return arity_dispatcher_t{}.create_unique(factory, container);
+        return arity_dispatcher_.create_unique(factory, container);
     }
 
     constexpr auto create_value(auto& container) const -> constructed_t {
-        return arity_dispatcher_t{}.create_value(container);
+        return arity_dispatcher_.create_value(container);
     }
 
     constexpr auto create_shared(auto& container) const -> std::shared_ptr<constructed_t> {
-        return arity_dispatcher_t{}.create_shared(container);
+        return arity_dispatcher_.create_shared(container);
     }
 
     constexpr auto create_unique(auto& container) const -> std::unique_ptr<constructed_t> {
-        return arity_dispatcher_t{}.create_unique(container);
+        return arity_dispatcher_.create_unique(container);
     }
+
+    explicit invoker_t(arity_dispatcher_t arity_dispatcher) noexcept : arity_dispatcher_{std::move(arity_dispatcher)} {}
+    invoker_t() = default;
+
+private:
+    arity_dispatcher_t arity_dispatcher_{};
 };
 
 }  // namespace dink
