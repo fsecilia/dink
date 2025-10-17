@@ -14,17 +14,17 @@
 
 namespace dink::provider {
 
-template <typename constructed_t, typename invoker_factory_t = invoker_factory_t>
+template <typename resolved_t, typename invoker_factory_t = invoker_factory_t>
 class ctor_invoker_t {
 public:
     using default_scope_t = scope::transient_t;
-    using provided_t      = constructed_t;
+    using provided_t      = resolved_t;
 
     template <typename request_t, typename dependency_chain_t, stability_t stability, typename container_t>
     auto create(container_t& container) -> auto {
         return create<request_t>(
             container,
-            invoker_factory_.template create<constructed_t, void, dependency_chain_t, stability, container_t>());
+            invoker_factory_.template create<resolved_t, void, dependency_chain_t, stability, container_t>());
     }
 
     template <typename request_t, typename container_t, typename invoker_t>
@@ -48,18 +48,18 @@ private:
     [[no_unique_address]] invoker_factory_t invoker_factory_{};
 };
 
-template <typename constructed_t, typename resolved_factory_t, typename invoker_factory_t = invoker_factory_t>
+template <typename resolved_t, typename resolved_factory_t, typename invoker_factory_t = invoker_factory_t>
 class factory_invoker_t {
 public:
     using default_scope_t = scope::transient_t;
-    using provided_t      = constructed_t;
+    using provided_t      = resolved_t;
 
     template <typename request_t, typename dependency_chain_t, stability_t stability, typename container_t>
     auto create(container_t& container) -> auto {
         return create<request_t>(
             container,
             invoker_factory_
-                .template create<constructed_t, resolved_factory_t, dependency_chain_t, stability, container_t>());
+                .template create<resolved_t, resolved_factory_t, dependency_chain_t, stability, container_t>());
     }
 
     template <typename request_t, typename container_t, typename invoker_t>
