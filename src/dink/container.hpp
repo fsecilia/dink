@@ -32,6 +32,7 @@ concept is_container_policy = requires {
     typename policy_t::cache_t;
     typename policy_t::delegate_t;
     typename policy_t::default_provider_factory_t;
+    typename policy_t::resolver_factory_t;
 };
 
 template <typename container_t>
@@ -49,6 +50,7 @@ public:
     using cache_t                    = policy_t::cache_t;
     using delegate_t                 = policy_t::delegate_t;
     using default_provider_factory_t = policy_t::default_provider_factory_t;
+    using resolver_factory_t         = policy_t::resolver_factory_t;
 
     // -----------------------------------------------------------------------------------------------------------------
     // constructors
@@ -66,11 +68,12 @@ public:
 
     //! direct construction from components
     container_t(cache_t cache, config_t config, delegate_t delegate,
-                default_provider_factory_t default_provider_factory) noexcept
+                default_provider_factory_t default_provider_factory, resolver_factory_t resolver_factory) noexcept
         : cache_{std::move(cache)},
           config_{std::move(config)},
           delegate_{std::move(delegate)},
-          default_provider_factory_{std::move(default_provider_factory)} {}
+          default_provider_factory_{std::move(default_provider_factory)},
+          resolver_factory_{std::move(resolver_factory)} {}
 
     // -----------------------------------------------------------------------------------------------------------------
     // resolution
@@ -101,8 +104,7 @@ public:
     //! finds or creates an instance of type request_t
     template <typename request_t, typename dependency_chain_t, stability_t stability>
     auto resolve() -> as_returnable_t<request_t> {
-        using resolver_policy_t = resolver_policy_t<request_t, dependency_chain_t, stability>;
-        auto resolver = resolver_t<resolver_policy_t, request_t, dependency_chain_t, stability>{resolver_policy_t{}};
+        auto resolver = resolver_factory_.template create<request_t, dependency_chain_t, stability>();
         return resolver.resolve(*this, cache_, config_, delegate_, default_provider_factory_);
     }
 
@@ -119,6 +121,7 @@ private:
     [[no_unique_address]] config_t                   config_;
     [[no_unique_address]] delegate_t                 delegate_;
     [[no_unique_address]] default_provider_factory_t default_provider_factory_;
+    resolver_factory_t                               resolver_factory_;
 };
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -128,6 +131,7 @@ private:
 //! common policy
 struct container_policy_t {
     using default_provider_factory_t = provider::default_factory_t;
+    using resolver_factory_t         = resolver_factory_t;
 };
 
 //! policy for root containers (no parent delegation)

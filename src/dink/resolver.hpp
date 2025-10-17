@@ -87,4 +87,12 @@ private:
     strategy_factory_t strategy_factory_;
 };
 
+struct resolver_factory_t {
+    template <typename request_t, typename dependency_chain_t, stability_t stability>
+    auto create() {
+        using policy_t = resolver_policy_t<request_t, dependency_chain_t, stability>;
+        return resolver_t<policy_t, request_t, dependency_chain_t, stability>{policy_t{}};
+    }
+};
+
 }  // namespace dink
