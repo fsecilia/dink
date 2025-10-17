@@ -15,15 +15,15 @@
 namespace dink {
 
 //! per-request resolution engine - encapsulates resolution logic for a specific request type
-template <typename cache_adapter_t, typename request_adapter_t, typename dependency_chain_t, stability_t stability,
-          typename container_t>
+template <typename cache_adapter_t, typename request_adapter_t, typename strategy_factory_t,
+          typename dependency_chain_t, stability_t stability, typename container_t>
 class resolver_t {
 public:
     using request_t = typename request_adapter_t::request_t;
     using cache_t   = typename container_t::cache_t;
 
     resolver_t(container_t& container, cache_t& cache)
-        : container_{container}, cache_{cache}, cache_adapter_{}, request_adapter_{} {}
+        : container_{container}, cache_{cache}, cache_adapter_{}, request_adapter_{}, strategy_factory_{} {}
 
     auto resolve() -> as_returnable_t<request_t> {
         // check cache first
@@ -50,22 +50,21 @@ private:
     }
 
     auto resolve_with_binding(auto binding) -> as_returnable_t<request_t> {
-        constexpr auto resolution = select_resolution<request_t, decltype(binding)>();
-        auto           strategy   = resolution_strategy_t<request_t, dependency_chain_t, stability, resolution>{};
+        auto const strategy = strategy_factory_.create(binding);
         return strategy.resolve(cache_, cache_adapter_, binding->provider, request_adapter_, container_);
     }
 
     auto resolve_without_binding() -> as_returnable_t<request_t> {
-        constexpr auto resolution       = select_resolution<request_t, not_found_t>();
-        auto           strategy         = resolution_strategy_t<request_t, dependency_chain_t, stability, resolution>{};
-        auto           default_provider = container_.default_provider_factory_.template create<resolved_t<request_t>>();
+        auto       default_provider = container_.default_provider_factory_.template create<resolved_t<request_t>>();
+        auto const strategy         = strategy_factory_.create(not_found);
         return strategy.resolve(cache_, cache_adapter_, default_provider, request_adapter_, container_);
     }
 
-    container_t&     container_;
-    cache_t&         cache_;
-    cache_adapter_t   cache_adapter_;
-    request_adapter_t request_adapter_;
+    container_t&       container_;
+    cache_t&           cache_;
+    cache_adapter_t    cache_adapter_;
+    request_adapter_t  request_adapter_;
+    strategy_factory_t strategy_factory_;
 };
 
 }  // namespace dink

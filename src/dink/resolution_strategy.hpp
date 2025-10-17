@@ -24,41 +24,6 @@ enum class resolution_t {
     copy_from_cache    // check cache (creating/caching if needed), return copy/move of cached value
 };
 
-// selects strategy based on request type and binding (or lack thereof)
-template <typename request_t, typename binding_or_not_found_t>
-consteval auto select_resolution() -> resolution_t {
-    constexpr bool has_binding = !std::is_same_v<binding_or_not_found_t, not_found_t>;
-
-    if constexpr (has_binding) {
-        using binding_t  = std::remove_pointer_t<binding_or_not_found_t>;
-        using provider_t = typename binding_t::provider_type;
-        using scope_t    = typename binding_t::scope_type;
-
-        if constexpr (provider::is_accessor<provider_t>) {
-            return resolution_t::use_accessor;
-        } else if constexpr (std::is_reference_v<request_t> || std::is_pointer_v<request_t>) {
-            return resolution_t::cached_singleton;
-        } else if constexpr (is_shared_ptr_v<request_t> || is_weak_ptr_v<request_t>) {
-            return resolution_t::cached_singleton;
-        } else if constexpr (is_unique_ptr_v<request_t>) {
-            if constexpr (std::same_as<scope_t, scope::singleton_t>) { return resolution_t::copy_from_cache; }
-            return resolution_t::always_create;
-        }
-        if constexpr (std::same_as<scope_t, scope::singleton_t>) {
-            return resolution_t::copy_from_cache;
-        } else {
-            return resolution_t::always_create;
-        }
-    } else {
-        // no binding - use default behavior based on request type
-        if constexpr (std::is_reference_v<request_t> || std::is_pointer_v<request_t> || is_shared_ptr_v<request_t>) {
-            return resolution_t::cached_singleton;
-        } else {
-            return resolution_t::always_create;
-        }
-    }
-}
-
 template <stability_t stability, stability_t dependency_stability>
 constexpr auto assert_noncaptive() noexcept -> void {
     static_assert(stability <= dependency_stability,
@@ -146,6 +111,50 @@ struct resolution_strategy_t<request_t, dependency_chain_t, stability, resolutio
                 return provider.template create<resolved_t<request_t>, dependency_chain_t, stability_t::transient>(
                     container);
             })));
+    }
+};
+
+// selects strategy based on request type and binding (or lack thereof)
+template <typename request_t, typename binding_or_not_found_t>
+consteval auto select_resolution() -> resolution_t {
+    constexpr bool has_binding = !std::is_same_v<binding_or_not_found_t, not_found_t>;
+
+    if constexpr (has_binding) {
+        using binding_t  = std::remove_pointer_t<binding_or_not_found_t>;
+        using provider_t = typename binding_t::provider_type;
+        using scope_t    = typename binding_t::scope_type;
+
+        if constexpr (provider::is_accessor<provider_t>) {
+            return resolution_t::use_accessor;
+        } else if constexpr (std::is_reference_v<request_t> || std::is_pointer_v<request_t>) {
+            return resolution_t::cached_singleton;
+        } else if constexpr (is_shared_ptr_v<request_t> || is_weak_ptr_v<request_t>) {
+            return resolution_t::cached_singleton;
+        } else if constexpr (is_unique_ptr_v<request_t>) {
+            if constexpr (std::same_as<scope_t, scope::singleton_t>) { return resolution_t::copy_from_cache; }
+            return resolution_t::always_create;
+        }
+        if constexpr (std::same_as<scope_t, scope::singleton_t>) {
+            return resolution_t::copy_from_cache;
+        } else {
+            return resolution_t::always_create;
+        }
+    } else {
+        // no binding - use default behavior based on request type
+        if constexpr (std::is_reference_v<request_t> || std::is_pointer_v<request_t> || is_shared_ptr_v<request_t>) {
+            return resolution_t::cached_singleton;
+        } else {
+            return resolution_t::always_create;
+        }
+    }
+}
+
+template <typename request_t, typename dependency_chain_t, stability_t stability>
+struct resolution_strategy_factory_t {
+    template <typename binding_or_not_found_t>
+    auto create(binding_or_not_found_t) const {
+        constexpr auto resolution = select_resolution<request_t, binding_or_not_found_t>();
+        return resolution_strategy_t<request_t, dependency_chain_t, stability, resolution>{};
     }
 };
 
