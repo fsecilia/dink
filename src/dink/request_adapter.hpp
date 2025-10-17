@@ -195,18 +195,26 @@ struct request_adapter_t<std::shared_ptr<requested_t>> {
     - Returns weak reference to cached shared_ptr
 */
 template <typename requested_t>
-struct request_adapter_t<std::weak_ptr<requested_t>> : request_adapter_t<std::shared_ptr<requested_t>> {};
+struct request_adapter_t<std::weak_ptr<requested_t>> : request_adapter_t<std::shared_ptr<requested_t>> {
+    using request_t = std::weak_ptr<requested_t>;  // override the inherited typedef
+};
 
 //! request traits for const value types - delegates to non-const version
 template <typename requested_t>
-struct request_adapter_t<requested_t const> : request_adapter_t<requested_t> {};
+struct request_adapter_t<requested_t const> : request_adapter_t<requested_t> {
+    using request_t = requested_t const;
+};
 
 //! request traits for const lvalue references - delegates to non-const reference version
 template <typename requested_t>
-struct request_adapter_t<requested_t const&> : request_adapter_t<requested_t&> {};
+struct request_adapter_t<requested_t const&> : request_adapter_t<requested_t&> {
+    using request_t = requested_t const&;
+};
 
 //! request traits for const pointers - delegates to non-const pointer version
 template <typename requested_t>
-struct request_adapter_t<requested_t const*> : request_adapter_t<requested_t*> {};
+struct request_adapter_t<requested_t const*> : request_adapter_t<requested_t*> {
+    using request_t = requested_t const*;
+};
 
 }  // namespace dink
