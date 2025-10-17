@@ -21,15 +21,10 @@ struct ctor_invoker_t {
 
     template <typename request_t, typename dependency_chain_t, stability_t stability, typename container_t>
     auto create(container_t& container) -> auto {
-        using arg_t                 = arg_t<container_t, dependency_chain_t, stability>;
-        using single_arg_t          = single_arg_t<constructed_t, arg_t>;
-        using indexed_arg_factory_t = indexed_arg_factory_t<arg_t, single_arg_t>;
-
-        static constexpr auto arity = arity_v<constructed_t, void>;
-        static_assert(npos != arity, "could not deduce arity");
-        using invoker_t = indexed_invoker_t<constructed_t, indexed_arg_factory_t, std::make_index_sequence<arity>>;
-
-        return create<request_t>(container, invoker_t{});
+        return create<request_t>(
+            container,
+            invoker_factory_t{}.template create<constructed_t, void, dependency_chain_t, stability, container_t>(
+                container));
     }
 
     template <typename request_t, typename container_t, typename invoker_t>
@@ -56,15 +51,10 @@ struct factory_invoker_t {
 
     template <typename request_t, typename dependency_chain_t, stability_t stability, typename container_t>
     auto create(container_t& container) -> auto {
-        using arg_t                 = arg_t<container_t, dependency_chain_t, stability>;
-        using single_arg_t          = single_arg_t<constructed_t, arg_t>;
-        using indexed_arg_factory_t = indexed_arg_factory_t<arg_t, single_arg_t>;
-
-        static constexpr auto arity = arity_v<constructed_t, factory_t>;
-        static_assert(npos != arity, "could not deduce arity");
-        using invoker_t = indexed_invoker_t<constructed_t, indexed_arg_factory_t, std::make_index_sequence<arity>>;
-
-        return create<request_t>(container, invoker_t{});
+        return create<request_t>(
+            container,
+            invoker_factory_t{}.template create<constructed_t, factory_t, dependency_chain_t, stability, container_t>(
+                container));
     }
 
     template <typename request_t, typename container_t, typename invoker_t>
