@@ -23,23 +23,12 @@ constexpr auto assert_noncaptive() noexcept -> void {
 // Strategies
 // =====================================================================================================================
 
-enum class type_t {
-    use_accessor,      // accessor providers bypass all caching and creation
-    always_create,     // never check cache, always create fresh (truly transient)
-    cached_singleton,  // check cache, create and cache if needed, return reference/pointer to cached
-    copy_from_cache    // check cache (creating/caching if needed), return copy/move of cached value
-};
-
-// base template declaration
-template <typename request_t, typename dependency_chain_t, stability_t stability, type_t type>
-struct strategy_t;
-
 // --------------------------------------------------------------------------------------------------------------------
 // use_accessor: accessor providers bypass all caching
 // --------------------------------------------------------------------------------------------------------------------
 
 template <typename request_t, typename dependency_chain_t, stability_t stability>
-struct strategy_t<request_t, dependency_chain_t, stability, type_t::use_accessor> {
+struct use_accessor_t {
     template <typename cache_t, typename cache_adapter_t, typename provider_t, typename request_adapter_t,
               typename container_t>
     auto resolve(cache_t&, cache_adapter_t&, provider_t& provider, request_adapter_t& request_adapter,
@@ -56,7 +45,7 @@ struct strategy_t<request_t, dependency_chain_t, stability, type_t::use_accessor
 // --------------------------------------------------------------------------------------------------------------------
 
 template <typename request_t, typename dependency_chain_t, stability_t stability>
-struct strategy_t<request_t, dependency_chain_t, stability, type_t::always_create> {
+struct always_create_t {
     template <typename cache_t, typename cache_adapter_t, typename provider_t, typename request_adapter_t,
               typename container_t>
     auto resolve(cache_t&, cache_adapter_t&, provider_t& provider, request_adapter_t& request_adapter,
@@ -66,6 +55,7 @@ struct strategy_t<request_t, dependency_chain_t, stability, type_t::always_creat
 
         // transients propagate transient stability
         constexpr auto propagated_stability = dependency_stability;
+
         return request_adapter.as_requested(
             provider.template create<request_t, dependency_chain_t, propagated_stability>(container));
     }
@@ -76,7 +66,7 @@ struct strategy_t<request_t, dependency_chain_t, stability, type_t::always_creat
 // --------------------------------------------------------------------------------------------------------------------
 
 template <typename request_t, typename dependency_chain_t, stability_t stability>
-struct strategy_t<request_t, dependency_chain_t, stability, type_t::cached_singleton> {
+struct cached_singleton_t {
     template <typename cache_t, typename cache_adapter_t, typename provider_t, typename request_adapter_t,
               typename container_t>
     auto resolve(cache_t& cache, cache_adapter_t& cache_adapter, provider_t& provider,
@@ -101,7 +91,7 @@ struct strategy_t<request_t, dependency_chain_t, stability, type_t::cached_singl
 // --------------------------------------------------------------------------------------------------------------------
 
 template <typename request_t, typename dependency_chain_t, stability_t stability>
-struct strategy_t<request_t, dependency_chain_t, stability, type_t::copy_from_cache> {
+struct copy_from_cache_t {
     template <typename cache_t, typename cache_adapter_t, typename provider_t, typename request_adapter_t,
               typename container_t>
     auto resolve(cache_t& cache, cache_adapter_t& cache_adapter, provider_t& provider,
@@ -125,15 +115,7 @@ template <typename request_t, typename dependency_chain_t, stability_t stability
 class factory_t {
 public:
     template <typename binding_or_not_found_t>
-    auto create(binding_or_not_found_t) const {
-        constexpr auto strategy_type = choose_strategy_type<binding_or_not_found_t>();
-        return strategy_t<request_t, dependency_chain_t, stability, strategy_type>{};
-    }
-
-private:
-    // choose strategy based on request type and binding (or lack thereof)
-    template <typename binding_or_not_found_t>
-    static consteval auto choose_strategy_type() -> type_t {
+    auto create(binding_or_not_found_t) const -> auto {
         constexpr bool binding_found = !std::is_same_v<binding_or_not_found_t, not_found_t>;
 
         // these types don't request ownership
@@ -148,18 +130,27 @@ private:
             using scope_t    = typename binding_t::scope_type;
 
             // types bound with accessor providers have their own strategy
-            if constexpr (provider::is_accessor<provider_t>) return type_t::use_accessor;
+            if constexpr (provider::is_accessor<provider_t>) return select<use_accessor_t>();
 
             // types with reference semantics are always singleton
-            if constexpr (is_shared) return type_t::cached_singleton;
+            else if constexpr (is_shared) return select<cached_singleton_t>();
 
             // for value types, rvalue references, and unique_ptr, the strategy depends on the scope
-            return std::same_as<scope_t, scope::singleton_t> ? type_t::copy_from_cache : type_t::always_create;
+            else if constexpr (std::same_as<scope_t, scope::singleton_t>) return select<copy_from_cache_t>();
+            else return select<always_create_t>();
         } else {
             // no binding was found; choose strategy based on request type alone
 
-            return is_shared ? type_t::cached_singleton : type_t::always_create;
+            if constexpr (is_shared) return select<cached_singleton_t>();
+            else return select<always_create_t>();
         }
+    }
+
+private:
+    // choose strategy based on request type and binding (or lack thereof)
+    template <template <typename, typename, stability_t> class strategy_t>
+    auto select() const -> auto {
+        return strategy_t<request_t, dependency_chain_t, stability>{};
     }
 };
 
