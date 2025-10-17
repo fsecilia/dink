@@ -16,7 +16,7 @@ namespace dink {
 template <typename arg_t, typename single_arg_t>
 struct indexed_arg_factory_t {
     template <std::size_t arity, std::size_t index>
-    static constexpr auto create(auto& container) noexcept -> auto  // returns different types based on arity
+    constexpr auto create(auto& container) const noexcept -> auto  // returns different types based on arity
     {
         if constexpr (arity == 1) return single_arg_t{arg_t{container}};
         else return arg_t{container};
