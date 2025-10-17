@@ -85,18 +85,17 @@ public:
         using canonical_t = canonical_t<T>;
 
         static_assert(std::is_object_v<canonical_t> || std::is_reference_v<T>,
-                      "Cannot resolve: request_t must be an object type, reference, or pointer");
+                      "Cannot resolve: request_t must be an object type, reference, or pointer.");
 
-        static_assert(!std::is_void_v<canonical_t>, "Cannot resolve void");
+        static_assert(!std::is_void_v<canonical_t>, "Cannot resolve void.");
 
         static_assert(!std::is_function_v<std::remove_pointer_t<canonical_t>>,
-                      "Cannot resolve function types directly");
+                      "Cannot resolve function types directly.");
 
         static_assert(!std::is_const_v<std::remove_reference_t<T>> || std::is_reference_v<T> || std::is_pointer_v<T>,
-                      "Requesting 'const T' by value - did you mean 'const T&'?");
+                      "Requesting 'const T' by value; did you mean 'const T&'?");
 
-        static_assert(!std::is_array_v<std::remove_reference_t<T>>,
-                      "Cannot resolve arrays directly - request the element type instead");
+        static_assert(!std::is_array_v<std::remove_reference_t<T>>, "Cannot resolve unbounded arrays.");
 
         return resolve<T, type_list_t<>, stability_t::transient>();
     }
