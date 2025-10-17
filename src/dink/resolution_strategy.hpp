@@ -140,7 +140,7 @@ private:
             if constexpr (provider::is_accessor<provider_t>) return strategies::type_t::use_accessor;
 
             // types with persistent reference semantics are always singleton
-            if constexpr (std::is_reference_v<request_t> || std::is_pointer_v<request_t> ||
+            if constexpr (std::is_lvalue_reference_v<request_t> || std::is_pointer_v<request_t> ||
                           is_shared_ptr_v<request_t> || is_weak_ptr_v<request_t>) {
                 return strategies::type_t::cached_singleton;
             }
@@ -150,7 +150,7 @@ private:
                                                              : strategies::type_t::always_create;
         } else {
             // no binding; use default behavior based on request type
-            return std::is_reference_v<request_t> || std::is_pointer_v<request_t> || is_shared_ptr_v<request_t>
+            return std::is_lvalue_reference_v<request_t> || std::is_pointer_v<request_t> || is_shared_ptr_v<request_t>
                        ? strategies::type_t::cached_singleton
                        : strategies::type_t::always_create;
         }
