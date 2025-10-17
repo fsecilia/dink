@@ -12,24 +12,24 @@
 
 namespace dink {
 
-//! consumes indices to produce args backed by a container
+//! consumes indices to produce args
 template <typename arg_t, typename single_arg_t>
 struct indexed_arg_factory_t {
     template <std::size_t arity, std::size_t index>
-    static constexpr auto create(auto& container) -> auto  // returns different types based on arity
+    static constexpr auto create(auto& container) noexcept -> auto  // returns different types based on arity
     {
         if constexpr (arity == 1) return single_arg_t{arg_t{container}};
         else return arg_t{container};
     }
 };
 
-//! converts an index sequence to args and invokes an instance factory with them
+//! invokes a ctor or factory by replacing an index sequence with indexed args
 template <typename constructed_t, typename indexed_arg_factory_t, typename index_sequence_t>
-class arity_dispatcher_t;
+class indexed_invoker_t;
 
 //! specialization to peel indices out of index sequence
 template <typename constructed_t, typename indexed_arg_factory_t, std::size_t... indices>
-class arity_dispatcher_t<constructed_t, indexed_arg_factory_t, std::index_sequence<indices...>> {
+class indexed_invoker_t<constructed_t, indexed_arg_factory_t, std::index_sequence<indices...>> {
 public:
     constexpr auto create_value(auto& instance_factory, auto& container) const -> constructed_t {
         return instance_factory(indexed_arg_factory_.template create<sizeof...(indices), indices>(container)...);
@@ -59,48 +59,48 @@ public:
             indexed_arg_factory_.template create<sizeof...(indices), indices>(container)...);
     }
 
-    explicit arity_dispatcher_t(indexed_arg_factory_t indexed_arg_factory) noexcept
+    explicit indexed_invoker_t(indexed_arg_factory_t indexed_arg_factory) noexcept
         : indexed_arg_factory_{std::move(indexed_arg_factory)} {}
 
-    arity_dispatcher_t() = default;
+    indexed_invoker_t() = default;
 
 private:
     indexed_arg_factory_t indexed_arg_factory_{};
 };
 
 //! dispatches to arity based on constructed type
-template <typename constructed_t, typename arity_dispatcher_t>
+template <typename constructed_t, typename indexed_invoker_t>
 class invoker_t {
 public:
     constexpr auto create_value(auto& factory, auto& container) const -> constructed_t {
-        return arity_dispatcher_.create_value(factory, container);
+        return indexed_invoker_.create_value(factory, container);
     }
 
     constexpr auto create_shared(auto& factory, auto& container) const -> std::shared_ptr<constructed_t> {
-        return arity_dispatcher_.create_shared(factory, container);
+        return indexed_invoker_.create_shared(factory, container);
     }
 
     constexpr auto create_unique(auto& factory, auto& container) const -> std::unique_ptr<constructed_t> {
-        return arity_dispatcher_.create_unique(factory, container);
+        return indexed_invoker_.create_unique(factory, container);
     }
 
     constexpr auto create_value(auto& container) const -> constructed_t {
-        return arity_dispatcher_.create_value(container);
+        return indexed_invoker_.create_value(container);
     }
 
     constexpr auto create_shared(auto& container) const -> std::shared_ptr<constructed_t> {
-        return arity_dispatcher_.create_shared(container);
+        return indexed_invoker_.create_shared(container);
     }
 
     constexpr auto create_unique(auto& container) const -> std::unique_ptr<constructed_t> {
-        return arity_dispatcher_.create_unique(container);
+        return indexed_invoker_.create_unique(container);
     }
 
-    explicit invoker_t(arity_dispatcher_t arity_dispatcher) noexcept : arity_dispatcher_{std::move(arity_dispatcher)} {}
+    explicit invoker_t(indexed_invoker_t indexed_invoker) noexcept : indexed_invoker_{std::move(indexed_invoker)} {}
     invoker_t() = default;
 
 private:
-    arity_dispatcher_t arity_dispatcher_{};
+    indexed_invoker_t indexed_invoker_{};
 };
 
 struct invoker_factory_t {
@@ -113,9 +113,9 @@ struct invoker_factory_t {
 
         static constexpr auto arity = arity_v<constructed_t, resolved_factory_t>;
         static_assert(npos != arity, "could not deduce arity");
-        using arity_dispatcher_t =
-            arity_dispatcher_t<constructed_t, indexed_arg_factory_t, std::make_index_sequence<arity>>;
-        using invoker_t = invoker_t<constructed_t, arity_dispatcher_t>;
+        using indexed_invoker_t =
+            indexed_invoker_t<constructed_t, indexed_arg_factory_t, std::make_index_sequence<arity>>;
+        using invoker_t = invoker_t<constructed_t, indexed_invoker_t>;
 
         return invoker_t{};
     }
