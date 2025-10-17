@@ -27,10 +27,12 @@ struct indexed_arg_factory_t {
 
 //! converts an index sequence to args and invokes an instance factory with them
 template <typename constructed_t, typename indexed_arg_factory_t, typename index_sequence_t>
-struct arity_dispatcher_t;
+class arity_dispatcher_t;
 
+//! specialization to peel indices out of index sequence
 template <typename constructed_t, typename indexed_arg_factory_t, std::size_t... indices>
-struct arity_dispatcher_t<constructed_t, indexed_arg_factory_t, std::index_sequence<indices...>> {
+class arity_dispatcher_t<constructed_t, indexed_arg_factory_t, std::index_sequence<indices...>> {
+public:
     constexpr auto create_value(auto& instance_factory, auto& container) const -> constructed_t {
         return instance_factory(indexed_arg_factory_t{}.template create<sizeof...(indices), indices>(container)...);
     }
@@ -58,6 +60,14 @@ struct arity_dispatcher_t<constructed_t, indexed_arg_factory_t, std::index_seque
         return std::make_unique<constructed_t>(
             indexed_arg_factory_t{}.template create<sizeof...(indices), indices>(container)...);
     }
+
+    explicit arity_dispatcher_t(indexed_arg_factory_t indexed_arg_factory) noexcept
+        : indexed_arg_factory_{std::move(indexed_arg_factory)} {}
+
+    arity_dispatcher_t() = default;
+
+private:
+    indexed_arg_factory_t indexed_arg_factory_{};
 };
 
 }  // namespace factory_invoker::detail
