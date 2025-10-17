@@ -80,29 +80,18 @@ public:
     template <typename request_t, typename dependency_chain_t = type_list_t<>,
               stability_t stability = stability_t::transient>
     auto resolve() -> as_returnable_t<request_t> {
-        using resolver_policy_t = resolver_policy_t<request_t, dependency_chain_t, stability>;
-        auto resolver = resolver_t<resolver_policy_t, request_t, dependency_chain_t, stability, container_impl_t>{
-            resolver_policy_t{}, *this, cache_};
-        return resolver.resolve();
+        using resolver_policy_t = resolver_policy_t<request_t, type_list_t<>, stability_t::transient>;
+        auto resolver =
+            resolver_t<resolver_policy_t, request_t, type_list_t<>, stability_t::transient>{resolver_policy_t{}};
+        return resolver.resolve(*this, cache_, config_, delegate_);
     }
 
-    // resolve_or_delegate implementation - called by children during delegation
-    template <typename request_t, typename on_found_t, typename on_not_found_t>
-    auto resolve_or_delegate(on_found_t&& on_found, on_not_found_t&& on_not_found) -> as_returnable_t<request_t> {
-        // check local cache
-        auto cache_adapter = cache_adapter_t<request_t>{};
-        if (auto cached = cache_adapter.find(cache_)) {
-            auto request_adapter = request_adapter_t<request_t>{};
-            return request_adapter.from_cached(cached);
-        }
-
-        // check local binding
-        auto local_binding = config_.template find_binding<resolved_t<request_t>>();
-        if constexpr (!std::is_same_v<decltype(local_binding), not_found_t>) { return on_found(local_binding); }
-
-        // recurse to parent
-        return delegate_.template find_in_parent<request_t>(std::forward<on_found_t>(on_found),
-                                                            std::forward<on_not_found_t>(on_not_found));
+    // called by delegate during parent lookup - forwards to resolver
+    template <typename request_t, typename resolver_t, typename on_found_t, typename on_not_found_t>
+    auto resolve_or_delegate(resolver_t& resolver, on_found_t&& on_found, on_not_found_t&& on_not_found)
+        -> as_returnable_t<request_t> {
+        return resolver.resolve_or_delegate(cache_, config_, delegate_, std::forward<on_found_t>(on_found),
+                                            std::forward<on_not_found_t>(on_not_found));
     }
 
     cache_t                                          cache_;
