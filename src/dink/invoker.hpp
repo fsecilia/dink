@@ -68,41 +68,6 @@ private:
     indexed_arg_factory_t indexed_arg_factory_{};
 };
 
-//! dispatches to arity based on constructed type
-template <typename constructed_t, typename indexed_invoker_t>
-class invoker_t {
-public:
-    constexpr auto create_value(auto& factory, auto& container) const -> constructed_t {
-        return indexed_invoker_.create_value(factory, container);
-    }
-
-    constexpr auto create_shared(auto& factory, auto& container) const -> std::shared_ptr<constructed_t> {
-        return indexed_invoker_.create_shared(factory, container);
-    }
-
-    constexpr auto create_unique(auto& factory, auto& container) const -> std::unique_ptr<constructed_t> {
-        return indexed_invoker_.create_unique(factory, container);
-    }
-
-    constexpr auto create_value(auto& container) const -> constructed_t {
-        return indexed_invoker_.create_value(container);
-    }
-
-    constexpr auto create_shared(auto& container) const -> std::shared_ptr<constructed_t> {
-        return indexed_invoker_.create_shared(container);
-    }
-
-    constexpr auto create_unique(auto& container) const -> std::unique_ptr<constructed_t> {
-        return indexed_invoker_.create_unique(container);
-    }
-
-    explicit invoker_t(indexed_invoker_t indexed_invoker) noexcept : indexed_invoker_{std::move(indexed_invoker)} {}
-    invoker_t() = default;
-
-private:
-    indexed_invoker_t indexed_invoker_{};
-};
-
 struct invoker_factory_t {
     template <typename constructed_t, typename resolved_factory_t, typename dependency_chain_t, stability_t stability,
               typename container_t>
@@ -115,9 +80,8 @@ struct invoker_factory_t {
         static_assert(npos != arity, "could not deduce arity");
         using indexed_invoker_t =
             indexed_invoker_t<constructed_t, indexed_arg_factory_t, std::make_index_sequence<arity>>;
-        using invoker_t = invoker_t<constructed_t, indexed_invoker_t>;
 
-        return invoker_t{};
+        return indexed_invoker_t{};
     }
 };
 
