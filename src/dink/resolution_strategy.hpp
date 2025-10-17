@@ -130,33 +130,29 @@ private:
         constexpr bool has_binding = !std::is_same_v<binding_or_not_found_t, not_found_t>;
 
         if constexpr (has_binding) {
+            // has binding; use behavior based on request and bound scope
+
             using binding_t  = std::remove_pointer_t<binding_or_not_found_t>;
             using provider_t = typename binding_t::provider_type;
             using scope_t    = typename binding_t::scope_type;
 
-            if constexpr (provider::is_accessor<provider_t>) {
-                return strategies::type_t::use_accessor;
-            } else if constexpr (std::is_reference_v<request_t> || std::is_pointer_v<request_t>) {
-                return strategies::type_t::cached_singleton;
-            } else if constexpr (is_shared_ptr_v<request_t> || is_weak_ptr_v<request_t>) {
-                return strategies::type_t::cached_singleton;
-            } else if constexpr (is_unique_ptr_v<request_t>) {
-                if constexpr (std::same_as<scope_t, scope::singleton_t>) return strategies::type_t::copy_from_cache;
-                return strategies::type_t::always_create;
-            }
-            if constexpr (std::same_as<scope_t, scope::singleton_t>) {
-                return strategies::type_t::copy_from_cache;
-            } else {
-                return strategies::type_t::always_create;
-            }
-        } else {
-            // no binding - use default behavior based on request type
+            // types bound with accessor providers have their own strategy
+            if constexpr (provider::is_accessor<provider_t>) return strategies::type_t::use_accessor;
+
+            // types with persistent reference semantics are always singleton
             if constexpr (std::is_reference_v<request_t> || std::is_pointer_v<request_t> ||
-                          is_shared_ptr_v<request_t>) {
+                          is_shared_ptr_v<request_t> || is_weak_ptr_v<request_t>) {
                 return strategies::type_t::cached_singleton;
-            } else {
-                return strategies::type_t::always_create;
             }
+
+            // for value types, rvalue references, and unique_ptr, the strategy depends on the scope
+            return std::same_as<scope_t, scope::singleton_t> ? strategies::type_t::copy_from_cache
+                                                             : strategies::type_t::always_create;
+        } else {
+            // no binding; use default behavior based on request type
+            return std::is_reference_v<request_t> || std::is_pointer_v<request_t> || is_shared_ptr_v<request_t>
+                       ? strategies::type_t::cached_singleton
+                       : strategies::type_t::always_create;
         }
     }
 };
