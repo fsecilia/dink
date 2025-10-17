@@ -14,8 +14,9 @@
 
 namespace dink::provider {
 
-template <typename constructed_t>
-struct ctor_invoker_t {
+template <typename constructed_t, typename invoker_factory_t = invoker_factory_t>
+class ctor_invoker_t {
+public:
     using default_scope_t = scope::transient_t;
     using provided_t      = constructed_t;
 
@@ -23,8 +24,7 @@ struct ctor_invoker_t {
     auto create(container_t& container) -> auto {
         return create<request_t>(
             container,
-            invoker_factory_t{}.template create<constructed_t, void, dependency_chain_t, stability, container_t>(
-                container));
+            invoker_factory_.template create<constructed_t, void, dependency_chain_t, stability, container_t>());
     }
 
     template <typename request_t, typename container_t, typename invoker_t>
@@ -40,36 +40,49 @@ struct ctor_invoker_t {
             return std::forward<invoker_t>(invoker).create_value(container);
         }
     }
+
+    explicit ctor_invoker_t(invoker_factory_t invoker_factory = {}) noexcept
+        : invoker_factory_{std::move(invoker_factory)} {}
+
+private:
+    [[no_unique_address]] invoker_factory_t invoker_factory_{};
 };
 
-template <typename constructed_t, typename factory_t>
-struct factory_invoker_t {
+template <typename constructed_t, typename resolved_factory_t, typename invoker_factory_t = invoker_factory_t>
+class factory_invoker_t {
+public:
     using default_scope_t = scope::transient_t;
     using provided_t      = constructed_t;
-
-    [[no_unique_address]] factory_t factory;
 
     template <typename request_t, typename dependency_chain_t, stability_t stability, typename container_t>
     auto create(container_t& container) -> auto {
         return create<request_t>(
             container,
-            invoker_factory_t{}.template create<constructed_t, factory_t, dependency_chain_t, stability, container_t>(
-                container));
+            invoker_factory_
+                .template create<constructed_t, resolved_factory_t, dependency_chain_t, stability, container_t>());
     }
 
     template <typename request_t, typename container_t, typename invoker_t>
     auto create(container_t& container, invoker_t&& invoker) -> auto {
         if constexpr (is_unique_ptr_v<request_t>) {
             // construct directly into unique_ptr
-            return std::forward<invoker_t>(invoker).create_unique(factory, container);
+            return std::forward<invoker_t>(invoker).create_unique(resolved_factory_, container);
         } else if constexpr (is_shared_ptr_v<request_t>) {
             // construct directly into shared_ptr
-            return std::forward<invoker_t>(invoker).create_shared(factory, container);
+            return std::forward<invoker_t>(invoker).create_shared(resolved_factory_, container);
         } else {
             // construct T
-            return std::forward<invoker_t>(invoker).create_value(factory, container);
+            return std::forward<invoker_t>(invoker).create_value(resolved_factory_, container);
         }
     }
+
+    explicit factory_invoker_t(resolved_factory_t resolved_factory = {},
+                               invoker_factory_t  invoker_factory  = {}) noexcept
+        : resolved_factory_{std::move(resolved_factory)}, invoker_factory_{std::move(invoker_factory)} {}
+
+private:
+    [[no_unique_address]] resolved_factory_t resolved_factory_;
+    [[no_unique_address]] invoker_factory_t  invoker_factory_{};
 };
 
 //! references an instance owned by the container (moved/copied in)

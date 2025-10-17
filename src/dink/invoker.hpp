@@ -71,7 +71,7 @@ private:
 struct invoker_factory_t {
     template <typename constructed_t, typename resolved_factory_t, typename dependency_chain_t, stability_t stability,
               typename container_t>
-    auto create(container_t& container) -> auto {
+    auto create() -> auto {
         using arg_t                 = arg_t<container_t, dependency_chain_t, stability>;
         using single_arg_t          = single_arg_t<constructed_t, arg_t>;
         using indexed_arg_factory_t = indexed_arg_factory_t<arg_t, single_arg_t>;
