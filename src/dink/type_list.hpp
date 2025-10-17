@@ -43,6 +43,5 @@ struct contains_f<type_list_t<elements_t...>, element_t> : std::disjunction<std:
 template <typename type_list_t, typename element_t>
 inline constexpr auto contains_v = contains_f<type_list_t, element_t>::value;
 
-
 }  // namespace type_list
 }  // namespace dink
