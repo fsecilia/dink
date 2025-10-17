@@ -95,16 +95,14 @@ public:
         static_assert(!std::is_array_v<std::remove_reference_t<T>>,
                       "Cannot resolve arrays directly - request the element type instead");
 
-        return resolve_arg<T>();
+        return resolve<T, type_list_t<>, stability_t::transient>();
     }
 
     //! finds or creates an instance of type request_t
-    template <typename request_t, typename dependency_chain_t = type_list_t<>,
-              stability_t stability = stability_t::transient>
-    auto resolve_arg() -> as_returnable_t<request_t> {
-        using resolver_policy_t = resolver_policy_t<request_t, type_list_t<>, stability_t::transient>;
-        auto resolver =
-            resolver_t<resolver_policy_t, request_t, type_list_t<>, stability_t::transient>{resolver_policy_t{}};
+    template <typename request_t, typename dependency_chain_t, stability_t stability>
+    auto resolve() -> as_returnable_t<request_t> {
+        using resolver_policy_t = resolver_policy_t<request_t, dependency_chain_t, stability>;
+        auto resolver = resolver_t<resolver_policy_t, request_t, dependency_chain_t, stability>{resolver_policy_t{}};
         return resolver.resolve(*this, cache_, config_, delegate_, default_provider_factory_);
     }
 
