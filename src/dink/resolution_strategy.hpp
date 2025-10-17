@@ -13,17 +13,6 @@
 
 namespace dink::resolution {
 
-// =====================================================================================================================
-// Strategy Selection
-// =====================================================================================================================
-
-enum class resolution_t {
-    use_accessor,      // accessor providers bypass all caching and creation
-    always_create,     // never check cache, always create fresh (truly transient)
-    cached_singleton,  // check cache, create and cache if needed, return reference/pointer to cached
-    copy_from_cache    // check cache (creating/caching if needed), return copy/move of cached value
-};
-
 template <stability_t stability, stability_t dependency_stability>
 constexpr auto assert_noncaptive() noexcept -> void {
     static_assert(stability <= dependency_stability,
@@ -31,11 +20,20 @@ constexpr auto assert_noncaptive() noexcept -> void {
 }
 
 // =====================================================================================================================
-// Strategy Implementations
+// Strategies
 // =====================================================================================================================
 
+namespace strategies {
+
+enum class type_t {
+    use_accessor,      // accessor providers bypass all caching and creation
+    always_create,     // never check cache, always create fresh (truly transient)
+    cached_singleton,  // check cache, create and cache if needed, return reference/pointer to cached
+    copy_from_cache    // check cache (creating/caching if needed), return copy/move of cached value
+};
+
 // base template declaration
-template <typename request_t, typename dependency_chain_t, stability_t stability, resolution_t resolution>
+template <typename request_t, typename dependency_chain_t, stability_t stability, type_t type>
 struct strategy_t;
 
 // --------------------------------------------------------------------------------------------------------------------
@@ -43,7 +41,7 @@ struct strategy_t;
 // --------------------------------------------------------------------------------------------------------------------
 
 template <typename request_t, typename dependency_chain_t, stability_t stability>
-struct strategy_t<request_t, dependency_chain_t, stability, resolution_t::use_accessor> {
+struct strategy_t<request_t, dependency_chain_t, stability, type_t::use_accessor> {
     static constexpr stability_t resolved_stability = stability_t::singleton;
 
     template <typename cache_t, typename cache_adapter_t, typename provider_t, typename request_adapter_t,
@@ -60,7 +58,7 @@ struct strategy_t<request_t, dependency_chain_t, stability, resolution_t::use_ac
 // --------------------------------------------------------------------------------------------------------------------
 
 template <typename request_t, typename dependency_chain_t, stability_t stability>
-struct strategy_t<request_t, dependency_chain_t, stability, resolution_t::always_create> {
+struct strategy_t<request_t, dependency_chain_t, stability, type_t::always_create> {
     static constexpr stability_t resolved_stability = stability_t::transient;
 
     template <typename cache_t, typename cache_adapter_t, typename provider_t, typename request_adapter_t,
@@ -78,7 +76,7 @@ struct strategy_t<request_t, dependency_chain_t, stability, resolution_t::always
 // --------------------------------------------------------------------------------------------------------------------
 
 template <typename request_t, typename dependency_chain_t, stability_t stability>
-struct strategy_t<request_t, dependency_chain_t, stability, resolution_t::cached_singleton> {
+struct strategy_t<request_t, dependency_chain_t, stability, type_t::cached_singleton> {
     static constexpr stability_t resolved_stability = stability_t::singleton;
 
     template <typename cache_t, typename cache_adapter_t, typename provider_t, typename request_adapter_t,
@@ -98,7 +96,7 @@ struct strategy_t<request_t, dependency_chain_t, stability, resolution_t::cached
 // --------------------------------------------------------------------------------------------------------------------
 
 template <typename request_t, typename dependency_chain_t, stability_t stability>
-struct strategy_t<request_t, dependency_chain_t, stability, resolution_t::copy_from_cache> {
+struct strategy_t<request_t, dependency_chain_t, stability, type_t::copy_from_cache> {
     static constexpr stability_t resolved_stability = stability_t::transient;
 
     template <typename cache_t, typename cache_adapter_t, typename provider_t, typename request_adapter_t,
@@ -114,19 +112,21 @@ struct strategy_t<request_t, dependency_chain_t, stability, resolution_t::copy_f
     }
 };
 
+}  // namespace strategies
+
 template <typename request_t, typename dependency_chain_t, stability_t stability>
 class strategy_factory_t {
 public:
     template <typename binding_or_not_found_t>
     auto create(binding_or_not_found_t) const {
         constexpr auto resolution = select<binding_or_not_found_t>();
-        return strategy_t<request_t, dependency_chain_t, stability, resolution>{};
+        return strategies::strategy_t<request_t, dependency_chain_t, stability, resolution>{};
     }
 
 private:
     // selects strategy based on request type and binding (or lack thereof)
     template <typename binding_or_not_found_t>
-    static consteval auto select() -> resolution_t {
+    static consteval auto select() -> strategies::type_t {
         constexpr bool has_binding = !std::is_same_v<binding_or_not_found_t, not_found_t>;
 
         if constexpr (has_binding) {
@@ -135,27 +135,27 @@ private:
             using scope_t    = typename binding_t::scope_type;
 
             if constexpr (provider::is_accessor<provider_t>) {
-                return resolution_t::use_accessor;
+                return strategies::type_t::use_accessor;
             } else if constexpr (std::is_reference_v<request_t> || std::is_pointer_v<request_t>) {
-                return resolution_t::cached_singleton;
+                return strategies::type_t::cached_singleton;
             } else if constexpr (is_shared_ptr_v<request_t> || is_weak_ptr_v<request_t>) {
-                return resolution_t::cached_singleton;
+                return strategies::type_t::cached_singleton;
             } else if constexpr (is_unique_ptr_v<request_t>) {
-                if constexpr (std::same_as<scope_t, scope::singleton_t>) { return resolution_t::copy_from_cache; }
-                return resolution_t::always_create;
+                if constexpr (std::same_as<scope_t, scope::singleton_t>) return strategies::type_t::copy_from_cache;
+                return strategies::type_t::always_create;
             }
             if constexpr (std::same_as<scope_t, scope::singleton_t>) {
-                return resolution_t::copy_from_cache;
+                return strategies::type_t::copy_from_cache;
             } else {
-                return resolution_t::always_create;
+                return strategies::type_t::always_create;
             }
         } else {
             // no binding - use default behavior based on request type
             if constexpr (std::is_reference_v<request_t> || std::is_pointer_v<request_t> ||
                           is_shared_ptr_v<request_t>) {
-                return resolution_t::cached_singleton;
+                return strategies::type_t::cached_singleton;
             } else {
-                return resolution_t::always_create;
+                return strategies::type_t::always_create;
             }
         }
     }
