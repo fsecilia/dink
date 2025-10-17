@@ -57,7 +57,7 @@ private:
     constexpr auto resolve() const -> deduced_t {
         assert_noncircular<canonical_deduced_t>();
         using next_dependency_chain_t = type_list::append_t<dependency_chain_t, canonical_deduced_t>;
-        return container_.template resolve<deduced_t, next_dependency_chain_t, stability>();
+        return container_.template resolve_arg<deduced_t, next_dependency_chain_t, stability>();
     }
 };
 

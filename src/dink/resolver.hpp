@@ -39,13 +39,16 @@ public:
           strategy_factory_{std::move(policy).strategy_factory} {}
 
     // search for binding in container hierarchy
-    template <typename container_t, typename cache_t, typename config_t, typename delegate_t>
-    auto resolve(container_t& container, cache_t& cache, config_t& config, delegate_t& delegate)
-        -> as_returnable_t<request_t> {
+    template <typename container_t, typename cache_t, typename config_t, typename delegate_t,
+              typename default_provider_factory_t>
+    auto resolve(container_t& container, cache_t& cache, config_t& config, delegate_t& delegate,
+                 default_provider_factory_t& default_provider_factory) -> as_returnable_t<request_t> {
         return resolve_or_delegate(
             cache, config, delegate,
             [&](auto binding) -> as_returnable_t<request_t> { return resolve_with_binding(container, cache, binding); },
-            [&]() -> as_returnable_t<request_t> { return resolve_without_binding(container, cache); });
+            [&]() -> as_returnable_t<request_t> {
+                return resolve_without_binding(container, cache, default_provider_factory);
+            });
     }
 
     // called by container's resolve_or_delegate during delegation
@@ -71,9 +74,10 @@ private:
         return strategy.resolve(cache, cache_adapter_, binding->provider, request_adapter_, container);
     }
 
-    template <typename container_t, typename cache_t>
-    auto resolve_without_binding(container_t& container, cache_t& cache) -> as_returnable_t<request_t> {
-        auto       default_provider = container.default_provider_factory_.template create<resolved_t<request_t>>();
+    template <typename container_t, typename cache_t, typename default_provider_factory_t>
+    auto resolve_without_binding(container_t& container, cache_t& cache,
+                                 default_provider_factory_t& default_provider_factory) -> as_returnable_t<request_t> {
+        auto       default_provider = default_provider_factory.template create<resolved_t<request_t>>();
         auto const strategy         = strategy_factory_.create(not_found);
         return strategy.resolve(cache, cache_adapter_, default_provider, request_adapter_, container);
     }

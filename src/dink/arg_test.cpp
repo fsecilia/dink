@@ -75,7 +75,7 @@ struct test_arg_appends_canonical_deduced_to_dependency_chain_t {
 
     struct container_t {
         template <typename actual_deduced_t, typename next_dependency_chain_t, stability_t stability>
-        constexpr auto resolve() -> actual_deduced_t {
+        constexpr auto resolve_arg() -> actual_deduced_t {
             static_assert(std::is_same_v<expected_dependency_chain_t, next_dependency_chain_t>);
             static_assert(stability == expected_stability);
             return actual_deduced_t{};

@@ -44,7 +44,7 @@ concept is_container = requires(container_t& container) {
 // ---------------------------------------------------------------------------------------------------------------------
 
 template <is_container_policy policy_t, is_config config_t>
-class container_impl_t {
+class container_t {
 public:
     using cache_t                    = policy_t::cache_t;
     using delegate_t                 = policy_t::delegate_t;
@@ -56,17 +56,17 @@ public:
 
     //! constructs root container with given bindings
     template <is_binding... bindings_t>
-    explicit container_impl_t(bindings_t&&... bindings) noexcept
+    explicit container_t(bindings_t&&... bindings) noexcept
         : config_{resolve_bindings(std::forward<bindings_t>(bindings)...)} {}
 
     //! constructs nested container with given parent and bindings
     template <is_container parent_t, is_binding... bindings_t>
-    explicit container_impl_t(parent_t& parent, bindings_t&&... bindings) noexcept
+    explicit container_t(parent_t& parent, bindings_t&&... bindings) noexcept
         : config_{resolve_bindings(std::forward<bindings_t>(bindings)...)}, delegate_{parent} {}
 
     //! direct construction from components
-    container_impl_t(cache_t cache, config_t config, delegate_t delegate,
-                     default_provider_factory_t default_provider_factory) noexcept
+    container_t(cache_t cache, config_t config, delegate_t delegate,
+                default_provider_factory_t default_provider_factory) noexcept
         : cache_{std::move(cache)},
           config_{std::move(config)},
           delegate_{std::move(delegate)},
@@ -75,37 +75,6 @@ public:
     // -----------------------------------------------------------------------------------------------------------------
     // resolution
     // -----------------------------------------------------------------------------------------------------------------
-
-    //! finds or creates an instance of type request_t
-    template <typename request_t, typename dependency_chain_t = type_list_t<>,
-              stability_t stability = stability_t::transient>
-    auto resolve() -> as_returnable_t<request_t> {
-        using resolver_policy_t = resolver_policy_t<request_t, type_list_t<>, stability_t::transient>;
-        auto resolver =
-            resolver_t<resolver_policy_t, request_t, type_list_t<>, stability_t::transient>{resolver_policy_t{}};
-        return resolver.resolve(*this, cache_, config_, delegate_);
-    }
-
-    // called by delegate during parent lookup - forwards to resolver
-    template <typename request_t, typename resolver_t, typename on_found_t, typename on_not_found_t>
-    auto resolve_or_delegate(resolver_t& resolver, on_found_t&& on_found, on_not_found_t&& on_not_found)
-        -> as_returnable_t<request_t> {
-        return resolver.resolve_or_delegate(cache_, config_, delegate_, std::forward<on_found_t>(on_found),
-                                            std::forward<on_not_found_t>(on_not_found));
-    }
-
-    cache_t                                          cache_;
-    [[no_unique_address]] config_t                   config_;
-    [[no_unique_address]] delegate_t                 delegate_;
-    [[no_unique_address]] default_provider_factory_t default_provider_factory_;
-};
-
-template <is_container_policy policy_t, is_config config_t>
-class container_t : public container_impl_t<policy_t, config_t> {
-    using impl_t = container_impl_t<policy_t, config_t>;
-
-public:
-    using impl_t::impl_t;
 
     //! finds or creates an instance of type T
     template <typename T>
@@ -126,8 +95,32 @@ public:
         static_assert(!std::is_array_v<std::remove_reference_t<T>>,
                       "Cannot resolve arrays directly - request the element type instead");
 
-        return impl_t::template resolve<T>();
+        return resolve_arg<T>();
     }
+
+    //! finds or creates an instance of type request_t
+    template <typename request_t, typename dependency_chain_t = type_list_t<>,
+              stability_t stability = stability_t::transient>
+    auto resolve_arg() -> as_returnable_t<request_t> {
+        using resolver_policy_t = resolver_policy_t<request_t, type_list_t<>, stability_t::transient>;
+        auto resolver =
+            resolver_t<resolver_policy_t, request_t, type_list_t<>, stability_t::transient>{resolver_policy_t{}};
+        return resolver.resolve(*this, cache_, config_, delegate_, default_provider_factory_);
+    }
+
+    // called by delegate during parent lookup - forwards to resolver
+    template <typename request_t, typename resolver_t, typename on_found_t, typename on_not_found_t>
+    auto resolve_or_delegate(resolver_t& resolver, on_found_t&& on_found, on_not_found_t&& on_not_found)
+        -> as_returnable_t<request_t> {
+        return resolver.resolve_or_delegate(cache_, config_, delegate_, std::forward<on_found_t>(on_found),
+                                            std::forward<on_not_found_t>(on_not_found));
+    }
+
+private:
+    cache_t                                          cache_;
+    [[no_unique_address]] config_t                   config_;
+    [[no_unique_address]] delegate_t                 delegate_;
+    [[no_unique_address]] default_provider_factory_t default_provider_factory_;
 };
 
 // ---------------------------------------------------------------------------------------------------------------------
