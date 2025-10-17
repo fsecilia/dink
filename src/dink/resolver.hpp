@@ -36,8 +36,12 @@ public:
 
     using cache_t = typename container_t::cache_t;
 
-    resolver_t(container_t& container, cache_t& cache)
-        : container_{container}, cache_{cache}, cache_adapter_{}, request_adapter_{}, strategy_factory_{} {}
+    resolver_t(policy_t policy, container_t& container, cache_t& cache)
+        : container_{container},
+          cache_{cache},
+          cache_adapter_{std::move(policy).cache_adapter},
+          request_adapter_{std::move(policy).request_adapter},
+          strategy_factory_{std::move(policy).strategy_factory} {}
 
     auto resolve() -> as_returnable_t<request_t> {
         // check cache first

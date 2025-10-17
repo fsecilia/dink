@@ -80,8 +80,9 @@ public:
     template <typename request_t, typename dependency_chain_t = type_list_t<>,
               stability_t stability = stability_t::transient>
     auto resolve() -> as_returnable_t<request_t> {
-        auto resolver = resolver_t<resolver_policy_t<request_t, dependency_chain_t, stability>, request_t,
-                                   dependency_chain_t, stability, container_impl_t>{*this, cache_};
+        using resolver_policy_t = resolver_policy_t<request_t, dependency_chain_t, stability>;
+        auto resolver = resolver_t<resolver_policy_t, request_t, dependency_chain_t, stability, container_impl_t>{
+            resolver_policy_t{}, *this, cache_};
         return resolver.resolve();
     }
 
