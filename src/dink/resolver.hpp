@@ -14,13 +14,27 @@
 
 namespace dink {
 
+template <typename request_t, typename dependency_chain_t, stability_t stability>
+struct resolver_policy_t {
+    using cache_adapter_t    = cache_adapter_t<request_t>;
+    using request_adapter_t  = request_adapter_t<request_t>;
+    using strategy_factory_t = resolution::strategy_factory_t<request_t, dependency_chain_t, stability>;
+
+    cache_adapter_t    cache_adapter;
+    request_adapter_t  request_adapter;
+    strategy_factory_t strategy_factory;
+};
+
 //! per-request resolution engine - encapsulates resolution logic for a specific request type
-template <typename cache_adapter_t, typename request_adapter_t, typename strategy_factory_t,
-          typename dependency_chain_t, stability_t stability, typename container_t>
+template <typename policy_t, typename request_t, typename dependency_chain_t, stability_t stability,
+          typename container_t>
 class resolver_t {
 public:
-    using request_t = typename request_adapter_t::request_t;
-    using cache_t   = typename container_t::cache_t;
+    using cache_adapter_t    = policy_t::cache_adapter_t;
+    using request_adapter_t  = policy_t::request_adapter_t;
+    using strategy_factory_t = policy_t::strategy_factory_t;
+
+    using cache_t = typename container_t::cache_t;
 
     resolver_t(container_t& container, cache_t& cache)
         : container_{container}, cache_{cache}, cache_adapter_{}, request_adapter_{}, strategy_factory_{} {}
