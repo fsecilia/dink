@@ -30,13 +30,10 @@ public:
     template <typename request_t, typename container_t, typename invoker_t>
     auto create(container_t& container, invoker_t&& invoker) -> auto {
         if constexpr (is_unique_ptr_v<request_t>) {
-            // construct directly into unique_ptr
             return std::forward<invoker_t>(invoker).create_unique(container);
         } else if constexpr (is_shared_ptr_v<request_t>) {
-            // construct directly into shared_ptr
             return std::forward<invoker_t>(invoker).create_shared(container);
         } else {
-            // construct T
             return std::forward<invoker_t>(invoker).create_value(container);
         }
     }
@@ -65,13 +62,10 @@ public:
     template <typename request_t, typename container_t, typename invoker_t>
     auto create(container_t& container, invoker_t&& invoker) -> auto {
         if constexpr (is_unique_ptr_v<request_t>) {
-            // construct directly into unique_ptr
             return std::forward<invoker_t>(invoker).create_unique(resolved_factory_, container);
         } else if constexpr (is_shared_ptr_v<request_t>) {
-            // construct directly into shared_ptr
             return std::forward<invoker_t>(invoker).create_shared(resolved_factory_, container);
         } else {
-            // construct T
             return std::forward<invoker_t>(invoker).create_value(resolved_factory_, container);
         }
     }
