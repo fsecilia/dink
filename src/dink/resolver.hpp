@@ -46,7 +46,7 @@ public:
           request_adapter_{std::move(policy).request_adapter},
           strategy_factory_{std::move(policy).strategy_factory} {}
 
-    // search for binding in container hierarchy
+    // searches for cached instance or binding in container hierarchy
     template <typename container_t, typename cache_t, typename config_t, typename delegate_t,
               typename default_provider_factory_t>
     auto resolve(container_t& container, cache_t& cache, config_t& config, delegate_t& delegate,
@@ -59,7 +59,7 @@ public:
             });
     }
 
-    // called by container's resolve_or_delegate during delegation
+    // returns existing if in local cache, new if in bindings, or delegates to parent
     template <typename cache_t>
     auto resolve_or_delegate(cache_t& cache, auto& config, auto& delegate, auto&& on_found, auto&& on_not_found)
         -> as_returnable_t<request_t> {
