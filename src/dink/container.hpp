@@ -130,7 +130,7 @@ private:
 //! common policy
 struct container_policy_t {
     using default_provider_factory_t = provider::default_factory_t;
-    using resolver_factory_t         = resolver_factory_t;
+    using resolver_factory_t         = resolver::factory_t;
 };
 
 //! policy for root containers (no parent delegation)

@@ -12,17 +12,17 @@
 #include <dink/resolution_strategy.hpp>
 #include <utility>
 
-namespace dink {
+namespace dink::resolver {
 
 template <typename request_p, typename dependency_chain_p, stability_t stability_p>
-struct resolver_policy_t {
+struct policy_t {
     using request_t                               = request_p;
     using dependency_chain_t                      = dependency_chain_p;
     inline static constexpr stability_t stability = stability_p;
 
     using cache_adapter_t    = cache_adapter_t<request_t>;
     using request_adapter_t  = request_adapter_t<request_t>;
-    using strategy_factory_t = resolution::strategy_factory_t<request_t, dependency_chain_t, stability>;
+    using strategy_factory_t = strategy::factory_t<request_t, dependency_chain_t, stability>;
 
     cache_adapter_t    cache_adapter;
     request_adapter_t  request_adapter;
@@ -95,12 +95,12 @@ private:
     strategy_factory_t strategy_factory_;
 };
 
-struct resolver_factory_t {
+struct factory_t {
     template <typename request_t, typename dependency_chain_t, stability_t stability>
     auto create() {
-        using policy_t = resolver_policy_t<request_t, dependency_chain_t, stability>;
+        using policy_t = policy_t<request_t, dependency_chain_t, stability>;
         return resolver_t<policy_t>{policy_t{}};
     }
 };
 
-}  // namespace dink
+}  // namespace dink::resolver

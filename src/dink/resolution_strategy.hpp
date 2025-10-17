@@ -11,7 +11,7 @@
 #include <dink/scope.hpp>
 #include <dink/smart_pointer_traits.hpp>
 
-namespace dink::resolution {
+namespace dink::resolver::strategy {
 
 template <stability_t stability, stability_t dependency_stability>
 constexpr auto assert_noncaptive() noexcept -> void {
@@ -23,7 +23,7 @@ constexpr auto assert_noncaptive() noexcept -> void {
 // Strategies
 // =====================================================================================================================
 
-enum class strategy_type_t {
+enum class type_t {
     use_accessor,      // accessor providers bypass all caching and creation
     always_create,     // never check cache, always create fresh (truly transient)
     cached_singleton,  // check cache, create and cache if needed, return reference/pointer to cached
@@ -31,7 +31,7 @@ enum class strategy_type_t {
 };
 
 // base template declaration
-template <typename request_t, typename dependency_chain_t, stability_t stability, strategy_type_t type>
+template <typename request_t, typename dependency_chain_t, stability_t stability, type_t type>
 struct strategy_t;
 
 // --------------------------------------------------------------------------------------------------------------------
@@ -39,7 +39,7 @@ struct strategy_t;
 // --------------------------------------------------------------------------------------------------------------------
 
 template <typename request_t, typename dependency_chain_t, stability_t stability>
-struct strategy_t<request_t, dependency_chain_t, stability, strategy_type_t::use_accessor> {
+struct strategy_t<request_t, dependency_chain_t, stability, type_t::use_accessor> {
     template <typename cache_t, typename cache_adapter_t, typename provider_t, typename request_adapter_t,
               typename container_t>
     auto resolve(cache_t&, cache_adapter_t&, provider_t& provider, request_adapter_t& request_adapter,
@@ -56,7 +56,7 @@ struct strategy_t<request_t, dependency_chain_t, stability, strategy_type_t::use
 // --------------------------------------------------------------------------------------------------------------------
 
 template <typename request_t, typename dependency_chain_t, stability_t stability>
-struct strategy_t<request_t, dependency_chain_t, stability, strategy_type_t::always_create> {
+struct strategy_t<request_t, dependency_chain_t, stability, type_t::always_create> {
     template <typename cache_t, typename cache_adapter_t, typename provider_t, typename request_adapter_t,
               typename container_t>
     auto resolve(cache_t&, cache_adapter_t&, provider_t& provider, request_adapter_t& request_adapter,
@@ -76,7 +76,7 @@ struct strategy_t<request_t, dependency_chain_t, stability, strategy_type_t::alw
 // --------------------------------------------------------------------------------------------------------------------
 
 template <typename request_t, typename dependency_chain_t, stability_t stability>
-struct strategy_t<request_t, dependency_chain_t, stability, strategy_type_t::cached_singleton> {
+struct strategy_t<request_t, dependency_chain_t, stability, type_t::cached_singleton> {
     template <typename cache_t, typename cache_adapter_t, typename provider_t, typename request_adapter_t,
               typename container_t>
     auto resolve(cache_t& cache, cache_adapter_t& cache_adapter, provider_t& provider,
@@ -101,7 +101,7 @@ struct strategy_t<request_t, dependency_chain_t, stability, strategy_type_t::cac
 // --------------------------------------------------------------------------------------------------------------------
 
 template <typename request_t, typename dependency_chain_t, stability_t stability>
-struct strategy_t<request_t, dependency_chain_t, stability, strategy_type_t::copy_from_cache> {
+struct strategy_t<request_t, dependency_chain_t, stability, type_t::copy_from_cache> {
     template <typename cache_t, typename cache_adapter_t, typename provider_t, typename request_adapter_t,
               typename container_t>
     auto resolve(cache_t& cache, cache_adapter_t& cache_adapter, provider_t& provider,
@@ -122,7 +122,7 @@ struct strategy_t<request_t, dependency_chain_t, stability, strategy_type_t::cop
 };
 
 template <typename request_t, typename dependency_chain_t, stability_t stability>
-class strategy_factory_t {
+class factory_t {
 public:
     template <typename binding_or_not_found_t>
     auto create(binding_or_not_found_t) const {
@@ -133,7 +133,7 @@ public:
 private:
     // choose strategy based on request type and binding (or lack thereof)
     template <typename binding_or_not_found_t>
-    static consteval auto choose_strategy_type() -> strategy_type_t {
+    static consteval auto choose_strategy_type() -> type_t {
         constexpr bool binding_found = !std::is_same_v<binding_or_not_found_t, not_found_t>;
 
         // these types don't request ownership
@@ -148,20 +148,19 @@ private:
             using scope_t    = typename binding_t::scope_type;
 
             // types bound with accessor providers have their own strategy
-            if constexpr (provider::is_accessor<provider_t>) return strategy_type_t::use_accessor;
+            if constexpr (provider::is_accessor<provider_t>) return type_t::use_accessor;
 
             // types with reference semantics are always singleton
-            if constexpr (is_shared) return strategy_type_t::cached_singleton;
+            if constexpr (is_shared) return type_t::cached_singleton;
 
             // for value types, rvalue references, and unique_ptr, the strategy depends on the scope
-            return std::same_as<scope_t, scope::singleton_t> ? strategy_type_t::copy_from_cache
-                                                             : strategy_type_t::always_create;
+            return std::same_as<scope_t, scope::singleton_t> ? type_t::copy_from_cache : type_t::always_create;
         } else {
             // no binding was found; choose strategy based on request type alone
 
-            return is_shared ? strategy_type_t::cached_singleton : strategy_type_t::always_create;
+            return is_shared ? type_t::cached_singleton : type_t::always_create;
         }
     }
 };
 
-}  // namespace dink::resolution
+}  // namespace dink::resolver::strategy
