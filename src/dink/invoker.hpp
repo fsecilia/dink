@@ -32,31 +32,31 @@ template <typename constructed_t, typename indexed_arg_factory_t, std::size_t...
 class arity_dispatcher_t<constructed_t, indexed_arg_factory_t, std::index_sequence<indices...>> {
 public:
     constexpr auto create_value(auto& instance_factory, auto& container) const -> constructed_t {
-        return instance_factory(indexed_arg_factory_t{}.template create<sizeof...(indices), indices>(container)...);
+        return instance_factory(indexed_arg_factory_.template create<sizeof...(indices), indices>(container)...);
     }
 
     constexpr auto create_shared(auto& instance_factory, auto& container) const -> std::shared_ptr<constructed_t> {
         return std::make_shared<constructed_t>(
-            instance_factory(indexed_arg_factory_t{}.template create<sizeof...(indices), indices>(container)...));
+            instance_factory(indexed_arg_factory_.template create<sizeof...(indices), indices>(container)...));
     }
 
     constexpr auto create_unique(auto& instance_factory, auto& container) const -> std::unique_ptr<constructed_t> {
         return std::make_unique<constructed_t>(
-            instance_factory(indexed_arg_factory_t{}.template create<sizeof...(indices), indices>(container)...));
+            instance_factory(indexed_arg_factory_.template create<sizeof...(indices), indices>(container)...));
     }
 
     constexpr auto create_value(auto& container) const -> constructed_t {
-        return constructed_t{indexed_arg_factory_t{}.template create<sizeof...(indices), indices>(container)...};
+        return constructed_t{indexed_arg_factory_.template create<sizeof...(indices), indices>(container)...};
     }
 
     constexpr auto create_shared(auto& container) const -> std::shared_ptr<constructed_t> {
         return std::make_shared<constructed_t>(
-            indexed_arg_factory_t{}.template create<sizeof...(indices), indices>(container)...);
+            indexed_arg_factory_.template create<sizeof...(indices), indices>(container)...);
     }
 
     constexpr auto create_unique(auto& container) const -> std::unique_ptr<constructed_t> {
         return std::make_unique<constructed_t>(
-            indexed_arg_factory_t{}.template create<sizeof...(indices), indices>(container)...);
+            indexed_arg_factory_.template create<sizeof...(indices), indices>(container)...);
     }
 
     explicit arity_dispatcher_t(indexed_arg_factory_t indexed_arg_factory) noexcept
