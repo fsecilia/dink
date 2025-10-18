@@ -62,7 +62,4 @@ public:
 template <typename T>
 class cache_adapter_t<std::weak_ptr<T>> : public cache_adapter_t<std::shared_ptr<T>> {};
 
-template <typename request_t>
-using cache_key_t = typename cache_adapter_t<request_t>::key_type;
-
 }  // namespace dink
