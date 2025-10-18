@@ -217,4 +217,20 @@ struct request_adapter_t<requested_t const*> : request_adapter_t<requested_t*> {
     using request_t = requested_t const*;
 };
 
+template <typename requested_t, typename deleter_t>
+struct request_adapter_t<std::unique_ptr<requested_t const, deleter_t>>
+    : request_adapter_t<std::unique_ptr<requested_t, deleter_t>> {
+    using request_t = std::unique_ptr<requested_t const, deleter_t>;
+};
+
+template <typename requested_t>
+struct request_adapter_t<std::shared_ptr<requested_t const>> : request_adapter_t<std::shared_ptr<requested_t>> {
+    using request_t = std::shared_ptr<requested_t const>;
+};
+
+template <typename requested_t>
+struct request_adapter_t<std::weak_ptr<requested_t const>> : request_adapter_t<std::weak_ptr<requested_t>> {
+    using request_t = std::weak_ptr<requested_t const>;
+};
+
 }  // namespace dink
