@@ -48,12 +48,12 @@ public:
           strategy_factory_{std::move(policy).strategy_factory} {}
 
     // searches for cached instance or binding in container hierarchy
-    template <typename container_t, typename cache_t, typename config_t, typename delegate_t,
+    template <typename container_t, typename cache_t, typename config_t, typename parent_link_t,
               typename default_provider_factory_t>
-    auto resolve(container_t& container, cache_t& cache, config_t& config, delegate_t& delegate,
+    auto resolve(container_t& container, cache_t& cache, config_t& config, parent_link_t& parent_link,
                  default_provider_factory_t& default_provider_factory) -> as_returnable_t<request_t> {
-        return resolve_or_delegate(
-            cache, config, delegate,
+        return resolve_hierarchically(
+            cache, config, parent_link,
             [&](auto binding) -> as_returnable_t<request_t> { return resolve_with_binding(container, cache, binding); },
             [&]() -> as_returnable_t<request_t> {
                 return resolve_without_binding(container, cache, default_provider_factory);
@@ -61,24 +61,24 @@ public:
     }
 
     // returns existing if in local cache, new if in bindings, or delegates to parent
-    template <typename cache_t>
-    auto resolve_or_delegate(cache_t& cache, auto& config, auto& delegate, auto&& on_found, auto&& on_not_found)
-        -> as_returnable_t<request_t> {
+    template <typename cache_t, typename config_t, typename parent_link_t>
+    auto resolve_hierarchically(cache_t& cache, config_t& config, parent_link_t& parent_link, auto&& on_found,
+                                auto&& on_not_found) -> as_returnable_t<request_t> {
         // check local cache
-        if (auto cached = cache_adapter_.find(cache)) { return request_adapter_.from_cached(cached); }
+        if (auto cached = cache_adapter_.find(cache)) return request_adapter_.from_cached(cached);
 
         // check local binding
         auto local_binding = config.template find_binding<resolved_t<request_t>>();
         if constexpr (!std::is_same_v<decltype(local_binding), not_found_t>) { return on_found(local_binding); }
 
-        // recurse to parent via delegate
-        return delegate.template find_in_parent<request_t>(*this, std::forward<decltype(on_found)>(on_found),
-                                                           std::forward<decltype(on_not_found)>(on_not_found));
+        // recurse to parent via parent_link
+        return parent_link.template find_in_parent<request_t>(*this, std::forward<decltype(on_found)>(on_found),
+                                                              std::forward<decltype(on_not_found)>(on_not_found));
     }
 
 private:
     template <typename container_t, typename cache_t>
-    auto resolve_with_binding(container_t& container, cache_t& cache, auto binding) -> as_returnable_t<request_t> {
+    auto resolve_with_binding(container_t& container, cache_t& cache, auto* binding) -> as_returnable_t<request_t> {
         auto const strategy = strategy_factory_.create(binding);
         return strategy.resolve(cache, cache_adapter_, binding->provider, request_adapter_, container);
     }

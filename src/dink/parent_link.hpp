@@ -9,7 +9,7 @@
 #include <dink/not_found.hpp>
 #include <utility>
 
-namespace dink::delegate {
+namespace dink::parent_link {
 
 // root container has no parent - executes the "not found" continuation
 struct none_t {
@@ -26,11 +26,11 @@ struct to_parent_t {
 
     template <typename request_t, typename resolver_t, typename on_found_t, typename on_not_found_t>
     auto find_in_parent(resolver_t& resolver, on_found_t&& on_found, on_not_found_t&& on_not_found) -> decltype(auto) {
-        return parent_container->template resolve_or_delegate<request_t>(resolver, std::forward<on_found_t>(on_found),
-                                                                         std::forward<on_not_found_t>(on_not_found));
+        return parent_container->template resolve_hierarchically<request_t>(
+            resolver, std::forward<on_found_t>(on_found), std::forward<on_not_found_t>(on_not_found));
     }
 
     explicit to_parent_t(parent_container_t& parent) : parent_container{&parent} {}
 };
 
-}  // namespace dink::delegate
+}  // namespace dink::parent_link

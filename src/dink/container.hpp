@@ -30,8 +30,8 @@ namespace dink {
 template <typename policy_t>
 concept is_container_policy = requires {
     typename policy_t::cache_t;
-    typename policy_t::delegate_t;
     typename policy_t::default_provider_factory_t;
+    typename policy_t::parent_link_t;
     typename policy_t::resolver_factory_t;
 };
 
@@ -48,8 +48,8 @@ template <is_container_policy policy_t, is_config config_t>
 class container_t {
 public:
     using cache_t                    = policy_t::cache_t;
-    using delegate_t                 = policy_t::delegate_t;
     using default_provider_factory_t = policy_t::default_provider_factory_t;
+    using parent_link_t              = policy_t::parent_link_t;
     using resolver_factory_t         = policy_t::resolver_factory_t;
 
     // -----------------------------------------------------------------------------------------------------------------
@@ -64,15 +64,15 @@ public:
     //! constructs nested container with given parent and bindings
     template <is_container parent_t, is_binding... bindings_t>
     explicit container_t(parent_t& parent, bindings_t&&... bindings) noexcept
-        : config_{resolve_bindings(std::forward<bindings_t>(bindings)...)}, delegate_{parent} {}
+        : config_{resolve_bindings(std::forward<bindings_t>(bindings)...)}, parent_link_{parent} {}
 
     //! direct construction from components
-    container_t(cache_t cache, config_t config, delegate_t delegate,
-                default_provider_factory_t default_provider_factory, resolver_factory_t resolver_factory) noexcept
+    container_t(cache_t cache, config_t config, default_provider_factory_t default_provider_factory,
+                parent_link_t parent_link, resolver_factory_t resolver_factory) noexcept
         : cache_{std::move(cache)},
           config_{std::move(config)},
-          delegate_{std::move(delegate)},
           default_provider_factory_{std::move(default_provider_factory)},
+          parent_link_{std::move(parent_link)},
           resolver_factory_{std::move(resolver_factory)} {}
 
     // -----------------------------------------------------------------------------------------------------------------
@@ -104,21 +104,21 @@ public:
     template <typename request_t, typename dependency_chain_t, lifetime_t min_lifetime>
     auto resolve() -> as_returnable_t<request_t> {
         auto resolver = resolver_factory_.template create<request_t, dependency_chain_t, min_lifetime>();
-        return resolver.resolve(*this, cache_, config_, delegate_, default_provider_factory_);
+        return resolver.resolve(*this, cache_, config_, parent_link_, default_provider_factory_);
     }
 
-    // called by delegate during parent lookup - forwards to resolver
+    // called by parent link during parent lookup - forwards to resolver
     template <typename request_t, typename resolver_t, typename on_found_t, typename on_not_found_t>
-    auto resolve_or_delegate(resolver_t& resolver, on_found_t&& on_found, on_not_found_t&& on_not_found)
+    auto resolve_hierarchically(resolver_t& resolver, on_found_t&& on_found, on_not_found_t&& on_not_found)
         -> as_returnable_t<request_t> {
-        return resolver.resolve_or_delegate(cache_, config_, delegate_, std::forward<on_found_t>(on_found),
-                                            std::forward<on_not_found_t>(on_not_found));
+        return resolver.resolve_hierarchically(cache_, config_, parent_link_, std::forward<on_found_t>(on_found),
+                                               std::forward<on_not_found_t>(on_not_found));
     }
 
 private:
     cache_t                                          cache_;
     [[no_unique_address]] config_t                   config_;
-    [[no_unique_address]] delegate_t                 delegate_;
+    [[no_unique_address]] parent_link_t              parent_link_;
     [[no_unique_address]] default_provider_factory_t default_provider_factory_;
     resolver_factory_t                               resolver_factory_;
 };
@@ -133,17 +133,17 @@ struct container_policy_t {
     using resolver_factory_t         = resolver::factory_t;
 };
 
-//! policy for root containers (no parent delegation)
+//! policy for root containers (no parent link)
 struct root_container_policy_t : container_policy_t {
-    using cache_t    = caches::type_indexed_t<>;
-    using delegate_t = delegate::none_t;
+    using cache_t       = caches::type_indexed_t<>;
+    using parent_link_t = parent_link::none_t;
 };
 
 //! policy for nested containers (delegates to parent)
 template <typename parent_container_t>
 struct nested_container_policy_t : container_policy_t {
-    using cache_t    = caches::hash_table_t;
-    using delegate_t = delegate::to_parent_t<parent_container_t>;
+    using cache_t       = caches::hash_table_t;
+    using parent_link_t = parent_link::to_parent_t<parent_container_t>;
 };
 
 // ---------------------------------------------------------------------------------------------------------------------
