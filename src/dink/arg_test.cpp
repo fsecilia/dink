@@ -10,8 +10,8 @@
 namespace dink {
 namespace {
 
-// arg just passes stability through
-constexpr auto expected_stability = stability_t::singleton;
+// arg just passes lifetime through
+constexpr auto expected_min_lifetime = lifetime_t::singleton;
 
 // tests that sut deduces to the expected type for types we expect
 struct test_arg_deduces_type_t {
@@ -58,7 +58,7 @@ struct test_arg_deduces_type_t {
     }
 
     constexpr auto test_all_deductions_for_all_sut_types() -> void {
-        using arg_t = arg_t<container_t, type_list_t<>, expected_stability>;
+        using arg_t = arg_t<container_t, type_list_t<>, expected_min_lifetime>;
         test_all_deductions<arg_t>();
         test_all_deductions<single_arg_t<handler_t, arg_t>>();
     }
@@ -74,10 +74,10 @@ struct test_arg_appends_canonical_deduced_to_dependency_chain_t {
     using expected_dependency_chain_t = type_list_t<int, void*, deduced_t>;
 
     struct container_t {
-        template <typename actual_deduced_t, typename next_dependency_chain_t, stability_t stability>
+        template <typename actual_deduced_t, typename next_dependency_chain_t, lifetime_t min_lifetime>
         constexpr auto resolve() -> actual_deduced_t {
             static_assert(std::is_same_v<expected_dependency_chain_t, next_dependency_chain_t>);
-            static_assert(stability == expected_stability);
+            static_assert(min_lifetime == expected_min_lifetime);
             return actual_deduced_t{};
         }
     };
@@ -92,16 +92,16 @@ struct test_arg_appends_canonical_deduced_to_dependency_chain_t {
         auto container = container_t{};
 
         handler_t<actual_deduced_t>{}.handle(
-            arg_t<container_t, initial_dependency_chain_t, expected_stability>{container});
+            arg_t<container_t, initial_dependency_chain_t, expected_min_lifetime>{container});
 
         handler_t<actual_deduced_t*>{}.handle(
-            arg_t<container_t, initial_dependency_chain_t, expected_stability>{container});
+            arg_t<container_t, initial_dependency_chain_t, expected_min_lifetime>{container});
 
         handler_t<actual_deduced_t&&>{}.handle(
-            arg_t<container_t, initial_dependency_chain_t, expected_stability>{container});
+            arg_t<container_t, initial_dependency_chain_t, expected_min_lifetime>{container});
 
         handler_t<std::unique_ptr<actual_deduced_t>>{}.handle(
-            arg_t<container_t, initial_dependency_chain_t, expected_stability>{container});
+            arg_t<container_t, initial_dependency_chain_t, expected_min_lifetime>{container});
     }
 
     constexpr test_arg_appends_canonical_deduced_to_dependency_chain_t() { test<deduced_t>(); }

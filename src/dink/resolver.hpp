@@ -14,15 +14,16 @@
 
 namespace dink::resolver {
 
-template <typename request_p, typename dependency_chain_p, stability_t stability_p>
+template <typename request_p, typename dependency_chain_p, lifetime_t min_lifetime_p>
 struct policy_t {
-    using request_t                               = request_p;
-    using dependency_chain_t                      = dependency_chain_p;
-    inline static constexpr stability_t stability = stability_p;
+    using request_t          = request_p;
+    using dependency_chain_t = dependency_chain_p;
+
+    inline static constexpr lifetime_t min_lifetime = min_lifetime_p;
 
     using cache_adapter_t    = cache_adapter_t<request_t>;
     using request_adapter_t  = request_adapter_t<request_t>;
-    using strategy_factory_t = strategy::factory_t<request_t, dependency_chain_t, stability>;
+    using strategy_factory_t = strategy::factory_t<request_t, dependency_chain_t, min_lifetime>;
 
     cache_adapter_t    cache_adapter;
     request_adapter_t  request_adapter;
@@ -39,7 +40,7 @@ public:
     using request_adapter_t  = policy_t::request_adapter_t;
     using strategy_factory_t = policy_t::strategy_factory_t;
 
-    inline static constexpr auto stability = policy_t::stability;
+    inline static constexpr auto min_lifetime = policy_t::min_lifetime;
 
     explicit resolver_t(policy_t policy)
         : cache_adapter_{std::move(policy).cache_adapter},
@@ -96,9 +97,9 @@ private:
 };
 
 struct factory_t {
-    template <typename request_t, typename dependency_chain_t, stability_t stability>
+    template <typename request_t, typename dependency_chain_t, lifetime_t min_lifetime>
     auto create() {
-        using policy_t = policy_t<request_t, dependency_chain_t, stability>;
+        using policy_t = policy_t<request_t, dependency_chain_t, min_lifetime>;
         return resolver_t<policy_t>{policy_t{}};
     }
 };

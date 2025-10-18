@@ -97,13 +97,13 @@ public:
 
         static_assert(!std::is_array_v<std::remove_reference_t<T>>, "Cannot resolve unbounded arrays.");
 
-        return resolve<T, type_list_t<>, stability_t::transient>();
+        return resolve<T, type_list_t<>, lifetime_t::unconstrained>();
     }
 
     //! finds or creates an instance of type request_t
-    template <typename request_t, typename dependency_chain_t, stability_t stability>
+    template <typename request_t, typename dependency_chain_t, lifetime_t min_lifetime>
     auto resolve() -> as_returnable_t<request_t> {
-        auto resolver = resolver_factory_.template create<request_t, dependency_chain_t, stability>();
+        auto resolver = resolver_factory_.template create<request_t, dependency_chain_t, min_lifetime>();
         return resolver.resolve(*this, cache_, config_, delegate_, default_provider_factory_);
     }
 

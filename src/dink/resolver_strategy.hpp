@@ -10,12 +10,13 @@
 #include <dink/provider.hpp>
 #include <dink/scope.hpp>
 #include <dink/smart_pointer_traits.hpp>
+#include <algorithm>
 
 namespace dink::resolver::strategy {
 
-template <stability_t stability, stability_t dependency_stability>
+template <lifetime_t min_lifetime, lifetime_t dependency_lifetime>
 constexpr auto assert_noncaptive() noexcept -> void {
-    static_assert(stability <= dependency_stability,
+    static_assert(min_lifetime <= dependency_lifetime,
                   "captive dependency detected: longer-lived instance cannot depend on shorter-lived instance");
 }
 
@@ -27,14 +28,14 @@ constexpr auto assert_noncaptive() noexcept -> void {
 // use_accessor: accessor providers bypass all caching
 // --------------------------------------------------------------------------------------------------------------------
 
-template <typename request_t, typename dependency_chain_t, stability_t stability>
+template <typename request_t, typename dependency_chain_t, lifetime_t min_lifetime>
 struct use_accessor_t {
     template <typename cache_t, typename cache_adapter_t, typename provider_t, typename request_adapter_t,
               typename container_t>
     auto resolve(cache_t&, cache_adapter_t&, provider_t& provider, request_adapter_t& request_adapter,
                  container_t&) const -> as_returnable_t<request_t> {
-        constexpr auto dependency_stability = stability_t::singleton;
-        assert_noncaptive<stability, dependency_stability>();
+        constexpr auto dependency_lifetime = lifetime_t::singleton;
+        assert_noncaptive<min_lifetime, dependency_lifetime>();
 
         return request_adapter.as_requested(provider.get());
     }
@@ -44,20 +45,19 @@ struct use_accessor_t {
 // always_create: never check cache, always create fresh
 // --------------------------------------------------------------------------------------------------------------------
 
-template <typename request_t, typename dependency_chain_t, stability_t stability>
+template <typename request_t, typename dependency_chain_t, lifetime_t min_lifetime>
 struct always_create_t {
     template <typename cache_t, typename cache_adapter_t, typename provider_t, typename request_adapter_t,
               typename container_t>
     auto resolve(cache_t&, cache_adapter_t&, provider_t& provider, request_adapter_t& request_adapter,
                  container_t& container) const -> as_returnable_t<request_t> {
-        constexpr auto dependency_stability = stability_t::transient;
-        assert_noncaptive<stability, dependency_stability>();
+        constexpr auto dependency_lifetime = lifetime_t::transient;
+        assert_noncaptive<min_lifetime, dependency_lifetime>();
 
-        // transients propagate transient stability
-        constexpr auto propagated_stability = dependency_stability;
+        constexpr auto propagated_lifetime = std::max(min_lifetime, dependency_lifetime);
 
         return request_adapter.as_requested(
-            provider.template create<request_t, dependency_chain_t, propagated_stability>(container));
+            provider.template create<request_t, dependency_chain_t, propagated_lifetime>(container));
     }
 };
 
@@ -65,20 +65,19 @@ struct always_create_t {
 // cached_singleton: check cache, create and cache if needed, return reference/pointer to cached
 // --------------------------------------------------------------------------------------------------------------------
 
-template <typename request_t, typename dependency_chain_t, stability_t stability>
+template <typename request_t, typename dependency_chain_t, lifetime_t min_lifetime>
 struct cached_singleton_t {
     template <typename cache_t, typename cache_adapter_t, typename provider_t, typename request_adapter_t,
               typename container_t>
     auto resolve(cache_t& cache, cache_adapter_t& cache_adapter, provider_t& provider,
                  request_adapter_t& request_adapter, container_t& container) const -> as_returnable_t<request_t> {
-        constexpr auto dependency_stability = stability_t::singleton;
-        assert_noncaptive<stability, dependency_stability>();
+        constexpr auto dependency_lifetime = lifetime_t::singleton;
+        assert_noncaptive<min_lifetime, dependency_lifetime>();
 
-        // singletons propagate parent stability
-        constexpr auto propagated_stability = stability;
+        constexpr auto propagated_lifetime = std::max(min_lifetime, dependency_lifetime);
 
         auto factory = [&]() {
-            return provider.template create<resolved_t<request_t>, dependency_chain_t, propagated_stability>(container);
+            return provider.template create<resolved_t<request_t>, dependency_chain_t, propagated_lifetime>(container);
         };
 
         auto&& cached = cache_adapter.template get_or_create<typename provider_t::provided_t>(cache, factory);
@@ -90,20 +89,19 @@ struct cached_singleton_t {
 // copy_from_cache: check cache (creating/caching if needed), return copy/move of cached value
 // --------------------------------------------------------------------------------------------------------------------
 
-template <typename request_t, typename dependency_chain_t, stability_t stability>
+template <typename request_t, typename dependency_chain_t, lifetime_t min_lifetime>
 struct copy_from_cache_t {
     template <typename cache_t, typename cache_adapter_t, typename provider_t, typename request_adapter_t,
               typename container_t>
     auto resolve(cache_t& cache, cache_adapter_t& cache_adapter, provider_t& provider,
                  request_adapter_t& request_adapter, container_t& container) const -> as_returnable_t<request_t> {
-        constexpr auto dependency_stability = stability_t::transient;
-        assert_noncaptive<stability, dependency_stability>();
+        constexpr auto dependency_lifetime = lifetime_t::transient;
+        assert_noncaptive<min_lifetime, dependency_lifetime>();
 
-        // transients propagate transient stability
-        constexpr auto propagated_stability = dependency_stability;
+        constexpr auto propagated_lifetime = std::max(min_lifetime, dependency_lifetime);
 
         auto factory = [&]() {
-            return provider.template create<resolved_t<request_t>, dependency_chain_t, propagated_stability>(container);
+            return provider.template create<resolved_t<request_t>, dependency_chain_t, propagated_lifetime>(container);
         };
 
         auto&& cached = cache_adapter.template get_or_create<typename provider_t::provided_t>(cache, factory);
@@ -111,7 +109,7 @@ struct copy_from_cache_t {
     }
 };
 
-template <typename request_t, typename dependency_chain_t, stability_t stability>
+template <typename request_t, typename dependency_chain_t, lifetime_t min_lifetime>
 class factory_t {
 public:
     template <typename binding_or_not_found_t>
@@ -148,9 +146,9 @@ public:
 
 private:
     // choose strategy based on request type and binding (or lack thereof)
-    template <template <typename, typename, stability_t> class strategy_t>
+    template <template <typename, typename, lifetime_t> class strategy_t>
     auto select() const -> auto {
-        return strategy_t<request_t, dependency_chain_t, stability>{};
+        return strategy_t<request_t, dependency_chain_t, min_lifetime>{};
     }
 };
 
