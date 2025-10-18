@@ -22,11 +22,11 @@ struct policy_t {
     inline static constexpr lifetime_t min_lifetime = min_lifetime_p;
 
     using cache_adapter_t    = cache_adapter_t<request_t>;
-    using request_adapter_t  = request_adapter_t<request_t>;
+    using request_traits_t   = request_traits_t<request_t>;
     using strategy_factory_t = strategy::factory_t<request_t, dependency_chain_t, min_lifetime>;
 
     cache_adapter_t    cache_adapter;
-    request_adapter_t  request_adapter;
+    request_traits_t   request_traits;
     strategy_factory_t strategy_factory;
 };
 
@@ -37,14 +37,14 @@ public:
     using request_t          = policy_t::request_t;
     using dependency_chain_t = policy_t::dependency_chain_t;
     using cache_adapter_t    = policy_t::cache_adapter_t;
-    using request_adapter_t  = policy_t::request_adapter_t;
+    using request_traits_t   = policy_t::request_traits_t;
     using strategy_factory_t = policy_t::strategy_factory_t;
 
     inline static constexpr auto min_lifetime = policy_t::min_lifetime;
 
     explicit resolver_t(policy_t policy)
         : cache_adapter_{std::move(policy).cache_adapter},
-          request_adapter_{std::move(policy).request_adapter},
+          request_traits_{std::move(policy).request_traits},
           strategy_factory_{std::move(policy).strategy_factory} {}
 
     // searches for cached instance or binding in container hierarchy
@@ -65,7 +65,7 @@ public:
     auto resolve_hierarchically(cache_t& cache, config_t& config, parent_link_t& parent_link, auto&& on_found,
                                 auto&& on_not_found) -> as_returnable_t<request_t> {
         // check local cache
-        if (auto cached = cache_adapter_.find(cache)) return request_adapter_.from_cached(cached);
+        if (auto cached = cache_adapter_.find(cache)) return request_traits_.from_lookup(cached);
 
         // check local binding
         auto local_binding = config.template find_binding<resolved_t<request_t>>();
@@ -80,7 +80,7 @@ private:
     template <typename container_t, typename cache_t>
     auto resolve_with_binding(container_t& container, cache_t& cache, auto* binding) -> as_returnable_t<request_t> {
         auto const strategy = strategy_factory_.create(binding);
-        return strategy.resolve(cache, cache_adapter_, binding->provider, request_adapter_, container);
+        return strategy.resolve(cache, cache_adapter_, binding->provider, request_traits_, container);
     }
 
     template <typename container_t, typename cache_t, typename default_provider_factory_t>
@@ -88,11 +88,11 @@ private:
                                  default_provider_factory_t& default_provider_factory) -> as_returnable_t<request_t> {
         auto       default_provider = default_provider_factory.template create<resolved_t<request_t>>();
         auto const strategy         = strategy_factory_.create(not_found);
-        return strategy.resolve(cache, cache_adapter_, default_provider, request_adapter_, container);
+        return strategy.resolve(cache, cache_adapter_, default_provider, request_traits_, container);
     }
 
     cache_adapter_t    cache_adapter_;
-    request_adapter_t  request_adapter_;
+    request_traits_t   request_traits_;
     strategy_factory_t strategy_factory_;
 };
 

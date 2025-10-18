@@ -101,36 +101,36 @@ struct container_test_t : Test {
         mock_creator_provider_t* mock_creator_provider = nullptr;
     };
 
-    struct mock_request_adapter_t {
-        MOCK_METHOD(std::any, as_requested, (std::any source));
-        MOCK_METHOD(std::any, from_cached, (std::any source));
+    struct mock_request_traits_t {
+        MOCK_METHOD(std::any, from_provided, (std::any source));
+        MOCK_METHOD(std::any, from_lookup, (std::any source));
 
-        virtual ~mock_request_adapter_t() = default;
+        virtual ~mock_request_traits_t() = default;
     };
-    StrictMock<mock_request_adapter_t> mock_request_adapter;
+    StrictMock<mock_request_traits_t> mock_request_traits;
 
-    struct request_adapter_t {
+    struct request_traits_t {
         template <typename request_t, typename source_t>
-        auto as_requested(source_t&& source) -> request_t {
+        auto from_provided(source_t&& source) -> request_t {
             if constexpr (std::is_reference_v<request_t>) {
-                auto* ptr = std::any_cast<std::remove_reference_t<request_t>*>(mock->as_requested(std::any{&source}));
+                auto* ptr = std::any_cast<std::remove_reference_t<request_t>*>(mock->from_provided(std::any{&source}));
                 return *ptr;
             } else {
-                return *std::any_cast<std::remove_reference_t<request_t>*>(mock->as_requested(std::any{&source}));
+                return *std::any_cast<std::remove_reference_t<request_t>*>(mock->from_provided(std::any{&source}));
             }
         }
 
         template <typename request_t, typename source_t>
-        auto from_cached(source_t&& source) -> request_t {
+        auto from_lookup(source_t&& source) -> request_t {
             if constexpr (std::is_reference_v<request_t>) {
-                auto* ptr = std::any_cast<std::remove_reference_t<request_t>*>(mock->as_requested(std::any{&source}));
+                auto* ptr = std::any_cast<std::remove_reference_t<request_t>*>(mock->from_provided(std::any{&source}));
                 return *ptr;
             } else {
-                return *std::any_cast<std::remove_reference_t<request_t>*>(mock->as_requested(std::any{&source}));
+                return *std::any_cast<std::remove_reference_t<request_t>*>(mock->from_provided(std::any{&source}));
             }
         }
 
-        mock_request_adapter_t* mock = nullptr;
+        mock_request_traits_t* mock = nullptr;
     };
 };
 
@@ -149,7 +149,7 @@ struct container_test_without_binding_t : container_test_t {
         using cache_adapter_t             = cache_adapter_t;
         using delegate_t                 = delegate_t;
         using default_provider_factory_t = default_provider_factory_t;
-        using request_adapter_t           = request_adapter_t;
+        using request_traits_t           = request_traits_t;
     };
 
     using sut_t = container_t<policy_t, config_t>;
@@ -158,7 +158,7 @@ struct container_test_without_binding_t : container_test_t {
               config_t{},
               delegate_t{&mock_delegate},
               default_provider_factory_t{&mock_creator_provider},
-              request_adapter_t{&mock_request_adapter}};
+              request_traits_t{&mock_request_traits}};
 };
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -186,7 +186,7 @@ struct container_test_with_bound_accessor_t : container_test_t {
         using cache_adapter_t             = cache_adapter_t;
         using delegate_t                 = delegate_t;
         using default_provider_factory_t = default_provider_factory_t;
-        using request_adapter_t           = request_adapter_t;
+        using request_traits_t           = request_traits_t;
     };
 
     using sut_t = container_t<policy_t, config_t>;
@@ -195,14 +195,14 @@ struct container_test_with_bound_accessor_t : container_test_t {
               config_t{provider_t{&mock_accessor_provider}},
               delegate_t{&mock_delegate},
               default_provider_factory_t{&mock_creator_provider},
-              request_adapter_t{&mock_request_adapter}};
+              request_traits_t{&mock_request_traits}};
 };
 
 TEST_F(container_test_with_bound_accessor_t, accessor_provider_bypasses_everything) {
     auto expected_provided = provided_t{};
 
     EXPECT_CALL(mock_accessor_provider, get()).WillOnce(Return(std::any{&expected_provided}));
-    EXPECT_CALL(mock_request_adapter, as_requested(_)).WillOnce(ReturnArg<0>());
+    EXPECT_CALL(mock_request_traits, from_provided(_)).WillOnce(ReturnArg<0>());
 
     ASSERT_EQ(&expected_provided, &sut.resolve<provided_t&>());
 }

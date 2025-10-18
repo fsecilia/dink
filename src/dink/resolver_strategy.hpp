@@ -30,15 +30,15 @@ constexpr auto assert_noncaptive() noexcept -> void {
 
 template <typename request_t, typename dependency_chain_t, lifetime_t min_lifetime>
 struct use_accessor_t {
-    template <typename cache_t, typename cache_adapter_t, typename provider_t, typename request_adapter_t,
+    template <typename cache_t, typename cache_adapter_t, typename provider_t, typename request_traits_t,
               typename container_t>
-    auto resolve(cache_t&, cache_adapter_t&, provider_t& provider, request_adapter_t& request_adapter,
+    auto resolve(cache_t&, cache_adapter_t&, provider_t& provider, request_traits_t& request_traits,
                  container_t&) const -> as_returnable_t<request_t> {
         // check for captive dependencies
         constexpr auto dependency_lifetime = lifetime_t::singleton;
         assert_noncaptive<min_lifetime, dependency_lifetime>();
 
-        return request_adapter.as_requested(provider.get());
+        return request_traits.from_provided(provider.get());
     }
 };
 
@@ -48,9 +48,9 @@ struct use_accessor_t {
 
 template <typename request_t, typename dependency_chain_t, lifetime_t min_lifetime>
 struct always_create_t {
-    template <typename cache_t, typename cache_adapter_t, typename provider_t, typename request_adapter_t,
+    template <typename cache_t, typename cache_adapter_t, typename provider_t, typename request_traits_t,
               typename container_t>
-    auto resolve(cache_t&, cache_adapter_t&, provider_t& provider, request_adapter_t& request_adapter,
+    auto resolve(cache_t&, cache_adapter_t&, provider_t& provider, request_traits_t& request_traits,
                  container_t& container) const -> as_returnable_t<request_t> {
         // check for captive dependencies
         constexpr auto dependency_lifetime = lifetime_t::transient;
@@ -59,7 +59,7 @@ struct always_create_t {
         // narrow min lifetime to match current dependency
         constexpr auto propagated_lifetime = std::max(min_lifetime, dependency_lifetime);
 
-        return request_adapter.as_requested(
+        return request_traits.from_provided(
             provider.template create<request_t, dependency_chain_t, propagated_lifetime>(container));
     }
 };
@@ -70,10 +70,10 @@ struct always_create_t {
 
 template <typename request_t, typename dependency_chain_t, lifetime_t min_lifetime>
 struct cached_singleton_t {
-    template <typename cache_t, typename cache_adapter_t, typename provider_t, typename request_adapter_t,
+    template <typename cache_t, typename cache_adapter_t, typename provider_t, typename request_traits_t,
               typename container_t>
     auto resolve(cache_t& cache, cache_adapter_t& cache_adapter, provider_t& provider,
-                 request_adapter_t& request_adapter, container_t& container) const -> as_returnable_t<request_t> {
+                 request_traits_t& request_traits, container_t& container) const -> as_returnable_t<request_t> {
         // check for captive dependencies
         constexpr auto dependency_lifetime = lifetime_t::singleton;
         assert_noncaptive<min_lifetime, dependency_lifetime>();
@@ -90,7 +90,7 @@ struct cached_singleton_t {
         };
 
         auto&& cached = cache_adapter.template get_or_create<typename provider_t::provided_t>(cache, factory);
-        return request_adapter.as_requested(std::forward<decltype(cached)>(cached));
+        return request_traits.from_provided(std::forward<decltype(cached)>(cached));
     }
 };
 
@@ -100,10 +100,10 @@ struct cached_singleton_t {
 
 template <typename request_t, typename dependency_chain_t, lifetime_t min_lifetime>
 struct copy_from_cache_t {
-    template <typename cache_t, typename cache_adapter_t, typename provider_t, typename request_adapter_t,
+    template <typename cache_t, typename cache_adapter_t, typename provider_t, typename request_traits_t,
               typename container_t>
     auto resolve(cache_t& cache, cache_adapter_t& cache_adapter, provider_t& provider,
-                 request_adapter_t& request_adapter, container_t& container) const -> as_returnable_t<request_t> {
+                 request_traits_t& request_traits, container_t& container) const -> as_returnable_t<request_t> {
         // check for captive dependencies
         constexpr auto dependency_lifetime = lifetime_t::transient;
         assert_noncaptive<min_lifetime, dependency_lifetime>();
@@ -116,7 +116,7 @@ struct copy_from_cache_t {
         };
 
         auto&& cached = cache_adapter.template get_or_create<typename provider_t::provided_t>(cache, factory);
-        return request_adapter.as_requested(element_type(std::forward<decltype(cached)>(cached)));
+        return request_traits.from_provided(element_type(std::forward<decltype(cached)>(cached)));
     }
 };
 
