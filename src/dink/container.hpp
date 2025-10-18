@@ -14,7 +14,7 @@
 #include <dink/not_found.hpp>
 #include <dink/parent_link.hpp>
 #include <dink/provider.hpp>
-#include <dink/request_adapter.hpp>
+#include <dink/request_traits.hpp>
 #include <dink/resolver.hpp>
 #include <dink/resolver_strategy.hpp>
 #include <dink/scope.hpp>

@@ -26,7 +26,7 @@ list(APPEND dink_library_files
     not_found.hpp
     parent_link.hpp
     provider.hpp
-    request_adapter.hpp
+    request_traits.hpp
     resolver.hpp
     resolver_strategy.hpp
     scope.hpp
@@ -49,7 +49,7 @@ list(APPEND dink_unit_test_files
     invoker_test.cpp
     parent_link_test.cpp
     provider_test.cpp
-    request_adapter_test.cpp
+    request_traits_test.cpp
     resolver_strategy_test.cpp
     resolver_test.cpp
     smart_pointer_traits_test.cpp

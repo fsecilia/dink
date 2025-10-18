@@ -3,7 +3,7 @@
     Copyright (C) 2025 Frank Secilia
 */
 
-#include "request_adapter.hpp"
+#include "request_traits.hpp"
 #include <dink/test.hpp>
 
 namespace dink {
