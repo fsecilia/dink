@@ -17,7 +17,6 @@ list(APPEND dink_library_files
     canonical.hpp
     config.hpp
     container.hpp
-    delegate.hpp
     dink.hpp
     double_checked_storage.hpp
     exceptions.hpp
@@ -25,10 +24,11 @@ list(APPEND dink_library_files
     lib.hpp
     meta.hpp
     not_found.hpp
+    parent_link.hpp
     provider.hpp
     request_adapter.hpp
-    resolver_strategy.hpp
     resolver.hpp
+    resolver_strategy.hpp
     scope.hpp
     smart_pointer_traits.hpp
     type_list.hpp
@@ -45,9 +45,9 @@ list(APPEND dink_unit_test_files
     canonical_test.cpp
     config_test.cpp
     container_test.cpp
-    delegate_test.cpp
     double_checked_storage_test.cpp
     invoker_test.cpp
+    parent_link_test.cpp
     provider_test.cpp
     request_adapter_test.cpp
     resolver_strategy_test.cpp
