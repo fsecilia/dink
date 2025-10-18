@@ -34,6 +34,7 @@ struct use_accessor_t {
               typename container_t>
     auto resolve(cache_t&, cache_adapter_t&, provider_t& provider, request_adapter_t& request_adapter,
                  container_t&) const -> as_returnable_t<request_t> {
+        // check for captive dependencies
         constexpr auto dependency_lifetime = lifetime_t::singleton;
         assert_noncaptive<min_lifetime, dependency_lifetime>();
 
@@ -51,9 +52,11 @@ struct always_create_t {
               typename container_t>
     auto resolve(cache_t&, cache_adapter_t&, provider_t& provider, request_adapter_t& request_adapter,
                  container_t& container) const -> as_returnable_t<request_t> {
+        // check for captive dependencies
         constexpr auto dependency_lifetime = lifetime_t::transient;
         assert_noncaptive<min_lifetime, dependency_lifetime>();
 
+        // narrow min lifetime to match current dependency
         constexpr auto propagated_lifetime = std::max(min_lifetime, dependency_lifetime);
 
         return request_adapter.as_requested(
@@ -71,10 +74,16 @@ struct cached_singleton_t {
               typename container_t>
     auto resolve(cache_t& cache, cache_adapter_t& cache_adapter, provider_t& provider,
                  request_adapter_t& request_adapter, container_t& container) const -> as_returnable_t<request_t> {
+        // check for captive dependencies
         constexpr auto dependency_lifetime = lifetime_t::singleton;
         assert_noncaptive<min_lifetime, dependency_lifetime>();
 
-        constexpr auto propagated_lifetime = std::max(min_lifetime, dependency_lifetime);
+        /*
+            Dependencies are captured during construction. If constructor captures by reference (e.g., T&), the
+            reference request itself forces singleton caching of that dependency. We pass through parent's requirement,
+            allowing each dependency to be evaluated independently based on its own request type.
+        */
+        constexpr auto propagated_lifetime = min_lifetime;
 
         auto factory = [&]() {
             return provider.template create<resolved_t<request_t>, dependency_chain_t, propagated_lifetime>(container);
@@ -95,9 +104,11 @@ struct copy_from_cache_t {
               typename container_t>
     auto resolve(cache_t& cache, cache_adapter_t& cache_adapter, provider_t& provider,
                  request_adapter_t& request_adapter, container_t& container) const -> as_returnable_t<request_t> {
+        // check for captive dependencies
         constexpr auto dependency_lifetime = lifetime_t::transient;
         assert_noncaptive<min_lifetime, dependency_lifetime>();
 
+        // narrow min lifetime to match current dependency
         constexpr auto propagated_lifetime = std::max(min_lifetime, dependency_lifetime);
 
         auto factory = [&]() {
