@@ -32,6 +32,11 @@ target_include_directories(dink INTERFACE
   "$<BUILD_INTERFACE:${dink_config_gen_root}>"
   "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>"
 )
+set_target_properties(dink
+  PROPERTIES
+  VERSION ${dink_major} ${dink_minor} ${dink_patch}
+  SOVERSION ${dink_major} ${dink_minor}
+)
 
 if (dink_enable_testing)
     add_executable(dink_test ${dink_test_files})
