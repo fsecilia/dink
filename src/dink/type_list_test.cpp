@@ -47,6 +47,7 @@ static_assert(!TypeList<T0>::kContains<T1>);  // Not contained.
 // Multiple elements.
 // ----------------------------------------------------------------------------
 static_assert(TypeList<T0, T1, T2>::kContains<T0>);   // Begin contained.
+static_assert(TypeList<T0, T1, T2>::kContains<T1>);   // Middle contained.
 static_assert(TypeList<T0, T1, T2>::kContains<T2>);   // End contained.
 static_assert(!TypeList<T0, T1, T2>::kContains<T3>);  // Not contained.
 
