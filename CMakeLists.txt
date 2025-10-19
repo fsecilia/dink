@@ -14,3 +14,7 @@ if (ccache)
     set(CMAKE_C_LINKER_LAUNCHER "${ccache}")
     set(CMAKE_CXX_LINKER_LAUNCHER "${ccache}")
 endif()
+
+# find system threading library
+set(THREADS_PREFER_PTHREAD_FLAG True)
+find_package(Threads REQUIRED)
