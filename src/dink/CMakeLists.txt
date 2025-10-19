@@ -7,6 +7,7 @@
 
 list(APPEND dink_library_files
   config.template.hpp
+  lib.hpp
 )
 
 # -----------------------------------------------------------------------------
