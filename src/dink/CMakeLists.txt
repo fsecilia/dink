@@ -24,5 +24,5 @@ configure_file("${dink_config_template_file}" "${dink_config_gen_file}")
 add_library(dink INTERFACE ${dink_library_files} "${dink_config_gen_file}")
 target_include_directories(dink INTERFACE
   "$<BUILD_INTERFACE:${dink_config_gen_root}>"
-  "$<BUILD_INTERFACE:${PROJECT_DIR}/src>"
+  "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>"
 )
