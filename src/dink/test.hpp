@@ -10,7 +10,7 @@
 
 namespace dink {
 
-// all test files implicitly use namespace testing
+// All test files implicitly use namespace testing.
 using namespace testing;
 
 }  // namespace dink
