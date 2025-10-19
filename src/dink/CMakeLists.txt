@@ -98,7 +98,7 @@ set(dink_cmake_install_root "${CMAKE_INSTALL_LIBDIR}/cmake/dink")
 install(EXPORT dink
   NAMESPACE dink::
   DESTINATION "${dink_cmake_install_root}"
-  FILE dink-targets.cmake
+  FILE "dink-targets.cmake"
 )
 
 # Destination file to let find_package() check the project's configured
