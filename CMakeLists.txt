@@ -100,3 +100,9 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
   add_compile_options(/utf-8 "$<$<CONFIG:RELEASE>:/GS;/Gy;/Zc:inline>")
   add_link_options("$<$<CONFIG:RELEASE>:/LTCG;/OPT:ICF;/OPT:REF>")
 endif()
+
+# -----------------------------------------------------------------------------
+# project subdirectories
+# -----------------------------------------------------------------------------
+
+add_subdirectory(src/dink)
