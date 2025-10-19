@@ -122,15 +122,16 @@ install(
 )
 
 # Generate dink-config.cmake from dink_config.gen.cmake
+set(dink_cmake_config_file "${PROJECT_BINARY_DIR}/dink-config.cmake")
 configure_package_config_file(
   "dink-config.template.cmake"
-  "${PROJECT_BINARY_DIR}/dink-config.cmake"
+  "${dink_cmake_config_file}"
   INSTALL_DESTINATION "${dink_cmake_install_root}"
 )
 
 # Install dink-config.cmake.
 install(
-  FILES "${PROJECT_BINARY_DIR}/dink-config.cmake"
+  FILES "${dink_cmake_config_file}"
   DESTINATION "${dink_cmake_install_root}"
 )
 
