@@ -62,6 +62,7 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 
     -Wno-c++98-compat
     -Wno-c++98-compat-pedantic
+    -Wno-global-constructors
   )
 endif()
 
@@ -126,7 +127,7 @@ function(dink_enable_running_from_build_tree target)
         "$<TARGET_RUNTIME_DLLS:${target}>" "$<TARGET_FILE_DIR:${target}>"
       COMMAND_EXPAND_LISTS
     )
-endif()
+  endif()
 endfunction()
 
 # -----------------------------------------------------------------------------
