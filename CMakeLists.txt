@@ -7,6 +7,16 @@ cmake_minimum_required(VERSION 4.0.2)
 project(dink)
 
 # -----------------------------------------------------------------------------
+# version
+# -----------------------------------------------------------------------------
+
+set(dink_version_major 0)
+set(dink_version_minor 1)
+set(dink_version_patch 0)
+set(dink_version
+    ${dink_version_major}.${dink_version_minor}.${dink_version_patch})
+
+# -----------------------------------------------------------------------------
 # ccache
 # -----------------------------------------------------------------------------
 
