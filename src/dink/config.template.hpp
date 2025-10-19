@@ -1,7 +1,5 @@
-/*!
-  \file
-  Copyright (C) 2025 Frank Secilia
-*/
+// \file
+// Copyright (c) 2025 Frank Secilia
 
 #pragma once
 

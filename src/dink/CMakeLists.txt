@@ -1,7 +1,5 @@
-#
 # \file
 # copyright (c) 2025 Frank Secilia
-#
 
 list(APPEND dink_library_files
   config.template.hpp
