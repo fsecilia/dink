@@ -31,5 +31,24 @@ static_assert(std::is_same_v<TypeList<T0>::Append<T1>, TypeList<T0, T1>>);
 static_assert(
     std::is_same_v<TypeList<T0, T1, T2>::Append<T3>, TypeList<T0, T1, T2, T3>>);
 
+// ----------------------------------------------------------------------------
+// TypeList::kContains
+// ----------------------------------------------------------------------------
+
+// empty list
+// ----------------------------------------------------------------------------
+static_assert(!TypeList<>::kContains<T0>);  // always contains nothing
+
+// single element
+// ----------------------------------------------------------------------------
+static_assert(TypeList<T0>::kContains<T0>);   // contained
+static_assert(!TypeList<T0>::kContains<T1>);  // not contained
+
+// multiple elements
+// ----------------------------------------------------------------------------
+static_assert(TypeList<T0, T1, T2>::kContains<T0>);   // begin contained
+static_assert(TypeList<T0, T1, T2>::kContains<T2>);   // end contained
+static_assert(!TypeList<T0, T1, T2>::kContains<T3>);  // not contained
+
 }  // namespace
 }  // namespace dink
