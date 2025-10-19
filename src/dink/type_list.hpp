@@ -9,7 +9,11 @@
 namespace dink {
 
 //! Lightweight, compile-time tuple.
-template <typename... Types>
-struct TypeList {};
+template <typename... Elements>
+struct TypeList {
+  //! Metafunction returning the original type list with Element appended.
+  template <typename Element>
+  using Append = TypeList<Elements..., Element>;
+};
 
 }  // namespace dink
