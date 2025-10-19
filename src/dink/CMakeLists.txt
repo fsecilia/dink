@@ -64,23 +64,23 @@ set_target_properties(dink PROPERTIES PUBLIC_HEADER "${dink_library_files}")
 
 # Install library and source header components.
 install(TARGETS dink
-  # associate installed items with an export set named "dink"
+  # Associate installed items with an export set named "dink".
   EXPORT dink
 
-  # install static library, if configured
+  # Install static library, if configured.
   ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 
-  # install .so, if configured
+  # Install .so, if configured.
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
 
-  # install .dll, if configured
+  # Install .dll, if configured.
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 
-  # install public headers
+  # Install public headers.
   PUBLIC_HEADER DESTINATION ${dink_header_install_root}
 )
 
-# Install generated config file.
+# Install generated config header.
 install(FILES "${dink_config_gen_file}"
   DESTINATION "${dink_header_install_root}"
 )
