@@ -100,6 +100,33 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
 endif()
 
 # -----------------------------------------------------------------------------
+# project functions
+# -----------------------------------------------------------------------------
+
+# sets up build tree for running an executable
+#
+# Shared objects must be located when running from the build tree. Most
+# platforms use RPATH. Windows does not, but when locating dlls for an
+# executable, it will search for the directory containing that executable. The
+# cmake devs recommend placing output dlls next to the executable as a
+# post-build step. Here, we rsync the files in a project's TARGET_RUNTIME_DLLS
+# to its TARGET_FILE_DIR.
+#
+# This is only for running from the build tree, and only on Windows. It only
+# affects dll files we build directly or indirectly through add_subdirectory(),
+# FetchContent or ExternalProject.
+function(dink_enable_running_from_build_tree target)
+  if (CMAKE_SYSTEM_NAME MATCHES "Windows")
+    add_custom_command(TARGET ${target}
+      POST_BUILD
+      COMMAND "${CMAKE_COMMAND}" -E echo copy_if_different
+        "$<TARGET_RUNTIME_DLLS:${target}>" "$<TARGET_FILE_DIR:${target}>"
+      COMMAND_EXPAND_LISTS
+    )
+endif()
+endfunction()
+
+# -----------------------------------------------------------------------------
 # project subdirectories
 # -----------------------------------------------------------------------------
 
