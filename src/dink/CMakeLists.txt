@@ -7,11 +7,13 @@
 
 list(APPEND dink_library_files
   lib.hpp
+  type_list.hpp
   version.hpp
 )
 
 list(APPEND dink_test_files
   test.hpp
+  type_list_test.cpp
   version_test.cpp
 )
 
