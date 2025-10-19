@@ -8,6 +8,12 @@
 list(APPEND dink_library_files
   config.template.hpp
   lib.hpp
+  version.hpp
+)
+
+list(APPEND dink_test_files
+  test.hpp
+  version_test.cpp
 )
 
 # -----------------------------------------------------------------------------
@@ -26,3 +32,17 @@ target_include_directories(dink INTERFACE
   "$<BUILD_INTERFACE:${dink_config_gen_root}>"
   "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>"
 )
+
+if (dink_enable_testing)
+    add_executable(dink_test ${dink_test_files})
+    target_link_libraries(dink_test PUBLIC
+        dink
+        GTest::gmock_main
+        GTest::gtest_main
+        GTest::gmock
+        GTest::gtest
+    )
+    dink_configure_test_target_warnings(dink_test)
+    dink_enable_running_from_build_tree(dink_test)
+    gtest_discover_tests(dink_test)
+endif()
