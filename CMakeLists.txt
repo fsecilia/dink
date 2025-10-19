@@ -6,6 +6,10 @@
 cmake_minimum_required(VERSION 4.0.2)
 project(dink)
 
+# -----------------------------------------------------------------------------
+# ccache
+# -----------------------------------------------------------------------------
+
 # use ccache, if available
 find_program(ccache ccache)
 if (ccache)
@@ -14,6 +18,10 @@ if (ccache)
   set(CMAKE_C_LINKER_LAUNCHER "${ccache}")
   set(CMAKE_CXX_LINKER_LAUNCHER "${ccache}")
 endif()
+
+# -----------------------------------------------------------------------------
+# dependencies
+# -----------------------------------------------------------------------------
 
 # find system threading library
 set(THREADS_PREFER_PTHREAD_FLAG True)
@@ -25,7 +33,10 @@ if (GTEST_FOUND)
   set(dink_enable_testing True)
 endif()
 
+# -----------------------------------------------------------------------------
 # enable warnings
+# -----------------------------------------------------------------------------
+
 if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
   add_compile_options(
     -pedantic
