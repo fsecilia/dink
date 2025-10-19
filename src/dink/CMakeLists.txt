@@ -1,5 +1,5 @@
-# \file
 # copyright (c) 2025 Frank Secilia
+# SPDX-License-Identifier: MIT
 
 # -----------------------------------------------------------------------------
 # project files
