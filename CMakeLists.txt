@@ -24,3 +24,28 @@ find_package(GTest)
 if (GTEST_FOUND)
     set(dink_enable_testing True)
 endif()
+
+# enable warnings
+if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    add_compile_options(
+        -pedantic
+        -Wall
+        -Werror
+        -Wextra
+        -Wstrict-aliasing=2
+        -Wswitch-enum
+    )
+endif()
+
+if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    add_compile_options(
+        -Weverything
+    )
+endif()
+
+if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+    add_compile_options(-D_SCL_SECURE_NO_WARNINGS -D_CRT_SECURE_NO_WARNINGS
+                        /WX /W4 /wd4201 /wd4250 /wd4251 /wd4275 /wd4458 /wd4459
+                        /wd4576)
+    add_link_options(/WX)
+endif()
