@@ -26,6 +26,10 @@ set(dink_config_gen_file
   "${dink_config_gen_root}/dink/${dink_config_gen_filename}")
 configure_file("${dink_config_template_file}" "${dink_config_gen_file}")
 
+# -----------------------------------------------------------------------------
+# project definition
+# -----------------------------------------------------------------------------
+
 add_library(dink INTERFACE
   ${dink_library_files}
   "${dink_config_gen_file}"
@@ -127,6 +131,10 @@ install(
   FILES "${PROJECT_BINARY_DIR}/dink-config.cmake"
   DESTINATION "${dink_cmake_install_root}"
 )
+
+# -----------------------------------------------------------------------------
+# test projects
+# -----------------------------------------------------------------------------
 
 if (dink_enable_testing)
     add_executable(dink_test ${dink_test_files})
