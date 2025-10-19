@@ -130,6 +130,13 @@ function(dink_enable_running_from_build_tree target)
   endif()
 endfunction()
 
+# disables a few warnings generated when using gtest
+function(dink_configure_test_target_warnings target)
+  if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    target_compile_options(${target} PUBLIC -Wno-global-constructors)
+  endif()
+endfunction()
+
 # -----------------------------------------------------------------------------
 # project subdirectories
 # -----------------------------------------------------------------------------
