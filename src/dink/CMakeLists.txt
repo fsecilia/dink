@@ -34,8 +34,8 @@ configure_file("${dink_config_template_file}" "${dink_config_gen_file}")
 
 add_library(dink INTERFACE
   ${dink_library_files}
+  "${dink_config_template_file}"
   "${dink_config_gen_file}"
-  config.template.hpp
 )
 target_include_directories(dink INTERFACE
   "$<BUILD_INTERFACE:${dink_config_gen_root}>"
