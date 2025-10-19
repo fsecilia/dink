@@ -69,7 +69,7 @@ public:
 
         // check local binding
         auto local_binding = config.template find_binding<resolved_t<request_t>>();
-        if constexpr (!std::is_same_v<decltype(local_binding), not_found_t>) { return on_found(local_binding); }
+        if constexpr (!std::is_same_v<decltype(local_binding), std::nullptr_t>) { return on_found(local_binding); }
 
         // recurse to parent via parent_link
         return parent_link.template find_in_parent<request_t>(*this, std::forward<decltype(on_found)>(on_found),
@@ -77,9 +77,10 @@ public:
     }
 
 private:
-    template <typename container_t, typename cache_t>
-    auto resolve_with_binding(container_t& container, cache_t& cache, auto* binding) -> as_returnable_t<request_t> {
-        auto const strategy = strategy_factory_.create(binding);
+    template <typename container_t, typename cache_t, typename binding_t>
+    auto resolve_with_binding(container_t& container, cache_t& cache, binding_t* binding)
+        -> as_returnable_t<request_t> {
+        auto const strategy = strategy_factory_.template create<binding_t>();
         return strategy.resolve(cache, cache_adapter_, binding->provider, request_traits_, container);
     }
 
@@ -87,7 +88,7 @@ private:
     auto resolve_without_binding(container_t& container, cache_t& cache,
                                  default_provider_factory_t& default_provider_factory) -> as_returnable_t<request_t> {
         auto       default_provider = default_provider_factory.template create<resolved_t<request_t>>();
-        auto const strategy         = strategy_factory_.create(not_found);
+        auto const strategy         = strategy_factory_.template create<std::nullptr_t>();
         return strategy.resolve(cache, cache_adapter_, default_provider, request_traits_, container);
     }
 

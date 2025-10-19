@@ -13,7 +13,6 @@
 #include <dink/lib.hpp>
 #include <dink/bindings.hpp>
 #include <dink/meta.hpp>
-#include <dink/not_found.hpp>
 #include <dink/scope.hpp>
 #include <tuple>
 #include <utility>
@@ -43,6 +42,8 @@ concept is_config = requires(config_t& config) { config.template find_binding<me
 // ---------------------------------------------------------------------------------------------------------------------
 
 namespace detail {
+
+inline static constexpr auto npos = std::size_t(-1);
 
 /*!
     finds the index of a binding for resolved_t in the bindings tuple
@@ -137,16 +138,16 @@ public:
         finds binding for a resolved type
 
         \tparam resolved_t canonical type to look up
-        \return pointer to binding if found, otherwise not_found sentinel
+        \return pointer to binding if found, otherwise nullptr
     */
     template <typename resolved_t>
     auto find_binding() -> auto {
         static constexpr auto index = detail::binding_index_v<resolved_t, bindings_tuple_t>;
 
-        if constexpr (index != npos) {
+        if constexpr (index != detail::npos) {
             return &std::get<index>(bindings_);
         } else {
-            return not_found;
+            return nullptr;
         }
     }
 

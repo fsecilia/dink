@@ -123,9 +123,9 @@ struct copy_from_cache_t {
 template <typename request_t, typename dependency_chain_t, lifetime_t min_lifetime>
 class factory_t {
 public:
-    template <typename binding_or_not_found_t>
-    auto create(binding_or_not_found_t) const -> auto {
-        constexpr bool binding_found = !std::is_same_v<binding_or_not_found_t, not_found_t>;
+    template <typename binding_or_nullptr_t>
+    auto create() const -> auto {
+        constexpr bool binding_found = !std::is_same_v<binding_or_nullptr_t, std::nullptr_t>;
 
         // these types don't request ownership
         static constexpr auto is_shared = std::is_lvalue_reference_v<request_t> || std::is_pointer_v<request_t> ||
@@ -134,7 +134,7 @@ public:
         if constexpr (binding_found) {
             // a binding was found; choose strategy based on request and bound scope
 
-            using binding_t  = std::remove_pointer_t<binding_or_not_found_t>;
+            using binding_t  = std::remove_pointer_t<binding_or_nullptr_t>;
             using provider_t = typename binding_t::provider_type;
             using scope_t    = typename binding_t::scope_type;
 
