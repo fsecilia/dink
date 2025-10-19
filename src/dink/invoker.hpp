@@ -77,7 +77,6 @@ struct invoker_factory_t {
         using indexed_arg_factory_t = indexed_arg_factory_t<arg_t, single_arg_t>;
 
         static constexpr auto arity = arity_v<constructed_t, resolved_factory_t>;
-        static_assert(npos != arity, "could not deduce arity");
         using indexed_invoker_t =
             indexed_invoker_t<constructed_t, indexed_arg_factory_t, std::make_index_sequence<arity>>;
 

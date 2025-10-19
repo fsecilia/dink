@@ -23,7 +23,6 @@ list(APPEND dink_library_files
     invoker.hpp
     lib.hpp
     meta.hpp
-    not_found.hpp
     parent_link.hpp
     provider.hpp
     request_traits.hpp
