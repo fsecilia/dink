@@ -45,4 +45,16 @@ if (dink_enable_testing)
     dink_configure_test_target_warnings(dink_test)
     dink_enable_running_from_build_tree(dink_test)
     gtest_discover_tests(dink_test)
+
+    add_executable(dink_integration_test dink_integration_test.cpp)
+    target_link_libraries(dink_integration_test PUBLIC
+        dink
+        GTest::gmock_main
+        GTest::gtest_main
+        GTest::gmock
+        GTest::gtest
+    )
+    dink_configure_test_target_warnings(dink_integration_test)
+    dink_enable_running_from_build_tree(dink_integration_test)
+    gtest_discover_tests(dink_integration_test)
 endif()
