@@ -7,7 +7,6 @@
 
 #include <dink/lib.hpp>
 #include <dink/arity.hpp>
-#include <dink/not_found.hpp>
 #include <utility>
 
 namespace dink {

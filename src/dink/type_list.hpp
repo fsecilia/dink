@@ -6,7 +6,6 @@
 #pragma once
 
 #include <dink/lib.hpp>
-#include <dink/not_found.hpp>
 #include <type_traits>
 
 namespace dink {

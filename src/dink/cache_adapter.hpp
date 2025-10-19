@@ -6,7 +6,6 @@
 #pragma once
 
 #include <dink/lib.hpp>
-#include <dink/not_found.hpp>
 #include <dink/provider.hpp>
 #include <dink/scope.hpp>
 #include <dink/smart_pointer_traits.hpp>

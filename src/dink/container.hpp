@@ -11,7 +11,6 @@
 #include <dink/cache/type_indexed.hpp>
 #include <dink/cache_adapter.hpp>
 #include <dink/config.hpp>
-#include <dink/not_found.hpp>
 #include <dink/parent_link.hpp>
 #include <dink/provider.hpp>
 #include <dink/request_traits.hpp>
