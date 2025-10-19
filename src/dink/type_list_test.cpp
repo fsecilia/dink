@@ -8,7 +8,7 @@
 namespace dink {
 namespace {
 
-// arbitrary, unique types
+// Arbitrary, unique types.
 struct T0;
 struct T1;
 struct T2;
@@ -18,15 +18,15 @@ struct T3;
 // TypeList::Append
 // ----------------------------------------------------------------------------
 
-// append to empty list
+// Append to empty list.
 // ----------------------------------------------------------------------------
 static_assert(std::is_same_v<TypeList<>::Append<T0>, TypeList<T0>>);
 
-// append to list with one element
+// Append to list with one element.
 // ----------------------------------------------------------------------------
 static_assert(std::is_same_v<TypeList<T0>::Append<T1>, TypeList<T0, T1>>);
 
-// append to list with multiple elements
+// Append to list with multiple elements.
 // ----------------------------------------------------------------------------
 static_assert(
     std::is_same_v<TypeList<T0, T1, T2>::Append<T3>, TypeList<T0, T1, T2, T3>>);
@@ -35,20 +35,20 @@ static_assert(
 // TypeList::kContains
 // ----------------------------------------------------------------------------
 
-// empty list
+// Empty list.
 // ----------------------------------------------------------------------------
-static_assert(!TypeList<>::kContains<T0>);  // always contains nothing
+static_assert(!TypeList<>::kContains<T0>);  // Always contains nothing.
 
-// single element
+// Single element.
 // ----------------------------------------------------------------------------
-static_assert(TypeList<T0>::kContains<T0>);   // contained
-static_assert(!TypeList<T0>::kContains<T1>);  // not contained
+static_assert(TypeList<T0>::kContains<T0>);   // Contained.
+static_assert(!TypeList<T0>::kContains<T1>);  // Not contained.
 
-// multiple elements
+// Multiple elements.
 // ----------------------------------------------------------------------------
-static_assert(TypeList<T0, T1, T2>::kContains<T0>);   // begin contained
-static_assert(TypeList<T0, T1, T2>::kContains<T2>);   // end contained
-static_assert(!TypeList<T0, T1, T2>::kContains<T3>);  // not contained
+static_assert(TypeList<T0, T1, T2>::kContains<T0>);   // Begin contained.
+static_assert(TypeList<T0, T1, T2>::kContains<T2>);   // End contained.
+static_assert(!TypeList<T0, T1, T2>::kContains<T3>);  // Not contained.
 
 }  // namespace
 }  // namespace dink
