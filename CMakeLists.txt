@@ -18,3 +18,9 @@ endif()
 # find system threading library
 set(THREADS_PREFER_PTHREAD_FLAG True)
 find_package(Threads REQUIRED)
+
+# find googletest
+find_package(GTest)
+if (GTEST_FOUND)
+    set(dink_enable_testing True)
+endif()
