@@ -6,7 +6,6 @@
 # -----------------------------------------------------------------------------
 
 list(APPEND dink_library_files
-  config.template.hpp
   lib.hpp
   version.hpp
 )
@@ -27,7 +26,11 @@ set(dink_config_gen_file
   "${dink_config_gen_root}/dink/${dink_config_gen_filename}")
 configure_file("${dink_config_template_file}" "${dink_config_gen_file}")
 
-add_library(dink INTERFACE ${dink_library_files} "${dink_config_gen_file}")
+add_library(dink INTERFACE
+  ${dink_library_files}
+  "${dink_config_gen_file}"
+  config.template.hpp
+)
 target_include_directories(dink INTERFACE
   "$<BUILD_INTERFACE:${dink_config_gen_root}>"
   "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>"
