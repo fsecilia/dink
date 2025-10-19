@@ -37,6 +37,7 @@ class Version {
   int_t patch_{};
 };
 
+//! Returns version as configured in build.
 constexpr auto version() noexcept -> Version {
   return Version{dink_version_major, dink_version_minor, dink_version_patch};
 }
