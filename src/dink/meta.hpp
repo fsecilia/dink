@@ -21,6 +21,8 @@ constexpr auto kDependentBool = condition;
 // This is useful to trigger a static assert unconditionally, using Context to
 // make the expression dependent. The static assert message will also contain
 // information related to Context.
+//
+// \sa kDependentBool
 template <typename Context>
 constexpr auto kDependentFalse = kDependentBool<false, Context>;
 
