@@ -16,4 +16,12 @@ namespace dink {
 template <bool condition, typename Context>
 constexpr auto kDependentBool = condition;
 
+//! constexpr false, but dependent on a template parameter to delay evaluation.
+//
+// This is useful to trigger a static assert unconditionally, using Context to
+// make the expression dependent. The static assert message will also contain
+// information related to Context.
+template <typename Context>
+constexpr auto kDependentFalse = kDependentBool<false, Context>;
+
 }  // namespace dink
