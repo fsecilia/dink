@@ -5,6 +5,8 @@
 #pragma once
 
 #include <dink/lib.hpp>
+#include <concepts>
+#include <type_traits>
 
 namespace dink {
 
@@ -32,5 +34,12 @@ constexpr auto kDependentFalse = kDependentBool<false, Context>;
 // index sequence of length n.
 template <typename Type, std::size_t index>
 using IndexedType = Type;
+
+//! Filters types that match Unqualified after removing cv and ref qualifiers.
+//
+// This is used to filter signatures that match copy or move ctors.
+template <typename Qualified, typename Unqualified>
+concept DifferentUnqualifiedType =
+    !std::same_as<std::remove_cvref_t<Qualified>, Unqualified>;
 
 }  // namespace dink
