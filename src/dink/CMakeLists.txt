@@ -153,6 +153,8 @@ install(
 # -----------------------------------------------------------------------------
 
 if (dink_enable_testing)
+  # dink_test
+  # ---------------------------------------------------------------------------
   add_executable(dink_test ${dink_test_files})
   target_link_libraries(dink_test PUBLIC
     dink
@@ -165,6 +167,8 @@ if (dink_enable_testing)
   dink_enable_running_from_build_tree(dink_test)
   gtest_discover_tests(dink_test)
 
+  # dink_integration_test
+  # ---------------------------------------------------------------------------
   add_executable(dink_integration_test dink_integration_test.cpp)
   target_link_libraries(dink_integration_test PUBLIC
     dink
