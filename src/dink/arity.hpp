@@ -7,7 +7,16 @@
 #include <dink/lib.hpp>
 
 namespace dink {
+namespace arity::detail {
 
-//
+//! Probes individual constructor/function arguments.
+struct Probe {
+  template <typename Deduced>
+  operator Deduced();
 
+  template <typename Deduced>
+  operator Deduced&() const;
+};
+
+}  // namespace arity::detail
 }  // namespace dink
