@@ -9,7 +9,7 @@
 #include <memory>
 
 namespace dink {
-namespace detail {
+namespace canonical::detail {
 
 //! Recursively strips Source type of qualifier and wrapper.
 //
@@ -94,10 +94,10 @@ struct Canonical<std::shared_ptr<Source>> : Canonical<Source> {};
 template <typename Source>
 struct Canonical<std::weak_ptr<Source>> : Canonical<Source> {};
 
-}  // namespace detail
+}  // namespace canonical::detail
 
 //! Trait to remove all ref, cv, and pointer qualifiers and standard wrappers.
 template <typename Source>
-using Canonical = typename detail::Canonical<Source>::Type;
+using Canonical = typename canonical::detail::Canonical<Source>::Type;
 
 }  // namespace dink
