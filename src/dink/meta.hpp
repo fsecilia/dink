@@ -26,8 +26,8 @@ constexpr auto kDependentFalse = kDependentBool<false, Context>;
 
 //! Consumes an index to produce a type.
 //
-// This type is useful for repeating a type n times from an index sequence of
-// length n.
+// This type is used to repeat a type n times by consuming the indices of an
+// index sequence of length n.
 template <typename Type, std::size_t index>
 using IndexedType = Type;
 
