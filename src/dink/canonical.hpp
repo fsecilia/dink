@@ -27,11 +27,11 @@ struct Canonical {
 
 //! Removes const.
 template <typename Source>
-struct Canonical<Source const> : Canonical<Source> {};
+struct Canonical<const Source> : Canonical<Source> {};
 
 //! Removes volatile.
 template <typename Source>
-struct Canonical<Source volatile> : Canonical<Source> {};
+struct Canonical<volatile Source> : Canonical<Source> {};
 
 //! Removes lvalue reference.
 template <typename Source>
@@ -65,7 +65,7 @@ struct Canonical<Source[]> : Canonical<Source> {};
 // This specialization is necessary to break a tie between const and unsized
 // array.
 template <typename Source>
-struct Canonical<Source const[]> : Canonical<Source> {};
+struct Canonical<const Source[]> : Canonical<Source> {};
 
 //! Removes sized array.
 template <typename Source, std::size_t size>
@@ -76,7 +76,7 @@ struct Canonical<Source[size]> : Canonical<Source> {};
 // This specialization is necessary to break a tie between const and sized
 // array.
 template <typename Source, std::size_t size>
-struct Canonical<Source const[size]> : Canonical<Source> {};
+struct Canonical<const Source[size]> : Canonical<Source> {};
 
 //! Removes reference_wrapper.
 template <typename Source>
