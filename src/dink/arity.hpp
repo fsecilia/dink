@@ -19,13 +19,13 @@ struct Probe {
   operator Deduced&() const;
 };
 
-//! Specialized probe for single-argument construction.
-template <typename Resolved>
+//! Probe for single-argument construction; doesn't match move or copy ctors.
+template <typename Constructed>
 struct SingleProbe {
-  template <meta::DifferentUnqualifiedType<Resolved> Deduced>
+  template <meta::DifferentUnqualifiedType<Constructed> Deduced>
   operator Deduced();
 
-  template <meta::DifferentUnqualifiedType<Resolved> Deduced>
+  template <meta::DifferentUnqualifiedType<Constructed> Deduced>
   operator Deduced&() const;
 };
 
