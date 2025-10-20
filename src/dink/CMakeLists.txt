@@ -167,6 +167,13 @@ if (dink_enable_testing)
   dink_enable_running_from_build_tree(dink_test)
   gtest_discover_tests(dink_test)
 
+  if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    target_compile_options(dink_test PUBLIC
+      -Wno-unneeded-member-function
+      -Wno-unused-member-function
+    )
+  endif()
+
   # dink_integration_test
   # ---------------------------------------------------------------------------
   add_executable(dink_integration_test dink_integration_test.cpp)

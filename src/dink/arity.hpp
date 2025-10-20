@@ -10,6 +10,10 @@
 namespace dink {
 namespace arity::detail {
 
+// ----------------------------------------------------------------------------
+// Probes
+// ----------------------------------------------------------------------------
+
 //! Probes individual constructor/function arguments.
 struct Probe {
   template <typename Deduced>
@@ -32,6 +36,32 @@ struct SingleProbe {
 //! Repeats Probe for each index in a sequence.
 template <std::size_t Index>
 using IndexedProbe = meta::IndexedType<Probe, Index>;
+
+// ----------------------------------------------------------------------------
+// Match
+// ----------------------------------------------------------------------------
+
+//! Checks if Factory(Probes...) produces Constructed.
+template <typename Constructed, typename Factory, typename... Probes>
+struct Match {
+  static constexpr auto value = []() constexpr {
+    if constexpr (std::is_invocable_v<Factory, Probes...>) {
+      return std::is_same_v<Constructed,
+                            std::invoke_result_t<Factory, Probes...>>;
+    } else {
+      return false;
+    }
+  }();
+};
+
+//! Specialization for void Factory checks Constructed's constructor.
+template <typename Constructed, typename... Probes>
+struct Match<Constructed, void, Probes...> {
+  static constexpr auto value = std::is_constructible_v<Constructed, Probes...>;
+};
+
+template <typename Constructed, typename Factory, typename... Probes>
+inline constexpr auto match = Match<Constructed, Factory, Probes...>::value;
 
 }  // namespace arity::detail
 }  // namespace dink
