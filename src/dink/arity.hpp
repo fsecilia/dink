@@ -5,6 +5,7 @@
 #pragma once
 
 #include <dink/lib.hpp>
+#include <dink/meta.hpp>
 
 namespace dink {
 namespace arity::detail {
@@ -15,6 +16,16 @@ struct Probe {
   operator Deduced();
 
   template <typename Deduced>
+  operator Deduced&() const;
+};
+
+//! Specialized probe for single-argument construction.
+template <typename Resolved>
+struct SingleProbe {
+  template <meta::DifferentUnqualifiedType<Resolved> Deduced>
+  operator Deduced();
+
+  template <meta::DifferentUnqualifiedType<Resolved> Deduced>
   operator Deduced&() const;
 };
 
