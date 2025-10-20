@@ -6,12 +6,14 @@
 # -----------------------------------------------------------------------------
 
 list(APPEND dink_library_files
+  canonical.hpp
   lib.hpp
   type_list.hpp
   version.hpp
 )
 
 list(APPEND dink_test_files
+  canonical_test.cpp
   test.hpp
   type_list_test.cpp
   version_test.cpp
