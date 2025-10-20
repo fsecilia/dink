@@ -6,6 +6,7 @@
 # -----------------------------------------------------------------------------
 
 list(APPEND dink_library_files
+  arity.hpp
   canonical.hpp
   lib.hpp
   meta.hpp
@@ -14,6 +15,7 @@ list(APPEND dink_library_files
 )
 
 list(APPEND dink_test_files
+  arity_test.cpp
   canonical_test.cpp
   test.hpp
   type_list_test.cpp
