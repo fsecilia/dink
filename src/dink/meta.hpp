@@ -8,7 +8,7 @@
 #include <concepts>
 #include <type_traits>
 
-namespace dink {
+namespace dink::meta {
 
 //! constexpr bool, but dependent on a template parameter to delay evaluation.
 //
@@ -42,4 +42,4 @@ template <typename Qualified, typename Unqualified>
 concept DifferentUnqualifiedType =
     !std::same_as<std::remove_cvref_t<Qualified>, Unqualified>;
 
-}  // namespace dink
+}  // namespace dink::meta
