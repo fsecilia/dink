@@ -29,5 +29,9 @@ struct SingleProbe {
   operator Deduced&() const;
 };
 
+//! Repeats Probe for each index in a sequence.
+template <std::size_t Index>
+using IndexedProbe = meta::IndexedType<Probe, Index>;
+
 }  // namespace arity::detail
 }  // namespace dink
