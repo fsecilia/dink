@@ -8,6 +8,7 @@
 list(APPEND dink_library_files
   canonical.hpp
   lib.hpp
+  meta.hpp
   type_list.hpp
   version.hpp
 )
