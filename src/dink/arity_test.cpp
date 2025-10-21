@@ -89,7 +89,7 @@ static_assert(match<R, R (*)(const A0&, A1&&), P, P>);
 
 // arity-3
 static_assert(match<R, R (*)(A0, A1, A2), P, P, P>);
-static_assert(match<R, R (*)(A0*, A1&, A2&&), P, P, P>);
+static_assert(match<R, R (*)(A0*, const A1&, A2&&), P, P, P>);
 
 // Factory Arity Mismatch
 // ----------------------------------------------------------------------------
