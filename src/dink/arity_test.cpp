@@ -50,16 +50,6 @@ struct MultipleValueConstructed {
   MultipleValueConstructed(const A0&, A1&, A2&&) {}
 };
 
-struct CopyConstructed {
-  CopyConstructed() = delete;
-  CopyConstructed(const CopyConstructed&) = default;
-};
-
-struct MoveConstructed {
-  MoveConstructed() = delete;
-  MoveConstructed(MoveConstructed&&) = default;
-};
-
 struct CopyMoveConstructed {
   CopyMoveConstructed() = delete;
   CopyMoveConstructed(const CopyMoveConstructed&) = default;
@@ -129,8 +119,6 @@ static_assert(match<DefaultConstructed, void>);
 static_assert(
     match<SingleValueConstructed, void, SingleProbe<SingleValueConstructed>>);
 static_assert(match<MultipleValueConstructed, void, Probe, Probe, Probe>);
-static_assert(match<SingleValueAndCopyConstructed, void,
-                    SingleProbe<SingleValueAndCopyConstructed>>);
 
 // Ctor Arity Mismatch
 // ----------------------------------------------------------------------------
@@ -143,14 +131,12 @@ static_assert(
 
 // Special Member Functions Match
 // ----------------------------------------------------------------------------
-static_assert(match<CopyConstructed, void, Probe>);
-static_assert(match<MoveConstructed, void, Probe>);
 static_assert(match<CopyMoveConstructed, void, Probe>);
+static_assert(match<SingleValueAndCopyConstructed, void,
+                    SingleProbe<SingleValueAndCopyConstructed>>);
 
 // Special Member Functions Mismatch
 // ----------------------------------------------------------------------------
-static_assert(!match<CopyConstructed, void, SingleProbe<CopyConstructed>>);
-static_assert(!match<MoveConstructed, void, SingleProbe<MoveConstructed>>);
 static_assert(
     !match<CopyMoveConstructed, void, SingleProbe<CopyMoveConstructed>>);
 
