@@ -13,6 +13,8 @@ namespace arity::detail {
 // ----------------------------------------------------------------------------
 // Probes
 // ----------------------------------------------------------------------------
+// Probes are lightweight, match-any types passed as arguments to ctors and
+// call operators to determine how many are needed to form a valid invocation.
 
 //! Probes individual constructor/function arguments.
 struct Probe {
@@ -24,6 +26,9 @@ struct Probe {
 };
 
 //! Probe for single-argument construction; doesn't match move or copy ctors.
+//
+// Trying to match one Probe against a ctor will match copy ctors and move
+// ctors. Trying to match one SingleProbe will not.
 template <typename Constructed>
 struct SingleProbe {
   template <meta::DifferentUnqualifiedType<Constructed> Deduced>
@@ -60,6 +65,7 @@ struct Match<Constructed, void, Probes...> {
   static constexpr auto value = std::is_constructible_v<Constructed, Probes...>;
 };
 
+//! true if an arity match is found.
 template <typename Constructed, typename Factory, typename... Probes>
 inline constexpr auto match = Match<Constructed, Factory, Probes...>::value;
 
