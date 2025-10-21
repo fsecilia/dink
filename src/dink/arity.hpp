@@ -13,7 +13,7 @@
 #endif
 
 namespace dink {
-namespace arity::detail {
+namespace detail::arity {
 
 // ----------------------------------------------------------------------------
 // Probes
@@ -141,5 +141,30 @@ inline constexpr std::size_t search =
            dink_max_deduced_arity,
            std::make_index_sequence<dink_max_deduced_arity>>::value;
 
-}  // namespace arity::detail
+// ----------------------------------------------------------------------------
+// Arity
+// ----------------------------------------------------------------------------
+
+//! Successfully calculates ctor or factory arity or asserts.
+template <typename Constructed, typename Factory>
+struct AssertedArity {
+  static constexpr auto value = search<Constructed, Factory>;
+  static_assert(value != not_found, "could not deduce arity");
+};
+
+}  // namespace detail::arity
+
+/*!
+    Finds largest arity that constructs or produces Constructed
+
+    If Factory is callable, searches for largest arity call operator returning
+    Constructed. If Factory is void, searches Constructed's constructors
+    directly.
+
+    Triggers compile error if no matching arity found.
+*/
+template <typename Constructed, typename Factory = void>
+inline constexpr std::size_t arity =
+    detail::arity::AssertedArity<Constructed, Factory>::value;
+
 }  // namespace dink

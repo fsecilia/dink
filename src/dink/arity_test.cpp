@@ -5,8 +5,7 @@
 #include "arity.hpp"
 #include <dink/test.hpp>
 
-namespace dink {
-namespace arity::detail {
+namespace dink::detail::arity {
 namespace {
 
 // Terse Types
@@ -214,6 +213,22 @@ static_assert(search<TypesExceedingMaxArity::Constructed, void> == not_found);
 static_assert(search<TypesExceedingMaxArity::Constructed,
                      TypesExceedingMaxArity::Factory> == not_found);
 
+// ----------------------------------------------------------------------------
+// arity
+// ----------------------------------------------------------------------------
+// arity is just an alias for detail::arity::search, wrapped with an assert to
+// guard against not_found. We smoke test it here to make sure the assert
+// doesn't fire.
+
+static_assert(dink::arity<Constructed<>, Factory<>> == 0);
+static_assert(dink::arity<Constructed<A0>, Factory<A0>> == 1);
+static_assert(dink::arity<Constructed<A0, A1>, Factory<A0, A1>> == 2);
+static_assert(dink::arity<Constructed<A0, A1, A2>, Factory<A0, A1, A2>> == 3);
+
+static_assert(dink::arity<Constructed<>, void> == 0);
+static_assert(dink::arity<Constructed<A0>, void> == 1);
+static_assert(dink::arity<Constructed<A0, A1>, void> == 2);
+static_assert(dink::arity<Constructed<A0, A1, A2>, void> == 3);
+
 }  // namespace
-}  // namespace arity::detail
-}  // namespace dink
+}  // namespace dink::detail::arity
