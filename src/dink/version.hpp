@@ -24,7 +24,7 @@ class Version {
            std::to_string(patch_);
   }
 
-  constexpr auto operator<=>(Version const& src) const noexcept
+  constexpr auto operator<=>(const Version& src) const noexcept
       -> auto = default;
 
   constexpr Version(int_t major, int_t minor, int_t patch) noexcept

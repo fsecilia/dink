@@ -24,12 +24,12 @@ struct A3 {};
 // Return type
 struct R {
   int_t value;
-  auto operator==(const R &) const noexcept -> bool = default;
+  auto operator==(const R&) const noexcept -> bool = default;
 };
 
 // Derived return type
 struct D : R {
-  auto operator==(const D &) const noexcept -> bool = default;
+  auto operator==(const D&) const noexcept -> bool = default;
 };
 
 // Probe type
@@ -47,29 +47,28 @@ struct SingleValueConstructed {
 };
 
 struct MultipleValueConstructed {
-  MultipleValueConstructed(const A0 &, A1 &, A2 &&) {}
+  MultipleValueConstructed(const A0&, A1&, A2&&) {}
 };
 
 struct CopyConstructed {
   CopyConstructed() = delete;
-  CopyConstructed(const CopyConstructed &) = default;
+  CopyConstructed(const CopyConstructed&) = default;
 };
 
 struct MoveConstructed {
   MoveConstructed() = delete;
-  MoveConstructed(MoveConstructed &&) = default;
+  MoveConstructed(MoveConstructed&&) = default;
 };
 
 struct CopyMoveConstructed {
   CopyMoveConstructed() = delete;
-  CopyMoveConstructed(const CopyMoveConstructed &) = default;
-  CopyMoveConstructed(CopyMoveConstructed &&) = default;
+  CopyMoveConstructed(const CopyMoveConstructed&) = default;
+  CopyMoveConstructed(CopyMoveConstructed&&) = default;
 };
 
 struct SingleValueAndCopyConstructed {
   SingleValueAndCopyConstructed(A0) {}
-  SingleValueAndCopyConstructed(const SingleValueAndCopyConstructed &) =
-      default;
+  SingleValueAndCopyConstructed(const SingleValueAndCopyConstructed&) = default;
 };
 
 // ----------------------------------------------------------------------------
@@ -89,19 +88,19 @@ static_assert(match<R, R (*)()>);
 
 // arity-1, one test per equivalence class
 static_assert(match<R, R (*)(A0), P>);
-static_assert(match<R, R (*)(A0 &), P>);
-static_assert(match<R, R (*)(const A0 &), P>);
-static_assert(match<R, R (*)(A0 &&), P>);
-static_assert(match<R, R (*)(A0 *), P>);
-static_assert(match<R, R (*)(const A0 *), P>);
+static_assert(match<R, R (*)(A0&), P>);
+static_assert(match<R, R (*)(const A0&), P>);
+static_assert(match<R, R (*)(A0&&), P>);
+static_assert(match<R, R (*)(A0*), P>);
+static_assert(match<R, R (*)(const A0*), P>);
 
 // arity-2
 static_assert(match<R, R (*)(A0, A1), P, P>);
-static_assert(match<R, R (*)(const A0 &, A1 &&), P, P>);
+static_assert(match<R, R (*)(const A0&, A1&&), P, P>);
 
 // arity-3
 static_assert(match<R, R (*)(A0, A1, A2), P, P, P>);
-static_assert(match<R, R (*)(A0 *, A1 &, A2 &&), P, P, P>);
+static_assert(match<R, R (*)(A0*, A1&, A2&&), P, P, P>);
 
 // Factory Arity Mismatch
 // ----------------------------------------------------------------------------
@@ -112,17 +111,17 @@ static_assert(!match<R, R (*)(A0, A1), P, P, P>);
 
 // Factory Return Match
 // ----------------------------------------------------------------------------
-static_assert(match<R &, R &(*)()>);
-static_assert(match<R *, R *(*)()>);
-static_assert(match<D &, D &(*)()>);
+static_assert(match<R&, R& (*)()>);
+static_assert(match<R*, R* (*)()>);
+static_assert(match<D&, D& (*)()>);
 static_assert(match<void, void (*)()>);
 
 // Factory Return Mismatch
 // ----------------------------------------------------------------------------
-static_assert(!match<R, R &(*)()>);
-static_assert(!match<R &, R (*)()>);
-static_assert(!match<R &, D &(*)()>);
-static_assert(!match<D &, R &(*)()>);
+static_assert(!match<R, R& (*)()>);
+static_assert(!match<R&, R (*)()>);
+static_assert(!match<R&, D& (*)()>);
+static_assert(!match<D&, R& (*)()>);
 
 // Ctor Arity Match
 // ----------------------------------------------------------------------------

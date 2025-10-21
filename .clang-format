@@ -12,3 +12,5 @@ IncludeCategories:
     Priority: 4
 IncludeIsMainRegex: (_test)?$
 IncludeIsMainSourceRegex: ""
+QualifierAlignment: Left
+DerivePointerAlignment: false

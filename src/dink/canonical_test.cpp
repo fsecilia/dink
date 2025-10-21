@@ -31,8 +31,8 @@ struct Arg2 {};
 static_assert(std::is_same_v<Canonical<Type>, Type>);
 static_assert(std::is_same_v<Canonical<Type&>, Type>);
 static_assert(std::is_same_v<Canonical<Type&&>, Type>);
-static_assert(std::is_same_v<Canonical<Type const>, Type>);
-static_assert(std::is_same_v<Canonical<Type volatile>, Type>);
+static_assert(std::is_same_v<Canonical<const Type>, Type>);
+static_assert(std::is_same_v<Canonical<volatile Type>, Type>);
 static_assert(std::is_same_v<Canonical<Type*>, Type>);
 
 // Function types.
@@ -59,9 +59,9 @@ static_assert(std::is_same_v<Canonical<ReturnType (*)(Arg1, Arg2)>,
 // Array types.
 // ----------------------------------------------------------------------------
 static_assert(std::is_same_v<Canonical<Type[]>, Type>);
-static_assert(std::is_same_v<Canonical<Type const[]>, Type>);
+static_assert(std::is_same_v<Canonical<const Type[]>, Type>);
 static_assert(std::is_same_v<Canonical<Type[kArraySize]>, Type>);
-static_assert(std::is_same_v<Canonical<Type const[kArraySize]>, Type>);
+static_assert(std::is_same_v<Canonical<const Type[kArraySize]>, Type>);
 
 // Composite types.
 // ----------------------------------------------------------------------------
@@ -73,11 +73,11 @@ static_assert(std::is_same_v<Canonical<std::weak_ptr<Type>>, Type>);
 
 // Type combinations.
 // ----------------------------------------------------------------------------
-static_assert(std::is_same_v<Canonical<Type const&>, Type>);
-static_assert(std::is_same_v<Canonical<Type volatile*>, Type>);
-static_assert(std::is_same_v<Canonical<Type const*&>, Type>);
+static_assert(std::is_same_v<Canonical<const Type&>, Type>);
+static_assert(std::is_same_v<Canonical<volatile Type*>, Type>);
+static_assert(std::is_same_v<Canonical<const Type*&>, Type>);
 static_assert(std::is_same_v<Canonical<Type**>, Type>);
-static_assert(std::is_same_v<Canonical<Type const* volatile*&&>, Type>);
+static_assert(std::is_same_v<Canonical<const Type* volatile*&&>, Type>);
 static_assert(
     std::is_same_v<Canonical<ReturnType (*const)()>, ReturnType (*)()>);
 static_assert(std::is_same_v<Canonical<ReturnType (*volatile&)(Arg1)>,
@@ -87,27 +87,27 @@ static_assert(std::is_same_v<Canonical<ReturnType (*&&)(Arg1, Arg2)>,
 
 static_assert(std::is_same_v<Canonical<std::reference_wrapper<Type&>>, Type>);
 static_assert(
-    std::is_same_v<Canonical<std::reference_wrapper<Type const&>>, Type>);
+    std::is_same_v<Canonical<std::reference_wrapper<const Type&>>, Type>);
 static_assert(
-    std::is_same_v<Canonical<std::reference_wrapper<Type> const>, Type>);
+    std::is_same_v<Canonical<const std::reference_wrapper<Type>>, Type>);
 static_assert(
-    std::is_same_v<Canonical<std::reference_wrapper<Type const>>, Type>);
+    std::is_same_v<Canonical<std::reference_wrapper<const Type>>, Type>);
 static_assert(
-    std::is_same_v<Canonical<std::reference_wrapper<Type const> const>, Type>);
+    std::is_same_v<Canonical<const std::reference_wrapper<const Type>>, Type>);
 
-static_assert(std::is_same_v<Canonical<std::unique_ptr<Type> const&>, Type>);
+static_assert(std::is_same_v<Canonical<const std::unique_ptr<Type>&>, Type>);
 static_assert(std::is_same_v<Canonical<std::shared_ptr<Type*>>, Type>);
-static_assert(std::is_same_v<Canonical<std::shared_ptr<Type const[]>>, Type>);
+static_assert(std::is_same_v<Canonical<std::shared_ptr<const Type[]>>, Type>);
 static_assert(std::is_same_v<
-              Canonical<std::shared_ptr<Type const[kArraySize]> const&>, Type>);
+              Canonical<const std::shared_ptr<const Type[kArraySize]>&>, Type>);
 
-static_assert(std::is_same_v<Canonical<std::weak_ptr<Type const>>, Type>);
-static_assert(std::is_same_v<Canonical<std::weak_ptr<Type> const>, Type>);
-static_assert(std::is_same_v<Canonical<std::weak_ptr<Type const> const>, Type>);
+static_assert(std::is_same_v<Canonical<std::weak_ptr<const Type>>, Type>);
+static_assert(std::is_same_v<Canonical<const std::weak_ptr<Type>>, Type>);
+static_assert(std::is_same_v<Canonical<const std::weak_ptr<const Type>>, Type>);
 
 static_assert(
     std::is_same_v<
-        Canonical<std::unique_ptr<std::reference_wrapper<Type const&>> const&>,
+        Canonical<const std::unique_ptr<std::reference_wrapper<const Type&>>&>,
         Type>);
 
 }  // namespace
