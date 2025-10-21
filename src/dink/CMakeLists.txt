@@ -174,6 +174,12 @@ if (dink_enable_testing)
     )
   endif()
 
+  if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    target_compile_options(dink_test PUBLIC
+      -Wno-changes-meaning
+    )
+  endif()
+
   # dink_integration_test
   # ---------------------------------------------------------------------------
   add_executable(dink_integration_test dink_integration_test.cpp)

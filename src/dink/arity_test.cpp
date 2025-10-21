@@ -140,6 +140,80 @@ static_assert(match<SingleValueAndCopyConstructed, void,
 static_assert(
     !match<CopyMoveConstructed, void, SingleProbe<CopyMoveConstructed>>);
 
+// ----------------------------------------------------------------------------
+// Search
+// ----------------------------------------------------------------------------
+
+template <typename... Args>
+struct Constructed {
+  Constructed(Args...) noexcept {}
+};
+
+template <typename... Args>
+struct Factory {
+  auto operator()(Args&&... args) const noexcept -> Constructed<Args...> {
+    return Constructed{std::forward<Args>(args)...};
+  }
+};
+
+struct MultipleArityCtorConstructed {
+  MultipleArityCtorConstructed();
+  MultipleArityCtorConstructed(A0);
+  MultipleArityCtorConstructed(A0, A1, A2);
+};
+
+// matching factories
+static_assert(search<Constructed<>, Factory<>> == 0);
+static_assert(search<Constructed<A0>, Factory<A0>> == 1);
+static_assert(search<Constructed<A0, A1>, Factory<A0, A1>> == 2);
+static_assert(search<Constructed<A0, A1, A2>, Factory<A0, A1, A2>> == 3);
+
+// matching ctors
+static_assert(search<Constructed<>, void> == 0);
+static_assert(search<Constructed<A0>, void> == 1);
+static_assert(search<Constructed<A0, A1>, void> == 2);
+static_assert(search<Constructed<A0, A1, A2>, void> == 3);
+
+// invocable factory but mismatched return value
+static_assert(search<Constructed<>, Factory<A0>> == not_found);
+static_assert(search<Constructed<A0>, Factory<>> == not_found);
+
+// Test Search interactions with SingleProbe.
+static_assert(search<SingleValueConstructed, void> == 1);
+static_assert(search<SingleValueAndCopyConstructed, void> == 1);
+static_assert(search<CopyMoveConstructed, void> == not_found);
+
+// Type with multiple arity ctors chooses greediest.
+static_assert(search<MultipleArityCtorConstructed, void> == 3);
+
+// Contains a Constructed and Factory taking A0 repeated once per index.
+template <typename IndexSequence>
+struct TypesByIndexSequence;
+
+// Specialization cracks sequence to get actual indices.
+template <std::size_t... indices>
+struct TypesByIndexSequence<std::index_sequence<indices...>> {
+  using Constructed = Constructed<meta::IndexedType<A0, indices>...>;
+  using Factory = Factory<meta::IndexedType<A0, indices>...>;
+};
+
+// Contains a Constructed and Factory with given arity by repeating A0.
+template <std::size_t arity>
+using TypesByArity = TypesByIndexSequence<std::make_index_sequence<arity>>;
+
+// Test that max arity is found.
+using TypesByMaxArity = TypesByArity<dink_max_deduced_arity>;
+static_assert(search<TypesByMaxArity::Constructed, void> ==
+              dink_max_deduced_arity);
+static_assert(search<TypesByMaxArity::Constructed, TypesByMaxArity::Factory> ==
+              dink_max_deduced_arity);
+
+// Test that exceeding max arity is not found.
+using TypesExceedingMaxArity = TypesByArity<dink_max_deduced_arity + 1>;
+static_assert(search<TypesExceedingMaxArity::Constructed, void> == not_found);
+static_assert(search<TypesExceedingMaxArity::Constructed,
+                     TypesExceedingMaxArity::Factory> == not_found);
+
 }  // namespace
 }  // namespace arity::detail
 }  // namespace dink
