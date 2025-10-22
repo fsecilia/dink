@@ -176,6 +176,7 @@ if (dink_enable_testing)
 
   if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     target_compile_options(dink_test PUBLIC
+      -Wno-ctad-maybe-unsupported
       -Wno-unneeded-member-function
       -Wno-unused-member-function
       -Wno-unused-template
