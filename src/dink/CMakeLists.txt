@@ -10,6 +10,7 @@ list(APPEND dink_library_files
   canonical.hpp
   lib.hpp
   meta.hpp
+  scope.hpp
   smart_pointer_traits.hpp
   type_list.hpp
   version.hpp
