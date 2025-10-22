@@ -42,4 +42,20 @@ constexpr bool is_unique_ptr = IsUniquePtr<Type>::value;
 template <typename Type>
 concept UniquePtr = is_unique_ptr<std::remove_cvref_t<Type>>;
 
+// ----------------------------------------------------------------------------
+// weak_ptr
+// ----------------------------------------------------------------------------
+
+template <typename>
+struct IsWeakPtr : std::false_type {};
+
+template <typename Element>
+struct IsWeakPtr<std::weak_ptr<Element>> : std::true_type {};
+
+template <typename Type>
+constexpr bool is_weak_ptr = IsWeakPtr<Type>::value;
+
+template <typename Type>
+concept WeakPtr = is_weak_ptr<std::remove_cvref_t<Type>>;
+
 }  // namespace dink

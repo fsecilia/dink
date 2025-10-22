@@ -79,5 +79,37 @@ static_assert(dink::UniquePtr<UniquePtr&>);
 static_assert(dink::UniquePtr<const UniquePtr&>);
 static_assert(dink::UniquePtr<UniquePtr&&>);
 
+// ----------------------------------------------------------------------------
+// weak_ptr
+// ----------------------------------------------------------------------------
+
+// Trait Variable Template
+// ----------------------------------------------------------------------------
+static_assert(!is_weak_ptr<void>);
+static_assert(!is_weak_ptr<Element>);
+static_assert(!is_weak_ptr<Element*>);
+static_assert(!is_weak_ptr<SharedPtr>);
+static_assert(is_weak_ptr<WeakPtr>);
+static_assert(!is_weak_ptr<UniquePtr>);
+
+static_assert(!is_weak_ptr<const WeakPtr>);
+static_assert(!is_weak_ptr<WeakPtr&>);
+static_assert(!is_weak_ptr<const WeakPtr&>);
+static_assert(!is_weak_ptr<WeakPtr&&>);
+
+// Concept
+// ----------------------------------------------------------------------------
+static_assert(!dink::WeakPtr<void>);
+static_assert(!dink::WeakPtr<Element>);
+static_assert(!dink::WeakPtr<Element*>);
+static_assert(!dink::WeakPtr<SharedPtr>);
+static_assert(dink::WeakPtr<WeakPtr>);
+static_assert(!dink::WeakPtr<UniquePtr>);
+
+static_assert(dink::WeakPtr<const WeakPtr>);
+static_assert(dink::WeakPtr<WeakPtr&>);
+static_assert(dink::WeakPtr<const WeakPtr&>);
+static_assert(dink::WeakPtr<WeakPtr&&>);
+
 }  // namespace
 }  // namespace dink
