@@ -13,7 +13,7 @@ namespace dink::scope {
 //
 // Instances resolved with a particular scope cannot depend on instances
 // resolved with a shorter scope. Lifetime give scopes an order.
-enum class Lifetime { kTransient, kSingleton };
+enum class Lifetime { kTransient, kSingleton, kDefault = kTransient };
 
 //! nominally resolves new instances per request
 //
