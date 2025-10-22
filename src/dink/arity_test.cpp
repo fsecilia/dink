@@ -161,29 +161,37 @@ struct MultipleArityCtorConstructed {
   MultipleArityCtorConstructed(A0, A1, A2);
 };
 
-// matching factories
+// Matching Factories
+// ----------------------------------------------------------------------------
 static_assert(search<Constructed<>, Factory<>> == 0);
 static_assert(search<Constructed<A0>, Factory<A0>> == 1);
 static_assert(search<Constructed<A0, A1>, Factory<A0, A1>> == 2);
 static_assert(search<Constructed<A0, A1, A2>, Factory<A0, A1, A2>> == 3);
 
-// matching ctors
+// Matching Ctors
+// ----------------------------------------------------------------------------
 static_assert(search<Constructed<>, void> == 0);
 static_assert(search<Constructed<A0>, void> == 1);
 static_assert(search<Constructed<A0, A1>, void> == 2);
 static_assert(search<Constructed<A0, A1, A2>, void> == 3);
 
-// invocable factory but mismatched return value
+// Invocable factory but Mismatched Return Value
+// ----------------------------------------------------------------------------
 static_assert(search<Constructed<>, Factory<A0>> == not_found);
 static_assert(search<Constructed<A0>, Factory<>> == not_found);
 
-// Test Search interactions with SingleProbe.
+// Search Interactions with SingleProbe
+// ----------------------------------------------------------------------------
 static_assert(search<SingleValueConstructed, void> == 1);
 static_assert(search<SingleValueAndCopyConstructed, void> == 1);
 static_assert(search<CopyMoveConstructed, void> == not_found);
 
-// Type with multiple arity ctors chooses greediest.
+// Type with Multiple Arity Ctors Chooses Greediest
+// ----------------------------------------------------------------------------
 static_assert(search<MultipleArityCtorConstructed, void> == 3);
+
+// Max Arity
+// ----------------------------------------------------------------------------
 
 // Contains a Constructed and Factory taking A0 repeated once per index.
 template <typename IndexSequence>
