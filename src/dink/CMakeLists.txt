@@ -176,6 +176,7 @@ if (dink_enable_testing)
     target_compile_options(dink_test PUBLIC
       -Wno-unneeded-member-function
       -Wno-unused-member-function
+      -Wno-unused-template
     )
   endif()
 
