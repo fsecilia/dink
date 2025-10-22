@@ -62,8 +62,8 @@ struct SequencedInvokerFixture {
   struct Container {};
 
   // IndexedFactory and Constructed work together so the factory can just
-  // return indices directly instead of indexed resolvers that convert to ctor
-  // paramters that happen to be indices. It's all transparent to
+  // return indices directly instead of indexed resolvers that convert to
+  // parameters that happen to be indices. It's all transparent to
   // SequencedInvoker, which just replaces a sequence with the results of the
   // IndexedFactory.
 
@@ -80,89 +80,106 @@ struct SequencedInvokerFixture {
     explicit constexpr Constructed(Args... args) noexcept
         : args_tuple{args...} {}
   };
+};
 
-  static constexpr auto instance_factory = [](auto&&... args) noexcept {
+// Factory Specialization
+// ----------------------------------------------------------------------------
+
+struct SequencedInvokerFixtureFactory : SequencedInvokerFixture {
+  static constexpr auto constructed_factory = [](auto&&... args) noexcept {
     return Constructed{std::forward<decltype(args)>(args)...};
   };
 
   template <std::size_t... indices>
   using Sut =
-      dink::SequencedInvoker<Constructed<decltype(indices)...>, IndexedFactory,
+      dink::SequencedInvoker<Constructed<decltype(indices)...>,
+                             decltype(constructed_factory), IndexedFactory,
                              std::index_sequence<indices...>>;
 };
 
-struct SequencedInvokerTestCompileTime : SequencedInvokerFixture {
+struct SequencedInvokerFixtureFactoryCompileTime
+    : SequencedInvokerFixtureFactory {
   template <std::size_t... indices>
-  static constexpr auto test(auto&& invoke) -> bool {
+  static constexpr auto test() -> bool {
     Container container;
-    Sut<indices...> invoker{IndexedFactory{}};
-    auto res = std::forward<decltype(invoke)>(invoke)(container, invoker);
+    Sut<indices...> invoker{constructed_factory, IndexedFactory{}};
+    auto res = invoker.create_value(container);
     return res.args_tuple == std::make_tuple(indices...);
   }
 
-  template <std::size_t... indices>
-  static constexpr auto test_ctor() -> bool {
-    return test<indices...>([&](auto& container, auto& invoker) constexpr {
-      return invoker.create_value(container);
-    });
-  }
+  static constexpr auto test_arity_0() -> bool { return test<>(); }
+  static constexpr auto test_arity_1() -> bool { return test<0>(); }
+  static constexpr auto test_arity_3() -> bool { return test<0, 1, 2>(); }
 
-  template <std::size_t... indices>
-  static constexpr auto test_factory() -> bool {
-    return test<indices...>([&](auto& container, auto& invoker) constexpr {
-      return invoker.create_value(container, instance_factory);
-    });
-  }
-
-  static constexpr auto test_arity_0_ctor() -> bool { return test_ctor<>(); }
-  static constexpr auto test_arity_1_ctor() -> bool { return test_ctor<0>(); }
-  static constexpr auto test_arity_3_ctor() -> bool {
-    return test_ctor<0, 1, 2>();
-  }
-
-  static constexpr auto test_arity_0_factory() -> bool {
-    return test_factory<>();
-  }
-
-  static constexpr auto test_arity_1_factory() -> bool {
-    return test_factory<0>();
-  }
-
-  static constexpr auto test_arity_3_factory() -> bool {
-    return test_factory<0, 1, 2>();
-  }
-
-  static constexpr auto instantiate_constexpr_tests() -> void {
-    static_assert(test_arity_0_ctor(), "Arity 0 (Ctor) Failed");
-    static_assert(test_arity_1_ctor(), "Arity 1 (Ctor) Failed");
-    static_assert(test_arity_3_ctor(), "Arity 3 (Ctor) Failed");
-
-    static_assert(test_arity_0_factory(), "Arity 0 (Factory) Failed");
-    static_assert(test_arity_1_factory(), "Arity 1 (Factory) Failed");
-    static_assert(test_arity_3_factory(), "Arity 3 (Factory) Failed");
-  }
-
-  constexpr SequencedInvokerTestCompileTime() noexcept {
-    instantiate_constexpr_tests();
+  constexpr SequencedInvokerFixtureFactoryCompileTime() noexcept {
+    static_assert(test_arity_0(), "Arity 0 (Factory) Failed");
+    static_assert(test_arity_1(), "Arity 1 (Factory) Failed");
+    static_assert(test_arity_3(), "Arity 3 (Factory) Failed");
   }
 };
-[[maybe_unused]] constexpr auto sequenced_invoker_test_constexpr =
-    SequencedInvokerTestCompileTime{};
+[[maybe_unused]] constexpr auto sequenced_invoker_fixture_Factory_compile_time =
+    SequencedInvokerFixtureFactoryCompileTime{};
 
-// ----------------------------------------------------------------------------
-
-struct SequencedInvokerTestRunTime : SequencedInvokerFixture, Test {
+struct SequencedInvokerTestFactoryRunTime : SequencedInvokerFixtureFactory,
+                                            Test {
   Container container;
-  Sut<0, 1, 2> sut{IndexedFactory{}};
+  Sut<0, 1, 2> sut{constructed_factory, IndexedFactory{}};
 };
 
-TEST_F(SequencedInvokerTestRunTime, Arity3SharedPtrCtor) {
+TEST_F(SequencedInvokerTestFactoryRunTime, Arity3SharedPtr) {
   auto res = sut.create_shared(container);
   EXPECT_EQ(res->args_tuple, std::make_tuple(0, 1, 2));
 }
 
-TEST_F(SequencedInvokerTestRunTime, Arity3UniquePtrFactory) {
-  auto res = sut.create_unique(container, instance_factory);
+TEST_F(SequencedInvokerTestFactoryRunTime, Arity3UniquePtr) {
+  auto res = sut.create_unique(container);
+  EXPECT_EQ(res->args_tuple, std::make_tuple(0, 1, 2));
+}
+
+// Ctor Specialization
+// ----------------------------------------------------------------------------
+
+struct SequencedInvokerFixtureCtor : SequencedInvokerFixture {
+  template <std::size_t... indices>
+  using Sut =
+      dink::SequencedInvoker<Constructed<decltype(indices)...>, void,
+                             IndexedFactory, std::index_sequence<indices...>>;
+};
+
+struct SequencedInvokerFixtureCtorCompileTime : SequencedInvokerFixtureCtor {
+  template <std::size_t... indices>
+  static constexpr auto test() -> bool {
+    Container container;
+    Sut<indices...> invoker{IndexedFactory{}};
+    auto res = invoker.create_value(container);
+    return res.args_tuple == std::make_tuple(indices...);
+  }
+
+  static constexpr auto test_arity_0() -> bool { return test<>(); }
+  static constexpr auto test_arity_1() -> bool { return test<0>(); }
+  static constexpr auto test_arity_3() -> bool { return test<0, 1, 2>(); }
+
+  constexpr SequencedInvokerFixtureCtorCompileTime() noexcept {
+    static_assert(test_arity_0(), "Arity 0 (Ctor) Failed");
+    static_assert(test_arity_1(), "Arity 1 (Ctor) Failed");
+    static_assert(test_arity_3(), "Arity 3 (Ctor) Failed");
+  }
+};
+[[maybe_unused]] constexpr auto sequenced_invoker_fixture_ctor_compile_time =
+    SequencedInvokerFixtureCtorCompileTime{};
+
+struct SequencedInvokerTestCtorRunTime : SequencedInvokerFixtureCtor, Test {
+  Sut<0, 1, 2> sut{IndexedFactory{}};
+  Container container;
+};
+
+TEST_F(SequencedInvokerTestCtorRunTime, Arity3SharedPtr) {
+  auto res = sut.create_shared(container);
+  EXPECT_EQ(res->args_tuple, std::make_tuple(0, 1, 2));
+}
+
+TEST_F(SequencedInvokerTestCtorRunTime, Arity3UniquePtr) {
+  auto res = sut.create_unique(container);
   EXPECT_EQ(res->args_tuple, std::make_tuple(0, 1, 2));
 }
 

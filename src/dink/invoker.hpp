@@ -33,18 +33,52 @@ struct IndexedResolverFactory {
 //
 // SequencedInvoker replaces each value in an index sequence with the output of
 // an indexed factory, then uses the replaced sequence to either invoke
-// Constructed's ctor, or invoke a factory that produces a Constructed, passed
-// as an argument.
-template <typename Constructed, typename IndexedFactory, typename IndexSequence>
+// ConstructedFactory, or if void, Constructed's ctor directly.
+template <typename Constructed, typename ConstructedFactory,
+          typename IndexedFactory, typename IndexSequence>
 class SequencedInvoker;
 
-//! Partial specialization to unpack the index sequence.
-template <typename Constructed, typename IndexedFactory, std::size_t... indices>
-class SequencedInvoker<Constructed, IndexedFactory,
+//! Factory specialization.
+template <typename Constructed, typename ConstructedFactory,
+          typename IndexedFactory, std::size_t... indices>
+class SequencedInvoker<Constructed, ConstructedFactory, IndexedFactory,
                        std::index_sequence<indices...>> {
  public:
-  // Constructor Invokers
-  // --------------------------------------------------------------------------
+  constexpr auto create_value(auto& container) const -> Constructed {
+    return constructed_factory_(
+        indexed_factory_.template create<sizeof...(indices), indices>(
+            container)...);
+  }
+
+  constexpr auto create_shared(auto& container) const
+      -> std::shared_ptr<Constructed> {
+    return std::make_shared<Constructed>(constructed_factory_(
+        indexed_factory_.template create<sizeof...(indices), indices>(
+            container)...));
+  }
+
+  constexpr auto create_unique(auto& container) const
+      -> std::unique_ptr<Constructed> {
+    return std::make_unique<Constructed>(constructed_factory_(
+        indexed_factory_.template create<sizeof...(indices), indices>(
+            container)...));
+  }
+
+  explicit constexpr SequencedInvoker(ConstructedFactory constructed_factory,
+                                      IndexedFactory indexed_factory) noexcept
+      : constructed_factory_{std::move(constructed_factory)},
+        indexed_factory_{std::move(indexed_factory)} {}
+
+ private:
+  ConstructedFactory constructed_factory_{};
+  IndexedFactory indexed_factory_{};
+};
+
+//! Ctor specialization.
+template <typename Constructed, typename IndexedFactory, std::size_t... indices>
+class SequencedInvoker<Constructed, void, IndexedFactory,
+                       std::index_sequence<indices...>> {
+ public:
   constexpr auto create_value(auto& container) const -> Constructed {
     return Constructed{
         indexed_factory_.template create<sizeof...(indices), indices>(
@@ -65,35 +99,10 @@ class SequencedInvoker<Constructed, IndexedFactory,
             container)...);
   }
 
-  // Factory Invokers
-  // --------------------------------------------------------------------------
-  constexpr auto create_value(auto& container, auto& constructed_factory) const
-      -> Constructed {
-    return constructed_factory(
-        indexed_factory_.template create<sizeof...(indices), indices>(
-            container)...);
-  }
-
-  constexpr auto create_shared(auto& container, auto& constructed_factory) const
-      -> std::shared_ptr<Constructed> {
-    return std::make_shared<Constructed>(constructed_factory(
-        indexed_factory_.template create<sizeof...(indices), indices>(
-            container)...));
-  }
-
-  constexpr auto create_unique(auto& container, auto& constructed_factory) const
-      -> std::unique_ptr<Constructed> {
-    return std::make_unique<Constructed>(constructed_factory(
-        indexed_factory_.template create<sizeof...(indices), indices>(
-            container)...));
-  }
-
   // Constructors
   // --------------------------------------------------------------------------
   explicit constexpr SequencedInvoker(IndexedFactory indexed_factory) noexcept
       : indexed_factory_{std::move(indexed_factory)} {}
-
-  SequencedInvoker() = default;
 
  private:
   IndexedFactory indexed_factory_{};
