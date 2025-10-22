@@ -10,6 +10,7 @@ list(APPEND dink_library_files
   canonical.hpp
   lib.hpp
   meta.hpp
+  resolver.hpp
   scope.hpp
   smart_pointer_traits.hpp
   type_list.hpp
@@ -19,6 +20,7 @@ list(APPEND dink_library_files
 list(APPEND dink_test_files
   arity_test.cpp
   canonical_test.cpp
+  resolver_test.cpp
   smart_pointer_traits_test.cpp
   test.hpp
   type_list_test.cpp
