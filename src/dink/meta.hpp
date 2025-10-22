@@ -16,7 +16,7 @@ namespace dink::meta {
 // make the expression dependent. The static assert message will also contain
 // information related to Context.
 template <bool condition, typename Context>
-constexpr auto kDependentBool = condition;
+inline constexpr auto kDependentBool = condition;
 
 //! constexpr false, but dependent on a template parameter to delay evaluation.
 //
@@ -26,7 +26,7 @@ constexpr auto kDependentBool = condition;
 //
 // \sa kDependentBool
 template <typename Context>
-constexpr auto kDependentFalse = kDependentBool<false, Context>;
+inline constexpr auto kDependentFalse = kDependentBool<false, Context>;
 
 //! Consumes an index to produce a type.
 //
