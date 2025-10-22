@@ -99,8 +99,6 @@ class SequencedInvoker<Constructed, void, IndexedFactory,
             container)...);
   }
 
-  // Constructors
-  // --------------------------------------------------------------------------
   explicit constexpr SequencedInvoker(IndexedFactory indexed_factory) noexcept
       : indexed_factory_{std::move(indexed_factory)} {}
 
