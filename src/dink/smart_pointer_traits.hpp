@@ -11,6 +11,22 @@
 namespace dink {
 
 // ----------------------------------------------------------------------------
+// shared_ptr
+// ----------------------------------------------------------------------------
+
+template <typename>
+struct IsSharedPtr : std::false_type {};
+
+template <typename Element>
+struct IsSharedPtr<std::shared_ptr<Element>> : std::true_type {};
+
+template <typename Type>
+constexpr bool is_shared_ptr = IsSharedPtr<Type>::value;
+
+template <typename Type>
+concept SharedPtr = is_shared_ptr<std::remove_cvref_t<Type>>;
+
+// ----------------------------------------------------------------------------
 // unique_ptr
 // ----------------------------------------------------------------------------
 

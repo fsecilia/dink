@@ -16,6 +16,38 @@ using WeakPtr = std::weak_ptr<Element>;
 using UniquePtr = std::unique_ptr<Element, Deleter>;
 
 // ----------------------------------------------------------------------------
+// shared_ptr
+// ----------------------------------------------------------------------------
+
+// Trait Variable Template
+// ----------------------------------------------------------------------------
+static_assert(!is_shared_ptr<void>);
+static_assert(!is_shared_ptr<Element>);
+static_assert(!is_shared_ptr<Element*>);
+static_assert(is_shared_ptr<SharedPtr>);
+static_assert(!is_shared_ptr<WeakPtr>);
+static_assert(!is_shared_ptr<UniquePtr>);
+
+static_assert(!is_shared_ptr<const SharedPtr>);
+static_assert(!is_shared_ptr<SharedPtr&>);
+static_assert(!is_shared_ptr<const SharedPtr&>);
+static_assert(!is_shared_ptr<SharedPtr&&>);
+
+// Concept
+// ----------------------------------------------------------------------------
+static_assert(!dink::SharedPtr<void>);
+static_assert(!dink::SharedPtr<Element>);
+static_assert(!dink::SharedPtr<Element*>);
+static_assert(dink::SharedPtr<SharedPtr>);
+static_assert(!dink::SharedPtr<WeakPtr>);
+static_assert(!dink::SharedPtr<UniquePtr>);
+
+static_assert(dink::SharedPtr<const SharedPtr>);
+static_assert(dink::SharedPtr<SharedPtr&>);
+static_assert(dink::SharedPtr<const SharedPtr&>);
+static_assert(dink::SharedPtr<SharedPtr&&>);
+
+// ----------------------------------------------------------------------------
 // unique_ptr
 // ----------------------------------------------------------------------------
 
