@@ -183,5 +183,82 @@ TEST_F(SequencedInvokerTestCtorRunTime, Arity3UniquePtr) {
   EXPECT_EQ(res->args_tuple, std::make_tuple(0, 1, 2));
 }
 
+// ----------------------------------------------------------------------------
+// InvokerFactory
+// ----------------------------------------------------------------------------
+
+struct InvokerFactoryTest {
+  struct Dep {};
+
+  struct Arity0Constructed {
+    Arity0Constructed() = default;
+  };
+
+  struct Arity1Constructed {
+    explicit Arity1Constructed(Dep) {}
+  };
+
+  struct Arity3Constructed {
+    Arity3Constructed(Dep, Dep, Dep) {}
+  };
+
+  struct Factory3 {
+    auto operator()(Dep, Dep, Dep) const -> Arity3Constructed {
+      return Arity3Constructed{Dep{}, Dep{}, Dep{}};
+    }
+  };
+
+  struct Container {};
+  using DependencyChain = TypeList<>;
+  static constexpr auto min_lifetime = scope::Lifetime::kDefault;
+
+  using Sut = InvokerFactory;
+
+  // Test that factory creates correct invoker type for ctor specialization.
+  template <typename Constructed, std::size_t expected_arity>
+  constexpr auto test_ctor_creates_correct_type() -> void {
+    Sut factory;
+    auto invoker = factory.template create<Container, DependencyChain,
+                                           min_lifetime, Constructed>();
+
+    // Verify it's a SequencedInvoker with correct template params
+    using ActualInvoker = decltype(invoker);
+    using ExpectedInvoker =
+        CtorInvoker<Container, DependencyChain, min_lifetime, Constructed>;
+
+    static_assert(std::same_as<ActualInvoker, ExpectedInvoker>);
+  }
+
+  // Test that factory creates correct invoker type for factory specialization.
+  template <typename Constructed, typename ConstructedFactory,
+            std::size_t expected_arity>
+  constexpr auto test_factory_creates_correct_type() -> void {
+    Sut factory;
+    auto invoker =
+        factory.template create<Container, DependencyChain, min_lifetime,
+                                Constructed>(ConstructedFactory{});
+
+    // Verify it's a SequencedInvoker with correct template params
+    using ActualInvoker = decltype(invoker);
+    using ExpectedInvoker =
+        FactoryInvoker<Container, DependencyChain, min_lifetime, Constructed,
+                       ConstructedFactory>;
+
+    static_assert(std::same_as<ActualInvoker, ExpectedInvoker>);
+  }
+
+  constexpr InvokerFactoryTest() {
+    // Ctor specialization
+    test_ctor_creates_correct_type<Arity0Constructed, 0>();
+    test_ctor_creates_correct_type<Arity1Constructed, 1>();
+    test_ctor_creates_correct_type<Arity3Constructed, 3>();
+
+    // Factory specialization
+    test_factory_creates_correct_type<Arity3Constructed, Factory3, 3>();
+  }
+};
+[[maybe_unused]] constexpr auto sequenced_resolver_invoker_factory_test =
+    InvokerFactoryTest{};
+
 }  // namespace
 }  // namespace dink

@@ -108,4 +108,75 @@ class SequencedInvoker<Constructed, void, IndexedFactory,
   IndexedFactory indexed_factory_{};
 };
 
+//! Invoker type for factory-based construction.
+//
+// Deduces arity from ConstructedFactory's call operator, creates resolvers
+// for each parameter, and invokes the factory with resolved arguments.
+template <typename Container, typename DependencyChain,
+          scope::Lifetime min_lifetime, typename Constructed,
+          typename ConstructedFactory>
+using FactoryInvoker = SequencedInvoker<
+    Constructed, ConstructedFactory,
+    IndexedResolverFactory<
+        Resolver<Container, DependencyChain, min_lifetime>,
+        SingleArgResolver<Constructed,
+                          Resolver<Container, DependencyChain, min_lifetime>>>,
+    std::make_index_sequence<dink::arity<Constructed, ConstructedFactory>>>;
+
+//! Invoker type for direct construction.
+//
+// Deduces arity from Constructed's constructors, creates resolvers for each
+// parameter, and directly constructs the instance with resolved arguments.
+template <typename Container, typename DependencyChain,
+          scope::Lifetime min_lifetime, typename Constructed>
+using CtorInvoker = SequencedInvoker<
+    Constructed, void,
+    IndexedResolverFactory<
+        Resolver<Container, DependencyChain, min_lifetime>,
+        SingleArgResolver<Constructed,
+                          Resolver<Container, DependencyChain, min_lifetime>>>,
+    std::make_index_sequence<dink::arity<Constructed, void>>>;
+
+//! Creates FactoryInvoker and CtorInvoker.
+struct InvokerFactory {
+  // Factory specialization.
+  template <typename Container, typename DependencyChain,
+            scope::Lifetime min_lifetime, typename Constructed,
+            typename ConstructedFactory>
+  constexpr auto create(ConstructedFactory constructed_factory)
+      -> FactoryInvoker<Container, DependencyChain, min_lifetime, Constructed,
+                        ConstructedFactory> {
+    using Resolver = Resolver<Container, DependencyChain, min_lifetime>;
+    using SingleArgResolver = SingleArgResolver<Constructed, Resolver>;
+    using IndexedResolverFactory =
+        IndexedResolverFactory<Resolver, SingleArgResolver>;
+
+    static constexpr auto arity = dink::arity<Constructed, ConstructedFactory>;
+    using SequencedInvoker = SequencedInvoker<Constructed, ConstructedFactory,
+                                              IndexedResolverFactory,
+                                              std::make_index_sequence<arity>>;
+
+    return SequencedInvoker{std::move(constructed_factory),
+                            IndexedResolverFactory{}};
+  }
+
+  // Ctor specialization.
+  template <typename Container, typename DependencyChain,
+            scope::Lifetime min_lifetime, typename Constructed>
+  constexpr auto create()
+      -> CtorInvoker<Container, DependencyChain, min_lifetime, Constructed> {
+    using Resolver = Resolver<Container, DependencyChain, min_lifetime>;
+    using SingleArgResolver = SingleArgResolver<Constructed, Resolver>;
+    using IndexedResolverFactory =
+        IndexedResolverFactory<Resolver, SingleArgResolver>;
+
+    static constexpr auto arity = dink::arity<Constructed, void>;
+    using SequencedInvoker =
+        SequencedInvoker<Constructed, void, IndexedResolverFactory,
+                         std::make_index_sequence<arity>>;
+
+    return SequencedInvoker{IndexedResolverFactory()};
+  }
+};
+
 }  // namespace dink
