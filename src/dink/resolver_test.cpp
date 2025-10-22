@@ -105,6 +105,7 @@ struct ResolverDeducesTypeTest {
   constexpr ResolverDeducesTypeTest() {
     using Resolver = Resolver<Container, TypeList<>, scope::Lifetime::kDefault>;
     test_all_deductions<Resolver>();
+    test_all_deductions<SingleArgResolver<Handler, Resolver>>();
   }
 };
 [[maybe_unused]] constexpr auto resolver_deduces_type_test =
@@ -192,6 +193,40 @@ struct ResolverForwardsMinLifetimeTest {
 };
 [[maybe_unused]] constexpr auto resolver_forwards_min_lifetime =
     ResolverForwardsMinLifetimeTest{};
+
+// ----------------------------------------------------------------------------
+// SingleArgResolver
+// ----------------------------------------------------------------------------
+
+// Tests that SingleArgResolver filters copy or move ctors.
+struct SingleArgResolverDoesNotMatchCopyOrMoveCtorsTest {
+  struct CopyMoveOnly {
+    CopyMoveOnly(const CopyMoveOnly&) = default;
+    CopyMoveOnly(CopyMoveOnly&&) = default;
+  };
+
+  struct Arg {};
+  struct SingleArgConstructible {
+    SingleArgConstructible(Arg);
+    SingleArgConstructible(const SingleArgConstructible&) = default;
+    SingleArgConstructible(SingleArgConstructible&&) = default;
+  };
+
+  struct Resolver {
+    operator CopyMoveOnly() const;
+    operator SingleArgConstructible() const;
+    operator Arg() const;
+  };
+
+  // Test that CopyMoveOnly is not constructible at all.
+  static_assert(!std::constructible_from<
+                CopyMoveOnly, SingleArgResolver<CopyMoveOnly, Resolver>>);
+
+  // Test that SingleArgConstructible is constructible through its Arg ctor.
+  static_assert(std::constructible_from<
+                SingleArgConstructible,
+                SingleArgResolver<SingleArgConstructible, Resolver>>);
+};
 
 }  // namespace
 }  // namespace dink

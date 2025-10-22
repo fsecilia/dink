@@ -82,4 +82,33 @@ class Resolver {
   }
 };
 
+//! Wraps Resolver to exclude matching Constructed's copy or move ctors
+template <typename Constructed, typename Resolver>
+class SingleArgResolver {
+ public:
+  //! Value conversion operator.
+  //
+  // Deliberately not const for the same reason as in Resolver.
+  //
+  // /sa Resolver::operator Deduced().
+  template <meta::DifferentUnqualifiedType<Constructed> Deduced>
+  constexpr operator Deduced() {
+    return resolver_.operator Deduced();
+  }
+
+  //! Reference conversion operator.
+  //
+  // /sa Resolver::operator Deduced&() const.
+  template <meta::DifferentUnqualifiedType<Constructed> Deduced>
+  constexpr operator Deduced&() const {
+    return resolver_.operator Deduced&();
+  }
+
+  explicit constexpr SingleArgResolver(Resolver resolver) noexcept
+      : resolver_{std::move(resolver)} {}
+
+ private:
+  Resolver resolver_;
+};
+
 }  // namespace dink
