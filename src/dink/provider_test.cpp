@@ -9,10 +9,10 @@ namespace dink::provider {
 namespace {
 
 // ----------------------------------------------------------------------------
-// Fixtures
+// Creators
 // ----------------------------------------------------------------------------
 
-struct Fixture {
+struct CreatorFixture {
   struct Constructed {
     static inline const int_t default_value = 3;
     static inline const int_t expected_value = 5;
@@ -20,9 +20,7 @@ struct Fixture {
     explicit constexpr Constructed(int_t value = default_value)
         : value{value} {}
   };
-};
 
-struct CreatorFixture : Fixture {
   struct Container {};
   using DependencyChain = TypeList<>;
   static constexpr auto test_min_lifetime = scope::Lifetime::kDefault;
