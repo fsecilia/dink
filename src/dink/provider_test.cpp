@@ -84,7 +84,6 @@ struct CreatorFixture {
   }
 };
 
-// ----------------------------------------------------------------------------
 // Ctor
 // ----------------------------------------------------------------------------
 
@@ -94,7 +93,6 @@ struct CtorFixture : CreatorFixture {
 };
 
 // Compile-Time Tests
-// ----------------------------------------------------------------------------
 
 struct CtorCompileTimeTest : CtorFixture {
   static constexpr auto creates_value() -> bool {
@@ -113,7 +111,6 @@ struct CtorCompileTimeTest : CtorFixture {
     CtorCompileTimeTest{};
 
 // Run-time Tests
-// ----------------------------------------------------------------------------
 
 struct ProviderCtorRunTimeTest : CtorFixture, Test {
   Container container{};
@@ -130,7 +127,6 @@ TEST_F(ProviderCtorRunTimeTest, CreatesUniquePtr) {
                           test_min_lifetime>(container));
 }
 
-// ----------------------------------------------------------------------------
 // Factory
 // ----------------------------------------------------------------------------
 
@@ -146,7 +142,6 @@ struct FactoryFixture : CreatorFixture {
 };
 
 // Compile-Time Tests
-// ----------------------------------------------------------------------------
 
 struct FactoryCompileTimeTest : FactoryFixture {
   static constexpr auto creates_value() -> bool {
@@ -166,7 +161,6 @@ struct FactoryCompileTimeTest : FactoryFixture {
     FactoryCompileTimeTest{};
 
 // Run-time Tests
-// ----------------------------------------------------------------------------
 
 struct ProviderFactoryRunTimeTest : FactoryFixture, Test {
   Container container{};
