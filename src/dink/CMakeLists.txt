@@ -7,6 +7,7 @@
 
 list(APPEND dink_library_files
   arity.hpp
+  binding.hpp
   canonical.hpp
   invoker.hpp
   lib.hpp
@@ -21,6 +22,7 @@ list(APPEND dink_library_files
 
 list(APPEND dink_test_files
   arity_test.cpp
+  binding_test.cpp
   canonical_test.cpp
   invoker_test.cpp
   provider_test.cpp
