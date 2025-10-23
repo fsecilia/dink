@@ -11,10 +11,10 @@ namespace dink {
 namespace {
 
 // ----------------------------------------------------------------------------
-// IndexedResolverFactory
+// ResolverFactory
 // ----------------------------------------------------------------------------
 
-struct IndexedResolverFactoryTest {
+struct ResolverFactoryTest {
   struct Container {};
 
   struct Resolver {
@@ -25,7 +25,7 @@ struct IndexedResolverFactoryTest {
     Resolver resolver;
   };
 
-  using Sut = IndexedResolverFactory<Resolver, SingleArgResolver>;
+  using Sut = ResolverFactory<Resolver, SingleArgResolver>;
 
   template <typename Expected, std::size_t arity, std::size_t index>
   constexpr auto test_single() {
@@ -49,10 +49,10 @@ struct IndexedResolverFactoryTest {
     test_single<Resolver, 2, 2>();
   }
 
-  constexpr IndexedResolverFactoryTest() { test_multiple(); }
+  constexpr ResolverFactoryTest() { test_multiple(); }
 };
 [[maybe_unused]] constexpr auto indexed_resolver_factory_test =
-    IndexedResolverFactoryTest{};
+    ResolverFactoryTest{};
 
 // ----------------------------------------------------------------------------
 // SequencedInvoker

@@ -15,7 +15,7 @@ namespace dink {
 
 //! Factory that consumes indices to produce Resolvers.
 template <typename Resolver, typename SingleArgResolver>
-struct IndexedResolverFactory {
+struct ResolverFactory {
   //! Creates a resolver, choosing the return type based on arity.
   //
   // For arity 1, this returns a \c SingleArgResolver. For all other
@@ -115,7 +115,7 @@ template <typename Container, typename DependencyChain,
           typename ConstructedFactory>
 using FactoryInvoker = SequencedInvoker<
     Constructed, ConstructedFactory,
-    IndexedResolverFactory<
+    ResolverFactory<
         Resolver<Container, DependencyChain, min_lifetime>,
         SingleArgResolver<Constructed,
                           Resolver<Container, DependencyChain, min_lifetime>>>,
@@ -129,7 +129,7 @@ template <typename Container, typename DependencyChain,
           scope::Lifetime min_lifetime, typename Constructed>
 using CtorInvoker = SequencedInvoker<
     Constructed, void,
-    IndexedResolverFactory<
+    ResolverFactory<
         Resolver<Container, DependencyChain, min_lifetime>,
         SingleArgResolver<Constructed,
                           Resolver<Container, DependencyChain, min_lifetime>>>,
@@ -146,8 +146,7 @@ struct InvokerFactory {
                         ConstructedFactory> {
     using Resolver = Resolver<Container, DependencyChain, min_lifetime>;
     using SingleArgResolver = SingleArgResolver<Constructed, Resolver>;
-    using IndexedResolverFactory =
-        IndexedResolverFactory<Resolver, SingleArgResolver>;
+    using IndexedResolverFactory = ResolverFactory<Resolver, SingleArgResolver>;
 
     static constexpr auto arity = dink::arity<Constructed, ConstructedFactory>;
     using SequencedInvoker = SequencedInvoker<Constructed, ConstructedFactory,
@@ -165,8 +164,7 @@ struct InvokerFactory {
       -> CtorInvoker<Container, DependencyChain, min_lifetime, Constructed> {
     using Resolver = Resolver<Container, DependencyChain, min_lifetime>;
     using SingleArgResolver = SingleArgResolver<Constructed, Resolver>;
-    using IndexedResolverFactory =
-        IndexedResolverFactory<Resolver, SingleArgResolver>;
+    using IndexedResolverFactory = ResolverFactory<Resolver, SingleArgResolver>;
 
     static constexpr auto arity = dink::arity<Constructed, void>;
     using SequencedInvoker =
