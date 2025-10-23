@@ -265,5 +265,21 @@ TEST_F(ProviderAccessorTest, InternalPrototype) {
   ASSERT_EQ(Instance::copy_ctors, 2);
 }
 
+TEST_F(ProviderAccessorTest, ExternalPrototype) {
+  using Sut = ExternalPrototype<Instance>;
+
+  auto src = Instance{Instance::expected_id};
+  Sut sut{src};
+
+  ASSERT_EQ(Instance::copy_ctors, 0);
+  ASSERT_EQ(Instance::move_ctors, 0);
+
+  ASSERT_EQ(Instance::expected_id, sut.get().id);
+  ASSERT_EQ(Instance::copy_ctors, 1);
+
+  ASSERT_EQ(Instance::expected_id, static_cast<const Sut&>(sut).get().id);
+  ASSERT_EQ(Instance::copy_ctors, 2);
+}
+
 }  // namespace
 }  // namespace dink::provider

@@ -108,4 +108,20 @@ class InternalPrototype {
   Instance instance_;
 };
 
+//! copies from an externally-owned prototype (pointer stored)
+template <typename Instance>
+class ExternalPrototype {
+ public:
+  using Provided = Instance;
+
+  auto get() -> Instance { return *instance_; }
+  auto get() const -> const Instance { return *instance_; }
+
+  explicit ExternalPrototype(Instance& instance) noexcept
+      : instance_{&instance} {}
+
+ private:
+  Instance* instance_;
+};
+
 }  // namespace dink::provider
