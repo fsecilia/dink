@@ -232,54 +232,170 @@ struct SingleArgResolverDoesNotMatchCopyOrMoveCtorsTest {
 // ResolverFactory
 // ----------------------------------------------------------------------------
 
-struct ResolverFactoryTest {
-  struct Container {};
+// Resolver spy that tracks the container it was given
+template <typename Container, typename DependencyChain,
+          scope::Lifetime min_lifetime>
+struct ResolverSpy {
+  Container* container_ptr = nullptr;
+
+  template <typename Deduced>
+  constexpr operator Deduced() {
+    return Deduced{};
+  }
+
+  template <typename Deduced>
+  constexpr operator Deduced&() const {
+    return *static_cast<Deduced*>(nullptr);
+  }
+
+  explicit constexpr ResolverSpy(Container& container) noexcept
+      : container_ptr{&container} {}
+};
+
+// SingleArgResolver spy that wraps a ResolverSpy
+template <typename Constructed, typename Resolver>
+struct SingleArgResolverSpy {
+  Resolver resolver;
+
+  template <meta::DifferentUnqualifiedType<Constructed> Deduced>
+  constexpr operator Deduced() {
+    return resolver.operator Deduced();
+  }
+
+  template <meta::DifferentUnqualifiedType<Constructed> Deduced>
+  constexpr operator Deduced&() const {
+    return resolver.operator Deduced&();
+  }
+
+  explicit constexpr SingleArgResolverSpy(Resolver resolver) noexcept
+      : resolver{std::move(resolver)} {}
+};
+
+// Shared fixture
+struct ResolverFactoryFixture {
+  struct Container {
+    int_t id = 0;
+  };
+
   using DependencyChain = TypeList<>;
-  static constexpr scope::Lifetime min_lifetime = scope::Lifetime::kDefault;
+  static constexpr auto min_lifetime = scope::Lifetime::kDefault;
+
   struct Constructed {};
 
   template <typename Container, typename DependencyChain,
             scope::Lifetime min_lifetime>
-  struct Resolver {
-    Container& container;
-  };
+  using Resolver = ResolverSpy<Container, DependencyChain, min_lifetime>;
 
   template <typename Constructed, typename Resolver>
-  struct SingleArgResolver {
-    Resolver resolver;
-  };
+  using SingleArgResolver = SingleArgResolverSpy<Constructed, Resolver>;
 
   using Sut = ResolverFactory<Resolver, SingleArgResolver>;
+};
 
-  template <typename Expected, std::size_t arity, std::size_t index>
-  static constexpr auto expected_type_created() -> bool {
+// ----------------------------------------------------------------------------
+// Compile-Time Tests: Type Correctness and Arity Branching
+// ----------------------------------------------------------------------------
+
+struct ResolverFactoryCompileTimeTest : ResolverFactoryFixture {
+  // Test that arity != 1 produces Resolver
+  template <std::size_t arity, std::size_t index>
+  static constexpr auto test_resolver_type() {
     using Actual =
         decltype(std::declval<Sut>()
                      .template create<Container, DependencyChain, min_lifetime,
                                       Constructed, arity, index>(
                          std::declval<Container&>()));
+    using Expected = Resolver<Container, DependencyChain, min_lifetime>;
 
-    return std::same_as<Expected, Actual>;
+    static_assert(std::same_as<Actual, Expected>);
   }
 
-  constexpr ResolverFactoryTest() {
-    using Resolver = Resolver<Container, DependencyChain, min_lifetime>;
-    using SingleArgResolver = SingleArgResolver<Constructed, Resolver>;
+  // Test that arity == 1 produces SingleArgResolver
+  template <std::size_t index>
+  static constexpr auto test_single_arg_resolver_type() {
+    using Actual =
+        decltype(std::declval<Sut>()
+                     .template create<Container, DependencyChain, min_lifetime,
+                                      Constructed, 1, index>(
+                         std::declval<Container&>()));
+    using ResolverType = Resolver<Container, DependencyChain, min_lifetime>;
+    using Expected = SingleArgResolver<Constructed, ResolverType>;
 
-    static_assert(expected_type_created<Resolver, 0, 0>());
-    static_assert(expected_type_created<Resolver, 0, 1>());
-    static_assert(expected_type_created<Resolver, 0, 2>());
+    static_assert(std::same_as<Actual, Expected>);
+  }
 
-    static_assert(expected_type_created<SingleArgResolver, 1, 0>());
-    static_assert(expected_type_created<SingleArgResolver, 1, 1>());
-    static_assert(expected_type_created<SingleArgResolver, 1, 2>());
+  constexpr ResolverFactoryCompileTimeTest() {
+    // Test arity 0 produces Resolver
+    test_resolver_type<0, 0>();
 
-    static_assert(expected_type_created<Resolver, 2, 0>());
-    static_assert(expected_type_created<Resolver, 2, 1>());
-    static_assert(expected_type_created<Resolver, 2, 2>());
+    // Test arity 1 produces SingleArgResolver (the special case)
+    test_single_arg_resolver_type<0>();
+
+    // Test arity 2 produces Resolver
+    test_resolver_type<2, 0>();
+    test_resolver_type<2, 1>();
+
+    // Test arity 3 produces Resolver
+    test_resolver_type<3, 0>();
+    test_resolver_type<3, 1>();
+    test_resolver_type<3, 2>();
   }
 };
-[[maybe_unused]] constexpr auto resolver_factory_test = ResolverFactoryTest{};
+[[maybe_unused]] constexpr auto resolver_factory_compile_time_test =
+    ResolverFactoryCompileTimeTest{};
+
+// ----------------------------------------------------------------------------
+// Run-Time Tests: Container Reference Preservation
+// ----------------------------------------------------------------------------
+
+struct ResolverFactoryRunTimeTest : ResolverFactoryFixture, Test {
+  static constexpr auto unique_id = int_t{42};
+  Container container{unique_id};
+  Sut sut;
+};
+
+TEST_F(ResolverFactoryRunTimeTest, Arity0PreservesContainer) {
+  auto resolver = sut.template create<Container, DependencyChain, min_lifetime,
+                                      Constructed, 0, 0>(container);
+
+  EXPECT_EQ(resolver.container_ptr, &container);
+  EXPECT_EQ(resolver.container_ptr->id, unique_id);
+}
+
+TEST_F(ResolverFactoryRunTimeTest, Arity1PreservesContainer) {
+  auto single_arg_resolver =
+      sut.template create<Container, DependencyChain, min_lifetime, Constructed,
+                          1, 0>(container);
+
+  // SingleArgResolver wraps Resolver, so check the wrapped resolver
+  EXPECT_EQ(single_arg_resolver.resolver.container_ptr, &container);
+  EXPECT_EQ(single_arg_resolver.resolver.container_ptr->id, unique_id);
+}
+
+TEST_F(ResolverFactoryRunTimeTest, Arity2PreservesContainer) {
+  auto resolver0 = sut.template create<Container, DependencyChain, min_lifetime,
+                                       Constructed, 2, 0>(container);
+  auto resolver1 = sut.template create<Container, DependencyChain, min_lifetime,
+                                       Constructed, 2, 1>(container);
+
+  EXPECT_EQ(resolver0.container_ptr, &container);
+  EXPECT_EQ(resolver1.container_ptr, &container);
+  EXPECT_EQ(resolver0.container_ptr->id, unique_id);
+}
+
+TEST_F(ResolverFactoryRunTimeTest, Arity3PreservesContainer) {
+  auto resolver0 = sut.template create<Container, DependencyChain, min_lifetime,
+                                       Constructed, 3, 0>(container);
+  auto resolver1 = sut.template create<Container, DependencyChain, min_lifetime,
+                                       Constructed, 3, 1>(container);
+  auto resolver2 = sut.template create<Container, DependencyChain, min_lifetime,
+                                       Constructed, 3, 2>(container);
+
+  EXPECT_EQ(resolver0.container_ptr, &container);
+  EXPECT_EQ(resolver1.container_ptr, &container);
+  EXPECT_EQ(resolver2.container_ptr, &container);
+  EXPECT_EQ(resolver0.container_ptr->id, unique_id);
+}
 
 }  // namespace
 }  // namespace dink
