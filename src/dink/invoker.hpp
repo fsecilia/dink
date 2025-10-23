@@ -23,6 +23,65 @@ template <typename Constructed, typename ConstructedFactory,
           typename ResolverSequence, typename IndexSequence>
 class Invoker;
 
+//! Ctor specialization.
+template <typename Constructed, typename ResolverSequence,
+          std::size_t... indices>
+class Invoker<Constructed, void, ResolverSequence,
+              std::index_sequence<indices...>> {
+ public:
+  template <typename DependencyChain, scope::Lifetime min_lifetime,
+            typename Container>
+  constexpr auto create_value(Container& container) const -> Constructed {
+    return Constructed{
+        resolver_sequence_
+            .template create_element<DependencyChain, min_lifetime, Constructed,
+                                     sizeof...(indices), indices>(
+                container)...};
+  }
+
+  template <typename DependencyChain, scope::Lifetime min_lifetime,
+            typename Container>
+  constexpr auto create_shared(Container& container) const
+      -> std::shared_ptr<Constructed> {
+    return std::make_shared<Constructed>(
+        resolver_sequence_
+            .template create_element<DependencyChain, min_lifetime, Constructed,
+                                     sizeof...(indices), indices>(
+                container)...);
+  }
+
+  template <typename DependencyChain, scope::Lifetime min_lifetime,
+            typename Container>
+  constexpr auto create_unique(Container& container) const
+      -> std::unique_ptr<Constructed> {
+    return std::make_unique<Constructed>(
+        resolver_sequence_
+            .template create_element<DependencyChain, min_lifetime, Constructed,
+                                     sizeof...(indices), indices>(
+                container)...);
+  }
+
+  template <typename Requested, typename DependencyChain,
+            scope::Lifetime min_lifetime, typename Container>
+  constexpr auto create(Container& container) const -> Requested {
+    if constexpr (SharedPtr<Requested>) {
+      return create_shared<DependencyChain, min_lifetime>(container);
+    } else if constexpr (UniquePtr<Requested>) {
+      return create_unique<DependencyChain, min_lifetime>(container);
+    } else {
+      return create_value<DependencyChain, min_lifetime>(container);
+    }
+  }
+
+  explicit constexpr Invoker(ResolverSequence resolver_sequence) noexcept
+      : resolver_sequence_{std::move(resolver_sequence)} {}
+
+  Invoker() = default;
+
+ private:
+  ResolverSequence resolver_sequence_{};
+};
+
 //! Factory specialization.
 template <typename Constructed, typename ConstructedFactory,
           typename ResolverSequence, std::size_t... indices>
@@ -79,65 +138,6 @@ class Invoker<Constructed, ConstructedFactory, ResolverSequence,
     } else {
       return create_value<DependencyChain, min_lifetime>(container,
                                                          constructed_factory);
-    }
-  }
-
-  explicit constexpr Invoker(ResolverSequence resolver_sequence) noexcept
-      : resolver_sequence_{std::move(resolver_sequence)} {}
-
-  Invoker() = default;
-
- private:
-  ResolverSequence resolver_sequence_{};
-};
-
-//! Ctor specialization.
-template <typename Constructed, typename ResolverSequence,
-          std::size_t... indices>
-class Invoker<Constructed, void, ResolverSequence,
-              std::index_sequence<indices...>> {
- public:
-  template <typename DependencyChain, scope::Lifetime min_lifetime,
-            typename Container>
-  constexpr auto create_value(Container& container) const -> Constructed {
-    return Constructed{
-        resolver_sequence_
-            .template create_element<DependencyChain, min_lifetime, Constructed,
-                                     sizeof...(indices), indices>(
-                container)...};
-  }
-
-  template <typename DependencyChain, scope::Lifetime min_lifetime,
-            typename Container>
-  constexpr auto create_shared(Container& container) const
-      -> std::shared_ptr<Constructed> {
-    return std::make_shared<Constructed>(
-        resolver_sequence_
-            .template create_element<DependencyChain, min_lifetime, Constructed,
-                                     sizeof...(indices), indices>(
-                container)...);
-  }
-
-  template <typename DependencyChain, scope::Lifetime min_lifetime,
-            typename Container>
-  constexpr auto create_unique(Container& container) const
-      -> std::unique_ptr<Constructed> {
-    return std::make_unique<Constructed>(
-        resolver_sequence_
-            .template create_element<DependencyChain, min_lifetime, Constructed,
-                                     sizeof...(indices), indices>(
-                container)...);
-  }
-
-  template <typename Requested, typename DependencyChain,
-            scope::Lifetime min_lifetime, typename Container>
-  constexpr auto create(Container& container) const -> Requested {
-    if constexpr (SharedPtr<Requested>) {
-      return create_shared<DependencyChain, min_lifetime>(container);
-    } else if constexpr (UniquePtr<Requested>) {
-      return create_unique<DependencyChain, min_lifetime>(container);
-    } else {
-      return create_value<DependencyChain, min_lifetime>(container);
     }
   }
 
