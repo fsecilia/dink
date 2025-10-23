@@ -19,10 +19,10 @@ struct InvokerFixture {
   using DependencyChain = TypeList<>;
   static constexpr scope::Lifetime min_lifetime = scope::Lifetime::kDefault;
 
-  // Constructed and ResolverFactory work together so the factory can just
+  // Constructed and ResolverSequence work together so the factory can just
   // return indices directly instead of indexed resolvers that convert to
   // parameters that happen to be indices. It's all transparent to Invoker,
-  // which just replaces a sequence with the results of the ResolverFactory.
+  // which just replaces a sequence with the results of the ResolverSequence.
 
   template <typename... Args>
   struct Constructed {
@@ -31,11 +31,11 @@ struct InvokerFixture {
         : args_tuple{args...} {}
   };
 
-  struct ResolverFactory {
+  struct ResolverSequence {
     template <typename DependencyChain, scope::Lifetime min_lifetime,
               typename Constructed, std::size_t arity, std::size_t index,
               typename Container>
-    constexpr auto create(Container& /*container*/) const noexcept
+    constexpr auto create_element(Container& /*container*/) const noexcept
         -> std::size_t {
       return index;
     }
@@ -52,7 +52,7 @@ struct InvokerFixtureFactory : InvokerFixture {
 
   template <std::size_t... indices>
   using Sut = dink::Invoker<Constructed<decltype(indices)...>,
-                            decltype(constructed_factory), ResolverFactory,
+                            decltype(constructed_factory), ResolverSequence,
                             std::index_sequence<indices...>>;
 };
 
@@ -60,10 +60,10 @@ struct InvokerFixtureFactoryCompileTime : InvokerFixtureFactory {
   template <std::size_t... indices>
   static constexpr auto test() -> bool {
     Container container;
-    const Sut<indices...> invoker{constructed_factory, ResolverFactory{}};
+    const auto sut = Sut<indices...>{constructed_factory, ResolverSequence{}};
     const auto result =
-        invoker.template create<Constructed<decltype(indices)...>,
-                                DependencyChain, min_lifetime>(container);
+        sut.template create<Constructed<decltype(indices)...>, DependencyChain,
+                            min_lifetime>(container);
     return result.args_tuple == std::make_tuple(indices...);
   }
 
@@ -82,7 +82,7 @@ struct InvokerFixtureFactoryCompileTime : InvokerFixtureFactory {
 
 struct InvokerTestFactoryRunTime : InvokerFixtureFactory, Test {
   Container container;
-  Sut<0, 1, 2> sut{constructed_factory, ResolverFactory{}};
+  Sut<0, 1, 2> sut{constructed_factory, ResolverSequence{}};
   using ConstructedType = Constructed<std::size_t, std::size_t, std::size_t>;
 };
 
@@ -106,17 +106,17 @@ TEST_F(InvokerTestFactoryRunTime, Arity3UniquePtr) {
 struct InvokerFixtureCtor : InvokerFixture {
   template <std::size_t... indices>
   using Sut = dink::Invoker<Constructed<decltype(indices)...>, void,
-                            ResolverFactory, std::index_sequence<indices...>>;
+                            ResolverSequence, std::index_sequence<indices...>>;
 };
 
 struct InvokerFixtureCtorCompileTime : InvokerFixtureCtor {
   template <std::size_t... indices>
   static constexpr auto test() -> bool {
     Container container;
-    const Sut<indices...> invoker{ResolverFactory{}};
+    const auto sut = Sut<indices...>{ResolverSequence{}};
     const auto result =
-        invoker.template create<Constructed<decltype(indices)...>,
-                                DependencyChain, min_lifetime>(container);
+        sut.template create<Constructed<decltype(indices)...>, DependencyChain,
+                            min_lifetime>(container);
     return result.args_tuple == std::make_tuple(indices...);
   }
 
@@ -135,7 +135,7 @@ struct InvokerFixtureCtorCompileTime : InvokerFixtureCtor {
 
 struct InvokerTestCtorRunTime : InvokerFixtureCtor, Test {
   Container container;
-  Sut<0, 1, 2> sut{ResolverFactory{}};
+  Sut<0, 1, 2> sut{ResolverSequence{}};
   using ConstructedType = Constructed<std::size_t, std::size_t, std::size_t>;
 };
 
@@ -156,7 +156,7 @@ TEST_F(InvokerTestCtorRunTime, Arity3UniquePtr) {
 // ----------------------------------------------------------------------------
 
 template <typename Constructed, typename ConstructedFactory,
-          typename ResolverFactory, std::size_t... indices>
+          typename ResolverSequence, std::size_t... indices>
 struct InvokerSpyBase {
   static constexpr std::size_t arity = sizeof...(indices);
 
@@ -168,34 +168,34 @@ struct InvokerSpyBase {
 };
 
 template <typename Constructed, typename ConstructedFactory,
-          typename ResolverFactory, typename IndexSequence>
+          typename ResolverSequence, typename IndexSequence>
 struct InvokerSpy;
 
 // factory specialization
 template <typename Constructed, typename ConstructedFactory,
-          typename ResolverFactory, std::size_t... indices>
-struct InvokerSpy<Constructed, ConstructedFactory, ResolverFactory,
+          typename ResolverSequence, std::size_t... indices>
+struct InvokerSpy<Constructed, ConstructedFactory, ResolverSequence,
                   std::index_sequence<indices...>>
-    : InvokerSpyBase<Constructed, ConstructedFactory, ResolverFactory,
+    : InvokerSpyBase<Constructed, ConstructedFactory, ResolverSequence,
                      indices...> {
   ConstructedFactory constructed_factory{-1};
 
   explicit constexpr InvokerSpy(ConstructedFactory constructed_factory,
-                                ResolverFactory) noexcept
+                                ResolverSequence) noexcept
       : constructed_factory{std::move(constructed_factory)} {}
 };
 
 // ctor specialization
-template <typename Constructed, typename ResolverFactory,
+template <typename Constructed, typename ResolverSequence,
           std::size_t... indices>
-struct InvokerSpy<Constructed, void, ResolverFactory,
+struct InvokerSpy<Constructed, void, ResolverSequence,
                   std::index_sequence<indices...>>
-    : InvokerSpyBase<Constructed, void, ResolverFactory, indices...> {
-  explicit constexpr InvokerSpy(ResolverFactory) noexcept {}
+    : InvokerSpyBase<Constructed, void, ResolverSequence, indices...> {
+  explicit constexpr InvokerSpy(ResolverSequence) noexcept {}
 };
 
 struct InvokerFactoryFixture {
-  struct ResolverFactory {};
+  struct ResolverSequence {};
 
   struct Constructed0 {
     Constructed0() = default;
@@ -228,11 +228,12 @@ struct InvokerFactoryFixture {
   };
 
   template <typename Constructed, typename ConstructedFactory,
-            typename ResolverFactory, typename IndexSequence>
-  using Invoker = InvokerSpy<Constructed, ConstructedFactory, ResolverFactory,
+            typename ResolverSequence, typename IndexSequence>
+  using Invoker = InvokerSpy<Constructed, ConstructedFactory, ResolverSequence,
                              IndexSequence>;
 
-  using Sut = InvokerFactory<Invoker>;
+  using Sut =
+      InvokerFactory<Invoker, ResolverSequenceFactory<ResolverSequence>>;
 };
 
 // Compile-Time Tests: Type Correctness and Arity
@@ -246,9 +247,9 @@ struct InvokerFactoryCompileTimeTest : InvokerFactoryFixture {
     using Actual =
         decltype(std::declval<Sut>()
                      .template create<Constructed, ConstructedFactory,
-                                      ResolverFactory>(
+                                      ResolverSequence>(
                          std::declval<ConstructedFactory>()));
-    using Expected = Invoker<Constructed, ConstructedFactory, ResolverFactory,
+    using Expected = Invoker<Constructed, ConstructedFactory, ResolverSequence,
                              std::make_index_sequence<expected_arity>>;
 
     static_assert(std::same_as<Actual, Expected>);
@@ -260,8 +261,8 @@ struct InvokerFactoryCompileTimeTest : InvokerFactoryFixture {
   static constexpr auto test_ctor_type() {
     using Actual =
         decltype(std::declval<Sut>()
-                     .template create<Constructed, ResolverFactory>());
-    using Expected = Invoker<Constructed, void, ResolverFactory,
+                     .template create<Constructed, ResolverSequence>());
+    using Expected = Invoker<Constructed, void, ResolverSequence,
                              std::make_index_sequence<expected_arity>>;
 
     static_assert(std::same_as<Actual, Expected>);
@@ -297,7 +298,7 @@ TEST_F(InvokerFactoryRunTimeTest, FactoryArity0PreservesInstance) {
   factory.id = unique_id;
 
   auto invoker =
-      sut.template create<Constructed0, ConstructedFactory0, ResolverFactory>(
+      sut.template create<Constructed0, ConstructedFactory0, ResolverSequence>(
           factory);
 
   EXPECT_EQ(invoker.constructed_factory.id, unique_id);
@@ -308,7 +309,7 @@ TEST_F(InvokerFactoryRunTimeTest, FactoryArity1PreservesInstance) {
   factory.id = unique_id;
 
   auto invoker =
-      sut.template create<Constructed1, ConstructedFactory1, ResolverFactory>(
+      sut.template create<Constructed1, ConstructedFactory1, ResolverSequence>(
           factory);
 
   EXPECT_EQ(invoker.constructed_factory.id, unique_id);
@@ -319,7 +320,7 @@ TEST_F(InvokerFactoryRunTimeTest, FactoryArity3PreservesInstance) {
   factory.id = unique_id;
 
   auto invoker =
-      sut.template create<Constructed3, ConstructedFactory3, ResolverFactory>(
+      sut.template create<Constructed3, ConstructedFactory3, ResolverSequence>(
           factory);
 
   EXPECT_EQ(invoker.constructed_factory.id, unique_id);

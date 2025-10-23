@@ -111,20 +111,20 @@ class SingleArgResolver {
   Resolver resolver_;
 };
 
-//! Factory that consumes indices to produce Resolvers.
+//! Sequence that consumes indices to produce Resolvers.
 template <template <typename Container, typename DependencyChain,
                     scope::Lifetime min_lifetime> typename ResolverTemplate,
           template <typename Constructed,
                     typename Resolver> typename SingleArgResolverTemplate>
-struct ResolverFactory {
-  //! Creates a resolver, choosing the return type based on arity.
+struct ResolverSequence {
+  //! Creates a resolver sequence element, choosing the type based on arity.
   //
-  // For arity 1, this returns a \c SingleArgResolver. For all other
-  // arities, it returns a \c Resolver.
+  // For arity 1, this creates a \c SingleArgResolver. For all other arities,
+  // it creates a \c Resolver.
   template <typename DependencyChain, scope::Lifetime min_lifetime,
             typename Constructed, std::size_t arity, std::size_t index,
             typename Container>
-  constexpr auto create(Container& container) const noexcept -> auto {
+  constexpr auto create_element(Container& container) const noexcept -> auto {
     using Resolver = ResolverTemplate<Container, DependencyChain, min_lifetime>;
     using SingleArgResolver = SingleArgResolverTemplate<Constructed, Resolver>;
     if constexpr (arity == 1) {
@@ -133,6 +133,12 @@ struct ResolverFactory {
       return Resolver{container};
     }
   }
+};
+
+template <typename ResolverSequence =
+              ResolverSequence<Resolver, SingleArgResolver>>
+struct ResolverSequenceFactory {
+  constexpr auto create() const noexcept -> ResolverSequence { return {}; }
 };
 
 }  // namespace dink
