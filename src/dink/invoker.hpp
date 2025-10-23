@@ -32,36 +32,36 @@ struct ResolverFactory {
 
 //! Invokes a ctor or factory by replacing an index sequence.
 //
-// Invoker replaces each value in an index sequence with the output of
-// an indexed factory, then uses the replaced sequence to either invoke
+// Invoker replaces each value in an index sequence with the output of a
+// ResolverFactory, then uses the replaced sequence to either invoke
 // ConstructedFactory, or if void, Constructed's ctor directly.
 template <typename Constructed, typename ConstructedFactory,
-          typename IndexedFactory, typename IndexSequence>
+          typename ResolverFactory, typename IndexSequence>
 class Invoker;
 
 //! Factory specialization.
 template <typename Constructed, typename ConstructedFactory,
-          typename IndexedFactory, std::size_t... indices>
-class Invoker<Constructed, ConstructedFactory, IndexedFactory,
+          typename ResolverFactory, std::size_t... indices>
+class Invoker<Constructed, ConstructedFactory, ResolverFactory,
               std::index_sequence<indices...>> {
  public:
   constexpr auto create_value(auto& container) const -> Constructed {
     return constructed_factory_(
-        indexed_factory_.template create<sizeof...(indices), indices>(
+        resolver_factory_.template create<sizeof...(indices), indices>(
             container)...);
   }
 
   constexpr auto create_shared(auto& container) const
       -> std::shared_ptr<Constructed> {
     return std::make_shared<Constructed>(constructed_factory_(
-        indexed_factory_.template create<sizeof...(indices), indices>(
+        resolver_factory_.template create<sizeof...(indices), indices>(
             container)...));
   }
 
   constexpr auto create_unique(auto& container) const
       -> std::unique_ptr<Constructed> {
     return std::make_unique<Constructed>(constructed_factory_(
-        indexed_factory_.template create<sizeof...(indices), indices>(
+        resolver_factory_.template create<sizeof...(indices), indices>(
             container)...));
   }
 
@@ -77,37 +77,38 @@ class Invoker<Constructed, ConstructedFactory, IndexedFactory,
   }
 
   explicit constexpr Invoker(ConstructedFactory constructed_factory,
-                             IndexedFactory indexed_factory) noexcept
+                             ResolverFactory resolver_factory) noexcept
       : constructed_factory_{std::move(constructed_factory)},
-        indexed_factory_{std::move(indexed_factory)} {}
+        resolver_factory_{std::move(resolver_factory)} {}
 
  private:
   ConstructedFactory constructed_factory_{};
-  IndexedFactory indexed_factory_{};
+  ResolverFactory resolver_factory_{};
 };
 
 //! Ctor specialization.
-template <typename Constructed, typename IndexedFactory, std::size_t... indices>
-class Invoker<Constructed, void, IndexedFactory,
+template <typename Constructed, typename ResolverFactory,
+          std::size_t... indices>
+class Invoker<Constructed, void, ResolverFactory,
               std::index_sequence<indices...>> {
  public:
   constexpr auto create_value(auto& container) const -> Constructed {
     return Constructed{
-        indexed_factory_.template create<sizeof...(indices), indices>(
+        resolver_factory_.template create<sizeof...(indices), indices>(
             container)...};
   }
 
   constexpr auto create_shared(auto& container) const
       -> std::shared_ptr<Constructed> {
     return std::make_shared<Constructed>(
-        indexed_factory_.template create<sizeof...(indices), indices>(
+        resolver_factory_.template create<sizeof...(indices), indices>(
             container)...);
   }
 
   constexpr auto create_unique(auto& container) const
       -> std::unique_ptr<Constructed> {
     return std::make_unique<Constructed>(
-        indexed_factory_.template create<sizeof...(indices), indices>(
+        resolver_factory_.template create<sizeof...(indices), indices>(
             container)...);
   }
 
@@ -122,11 +123,11 @@ class Invoker<Constructed, void, IndexedFactory,
     }
   }
 
-  explicit constexpr Invoker(IndexedFactory indexed_factory) noexcept
-      : indexed_factory_{std::move(indexed_factory)} {}
+  explicit constexpr Invoker(ResolverFactory resolver_factory) noexcept
+      : resolver_factory_{std::move(resolver_factory)} {}
 
  private:
-  IndexedFactory indexed_factory_{};
+  ResolverFactory resolver_factory_{};
 };
 
 //! Invoker type for factory-based construction.
@@ -169,14 +170,13 @@ struct InvokerFactory {
                         ConstructedFactory> {
     using Resolver = Resolver<Container, DependencyChain, min_lifetime>;
     using SingleArgResolver = SingleArgResolver<Constructed, Resolver>;
-    using IndexedResolverFactory = ResolverFactory<Resolver, SingleArgResolver>;
+    using ResolverFactory = ResolverFactory<Resolver, SingleArgResolver>;
 
     static constexpr auto arity = dink::arity<Constructed, ConstructedFactory>;
-    using Invoker =
-        Invoker<Constructed, ConstructedFactory, IndexedResolverFactory,
-                std::make_index_sequence<arity>>;
+    using Invoker = Invoker<Constructed, ConstructedFactory, ResolverFactory,
+                            std::make_index_sequence<arity>>;
 
-    return Invoker{std::move(constructed_factory), IndexedResolverFactory{}};
+    return Invoker{std::move(constructed_factory), ResolverFactory{}};
   }
 
   // Ctor specialization.
@@ -186,13 +186,13 @@ struct InvokerFactory {
       -> CtorInvoker<Container, DependencyChain, min_lifetime, Constructed> {
     using Resolver = Resolver<Container, DependencyChain, min_lifetime>;
     using SingleArgResolver = SingleArgResolver<Constructed, Resolver>;
-    using IndexedResolverFactory = ResolverFactory<Resolver, SingleArgResolver>;
+    using ResolverFactory = ResolverFactory<Resolver, SingleArgResolver>;
 
     static constexpr auto arity = dink::arity<Constructed, void>;
-    using Invoker = Invoker<Constructed, void, IndexedResolverFactory,
+    using Invoker = Invoker<Constructed, void, ResolverFactory,
                             std::make_index_sequence<arity>>;
 
-    return Invoker{IndexedResolverFactory()};
+    return Invoker{ResolverFactory()};
   }
 };
 

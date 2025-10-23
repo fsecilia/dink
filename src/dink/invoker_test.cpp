@@ -51,8 +51,7 @@ struct ResolverFactoryTest {
 
   constexpr ResolverFactoryTest() { test_multiple(); }
 };
-[[maybe_unused]] constexpr auto indexed_resolver_factory_test =
-    ResolverFactoryTest{};
+[[maybe_unused]] constexpr auto resolver_factory_test = ResolverFactoryTest{};
 
 // ----------------------------------------------------------------------------
 // Invoker
@@ -61,12 +60,12 @@ struct ResolverFactoryTest {
 struct InvokerFixture {
   struct Container {};
 
-  // IndexedFactory and Constructed work together so the factory can just
+  // ResolverFactory and Constructed work together so the factory can just
   // return indices directly instead of indexed resolvers that convert to
   // parameters that happen to be indices. It's all transparent to Invoker,
-  // which just replaces a sequence with the results of the IndexedFactory.
+  // which just replaces a sequence with the results of the ResolverFactory.
 
-  struct IndexedFactory {
+  struct ResolverFactory {
     template <std::size_t arity, std::size_t index>
     constexpr auto create(auto& /*container*/) const noexcept -> std::size_t {
       return index;
@@ -91,7 +90,7 @@ struct InvokerFixtureFactory : InvokerFixture {
 
   template <std::size_t... indices>
   using Sut = dink::Invoker<Constructed<decltype(indices)...>,
-                            decltype(constructed_factory), IndexedFactory,
+                            decltype(constructed_factory), ResolverFactory,
                             std::index_sequence<indices...>>;
 };
 
@@ -99,7 +98,7 @@ struct InvokerFixtureFactoryCompileTime : InvokerFixtureFactory {
   template <std::size_t... indices>
   static constexpr auto test() -> bool {
     Container container;
-    const Sut<indices...> invoker{constructed_factory, IndexedFactory{}};
+    const Sut<indices...> invoker{constructed_factory, ResolverFactory{}};
     const auto res =
         invoker.template create<Constructed<decltype(indices)...>>(container);
     return res.args_tuple == std::make_tuple(indices...);
@@ -120,7 +119,7 @@ struct InvokerFixtureFactoryCompileTime : InvokerFixtureFactory {
 
 struct InvokerTestFactoryRunTime : InvokerFixtureFactory, Test {
   Container container;
-  Sut<0, 1, 2> sut{constructed_factory, IndexedFactory{}};
+  Sut<0, 1, 2> sut{constructed_factory, ResolverFactory{}};
   using ConstructedType = Constructed<std::size_t, std::size_t, std::size_t>;
 };
 
@@ -142,14 +141,14 @@ TEST_F(InvokerTestFactoryRunTime, Arity3UniquePtr) {
 struct InvokerFixtureCtor : InvokerFixture {
   template <std::size_t... indices>
   using Sut = dink::Invoker<Constructed<decltype(indices)...>, void,
-                            IndexedFactory, std::index_sequence<indices...>>;
+                            ResolverFactory, std::index_sequence<indices...>>;
 };
 
 struct InvokerFixtureCtorCompileTime : InvokerFixtureCtor {
   template <std::size_t... indices>
   static constexpr auto test() -> bool {
     Container container;
-    const Sut<indices...> invoker{IndexedFactory{}};
+    const Sut<indices...> invoker{ResolverFactory{}};
     const auto res =
         invoker.template create<Constructed<decltype(indices)...>>(container);
     return res.args_tuple == std::make_tuple(indices...);
@@ -170,7 +169,7 @@ struct InvokerFixtureCtorCompileTime : InvokerFixtureCtor {
 
 struct InvokerTestCtorRunTime : InvokerFixtureCtor, Test {
   Container container;
-  Sut<0, 1, 2> sut{IndexedFactory{}};
+  Sut<0, 1, 2> sut{ResolverFactory{}};
   using ConstructedType = Constructed<std::size_t, std::size_t, std::size_t>;
 };
 
