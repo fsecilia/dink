@@ -148,18 +148,19 @@ struct InvokerFactory {
   // Factory specialization.
   template <typename Constructed, typename ConstructedFactory,
             typename ResolverFactory>
-  constexpr auto create(ConstructedFactory constructed_factory) -> Invoker<
-      Constructed, ConstructedFactory, ResolverFactory,
-      std::make_index_sequence<arity<Constructed, ConstructedFactory>>> {
-    return {std::move(constructed_factory), ResolverFactory{}};
+  constexpr auto create(ConstructedFactory constructed_factory) -> auto {
+    return Invoker<
+        Constructed, ConstructedFactory, ResolverFactory,
+        std::make_index_sequence<arity<Constructed, ConstructedFactory>>>{
+        std::move(constructed_factory), ResolverFactory{}};
   }
 
   // Ctor specialization.
   template <typename Constructed, typename ResolverFactory>
-  constexpr auto create()
-      -> Invoker<Constructed, void, ResolverFactory,
-                 std::make_index_sequence<arity<Constructed, void>>> {
-    return {ResolverFactory()};
+  constexpr auto create() -> auto {
+    return Invoker<Constructed, void, ResolverFactory,
+                   std::make_index_sequence<arity<Constructed, void>>>{
+        ResolverFactory()};
   }
 };
 
