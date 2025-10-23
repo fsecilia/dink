@@ -99,8 +99,9 @@ struct InvokerFixtureFactoryCompileTime : InvokerFixtureFactory {
   template <std::size_t... indices>
   static constexpr auto test() -> bool {
     Container container;
-    Sut<indices...> invoker{constructed_factory, IndexedFactory{}};
-    auto res = invoker.create_value(container);
+    const Sut<indices...> invoker{constructed_factory, IndexedFactory{}};
+    const auto res =
+        invoker.template create<Constructed<decltype(indices)...>>(container);
     return res.args_tuple == std::make_tuple(indices...);
   }
 
@@ -120,15 +121,18 @@ struct InvokerFixtureFactoryCompileTime : InvokerFixtureFactory {
 struct InvokerTestFactoryRunTime : InvokerFixtureFactory, Test {
   Container container;
   Sut<0, 1, 2> sut{constructed_factory, IndexedFactory{}};
+  using ConstructedType = Constructed<std::size_t, std::size_t, std::size_t>;
 };
 
 TEST_F(InvokerTestFactoryRunTime, Arity3SharedPtr) {
-  auto res = sut.create_shared(container);
+  const auto res =
+      sut.template create<std::shared_ptr<ConstructedType>>(container);
   EXPECT_EQ(res->args_tuple, std::make_tuple(0, 1, 2));
 }
 
 TEST_F(InvokerTestFactoryRunTime, Arity3UniquePtr) {
-  auto res = sut.create_unique(container);
+  const auto res =
+      sut.template create<std::unique_ptr<ConstructedType>>(container);
   EXPECT_EQ(res->args_tuple, std::make_tuple(0, 1, 2));
 }
 
@@ -145,8 +149,9 @@ struct InvokerFixtureCtorCompileTime : InvokerFixtureCtor {
   template <std::size_t... indices>
   static constexpr auto test() -> bool {
     Container container;
-    Sut<indices...> invoker{IndexedFactory{}};
-    auto res = invoker.create_value(container);
+    const Sut<indices...> invoker{IndexedFactory{}};
+    const auto res =
+        invoker.template create<Constructed<decltype(indices)...>>(container);
     return res.args_tuple == std::make_tuple(indices...);
   }
 
@@ -164,17 +169,18 @@ struct InvokerFixtureCtorCompileTime : InvokerFixtureCtor {
     InvokerFixtureCtorCompileTime{};
 
 struct InvokerTestCtorRunTime : InvokerFixtureCtor, Test {
-  Sut<0, 1, 2> sut{IndexedFactory{}};
   Container container;
+  Sut<0, 1, 2> sut{IndexedFactory{}};
+  using ConstructedType = Constructed<std::size_t, std::size_t, std::size_t>;
 };
 
 TEST_F(InvokerTestCtorRunTime, Arity3SharedPtr) {
-  auto res = sut.create_shared(container);
+  auto res = sut.template create<std::shared_ptr<ConstructedType>>(container);
   EXPECT_EQ(res->args_tuple, std::make_tuple(0, 1, 2));
 }
 
 TEST_F(InvokerTestCtorRunTime, Arity3UniquePtr) {
-  auto res = sut.create_unique(container);
+  auto res = sut.template create<std::unique_ptr<ConstructedType>>(container);
   EXPECT_EQ(res->args_tuple, std::make_tuple(0, 1, 2));
 }
 

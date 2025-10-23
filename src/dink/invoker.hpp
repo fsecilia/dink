@@ -8,6 +8,7 @@
 #include <dink/arity.hpp>
 #include <dink/resolver.hpp>
 #include <dink/scope.hpp>
+#include <dink/smart_pointer_traits.hpp>
 #include <memory>
 #include <utility>
 
@@ -64,6 +65,17 @@ class Invoker<Constructed, ConstructedFactory, IndexedFactory,
             container)...));
   }
 
+  template <typename Requested>
+  constexpr auto create(auto& container) const -> Requested {
+    if constexpr (SharedPtr<Requested>) {
+      return create_shared(container);
+    } else if constexpr (UniquePtr<Requested>) {
+      return create_unique(container);
+    } else {
+      return create_value(container);
+    }
+  }
+
   explicit constexpr Invoker(ConstructedFactory constructed_factory,
                              IndexedFactory indexed_factory) noexcept
       : constructed_factory_{std::move(constructed_factory)},
@@ -97,6 +109,17 @@ class Invoker<Constructed, void, IndexedFactory,
     return std::make_unique<Constructed>(
         indexed_factory_.template create<sizeof...(indices), indices>(
             container)...);
+  }
+
+  template <typename Requested>
+  constexpr auto create(auto& container) const -> Requested {
+    if constexpr (SharedPtr<Requested>) {
+      return create_shared(container);
+    } else if constexpr (UniquePtr<Requested>) {
+      return create_unique(container);
+    } else {
+      return create_value(container);
+    }
   }
 
   explicit constexpr Invoker(IndexedFactory indexed_factory) noexcept
