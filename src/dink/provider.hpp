@@ -8,12 +8,12 @@
 #include <dink/invoker.hpp>
 #include <dink/smart_pointer_traits.hpp>
 
-namespace dink {
+namespace dink::provider {
 
 //! provider that invokes Constructed's ctor directly
 template <typename Constructed,
           typename InvokerFactory = InvokerFactory<Invoker>>
-class CtorProvider {
+class Ctor {
  public:
   using Provided = Constructed;
 
@@ -26,7 +26,7 @@ class CtorProvider {
     return invoker.template create<Requested>(container);
   }
 
-  explicit constexpr CtorProvider(InvokerFactory invoker_factory = {}) noexcept
+  explicit constexpr Ctor(InvokerFactory invoker_factory = {}) noexcept
       : invoker_factory_{std::move(invoker_factory)} {}
 
  private:
@@ -36,7 +36,7 @@ class CtorProvider {
 //! provider that invokes ConstructedFactory to produce a Constructed
 template <typename Constructed, typename ConstructedFactory,
           typename InvokerFactory = InvokerFactory<Invoker>>
-class FactoryProvider {
+class Factory {
  public:
   using Provided = Constructed;
 
@@ -50,9 +50,8 @@ class FactoryProvider {
     return invoker.template create<Requested>(container, constructed_factory_);
   }
 
-  explicit constexpr FactoryProvider(
-      ConstructedFactory constructed_factory,
-      InvokerFactory invoker_factory = {}) noexcept
+  explicit constexpr Factory(ConstructedFactory constructed_factory,
+                             InvokerFactory invoker_factory = {}) noexcept
       : constructed_factory_{std::move(constructed_factory)},
         invoker_factory_{std::move(invoker_factory)} {}
 
@@ -61,4 +60,4 @@ class FactoryProvider {
   [[dink_no_unique_address]] InvokerFactory invoker_factory_{};
 };
 
-}  // namespace dink
+}  // namespace dink::provider

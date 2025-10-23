@@ -5,14 +5,14 @@
 #include "provider.hpp"
 #include <dink/test.hpp>
 
-namespace dink {
+namespace dink::provider {
 namespace {
 
 // ----------------------------------------------------------------------------
 // Fixtures
 // ----------------------------------------------------------------------------
 
-struct ProviderFixture {
+struct Fixture {
   struct Constructed {
     static inline const int_t default_value = 3;
     static inline const int_t expected_value = 5;
@@ -22,7 +22,7 @@ struct ProviderFixture {
   };
 };
 
-struct CreatorProviderFixture : ProviderFixture {
+struct CreatorFixture : Fixture {
   struct Container {};
   using DependencyChain = TypeList<>;
   static constexpr auto test_min_lifetime = scope::Lifetime::kDefault;
@@ -87,18 +87,18 @@ struct CreatorProviderFixture : ProviderFixture {
 };
 
 // ----------------------------------------------------------------------------
-// CtorProvider
+// Ctor
 // ----------------------------------------------------------------------------
 
-struct CtorProviderFixture : CreatorProviderFixture {
+struct CtorFixture : CreatorFixture {
   using InvokerFactory = InvokerFactory<void>;
-  using Sut = CtorProvider<Constructed, InvokerFactory>;
+  using Sut = Ctor<Constructed, InvokerFactory>;
 };
 
 // Compile-Time Tests
 // ----------------------------------------------------------------------------
 
-struct CtorProviderCompileTimeTest : CtorProviderFixture {
+struct CtorCompileTimeTest : CtorFixture {
   static constexpr auto creates_value() -> bool {
     Container container{};
     Sut sut{InvokerFactory{}};
@@ -109,34 +109,34 @@ struct CtorProviderCompileTimeTest : CtorProviderFixture {
     return constructed.value == Constructed::expected_value;
   }
 
-  constexpr CtorProviderCompileTimeTest() { static_assert(creates_value()); }
+  constexpr CtorCompileTimeTest() { static_assert(creates_value()); }
 };
 [[maybe_unused]] constexpr auto ctor_provider_compile_time_test =
-    CtorProviderCompileTimeTest{};
+    CtorCompileTimeTest{};
 
 // Run-time Tests
 // ----------------------------------------------------------------------------
 
-struct CtorProviderRunTimeTest : CtorProviderFixture, Test {
+struct ProviderCtorRunTimeTest : CtorFixture, Test {
   Container container{};
   Sut sut{InvokerFactory{}};
 };
 
-TEST_F(CtorProviderRunTimeTest, CreatesSharedPtr) {
+TEST_F(ProviderCtorRunTimeTest, CreatesSharedPtr) {
   test_result(*sut.create<std::shared_ptr<Constructed>, DependencyChain,
                           test_min_lifetime>(container));
 }
 
-TEST_F(CtorProviderRunTimeTest, CreatesUniquePtr) {
+TEST_F(ProviderCtorRunTimeTest, CreatesUniquePtr) {
   test_result(*sut.create<std::unique_ptr<Constructed>, DependencyChain,
                           test_min_lifetime>(container));
 }
 
 // ----------------------------------------------------------------------------
-// FactoryProvider
+// Factory
 // ----------------------------------------------------------------------------
 
-struct FactoryProviderFixture : CreatorProviderFixture {
+struct FactoryFixture : CreatorFixture {
   struct ConstructedFactory {
     constexpr auto operator()() noexcept -> Constructed {
       return Constructed{Constructed::expected_value};
@@ -144,13 +144,13 @@ struct FactoryProviderFixture : CreatorProviderFixture {
   };
   using InvokerFactory = InvokerFactory<ConstructedFactory>;
 
-  using Sut = FactoryProvider<Constructed, ConstructedFactory, InvokerFactory>;
+  using Sut = Factory<Constructed, ConstructedFactory, InvokerFactory>;
 };
 
 // Compile-Time Tests
 // ----------------------------------------------------------------------------
 
-struct FactoryProviderCompileTimeTest : FactoryProviderFixture {
+struct FactoryCompileTimeTest : FactoryFixture {
   static constexpr auto creates_value() -> bool {
     Container container{};
     InvokerFactory invoker_factory{};
@@ -162,28 +162,28 @@ struct FactoryProviderCompileTimeTest : FactoryProviderFixture {
     return constructed.value == Constructed::expected_value;
   }
 
-  constexpr FactoryProviderCompileTimeTest() { static_assert(creates_value()); }
+  constexpr FactoryCompileTimeTest() { static_assert(creates_value()); }
 };
 [[maybe_unused]] constexpr auto factory_provider_compile_time_test =
-    FactoryProviderCompileTimeTest{};
+    FactoryCompileTimeTest{};
 
 // Run-time Tests
 // ----------------------------------------------------------------------------
 
-struct FactoryProviderRunTimeTest : FactoryProviderFixture, Test {
+struct ProviderFactoryRunTimeTest : FactoryFixture, Test {
   Container container{};
   Sut sut{ConstructedFactory{}, InvokerFactory{}};
 };
 
-TEST_F(FactoryProviderRunTimeTest, CreatesSharedPtr) {
+TEST_F(ProviderFactoryRunTimeTest, CreatesSharedPtr) {
   test_result(*sut.create<std::shared_ptr<Constructed>, DependencyChain,
                           test_min_lifetime>(container));
 }
 
-TEST_F(FactoryProviderRunTimeTest, CreatesUniquePtr) {
+TEST_F(ProviderFactoryRunTimeTest, CreatesUniquePtr) {
   test_result(*sut.create<std::unique_ptr<Constructed>, DependencyChain,
                           test_min_lifetime>(container));
 }
 
 }  // namespace
-}  // namespace dink
+}  // namespace dink::provider
