@@ -183,10 +183,12 @@ TEST_F(ProviderFactoryRunTimeTest, CreatesUniquePtr) {
 
 struct ProviderAccessorTest : Test {
   struct Instance {
+    // Counters for tracking copy/move operations
     static inline auto copy_ctors = int_t{0};
     static inline auto move_ctors = int_t{0};
     static inline auto copy_assigns = int_t{0};
     static inline auto move_assigns = int_t{0};
+
     static auto reset() -> void {
       copy_ctors = 0;
       move_ctors = 0;
@@ -194,10 +196,12 @@ struct ProviderAccessorTest : Test {
       move_assigns = 0;
     }
 
+    // Test values
     static constexpr auto default_id = int_t{3};
     static constexpr auto initialized_id = int_t{5};
     static constexpr auto mutated_id = int_t{7};
     static constexpr auto final_id = int_t{11};
+
     int_t id = default_id;
 
     explicit Instance(int_t id) noexcept : id{id} {}
@@ -220,105 +224,247 @@ struct ProviderAccessorTest : Test {
 
   ProviderAccessorTest() noexcept { Instance::reset(); }
 
-  // Test accessor Provided type alias
+  // Verify Provided type alias for all accessors
   static_assert(std::same_as<InternalReference<Instance>::Provided, Instance>);
   static_assert(std::same_as<ExternalReference<Instance>::Provided, Instance>);
   static_assert(std::same_as<InternalPrototype<Instance>::Provided, Instance>);
   static_assert(std::same_as<ExternalPrototype<Instance>::Provided, Instance>);
 };
 
-TEST_F(ProviderAccessorTest, InternalReference) {
-  using Sut = InternalReference<Instance>;
+// ----------------------------------------------------------------------------
+// InternalReference Tests
+// ----------------------------------------------------------------------------
 
+TEST_F(ProviderAccessorTest, InternalReferenceMovesInstanceOnConstruction) {
   auto src = Instance{Instance::initialized_id};
-  Sut sut{std::move(src)};
 
-  ASSERT_EQ(Instance::copy_ctors, 0);
+  InternalReference<Instance> sut{std::move(src)};
+
   ASSERT_EQ(Instance::move_ctors, 1);
+  ASSERT_EQ(Instance::copy_ctors, 0);
+}
 
-  ASSERT_EQ(Instance::initialized_id, sut.get().id);
+TEST_F(ProviderAccessorTest, InternalReferenceStoresInstanceInternally) {
+  auto src = Instance{Instance::initialized_id};
+  InternalReference<Instance> sut{std::move(src)};
 
   ASSERT_NE(&src, &sut.get());
-  ASSERT_EQ(&sut.get(), &static_cast<const Sut&>(sut).get());
+}
+
+TEST_F(ProviderAccessorTest, InternalReferenceGetReturnsStoredValue) {
+  InternalReference<Instance> sut{Instance{Instance::initialized_id}};
+
+  ASSERT_EQ(sut.get().id, Instance::initialized_id);
+}
+
+TEST_F(ProviderAccessorTest, InternalReferenceConstGetReturnsSameReference) {
+  InternalReference<Instance> sut{Instance{Instance::initialized_id}};
+
+  ASSERT_EQ(&sut.get(),
+            &static_cast<const InternalReference<Instance>&>(sut).get());
+}
+
+TEST_F(ProviderAccessorTest, InternalReferenceMutationPersists) {
+  InternalReference<Instance> sut{Instance{Instance::initialized_id}};
+
+  sut.get().id = Instance::mutated_id;
+
+  ASSERT_EQ(sut.get().id, Instance::mutated_id);
+}
+
+TEST_F(ProviderAccessorTest, InternalReferenceMutationDoesNotCopy) {
+  InternalReference<Instance> sut{Instance{Instance::initialized_id}};
 
   sut.get().id = Instance::mutated_id;
 
   ASSERT_EQ(Instance::copy_ctors, 0);
   ASSERT_EQ(Instance::move_ctors, 1);
-
-  ASSERT_EQ(Instance::mutated_id, sut.get().id);
 }
 
-TEST_F(ProviderAccessorTest, ExternalReference) {
-  using Sut = ExternalReference<Instance>;
+// ----------------------------------------------------------------------------
+// ExternalReference Tests
+// ----------------------------------------------------------------------------
 
+TEST_F(ProviderAccessorTest, ExternalReferenceDoesNotCopyOnConstruction) {
   auto src = Instance{Instance::initialized_id};
-  Sut sut{src};
+
+  ExternalReference<Instance> sut{src};
 
   ASSERT_EQ(Instance::copy_ctors, 0);
   ASSERT_EQ(Instance::move_ctors, 0);
+}
 
-  ASSERT_EQ(Instance::initialized_id, sut.get().id);
+TEST_F(ProviderAccessorTest, ExternalReferencePointsToExternalInstance) {
+  auto src = Instance{Instance::initialized_id};
+  ExternalReference<Instance> sut{src};
 
   ASSERT_EQ(&src, &sut.get());
-  ASSERT_EQ(&sut.get(), &static_cast<const Sut&>(sut).get());
+}
+
+TEST_F(ProviderAccessorTest, ExternalReferenceGetReturnsExternalValue) {
+  auto src = Instance{Instance::initialized_id};
+  ExternalReference<Instance> sut{src};
+
+  ASSERT_EQ(sut.get().id, Instance::initialized_id);
+}
+
+TEST_F(ProviderAccessorTest, ExternalReferenceConstGetReturnsSameReference) {
+  auto src = Instance{Instance::initialized_id};
+  ExternalReference<Instance> sut{src};
+
+  ASSERT_EQ(&sut.get(),
+            &static_cast<const ExternalReference<Instance>&>(sut).get());
+}
+
+TEST_F(ProviderAccessorTest, ExternalReferenceMutationAffectsExternalInstance) {
+  auto src = Instance{Instance::initialized_id};
+  ExternalReference<Instance> sut{src};
 
   sut.get().id = Instance::mutated_id;
+
+  ASSERT_EQ(src.id, Instance::mutated_id);
+}
+
+TEST_F(ProviderAccessorTest, ExternalReferenceMutationDoesNotCopy) {
+  auto src = Instance{Instance::initialized_id};
+  ExternalReference<Instance> sut{src};
+
+  sut.get().id = Instance::mutated_id;
+
   ASSERT_EQ(Instance::copy_ctors, 0);
   ASSERT_EQ(Instance::move_ctors, 0);
-  ASSERT_EQ(Instance::mutated_id, src.id);
-  ASSERT_EQ(Instance::mutated_id, sut.get().id);
+}
+
+TEST_F(ProviderAccessorTest, ExternalReferenceReflectsExternalChanges) {
+  auto src = Instance{Instance::initialized_id};
+  ExternalReference<Instance> sut{src};
 
   src.id = Instance::final_id;
-  ASSERT_EQ(Instance::copy_ctors, 0);
-  ASSERT_EQ(Instance::move_ctors, 0);
-  ASSERT_EQ(Instance::final_id, src.id);
-  ASSERT_EQ(Instance::final_id, sut.get().id);
+
+  ASSERT_EQ(sut.get().id, Instance::final_id);
 }
 
-TEST_F(ProviderAccessorTest, InternalPrototype) {
-  using Sut = InternalPrototype<Instance>;
-
+TEST_F(ProviderAccessorTest, ExternalReferenceExternalChangesDoNotCopy) {
   auto src = Instance{Instance::initialized_id};
-  Sut sut{std::move(src)};
+  ExternalReference<Instance> sut{src};
+
+  src.id = Instance::final_id;
 
   ASSERT_EQ(Instance::copy_ctors, 0);
+  ASSERT_EQ(Instance::move_ctors, 0);
+}
+
+// ----------------------------------------------------------------------------
+// InternalPrototype Tests
+// ----------------------------------------------------------------------------
+
+TEST_F(ProviderAccessorTest, InternalPrototypeMovesInstanceOnConstruction) {
+  auto src = Instance{Instance::initialized_id};
+
+  InternalPrototype<Instance> sut{std::move(src)};
+
   ASSERT_EQ(Instance::move_ctors, 1);
-
-  ASSERT_EQ(Instance::initialized_id, sut.get().id);
-  ASSERT_EQ(Instance::copy_ctors, 1);
-
-  ASSERT_EQ(Instance::initialized_id, static_cast<const Sut&>(sut).get().id);
-  ASSERT_EQ(Instance::copy_ctors, 2);
-
-  [[maybe_unused]] auto copy1 = sut.get();
-  auto copy2 = sut.get();
-  copy1.id = Instance::mutated_id;
-  ASSERT_EQ(Instance::initialized_id, copy2.id);
+  ASSERT_EQ(Instance::copy_ctors, 0);
 }
 
-TEST_F(ProviderAccessorTest, ExternalPrototype) {
-  using Sut = ExternalPrototype<Instance>;
+TEST_F(ProviderAccessorTest, InternalPrototypeGetReturnsCopy) {
+  InternalPrototype<Instance> sut{Instance{Instance::initialized_id}};
 
+  [[maybe_unused]] auto copy = sut.get();
+
+  ASSERT_EQ(Instance::copy_ctors, 1);
+}
+
+TEST_F(ProviderAccessorTest, InternalPrototypeGetReturnsCorrectValue) {
+  InternalPrototype<Instance> sut{Instance{Instance::initialized_id}};
+
+  ASSERT_EQ(sut.get().id, Instance::initialized_id);
+}
+
+TEST_F(ProviderAccessorTest, InternalPrototypeConstGetReturnsCopy) {
+  const InternalPrototype<Instance> sut{Instance{Instance::initialized_id}};
+
+  [[maybe_unused]] auto copy = sut.get();
+
+  ASSERT_EQ(Instance::copy_ctors, 1);
+}
+
+TEST_F(ProviderAccessorTest, InternalPrototypeCopiesAreIndependent) {
+  InternalPrototype<Instance> sut{Instance{Instance::initialized_id}};
+
+  [[maybe_unused]] auto copy1 = sut.get();
+  copy1.id = Instance::mutated_id;
+  auto copy2 = sut.get();
+
+  ASSERT_EQ(copy2.id, Instance::initialized_id);
+}
+
+TEST_F(ProviderAccessorTest,
+       InternalPrototypeMutatingCopyDoesNotAffectPrototype) {
+  InternalPrototype<Instance> sut{Instance{Instance::initialized_id}};
+
+  [[maybe_unused]] auto copy = sut.get();
+  copy.id = Instance::mutated_id;
+
+  ASSERT_EQ(sut.get().id, Instance::initialized_id);
+}
+
+// ----------------------------------------------------------------------------
+// ExternalPrototype Tests
+// ----------------------------------------------------------------------------
+
+TEST_F(ProviderAccessorTest, ExternalPrototypeDoesNotCopyOnConstruction) {
   auto src = Instance{Instance::initialized_id};
-  Sut sut{src};
+
+  ExternalPrototype<Instance> sut{src};
 
   ASSERT_EQ(Instance::copy_ctors, 0);
   ASSERT_EQ(Instance::move_ctors, 0);
+}
 
-  ASSERT_EQ(Instance::initialized_id, sut.get().id);
+TEST_F(ProviderAccessorTest, ExternalPrototypeGetReturnsCopy) {
+  auto src = Instance{Instance::initialized_id};
+  ExternalPrototype<Instance> sut{src};
+
+  [[maybe_unused]] auto copy = sut.get();
+
   ASSERT_EQ(Instance::copy_ctors, 1);
+}
 
-  ASSERT_EQ(Instance::initialized_id, static_cast<const Sut&>(sut).get().id);
-  ASSERT_EQ(Instance::copy_ctors, 2);
+TEST_F(ProviderAccessorTest, ExternalPrototypeGetReturnsCorrectValue) {
+  auto src = Instance{Instance::initialized_id};
+  ExternalPrototype<Instance> sut{src};
+
+  ASSERT_EQ(sut.get().id, Instance::initialized_id);
+}
+
+TEST_F(ProviderAccessorTest, ExternalPrototypeConstGetReturnsCopy) {
+  auto src = Instance{Instance::initialized_id};
+  const ExternalPrototype<Instance> sut{src};
+
+  [[maybe_unused]] auto copy = sut.get();
+
+  ASSERT_EQ(Instance::copy_ctors, 1);
+}
+
+TEST_F(ProviderAccessorTest, ExternalPrototypeCopiesAreIndependent) {
+  auto src = Instance{Instance::initialized_id};
+  ExternalPrototype<Instance> sut{src};
 
   [[maybe_unused]] auto copy1 = sut.get();
-  auto copy2 = sut.get();
   copy1.id = Instance::mutated_id;
-  ASSERT_EQ(Instance::initialized_id, copy2.id);
+  auto copy2 = sut.get();
+
+  ASSERT_EQ(copy2.id, Instance::initialized_id);
+}
+
+TEST_F(ProviderAccessorTest, ExternalPrototypeReflectsExternalChanges) {
+  auto src = Instance{Instance::initialized_id};
+  ExternalPrototype<Instance> sut{src};
 
   src.id = Instance::mutated_id;
-  ASSERT_EQ(Instance::mutated_id, sut.get().id);
+
+  ASSERT_EQ(sut.get().id, Instance::mutated_id);
 }
 
 }  // namespace
