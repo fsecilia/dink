@@ -197,6 +197,7 @@ struct ProviderAccessorTest : Test {
     static constexpr auto default_id = int_t{3};
     static constexpr auto initialized_id = int_t{5};
     static constexpr auto mutated_id = int_t{7};
+    static constexpr auto final_id = int_t{11};
     int_t id = default_id;
 
     explicit Instance(int_t id) noexcept : id{id} {}
@@ -218,6 +219,12 @@ struct ProviderAccessorTest : Test {
   };
 
   ProviderAccessorTest() noexcept { Instance::reset(); }
+
+  // Test accessor Provided type alias
+  static_assert(std::same_as<InternalReference<Instance>::Provided, Instance>);
+  static_assert(std::same_as<ExternalReference<Instance>::Provided, Instance>);
+  static_assert(std::same_as<InternalPrototype<Instance>::Provided, Instance>);
+  static_assert(std::same_as<ExternalPrototype<Instance>::Provided, Instance>);
 };
 
 TEST_F(ProviderAccessorTest, InternalReference) {
@@ -256,12 +263,17 @@ TEST_F(ProviderAccessorTest, ExternalReference) {
   ASSERT_EQ(&src, &sut.get());
   ASSERT_EQ(&sut.get(), &static_cast<const Sut&>(sut).get());
 
-  src.id = Instance::mutated_id;
-
+  sut.get().id = Instance::mutated_id;
   ASSERT_EQ(Instance::copy_ctors, 0);
   ASSERT_EQ(Instance::move_ctors, 0);
-
+  ASSERT_EQ(Instance::mutated_id, src.id);
   ASSERT_EQ(Instance::mutated_id, sut.get().id);
+
+  src.id = Instance::final_id;
+  ASSERT_EQ(Instance::copy_ctors, 0);
+  ASSERT_EQ(Instance::move_ctors, 0);
+  ASSERT_EQ(Instance::final_id, src.id);
+  ASSERT_EQ(Instance::final_id, sut.get().id);
 }
 
 TEST_F(ProviderAccessorTest, InternalPrototype) {
@@ -278,6 +290,11 @@ TEST_F(ProviderAccessorTest, InternalPrototype) {
 
   ASSERT_EQ(Instance::initialized_id, static_cast<const Sut&>(sut).get().id);
   ASSERT_EQ(Instance::copy_ctors, 2);
+
+  [[maybe_unused]] auto copy1 = sut.get();
+  auto copy2 = sut.get();
+  copy1.id = Instance::mutated_id;
+  ASSERT_EQ(Instance::initialized_id, copy2.id);
 }
 
 TEST_F(ProviderAccessorTest, ExternalPrototype) {
@@ -295,8 +312,12 @@ TEST_F(ProviderAccessorTest, ExternalPrototype) {
   ASSERT_EQ(Instance::initialized_id, static_cast<const Sut&>(sut).get().id);
   ASSERT_EQ(Instance::copy_ctors, 2);
 
-  src.id = Instance::mutated_id;
+  [[maybe_unused]] auto copy1 = sut.get();
+  auto copy2 = sut.get();
+  copy1.id = Instance::mutated_id;
+  ASSERT_EQ(Instance::initialized_id, copy2.id);
 
+  src.id = Instance::mutated_id;
   ASSERT_EQ(Instance::mutated_id, sut.get().id);
 }
 
