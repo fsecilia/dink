@@ -55,17 +55,16 @@ struct ResolverFactoryTest {
     ResolverFactoryTest{};
 
 // ----------------------------------------------------------------------------
-// SequencedInvoker
+// Invoker
 // ----------------------------------------------------------------------------
 
-struct SequencedInvokerFixture {
+struct InvokerFixture {
   struct Container {};
 
   // IndexedFactory and Constructed work together so the factory can just
   // return indices directly instead of indexed resolvers that convert to
-  // parameters that happen to be indices. It's all transparent to
-  // SequencedInvoker, which just replaces a sequence with the results of the
-  // IndexedFactory.
+  // parameters that happen to be indices. It's all transparent to Invoker,
+  // which just replaces a sequence with the results of the IndexedFactory.
 
   struct IndexedFactory {
     template <std::size_t arity, std::size_t index>
@@ -85,20 +84,18 @@ struct SequencedInvokerFixture {
 // Factory Specialization
 // ----------------------------------------------------------------------------
 
-struct SequencedInvokerFixtureFactory : SequencedInvokerFixture {
+struct InvokerFixtureFactory : InvokerFixture {
   static constexpr auto constructed_factory = [](auto&&... args) noexcept {
     return Constructed{std::forward<decltype(args)>(args)...};
   };
 
   template <std::size_t... indices>
-  using Sut =
-      dink::SequencedInvoker<Constructed<decltype(indices)...>,
-                             decltype(constructed_factory), IndexedFactory,
-                             std::index_sequence<indices...>>;
+  using Sut = dink::Invoker<Constructed<decltype(indices)...>,
+                            decltype(constructed_factory), IndexedFactory,
+                            std::index_sequence<indices...>>;
 };
 
-struct SequencedInvokerFixtureFactoryCompileTime
-    : SequencedInvokerFixtureFactory {
+struct InvokerFixtureFactoryCompileTime : InvokerFixtureFactory {
   template <std::size_t... indices>
   static constexpr auto test() -> bool {
     Container container;
@@ -111,27 +108,26 @@ struct SequencedInvokerFixtureFactoryCompileTime
   static constexpr auto test_arity_1() -> bool { return test<0>(); }
   static constexpr auto test_arity_3() -> bool { return test<0, 1, 2>(); }
 
-  constexpr SequencedInvokerFixtureFactoryCompileTime() noexcept {
+  constexpr InvokerFixtureFactoryCompileTime() noexcept {
     static_assert(test_arity_0(), "Arity 0 (Factory) Failed");
     static_assert(test_arity_1(), "Arity 1 (Factory) Failed");
     static_assert(test_arity_3(), "Arity 3 (Factory) Failed");
   }
 };
 [[maybe_unused]] constexpr auto sequenced_invoker_fixture_Factory_compile_time =
-    SequencedInvokerFixtureFactoryCompileTime{};
+    InvokerFixtureFactoryCompileTime{};
 
-struct SequencedInvokerTestFactoryRunTime : SequencedInvokerFixtureFactory,
-                                            Test {
+struct InvokerTestFactoryRunTime : InvokerFixtureFactory, Test {
   Container container;
   Sut<0, 1, 2> sut{constructed_factory, IndexedFactory{}};
 };
 
-TEST_F(SequencedInvokerTestFactoryRunTime, Arity3SharedPtr) {
+TEST_F(InvokerTestFactoryRunTime, Arity3SharedPtr) {
   auto res = sut.create_shared(container);
   EXPECT_EQ(res->args_tuple, std::make_tuple(0, 1, 2));
 }
 
-TEST_F(SequencedInvokerTestFactoryRunTime, Arity3UniquePtr) {
+TEST_F(InvokerTestFactoryRunTime, Arity3UniquePtr) {
   auto res = sut.create_unique(container);
   EXPECT_EQ(res->args_tuple, std::make_tuple(0, 1, 2));
 }
@@ -139,14 +135,13 @@ TEST_F(SequencedInvokerTestFactoryRunTime, Arity3UniquePtr) {
 // Ctor Specialization
 // ----------------------------------------------------------------------------
 
-struct SequencedInvokerFixtureCtor : SequencedInvokerFixture {
+struct InvokerFixtureCtor : InvokerFixture {
   template <std::size_t... indices>
-  using Sut =
-      dink::SequencedInvoker<Constructed<decltype(indices)...>, void,
-                             IndexedFactory, std::index_sequence<indices...>>;
+  using Sut = dink::Invoker<Constructed<decltype(indices)...>, void,
+                            IndexedFactory, std::index_sequence<indices...>>;
 };
 
-struct SequencedInvokerFixtureCtorCompileTime : SequencedInvokerFixtureCtor {
+struct InvokerFixtureCtorCompileTime : InvokerFixtureCtor {
   template <std::size_t... indices>
   static constexpr auto test() -> bool {
     Container container;
@@ -159,26 +154,26 @@ struct SequencedInvokerFixtureCtorCompileTime : SequencedInvokerFixtureCtor {
   static constexpr auto test_arity_1() -> bool { return test<0>(); }
   static constexpr auto test_arity_3() -> bool { return test<0, 1, 2>(); }
 
-  constexpr SequencedInvokerFixtureCtorCompileTime() noexcept {
+  constexpr InvokerFixtureCtorCompileTime() noexcept {
     static_assert(test_arity_0(), "Arity 0 (Ctor) Failed");
     static_assert(test_arity_1(), "Arity 1 (Ctor) Failed");
     static_assert(test_arity_3(), "Arity 3 (Ctor) Failed");
   }
 };
 [[maybe_unused]] constexpr auto sequenced_invoker_fixture_ctor_compile_time =
-    SequencedInvokerFixtureCtorCompileTime{};
+    InvokerFixtureCtorCompileTime{};
 
-struct SequencedInvokerTestCtorRunTime : SequencedInvokerFixtureCtor, Test {
+struct InvokerTestCtorRunTime : InvokerFixtureCtor, Test {
   Sut<0, 1, 2> sut{IndexedFactory{}};
   Container container;
 };
 
-TEST_F(SequencedInvokerTestCtorRunTime, Arity3SharedPtr) {
+TEST_F(InvokerTestCtorRunTime, Arity3SharedPtr) {
   auto res = sut.create_shared(container);
   EXPECT_EQ(res->args_tuple, std::make_tuple(0, 1, 2));
 }
 
-TEST_F(SequencedInvokerTestCtorRunTime, Arity3UniquePtr) {
+TEST_F(InvokerTestCtorRunTime, Arity3UniquePtr) {
   auto res = sut.create_unique(container);
   EXPECT_EQ(res->args_tuple, std::make_tuple(0, 1, 2));
 }
@@ -221,7 +216,7 @@ struct InvokerFactoryTest {
     auto invoker = factory.template create<Container, DependencyChain,
                                            min_lifetime, Constructed>();
 
-    // Verify it's a SequencedInvoker with correct template params
+    // Verify it's a Invoker with correct template params
     using ActualInvoker = decltype(invoker);
     using ExpectedInvoker =
         CtorInvoker<Container, DependencyChain, min_lifetime, Constructed>;
@@ -238,7 +233,7 @@ struct InvokerFactoryTest {
         factory.template create<Container, DependencyChain, min_lifetime,
                                 Constructed>(ConstructedFactory{});
 
-    // Verify it's a SequencedInvoker with correct template params
+    // Verify it's a Invoker with correct template params
     using ActualInvoker = decltype(invoker);
     using ExpectedInvoker =
         FactoryInvoker<Container, DependencyChain, min_lifetime, Constructed,

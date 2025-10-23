@@ -31,18 +31,18 @@ struct ResolverFactory {
 
 //! Invokes a ctor or factory by replacing an index sequence.
 //
-// SequencedInvoker replaces each value in an index sequence with the output of
+// Invoker replaces each value in an index sequence with the output of
 // an indexed factory, then uses the replaced sequence to either invoke
 // ConstructedFactory, or if void, Constructed's ctor directly.
 template <typename Constructed, typename ConstructedFactory,
           typename IndexedFactory, typename IndexSequence>
-class SequencedInvoker;
+class Invoker;
 
 //! Factory specialization.
 template <typename Constructed, typename ConstructedFactory,
           typename IndexedFactory, std::size_t... indices>
-class SequencedInvoker<Constructed, ConstructedFactory, IndexedFactory,
-                       std::index_sequence<indices...>> {
+class Invoker<Constructed, ConstructedFactory, IndexedFactory,
+              std::index_sequence<indices...>> {
  public:
   constexpr auto create_value(auto& container) const -> Constructed {
     return constructed_factory_(
@@ -64,8 +64,8 @@ class SequencedInvoker<Constructed, ConstructedFactory, IndexedFactory,
             container)...));
   }
 
-  explicit constexpr SequencedInvoker(ConstructedFactory constructed_factory,
-                                      IndexedFactory indexed_factory) noexcept
+  explicit constexpr Invoker(ConstructedFactory constructed_factory,
+                             IndexedFactory indexed_factory) noexcept
       : constructed_factory_{std::move(constructed_factory)},
         indexed_factory_{std::move(indexed_factory)} {}
 
@@ -76,8 +76,8 @@ class SequencedInvoker<Constructed, ConstructedFactory, IndexedFactory,
 
 //! Ctor specialization.
 template <typename Constructed, typename IndexedFactory, std::size_t... indices>
-class SequencedInvoker<Constructed, void, IndexedFactory,
-                       std::index_sequence<indices...>> {
+class Invoker<Constructed, void, IndexedFactory,
+              std::index_sequence<indices...>> {
  public:
   constexpr auto create_value(auto& container) const -> Constructed {
     return Constructed{
@@ -99,7 +99,7 @@ class SequencedInvoker<Constructed, void, IndexedFactory,
             container)...);
   }
 
-  explicit constexpr SequencedInvoker(IndexedFactory indexed_factory) noexcept
+  explicit constexpr Invoker(IndexedFactory indexed_factory) noexcept
       : indexed_factory_{std::move(indexed_factory)} {}
 
  private:
@@ -113,7 +113,7 @@ class SequencedInvoker<Constructed, void, IndexedFactory,
 template <typename Container, typename DependencyChain,
           scope::Lifetime min_lifetime, typename Constructed,
           typename ConstructedFactory>
-using FactoryInvoker = SequencedInvoker<
+using FactoryInvoker = Invoker<
     Constructed, ConstructedFactory,
     ResolverFactory<
         Resolver<Container, DependencyChain, min_lifetime>,
@@ -127,7 +127,7 @@ using FactoryInvoker = SequencedInvoker<
 // parameter, and directly constructs the instance with resolved arguments.
 template <typename Container, typename DependencyChain,
           scope::Lifetime min_lifetime, typename Constructed>
-using CtorInvoker = SequencedInvoker<
+using CtorInvoker = Invoker<
     Constructed, void,
     ResolverFactory<
         Resolver<Container, DependencyChain, min_lifetime>,
@@ -149,12 +149,11 @@ struct InvokerFactory {
     using IndexedResolverFactory = ResolverFactory<Resolver, SingleArgResolver>;
 
     static constexpr auto arity = dink::arity<Constructed, ConstructedFactory>;
-    using SequencedInvoker = SequencedInvoker<Constructed, ConstructedFactory,
-                                              IndexedResolverFactory,
-                                              std::make_index_sequence<arity>>;
+    using Invoker =
+        Invoker<Constructed, ConstructedFactory, IndexedResolverFactory,
+                std::make_index_sequence<arity>>;
 
-    return SequencedInvoker{std::move(constructed_factory),
-                            IndexedResolverFactory{}};
+    return Invoker{std::move(constructed_factory), IndexedResolverFactory{}};
   }
 
   // Ctor specialization.
@@ -167,11 +166,10 @@ struct InvokerFactory {
     using IndexedResolverFactory = ResolverFactory<Resolver, SingleArgResolver>;
 
     static constexpr auto arity = dink::arity<Constructed, void>;
-    using SequencedInvoker =
-        SequencedInvoker<Constructed, void, IndexedResolverFactory,
-                         std::make_index_sequence<arity>>;
+    using Invoker = Invoker<Constructed, void, IndexedResolverFactory,
+                            std::make_index_sequence<arity>>;
 
-    return SequencedInvoker{IndexedResolverFactory()};
+    return Invoker{IndexedResolverFactory()};
   }
 };
 
