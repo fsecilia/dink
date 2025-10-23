@@ -60,4 +60,20 @@ class Factory {
   [[dink_no_unique_address]] InvokerFactory invoker_factory_{};
 };
 
+//! references an instance owned by the container (moved/copied in)
+template <typename Instance>
+class InternalReference {
+ public:
+  using Provided = Instance;
+
+  auto get() -> Instance& { return instance_; }
+  auto get() const -> const Instance& { return instance_; }
+
+  explicit InternalReference(Instance&& instance) noexcept
+      : instance_{std::move(instance)} {}
+
+ private:
+  Instance instance_;
+};
+
 }  // namespace dink::provider

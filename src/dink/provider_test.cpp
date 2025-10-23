@@ -219,5 +219,20 @@ struct ProviderAccessorTest : Test {
   ProviderAccessorTest() noexcept { Instance::reset(); }
 };
 
+TEST_F(ProviderAccessorTest, InternalReference) {
+  using Sut = InternalReference<Instance>;
+
+  auto src = Instance{Instance::expected_id};
+  Sut sut{std::move(src)};
+
+  ASSERT_EQ(Instance::copy_ctors, 0);
+  ASSERT_EQ(Instance::move_ctors, 1);
+
+  ASSERT_EQ(Instance::expected_id, sut.get().id);
+
+  ASSERT_NE(&src, &sut.get());
+  ASSERT_EQ(&sut.get(), &static_cast<const Sut&>(sut).get());
+}
+
 }  // namespace
 }  // namespace dink::provider
