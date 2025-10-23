@@ -33,8 +33,7 @@ struct Transient {
 // saved in the local cache, and the cached instance is returned with reference
 // semantics. A request for a singleton instance can be relegated to transient
 // scope if the type of the request requires it, such as requesting a
-// unique_ptr or rvalue reference. Relegated requests are initialized with a
-// copy of the cached singleton.
+// unique_ptr or rvalue reference.
 struct Singleton {
   static inline constexpr auto lifetime = Lifetime::kSingleton;
 };
