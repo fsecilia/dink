@@ -228,5 +228,60 @@ struct SingleArgResolverDoesNotMatchCopyOrMoveCtorsTest {
                 SingleArgResolver<SingleArgConstructible, Resolver>>);
 };
 
+// ----------------------------------------------------------------------------
+// ResolverFactory
+// ----------------------------------------------------------------------------
+
+struct ResolverFactoryTest {
+  struct Container {};
+  using DependencyChain = TypeList<>;
+  static constexpr scope::Lifetime min_lifetime = scope::Lifetime::kDefault;
+  struct Constructed {};
+
+  template <typename Container, typename DependencyChain,
+            scope::Lifetime min_lifetime>
+  struct Resolver {
+    Container& container;
+  };
+
+  template <typename Constructed, typename Resolver>
+  struct SingleArgResolver {
+    Resolver resolver;
+  };
+
+  using Sut = ResolverFactory<Resolver, SingleArgResolver>;
+
+  template <typename Expected, std::size_t arity, std::size_t index>
+  constexpr auto test_single() {
+    using Actual =
+        decltype(std::declval<Sut>()
+                     .template create<Container, DependencyChain, min_lifetime,
+                                      Constructed, arity, index>(
+                         std::declval<Container&>()));
+
+    static_assert(std::same_as<Expected, Actual>);
+  }
+
+  constexpr auto test_multiple() {
+    using Resolver = Resolver<Container, DependencyChain, min_lifetime>;
+    using SingleArgResolver = SingleArgResolver<Constructed, Resolver>;
+
+    test_single<Resolver, 0, 0>();
+    test_single<Resolver, 0, 1>();
+    test_single<Resolver, 0, 2>();
+
+    test_single<SingleArgResolver, 1, 0>();
+    test_single<SingleArgResolver, 1, 1>();
+    test_single<SingleArgResolver, 1, 2>();
+
+    test_single<Resolver, 2, 0>();
+    test_single<Resolver, 2, 1>();
+    test_single<Resolver, 2, 2>();
+  }
+
+  constexpr ResolverFactoryTest() { test_multiple(); }
+};
+[[maybe_unused]] constexpr auto resolver_factory_test = ResolverFactoryTest{};
+
 }  // namespace
 }  // namespace dink

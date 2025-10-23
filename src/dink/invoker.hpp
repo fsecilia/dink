@@ -14,30 +14,6 @@
 
 namespace dink {
 
-//! Factory that consumes indices to produce Resolvers.
-template <template <typename Container, typename DependencyChain,
-                    scope::Lifetime min_lifetime> typename ResolverTemplate,
-          template <typename Constructed,
-                    typename Resolver> typename SingleArgResolverTemplate>
-struct ResolverFactory {
-  //! Creates a resolver, choosing the return type based on arity.
-  //
-  // For arity 1, this returns a \c SingleArgResolver. For all other
-  // arities, it returns a \c Resolver.
-  template <typename Container, typename DependencyChain,
-            scope::Lifetime min_lifetime, typename Constructed,
-            std::size_t arity, std::size_t index>
-  constexpr auto create(auto& container) const noexcept -> auto {
-    using Resolver = ResolverTemplate<Container, DependencyChain, min_lifetime>;
-    using SingleArgResolver = SingleArgResolverTemplate<Constructed, Resolver>;
-    if constexpr (arity == 1) {
-      return SingleArgResolver{Resolver{container}};
-    } else {
-      return Resolver{container};
-    }
-  }
-};
-
 //! Invokes a ctor or factory by replacing an index sequence.
 //
 // Invoker replaces each value in an index sequence with the output of a
