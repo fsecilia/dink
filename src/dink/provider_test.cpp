@@ -177,5 +177,47 @@ TEST_F(ProviderFactoryRunTimeTest, CreatesUniquePtr) {
                           test_min_lifetime>(container));
 }
 
+// ----------------------------------------------------------------------------
+// Accessors
+// ----------------------------------------------------------------------------
+
+struct ProviderAccessorTest : Test {
+  struct Instance {
+    static inline auto copy_ctors = int_t{0};
+    static inline auto move_ctors = int_t{0};
+    static inline auto copy_assigns = int_t{0};
+    static inline auto move_assigns = int_t{0};
+    static auto reset() -> void {
+      copy_ctors = 0;
+      move_ctors = 0;
+      copy_assigns = 0;
+      move_assigns = 0;
+    }
+
+    static constexpr auto default_id = 3;
+    static constexpr auto expected_id = 5;
+    int_t id = default_id;
+
+    explicit Instance(int_t id) noexcept : id{id} {}
+    Instance() = default;
+
+    Instance(const Instance& src) noexcept : id{src.id} { ++copy_ctors; }
+    auto operator=(const Instance& src) noexcept -> Instance& {
+      id = src.id;
+      ++copy_assigns;
+      return *this;
+    }
+
+    Instance(Instance&& src) noexcept : id{std::move(src).id} { ++move_ctors; }
+    auto operator=(Instance&& src) noexcept -> Instance& {
+      id = std::move(src).id;
+      ++move_assigns;
+      return *this;
+    }
+  };
+
+  ProviderAccessorTest() noexcept { Instance::reset(); }
+};
+
 }  // namespace
 }  // namespace dink::provider
