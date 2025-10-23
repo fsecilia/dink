@@ -11,7 +11,8 @@
 namespace dink {
 
 //! provider that invokes a Constructed's ctor
-template <typename Constructed, typename InvokerFactory = InvokerFactory>
+template <typename Constructed,
+          typename InvokerFactory = InvokerFactory<Invoker>>
 class CtorProvider {
  public:
   using Provided = Constructed;

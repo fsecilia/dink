@@ -155,77 +155,44 @@ TEST_F(InvokerTestCtorRunTime, Arity3UniquePtr) {
 // ----------------------------------------------------------------------------
 
 struct InvokerFactoryTest {
-  struct Dep {};
-
-  struct Arity0Constructed {
-    Arity0Constructed() = default;
+  struct Constructed {};
+  struct ConstructedFactory {
+    constexpr auto operator()() const noexcept -> Constructed;
   };
+  struct ResolverFactory {};
 
-  struct Arity1Constructed {
-    explicit Arity1Constructed(Dep) {}
-  };
+  template <typename Constructed, typename ConstructedFactory,
+            typename ResolverFactory, typename>
+  struct Invoker {};
 
-  struct Arity3Constructed {
-    Arity3Constructed(Dep, Dep, Dep) {}
-  };
+  using Sut = InvokerFactory<Invoker>;
 
-  struct Factory3 {
-    auto operator()(Dep, Dep, Dep) const -> Arity3Constructed {
-      return Arity3Constructed{Dep{}, Dep{}, Dep{}};
-    }
-  };
-
-  struct Container {};
-  using DependencyChain = TypeList<>;
-  static constexpr auto min_lifetime = scope::Lifetime::kDefault;
-
-  using Sut = InvokerFactory;
-
-  // Test that factory creates correct invoker type for ctor specialization.
-  template <typename Constructed, std::size_t expected_arity>
-  constexpr auto test_ctor_creates_correct_type() -> void {
-    Sut factory;
-    auto invoker = factory.template create<Container, DependencyChain,
-                                           min_lifetime, Constructed>();
-
-    // Verify it's a Invoker with correct template params
-    using ActualInvoker = decltype(invoker);
-    using ExpectedInvoker =
-        CtorInvoker<Container, DependencyChain, min_lifetime, Constructed>;
-
-    static_assert(std::same_as<ActualInvoker, ExpectedInvoker>);
+  static constexpr auto factory_specialization_result_type_matches() -> bool {
+    using Actual =
+        decltype(std::declval<Sut>()
+                     .template create<Constructed, ConstructedFactory,
+                                      ResolverFactory>(
+                         std::declval<ConstructedFactory>()));
+    using Expected = Invoker<Constructed, ConstructedFactory, ResolverFactory,
+                             std::index_sequence<>>;
+    return std::same_as<Actual, Expected>;
   }
 
-  // Test that factory creates correct invoker type for factory specialization.
-  template <typename Constructed, typename ConstructedFactory,
-            std::size_t expected_arity>
-  constexpr auto test_factory_creates_correct_type() -> void {
-    Sut factory;
-    auto invoker =
-        factory.template create<Container, DependencyChain, min_lifetime,
-                                Constructed>(ConstructedFactory{});
-
-    // Verify it's a Invoker with correct template params
-    using ActualInvoker = decltype(invoker);
-    using ExpectedInvoker =
-        FactoryInvoker<Container, DependencyChain, min_lifetime, Constructed,
-                       ConstructedFactory>;
-
-    static_assert(std::same_as<ActualInvoker, ExpectedInvoker>);
+  static constexpr auto ctor_specialization_result_type_matches() -> bool {
+    using Actual =
+        decltype(std::declval<Sut>()
+                     .template create<Constructed, ResolverFactory>());
+    using Expected =
+        Invoker<Constructed, void, ResolverFactory, std::index_sequence<>>;
+    return std::same_as<Actual, Expected>;
   }
 
   constexpr InvokerFactoryTest() {
-    // Ctor specialization
-    test_ctor_creates_correct_type<Arity0Constructed, 0>();
-    test_ctor_creates_correct_type<Arity1Constructed, 1>();
-    test_ctor_creates_correct_type<Arity3Constructed, 3>();
-
-    // Factory specialization
-    test_factory_creates_correct_type<Arity3Constructed, Factory3, 3>();
+    static_assert(factory_specialization_result_type_matches());
+    static_assert(ctor_specialization_result_type_matches());
   }
 };
-[[maybe_unused]] constexpr auto sequenced_resolver_invoker_factory_test =
-    InvokerFactoryTest{};
+[[maybe_unused]] constexpr auto invoker_factory_test = InvokerFactoryTest{};
 
 }  // namespace
 }  // namespace dink
