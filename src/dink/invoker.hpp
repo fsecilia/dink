@@ -15,18 +15,26 @@
 namespace dink {
 
 //! Factory that consumes indices to produce Resolvers.
-template <typename Resolver, typename SingleArgResolver>
+template <template <typename Container, typename DependencyChain,
+                    scope::Lifetime min_lifetime> typename ResolverTemplate,
+          template <typename Constructed,
+                    typename Resolver> typename SingleArgResolverTemplate>
 struct ResolverFactory {
   //! Creates a resolver, choosing the return type based on arity.
   //
   // For arity 1, this returns a \c SingleArgResolver. For all other
   // arities, it returns a \c Resolver.
-  template <std::size_t arity, std::size_t index>
+  template <typename Container, typename DependencyChain,
+            scope::Lifetime min_lifetime, typename Constructed,
+            std::size_t arity, std::size_t index>
   constexpr auto create(auto& container) const noexcept -> auto {
-    if constexpr (arity == 1)
+    using Resolver = ResolverTemplate<Container, DependencyChain, min_lifetime>;
+    using SingleArgResolver = SingleArgResolverTemplate<Constructed, Resolver>;
+    if constexpr (arity == 1) {
       return SingleArgResolver{Resolver{container}};
-    else
+    } else {
       return Resolver{container};
+    }
   }
 };
 
@@ -45,34 +53,47 @@ template <typename Constructed, typename ConstructedFactory,
 class Invoker<Constructed, ConstructedFactory, ResolverFactory,
               std::index_sequence<indices...>> {
  public:
-  constexpr auto create_value(auto& container) const -> Constructed {
+  template <typename DependencyChain, scope::Lifetime min_lifetime,
+            typename Container>
+  constexpr auto create_value(Container& container) const -> Constructed {
     return constructed_factory_(
-        resolver_factory_.template create<sizeof...(indices), indices>(
-            container)...);
+        resolver_factory_
+            .template create<Container, DependencyChain, min_lifetime,
+                             Constructed, sizeof...(indices), indices>(
+                container)...);
   }
 
-  constexpr auto create_shared(auto& container) const
+  template <typename DependencyChain, scope::Lifetime min_lifetime,
+            typename Container>
+  constexpr auto create_shared(Container& container) const
       -> std::shared_ptr<Constructed> {
     return std::make_shared<Constructed>(constructed_factory_(
-        resolver_factory_.template create<sizeof...(indices), indices>(
-            container)...));
+        resolver_factory_
+            .template create<Container, DependencyChain, min_lifetime,
+                             Constructed, sizeof...(indices), indices>(
+                container)...));
   }
 
-  constexpr auto create_unique(auto& container) const
+  template <typename DependencyChain, scope::Lifetime min_lifetime,
+            typename Container>
+  constexpr auto create_unique(Container& container) const
       -> std::unique_ptr<Constructed> {
     return std::make_unique<Constructed>(constructed_factory_(
-        resolver_factory_.template create<sizeof...(indices), indices>(
-            container)...));
+        resolver_factory_
+            .template create<Container, DependencyChain, min_lifetime,
+                             Constructed, sizeof...(indices), indices>(
+                container)...));
   }
 
-  template <typename Requested>
-  constexpr auto create(auto& container) const -> Requested {
+  template <typename Requested, typename DependencyChain,
+            scope::Lifetime min_lifetime, typename Container>
+  constexpr auto create(Container& container) const -> Requested {
     if constexpr (SharedPtr<Requested>) {
-      return create_shared(container);
+      return create_shared<DependencyChain, min_lifetime>(container);
     } else if constexpr (UniquePtr<Requested>) {
-      return create_unique(container);
+      return create_unique<DependencyChain, min_lifetime>(container);
     } else {
-      return create_value(container);
+      return create_value<DependencyChain, min_lifetime>(container);
     }
   }
 
@@ -92,34 +113,47 @@ template <typename Constructed, typename ResolverFactory,
 class Invoker<Constructed, void, ResolverFactory,
               std::index_sequence<indices...>> {
  public:
-  constexpr auto create_value(auto& container) const -> Constructed {
+  template <typename DependencyChain, scope::Lifetime min_lifetime,
+            typename Container>
+  constexpr auto create_value(Container& container) const -> Constructed {
     return Constructed{
-        resolver_factory_.template create<sizeof...(indices), indices>(
-            container)...};
+        resolver_factory_
+            .template create<Container, DependencyChain, min_lifetime,
+                             Constructed, sizeof...(indices), indices>(
+                container)...};
   }
 
-  constexpr auto create_shared(auto& container) const
+  template <typename DependencyChain, scope::Lifetime min_lifetime,
+            typename Container>
+  constexpr auto create_shared(Container& container) const
       -> std::shared_ptr<Constructed> {
     return std::make_shared<Constructed>(
-        resolver_factory_.template create<sizeof...(indices), indices>(
-            container)...);
+        resolver_factory_
+            .template create<Container, DependencyChain, min_lifetime,
+                             Constructed, sizeof...(indices), indices>(
+                container)...);
   }
 
-  constexpr auto create_unique(auto& container) const
+  template <typename DependencyChain, scope::Lifetime min_lifetime,
+            typename Container>
+  constexpr auto create_unique(Container& container) const
       -> std::unique_ptr<Constructed> {
     return std::make_unique<Constructed>(
-        resolver_factory_.template create<sizeof...(indices), indices>(
-            container)...);
+        resolver_factory_
+            .template create<Container, DependencyChain, min_lifetime,
+                             Constructed, sizeof...(indices), indices>(
+                container)...);
   }
 
-  template <typename Requested>
-  constexpr auto create(auto& container) const -> Requested {
+  template <typename Requested, typename DependencyChain,
+            scope::Lifetime min_lifetime, typename Container>
+  constexpr auto create(Container& container) const -> Requested {
     if constexpr (SharedPtr<Requested>) {
-      return create_shared(container);
+      return create_shared<DependencyChain, min_lifetime>(container);
     } else if constexpr (UniquePtr<Requested>) {
-      return create_unique(container);
+      return create_unique<DependencyChain, min_lifetime>(container);
     } else {
-      return create_value(container);
+      return create_value<DependencyChain, min_lifetime>(container);
     }
   }
 
@@ -139,10 +173,7 @@ template <typename Container, typename DependencyChain,
           typename ConstructedFactory>
 using FactoryInvoker = Invoker<
     Constructed, ConstructedFactory,
-    ResolverFactory<
-        Resolver<Container, DependencyChain, min_lifetime>,
-        SingleArgResolver<Constructed,
-                          Resolver<Container, DependencyChain, min_lifetime>>>,
+    ResolverFactory<Resolver, SingleArgResolver>,
     std::make_index_sequence<dink::arity<Constructed, ConstructedFactory>>>;
 
 //! Invoker type for direct construction.
@@ -151,13 +182,9 @@ using FactoryInvoker = Invoker<
 // parameter, and directly constructs the instance with resolved arguments.
 template <typename Container, typename DependencyChain,
           scope::Lifetime min_lifetime, typename Constructed>
-using CtorInvoker = Invoker<
-    Constructed, void,
-    ResolverFactory<
-        Resolver<Container, DependencyChain, min_lifetime>,
-        SingleArgResolver<Constructed,
-                          Resolver<Container, DependencyChain, min_lifetime>>>,
-    std::make_index_sequence<dink::arity<Constructed, void>>>;
+using CtorInvoker =
+    Invoker<Constructed, void, ResolverFactory<Resolver, SingleArgResolver>,
+            std::make_index_sequence<dink::arity<Constructed, void>>>;
 
 //! Creates FactoryInvoker and CtorInvoker.
 struct InvokerFactory {
@@ -168,8 +195,6 @@ struct InvokerFactory {
   constexpr auto create(ConstructedFactory constructed_factory)
       -> FactoryInvoker<Container, DependencyChain, min_lifetime, Constructed,
                         ConstructedFactory> {
-    using Resolver = Resolver<Container, DependencyChain, min_lifetime>;
-    using SingleArgResolver = SingleArgResolver<Constructed, Resolver>;
     using ResolverFactory = ResolverFactory<Resolver, SingleArgResolver>;
 
     static constexpr auto arity = dink::arity<Constructed, ConstructedFactory>;
@@ -184,8 +209,6 @@ struct InvokerFactory {
             scope::Lifetime min_lifetime, typename Constructed>
   constexpr auto create()
       -> CtorInvoker<Container, DependencyChain, min_lifetime, Constructed> {
-    using Resolver = Resolver<Container, DependencyChain, min_lifetime>;
-    using SingleArgResolver = SingleArgResolver<Constructed, Resolver>;
     using ResolverFactory = ResolverFactory<Resolver, SingleArgResolver>;
 
     static constexpr auto arity = dink::arity<Constructed, void>;

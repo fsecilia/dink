@@ -16,11 +16,17 @@ namespace {
 
 struct ResolverFactoryTest {
   struct Container {};
+  using DependencyChain = TypeList<>;
+  static constexpr scope::Lifetime min_lifetime = scope::Lifetime::kDefault;
+  struct Constructed {};
 
+  template <typename Container, typename DependencyChain,
+            scope::Lifetime min_lifetime>
   struct Resolver {
     Container& container;
   };
 
+  template <typename Constructed, typename Resolver>
   struct SingleArgResolver {
     Resolver resolver;
   };
@@ -29,13 +35,19 @@ struct ResolverFactoryTest {
 
   template <typename Expected, std::size_t arity, std::size_t index>
   constexpr auto test_single() {
-    using Actual = decltype(std::declval<Sut>().template create<arity, index>(
-        std::declval<Container&>()));
+    using Actual =
+        decltype(std::declval<Sut>()
+                     .template create<Container, DependencyChain, min_lifetime,
+                                      Constructed, arity, index>(
+                         std::declval<Container&>()));
 
     static_assert(std::same_as<Expected, Actual>);
   }
 
   constexpr auto test_multiple() {
+    using Resolver = Resolver<Container, DependencyChain, min_lifetime>;
+    using SingleArgResolver = SingleArgResolver<Constructed, Resolver>;
+
     test_single<Resolver, 0, 0>();
     test_single<Resolver, 0, 1>();
     test_single<Resolver, 0, 2>();
@@ -59,24 +71,28 @@ struct ResolverFactoryTest {
 
 struct InvokerFixture {
   struct Container {};
+  using DependencyChain = TypeList<>;
+  static constexpr scope::Lifetime min_lifetime = scope::Lifetime::kDefault;
 
-  // ResolverFactory and Constructed work together so the factory can just
+  // Constructed and ResolverFactory work together so the factory can just
   // return indices directly instead of indexed resolvers that convert to
   // parameters that happen to be indices. It's all transparent to Invoker,
   // which just replaces a sequence with the results of the ResolverFactory.
-
-  struct ResolverFactory {
-    template <std::size_t arity, std::size_t index>
-    constexpr auto create(auto& /*container*/) const noexcept -> std::size_t {
-      return index;
-    }
-  };
 
   template <typename... Args>
   struct Constructed {
     std::tuple<Args...> args_tuple;
     explicit constexpr Constructed(Args... args) noexcept
         : args_tuple{args...} {}
+  };
+
+  struct ResolverFactory {
+    template <typename Container, typename DependencyChain,
+              scope::Lifetime min_lifetime, typename Constructed,
+              std::size_t arity, std::size_t index>
+    constexpr auto create(auto& /*container*/) const noexcept -> std::size_t {
+      return index;
+    }
   };
 };
 
@@ -100,7 +116,8 @@ struct InvokerFixtureFactoryCompileTime : InvokerFixtureFactory {
     Container container;
     const Sut<indices...> invoker{constructed_factory, ResolverFactory{}};
     const auto res =
-        invoker.template create<Constructed<decltype(indices)...>>(container);
+        invoker.template create<Constructed<decltype(indices)...>,
+                                DependencyChain, min_lifetime>(container);
     return res.args_tuple == std::make_tuple(indices...);
   }
 
@@ -125,13 +142,15 @@ struct InvokerTestFactoryRunTime : InvokerFixtureFactory, Test {
 
 TEST_F(InvokerTestFactoryRunTime, Arity3SharedPtr) {
   const auto res =
-      sut.template create<std::shared_ptr<ConstructedType>>(container);
+      sut.template create<std::shared_ptr<ConstructedType>, DependencyChain,
+                          min_lifetime>(container);
   EXPECT_EQ(res->args_tuple, std::make_tuple(0, 1, 2));
 }
 
 TEST_F(InvokerTestFactoryRunTime, Arity3UniquePtr) {
   const auto res =
-      sut.template create<std::unique_ptr<ConstructedType>>(container);
+      sut.template create<std::unique_ptr<ConstructedType>, DependencyChain,
+                          min_lifetime>(container);
   EXPECT_EQ(res->args_tuple, std::make_tuple(0, 1, 2));
 }
 
@@ -150,7 +169,8 @@ struct InvokerFixtureCtorCompileTime : InvokerFixtureCtor {
     Container container;
     const Sut<indices...> invoker{ResolverFactory{}};
     const auto res =
-        invoker.template create<Constructed<decltype(indices)...>>(container);
+        invoker.template create<Constructed<decltype(indices)...>,
+                                DependencyChain, min_lifetime>(container);
     return res.args_tuple == std::make_tuple(indices...);
   }
 
@@ -174,12 +194,14 @@ struct InvokerTestCtorRunTime : InvokerFixtureCtor, Test {
 };
 
 TEST_F(InvokerTestCtorRunTime, Arity3SharedPtr) {
-  auto res = sut.template create<std::shared_ptr<ConstructedType>>(container);
+  auto res = sut.template create<std::shared_ptr<ConstructedType>,
+                                 DependencyChain, min_lifetime>(container);
   EXPECT_EQ(res->args_tuple, std::make_tuple(0, 1, 2));
 }
 
 TEST_F(InvokerTestCtorRunTime, Arity3UniquePtr) {
-  auto res = sut.template create<std::unique_ptr<ConstructedType>>(container);
+  auto res = sut.template create<std::unique_ptr<ConstructedType>,
+                                 DependencyChain, min_lifetime>(container);
   EXPECT_EQ(res->args_tuple, std::make_tuple(0, 1, 2));
 }
 
