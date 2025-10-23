@@ -92,4 +92,20 @@ class ExternalReference {
   Instance* instance_;
 };
 
+//! copies from a prototype owned by the container (moved/copied in)
+template <typename Instance>
+class InternalPrototype {
+ public:
+  using Provided = Instance;
+
+  auto get() -> Instance { return instance_; }
+  auto get() const -> const Instance { return instance_; }
+
+  explicit InternalPrototype(Instance&& instance) noexcept
+      : instance_{std::move(instance)} {}
+
+ private:
+  Instance instance_;
+};
+
 }  // namespace dink::provider
