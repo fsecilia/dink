@@ -31,8 +31,10 @@ class Invoker<Constructed, ConstructedFactory, ResolverSequence,
  public:
   template <typename DependencyChain, scope::Lifetime min_lifetime,
             typename Container>
-  constexpr auto create_value(Container& container) const -> Constructed {
-    return constructed_factory_(
+  constexpr auto create_value(Container& container,
+                              ConstructedFactory& constructed_factory) const
+      -> Constructed {
+    return constructed_factory(
         resolver_sequence_
             .template create_element<DependencyChain, min_lifetime, Constructed,
                                      sizeof...(indices), indices>(
@@ -41,9 +43,10 @@ class Invoker<Constructed, ConstructedFactory, ResolverSequence,
 
   template <typename DependencyChain, scope::Lifetime min_lifetime,
             typename Container>
-  constexpr auto create_shared(Container& container) const
+  constexpr auto create_shared(Container& container,
+                               ConstructedFactory& constructed_factory) const
       -> std::shared_ptr<Constructed> {
-    return std::make_shared<Constructed>(constructed_factory_(
+    return std::make_shared<Constructed>(constructed_factory(
         resolver_sequence_
             .template create_element<DependencyChain, min_lifetime, Constructed,
                                      sizeof...(indices), indices>(
@@ -52,9 +55,10 @@ class Invoker<Constructed, ConstructedFactory, ResolverSequence,
 
   template <typename DependencyChain, scope::Lifetime min_lifetime,
             typename Container>
-  constexpr auto create_unique(Container& container) const
+  constexpr auto create_unique(Container& container,
+                               ConstructedFactory& constructed_factory) const
       -> std::unique_ptr<Constructed> {
-    return std::make_unique<Constructed>(constructed_factory_(
+    return std::make_unique<Constructed>(constructed_factory(
         resolver_sequence_
             .template create_element<DependencyChain, min_lifetime, Constructed,
                                      sizeof...(indices), indices>(
@@ -63,23 +67,27 @@ class Invoker<Constructed, ConstructedFactory, ResolverSequence,
 
   template <typename Requested, typename DependencyChain,
             scope::Lifetime min_lifetime, typename Container>
-  constexpr auto create(Container& container) const -> Requested {
+  constexpr auto create(Container& container,
+                        ConstructedFactory& constructed_factory) const
+      -> Requested {
     if constexpr (SharedPtr<Requested>) {
-      return create_shared<DependencyChain, min_lifetime>(container);
+      return create_shared<DependencyChain, min_lifetime>(container,
+                                                          constructed_factory);
     } else if constexpr (UniquePtr<Requested>) {
-      return create_unique<DependencyChain, min_lifetime>(container);
+      return create_unique<DependencyChain, min_lifetime>(container,
+                                                          constructed_factory);
     } else {
-      return create_value<DependencyChain, min_lifetime>(container);
+      return create_value<DependencyChain, min_lifetime>(container,
+                                                         constructed_factory);
     }
   }
 
-  explicit constexpr Invoker(ConstructedFactory constructed_factory,
-                             ResolverSequence resolver_sequence) noexcept
-      : constructed_factory_{std::move(constructed_factory)},
-        resolver_sequence_{std::move(resolver_sequence)} {}
+  explicit constexpr Invoker(ResolverSequence resolver_sequence) noexcept
+      : resolver_sequence_{std::move(resolver_sequence)} {}
+
+  Invoker() = default;
 
  private:
-  ConstructedFactory constructed_factory_{};
   ResolverSequence resolver_sequence_{};
 };
 
@@ -136,6 +144,8 @@ class Invoker<Constructed, void, ResolverSequence,
   explicit constexpr Invoker(ResolverSequence resolver_sequence) noexcept
       : resolver_sequence_{std::move(resolver_sequence)} {}
 
+  Invoker() = default;
+
  private:
   ResolverSequence resolver_sequence_{};
 };
@@ -147,21 +157,12 @@ template <template <typename Constructed, typename ConstructedFactory,
           typename ResolverSequenceFactory = ResolverSequenceFactory<>>
 class InvokerFactory {
  public:
-  // Factory specialization.
   template <typename Constructed, typename ConstructedFactory,
             typename ResolverSequence>
-  constexpr auto create(ConstructedFactory constructed_factory) -> auto {
+  constexpr auto create() -> auto {
     return Invoker<
         Constructed, ConstructedFactory, ResolverSequence,
         std::make_index_sequence<arity<Constructed, ConstructedFactory>>>{
-        std::move(constructed_factory), resolver_sequence_factory_.create()};
-  }
-
-  // Ctor specialization.
-  template <typename Constructed, typename ResolverSequence>
-  constexpr auto create() -> auto {
-    return Invoker<Constructed, void, ResolverSequence,
-                   std::make_index_sequence<arity<Constructed, void>>>{
         resolver_sequence_factory_.create()};
   }
 
