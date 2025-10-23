@@ -154,7 +154,7 @@ TEST_F(InvokerTestCtorRunTime, Arity3UniquePtr) {
 // InvokerFactory
 // ----------------------------------------------------------------------------
 
-struct InvokerFactoryTest {
+struct InvokerFactoryTestCompileTime {
   struct ResolverFactory {};
 
   struct Constructed0 {
@@ -209,7 +209,7 @@ struct InvokerFactoryTest {
     return std::same_as<Actual, Expected>;
   }
 
-  constexpr InvokerFactoryTest() {
+  constexpr InvokerFactoryTestCompileTime() {
     static_assert(
         factory_specialization_result_type_matches<Constructed0,
                                                    ConstructedFactory0, 0>());
@@ -225,7 +225,8 @@ struct InvokerFactoryTest {
     static_assert(ctor_specialization_result_type_matches<Constructed3, 3>());
   }
 };
-[[maybe_unused]] constexpr auto invoker_factory_test = InvokerFactoryTest{};
+[[maybe_unused]] constexpr auto invoker_factory_test_compile_time =
+    InvokerFactoryTestCompileTime{};
 
 }  // namespace
 }  // namespace dink
