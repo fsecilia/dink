@@ -154,79 +154,175 @@ TEST_F(InvokerTestCtorRunTime, Arity3UniquePtr) {
 // InvokerFactory
 // ----------------------------------------------------------------------------
 
-struct InvokerFactoryTestCompileTime {
+template <typename Constructed, typename ConstructedFactory,
+          typename ResolverFactory, std::size_t... indices>
+struct InvokerSpyBase {
+  static constexpr std::size_t arity = sizeof...(indices);
+
+  template <typename Container, typename Requested, typename DependencyChain,
+            scope::Lifetime min_lifetime>
+  auto constexpr create(Container&) const -> Requested {
+    return Requested{};
+  }
+};
+
+template <typename Constructed, typename ConstructedFactory,
+          typename ResolverFactory, typename IndexSequence>
+struct InvokerSpy;
+
+// factory specialization
+template <typename Constructed, typename ConstructedFactory,
+          typename ResolverFactory, std::size_t... indices>
+struct InvokerSpy<Constructed, ConstructedFactory, ResolverFactory,
+                  std::index_sequence<indices...>>
+    : InvokerSpyBase<Constructed, ConstructedFactory, ResolverFactory,
+                     indices...> {
+  ConstructedFactory constructed_factory{-1};
+
+  explicit constexpr InvokerSpy(ConstructedFactory constructed_factory,
+                                ResolverFactory) noexcept
+      : constructed_factory{std::move(constructed_factory)} {}
+};
+
+// ctor specialization
+template <typename Constructed, typename ResolverFactory,
+          std::size_t... indices>
+struct InvokerSpy<Constructed, void, ResolverFactory,
+                  std::index_sequence<indices...>>
+    : InvokerSpyBase<Constructed, void, ResolverFactory, indices...> {
+  explicit constexpr InvokerSpy(ResolverFactory) noexcept {}
+};
+
+struct InvokerFactoryFixture {
   struct ResolverFactory {};
 
   struct Constructed0 {
-    Constructed0();
+    Constructed0() = default;
   };
   struct Constructed1 {
-    Constructed1(int_t);
+    Constructed1(int_t) {}
   };
   struct Constructed3 {
-    Constructed3(int_t, int_t, int_t);
+    Constructed3(int_t, int_t, int_t) {}
   };
 
   struct ConstructedFactory0 {
-    constexpr auto operator()() const noexcept -> Constructed0;
+    int_t id = 0;
+    constexpr auto operator()() const noexcept -> Constructed0 { return {}; }
   };
 
   struct ConstructedFactory1 {
-    constexpr auto operator()(int_t) const noexcept -> Constructed1;
+    int_t id = 1;
+    constexpr auto operator()(int_t) const noexcept -> Constructed1 {
+      return {0};
+    }
   };
 
   struct ConstructedFactory3 {
+    int_t id = 3;
     constexpr auto operator()(int_t, int_t, int_t) const noexcept
-        -> Constructed3;
+        -> Constructed3 {
+      return {0, 0, 0};
+    }
   };
 
   template <typename Constructed, typename ConstructedFactory,
-            typename ResolverFactory, typename>
-  struct Invoker {};
+            typename ResolverFactory, typename IndexSequence>
+  using Invoker = InvokerSpy<Constructed, ConstructedFactory, ResolverFactory,
+                             IndexSequence>;
 
   using Sut = InvokerFactory<Invoker>;
+};
 
+// Compile-Time Tests: Type Correctness and Arity
+// ----------------------------------------------------------------------------
+
+struct InvokerFactoryCompileTimeTest : InvokerFactoryFixture {
+  // Tests that factory specialization produces correct type
   template <typename Constructed, typename ConstructedFactory,
-            std::size_t arity>
-  static constexpr auto factory_specialization_result_type_matches() -> bool {
+            std::size_t expected_arity>
+  static constexpr auto test_factory_type() {
     using Actual =
         decltype(std::declval<Sut>()
                      .template create<Constructed, ConstructedFactory,
                                       ResolverFactory>(
                          std::declval<ConstructedFactory>()));
     using Expected = Invoker<Constructed, ConstructedFactory, ResolverFactory,
-                             std::make_index_sequence<arity>>;
-    return std::same_as<Actual, Expected>;
+                             std::make_index_sequence<expected_arity>>;
+
+    static_assert(std::same_as<Actual, Expected>);
+    static_assert(Expected::arity == expected_arity);
   }
 
-  template <typename Constructed, std::size_t arity>
-  static constexpr auto ctor_specialization_result_type_matches() -> bool {
+  // Tests that ctor specialization produces correct type
+  template <typename Constructed, std::size_t expected_arity>
+  static constexpr auto test_ctor_type() {
     using Actual =
         decltype(std::declval<Sut>()
                      .template create<Constructed, ResolverFactory>());
     using Expected = Invoker<Constructed, void, ResolverFactory,
-                             std::make_index_sequence<arity>>;
-    return std::same_as<Actual, Expected>;
+                             std::make_index_sequence<expected_arity>>;
+
+    static_assert(std::same_as<Actual, Expected>);
+    static_assert(Expected::arity == expected_arity);
   }
 
-  constexpr InvokerFactoryTestCompileTime() {
-    static_assert(
-        factory_specialization_result_type_matches<Constructed0,
-                                                   ConstructedFactory0, 0>());
-    static_assert(
-        factory_specialization_result_type_matches<Constructed1,
-                                                   ConstructedFactory1, 1>());
-    static_assert(
-        factory_specialization_result_type_matches<Constructed3,
-                                                   ConstructedFactory3, 3>());
+  constexpr InvokerFactoryCompileTimeTest() {
+    // Factory specializations
+    test_factory_type<Constructed0, ConstructedFactory0, 0>();
+    test_factory_type<Constructed1, ConstructedFactory1, 1>();
+    test_factory_type<Constructed3, ConstructedFactory3, 3>();
 
-    static_assert(ctor_specialization_result_type_matches<Constructed0, 0>());
-    static_assert(ctor_specialization_result_type_matches<Constructed1, 1>());
-    static_assert(ctor_specialization_result_type_matches<Constructed3, 3>());
+    // Ctor specializations
+    test_ctor_type<Constructed0, 0>();
+    test_ctor_type<Constructed1, 1>();
+    test_ctor_type<Constructed3, 3>();
   }
 };
-[[maybe_unused]] constexpr auto invoker_factory_test_compile_time =
-    InvokerFactoryTestCompileTime{};
+[[maybe_unused]] constexpr auto invoker_factory_compile_time_test =
+    InvokerFactoryCompileTimeTest{};
+
+// Run-Time Tests: Factory Instance
+// ----------------------------------------------------------------------------
+
+struct InvokerFactoryRunTimeTest : InvokerFactoryFixture, Test {
+  Sut sut;
+
+  static constexpr auto unique_id = int_t{42};
+};
+
+TEST_F(InvokerFactoryRunTimeTest, FactoryArity0PreservesInstance) {
+  ConstructedFactory0 factory;
+  factory.id = unique_id;
+
+  auto invoker =
+      sut.template create<Constructed0, ConstructedFactory0, ResolverFactory>(
+          factory);
+
+  EXPECT_EQ(invoker.constructed_factory.id, unique_id);
+}
+
+TEST_F(InvokerFactoryRunTimeTest, FactoryArity1PreservesInstance) {
+  ConstructedFactory1 factory;
+  factory.id = unique_id;
+
+  auto invoker =
+      sut.template create<Constructed1, ConstructedFactory1, ResolverFactory>(
+          factory);
+
+  EXPECT_EQ(invoker.constructed_factory.id, unique_id);
+}
+
+TEST_F(InvokerFactoryRunTimeTest, FactoryArity3PreservesInstance) {
+  ConstructedFactory3 factory;
+  factory.id = unique_id;
+
+  auto invoker =
+      sut.template create<Constructed3, ConstructedFactory3, ResolverFactory>(
+          factory);
+
+  EXPECT_EQ(invoker.constructed_factory.id, unique_id);
+}
 
 }  // namespace
 }  // namespace dink
