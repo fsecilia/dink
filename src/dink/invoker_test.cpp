@@ -77,7 +77,7 @@ struct InvokerFixtureFactoryCompileTime : InvokerFixtureFactory {
     static_assert(test_arity_3(), "Arity 3 (Factory) Failed");
   }
 };
-[[maybe_unused]] constexpr auto sequenced_invoker_fixture_Factory_compile_time =
+[[maybe_unused]] constexpr auto invoker_fixture_factory_compile_time =
     InvokerFixtureFactoryCompileTime{};
 
 struct InvokerTestFactoryRunTime : InvokerFixtureFactory, Test {
