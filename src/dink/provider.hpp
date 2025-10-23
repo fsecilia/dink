@@ -17,8 +17,8 @@ class CtorProvider {
  public:
   using Provided = Constructed;
 
-  template <typename Container, typename Requested, typename DependencyChain,
-            scope::Lifetime min_lifetime>
+  template <typename Requested, typename DependencyChain,
+            scope::Lifetime min_lifetime, typename Container>
   constexpr auto create(Container& container) -> auto {
     const auto invoker =
         invoker_factory_.template create<Container, DependencyChain,

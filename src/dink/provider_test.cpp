@@ -32,8 +32,8 @@ struct CreatorProviderFixture : ProviderFixture {
   struct Invoker {
     int_t return_value;
 
-    template <typename Requested>
-    constexpr auto create(auto& /*container*/) const -> Requested {
+    template <typename Requested, typename Container>
+    constexpr auto create(Container&) const -> Requested {
       // Verify we're constructing the expected type.
       static_assert(std::same_as<Canonical<Requested>, ExpectedConstructed>);
 
@@ -82,8 +82,9 @@ struct CtorProviderCompileTimeTest : CtorProviderFixture {
     InvokerFactory invoker_factory{};
     Sut sut{invoker_factory};
 
-    auto constructed = sut.create<Container, TestConstructed, DependencyChain,
-                                  test_min_lifetime>(container);
+    auto constructed =
+        sut.create<TestConstructed, DependencyChain, test_min_lifetime>(
+            container);
 
     return constructed.value == TestConstructed::expected_value;
   }
@@ -103,14 +104,14 @@ struct CtorProviderRunTimeTest : CtorProviderFixture, Test {
 };
 
 TEST_F(CtorProviderRunTimeTest, CreatesSharedPtr) {
-  const auto result = sut.create<Container, std::shared_ptr<TestConstructed>,
+  const auto result = sut.create<std::shared_ptr<TestConstructed>,
                                  DependencyChain, test_min_lifetime>(container);
 
   EXPECT_EQ(result->value, TestConstructed::expected_value);
 }
 
 TEST_F(CtorProviderRunTimeTest, CreatesUniquePtr) {
-  const auto result = sut.create<Container, std::unique_ptr<TestConstructed>,
+  const auto result = sut.create<std::unique_ptr<TestConstructed>,
                                  DependencyChain, test_min_lifetime>(container);
 
   EXPECT_EQ(result->value, TestConstructed::expected_value);

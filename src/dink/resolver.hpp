@@ -121,10 +121,10 @@ struct ResolverFactory {
   //
   // For arity 1, this returns a \c SingleArgResolver. For all other
   // arities, it returns a \c Resolver.
-  template <typename Container, typename DependencyChain,
-            scope::Lifetime min_lifetime, typename Constructed,
-            std::size_t arity, std::size_t index>
-  constexpr auto create(auto& container) const noexcept -> auto {
+  template <typename DependencyChain, scope::Lifetime min_lifetime,
+            typename Constructed, std::size_t arity, std::size_t index,
+            typename Container>
+  constexpr auto create(Container& container) const noexcept -> auto {
     using Resolver = ResolverTemplate<Container, DependencyChain, min_lifetime>;
     using SingleArgResolver = SingleArgResolverTemplate<Constructed, Resolver>;
     if constexpr (arity == 1) {

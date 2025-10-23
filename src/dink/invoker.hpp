@@ -34,9 +34,8 @@ class Invoker<Constructed, ConstructedFactory, ResolverFactory,
   constexpr auto create_value(Container& container) const -> Constructed {
     return constructed_factory_(
         resolver_factory_
-            .template create<Container, DependencyChain, min_lifetime,
-                             Constructed, sizeof...(indices), indices>(
-                container)...);
+            .template create<DependencyChain, min_lifetime, Constructed,
+                             sizeof...(indices), indices>(container)...);
   }
 
   template <typename DependencyChain, scope::Lifetime min_lifetime,
@@ -45,9 +44,8 @@ class Invoker<Constructed, ConstructedFactory, ResolverFactory,
       -> std::shared_ptr<Constructed> {
     return std::make_shared<Constructed>(constructed_factory_(
         resolver_factory_
-            .template create<Container, DependencyChain, min_lifetime,
-                             Constructed, sizeof...(indices), indices>(
-                container)...));
+            .template create<DependencyChain, min_lifetime, Constructed,
+                             sizeof...(indices), indices>(container)...));
   }
 
   template <typename DependencyChain, scope::Lifetime min_lifetime,
@@ -56,9 +54,8 @@ class Invoker<Constructed, ConstructedFactory, ResolverFactory,
       -> std::unique_ptr<Constructed> {
     return std::make_unique<Constructed>(constructed_factory_(
         resolver_factory_
-            .template create<Container, DependencyChain, min_lifetime,
-                             Constructed, sizeof...(indices), indices>(
-                container)...));
+            .template create<DependencyChain, min_lifetime, Constructed,
+                             sizeof...(indices), indices>(container)...));
   }
 
   template <typename Requested, typename DependencyChain,
@@ -94,9 +91,8 @@ class Invoker<Constructed, void, ResolverFactory,
   constexpr auto create_value(Container& container) const -> Constructed {
     return Constructed{
         resolver_factory_
-            .template create<Container, DependencyChain, min_lifetime,
-                             Constructed, sizeof...(indices), indices>(
-                container)...};
+            .template create<DependencyChain, min_lifetime, Constructed,
+                             sizeof...(indices), indices>(container)...};
   }
 
   template <typename DependencyChain, scope::Lifetime min_lifetime,
@@ -105,9 +101,8 @@ class Invoker<Constructed, void, ResolverFactory,
       -> std::shared_ptr<Constructed> {
     return std::make_shared<Constructed>(
         resolver_factory_
-            .template create<Container, DependencyChain, min_lifetime,
-                             Constructed, sizeof...(indices), indices>(
-                container)...);
+            .template create<DependencyChain, min_lifetime, Constructed,
+                             sizeof...(indices), indices>(container)...);
   }
 
   template <typename DependencyChain, scope::Lifetime min_lifetime,
@@ -116,9 +111,8 @@ class Invoker<Constructed, void, ResolverFactory,
       -> std::unique_ptr<Constructed> {
     return std::make_unique<Constructed>(
         resolver_factory_
-            .template create<Container, DependencyChain, min_lifetime,
-                             Constructed, sizeof...(indices), indices>(
-                container)...);
+            .template create<DependencyChain, min_lifetime, Constructed,
+                             sizeof...(indices), indices>(container)...);
   }
 
   template <typename Requested, typename DependencyChain,
