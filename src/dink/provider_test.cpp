@@ -234,5 +234,20 @@ TEST_F(ProviderAccessorTest, InternalReference) {
   ASSERT_EQ(&sut.get(), &static_cast<const Sut&>(sut).get());
 }
 
+TEST_F(ProviderAccessorTest, ExternalReference) {
+  using Sut = ExternalReference<Instance>;
+
+  auto src = Instance{Instance::expected_id};
+  Sut sut{src};
+
+  ASSERT_EQ(Instance::copy_ctors, 0);
+  ASSERT_EQ(Instance::move_ctors, 0);
+
+  ASSERT_EQ(Instance::expected_id, sut.get().id);
+
+  ASSERT_EQ(&src, &sut.get());
+  ASSERT_EQ(&sut.get(), &static_cast<const Sut&>(sut).get());
+}
+
 }  // namespace
 }  // namespace dink::provider

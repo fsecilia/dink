@@ -76,4 +76,20 @@ class InternalReference {
   Instance instance_;
 };
 
+//! references an instance owned externally (pointer stored)
+template <typename Instance>
+class ExternalReference {
+ public:
+  using Provided = Instance;
+
+  auto get() -> Instance& { return *instance_; }
+  auto get() const -> const Instance& { return *instance_; }
+
+  explicit ExternalReference(Instance& instance) noexcept
+      : instance_{&instance} {}
+
+ private:
+  Instance* instance_;
+};
+
 }  // namespace dink::provider
