@@ -30,7 +30,7 @@ class CtorProvider {
       : invoker_factory_{std::move(invoker_factory)} {}
 
  private:
-  [[no_unique_address]] InvokerFactory invoker_factory_{};
+  [[dink_no_unique_address]] InvokerFactory invoker_factory_{};
 };
 
 //! provider that invokes ConstructedFactory to produce a Constructed
