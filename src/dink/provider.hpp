@@ -10,7 +10,7 @@
 
 namespace dink {
 
-//! provider that invokes a Constructed's ctor
+//! provider that invokes Constructed's ctor directly
 template <typename Constructed,
           typename InvokerFactory = InvokerFactory<Invoker>>
 class CtorProvider {
