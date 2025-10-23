@@ -22,7 +22,7 @@ enum class Lifetime { kTransient, kSingleton, kDefault = kTransient };
 // and the instance is returned with value semantics. A request for a transient
 // instance can be promoted to singleton scope if the type of the request
 // requires it, such as requesting a reference or pointer.
-struct transient_t {
+struct Transient {
   static inline constexpr auto lifetime = Lifetime::kTransient;
 };
 
@@ -35,7 +35,7 @@ struct transient_t {
 // scope if the type of the request requires it, such as requesting a
 // unique_ptr or rvalue reference. Relegated requests are initialized with a
 // copy of the cached singleton.
-struct singleton_t {
+struct Singleton {
   static inline constexpr auto lifetime = Lifetime::kSingleton;
 };
 
