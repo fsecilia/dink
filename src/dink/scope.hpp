@@ -9,12 +9,6 @@
 
 namespace dink::scope {
 
-//! orders scopes by lifetime
-//
-// Instances resolved with a particular scope cannot depend on instances
-// resolved with a shorter scope. Lifetime give scopes an order.
-enum class Lifetime { kTransient, kSingleton, kDefault = kTransient };
-
 //! nominally resolves new instances per request
 //
 // Instances resolved from transient scope are normally created per request,
@@ -23,7 +17,6 @@ enum class Lifetime { kTransient, kSingleton, kDefault = kTransient };
 // instance can be promoted to singleton scope if the type of the request
 // requires it, such as requesting a reference or pointer.
 struct Transient {
-  static inline constexpr auto lifetime = Lifetime::kTransient;
 };
 
 //! nominally resolves shared instances per request
@@ -35,7 +28,6 @@ struct Transient {
 // scope if the type of the request requires it, such as requesting a
 // unique_ptr or rvalue reference.
 struct Singleton {
-  static inline constexpr auto lifetime = Lifetime::kSingleton;
 };
 
 }  // namespace dink::scope

@@ -17,12 +17,10 @@ class Ctor {
  public:
   using Provided = Constructed;
 
-  template <typename Requested, typename DependencyChain,
-            scope::Lifetime min_lifetime, typename Container>
+  template <typename Requested, typename Container>
   constexpr auto create(Container& container) -> auto {
     const auto invoker =
-        invoker_factory_.template create<Container, DependencyChain,
-                                         min_lifetime, Constructed, void>();
+        invoker_factory_.template create<Container, Constructed, void>();
     return invoker.template create<Requested>(container);
   }
 
@@ -40,13 +38,11 @@ class Factory {
  public:
   using Provided = Constructed;
 
-  template <typename Requested, typename DependencyChain,
-            scope::Lifetime min_lifetime, typename Container>
+  template <typename Requested, typename Container>
   constexpr auto create(Container& container) -> auto {
     const auto invoker =
         invoker_factory_
-            .template create<Container, DependencyChain, min_lifetime,
-                             Constructed, ConstructedFactory>();
+            .template create<Container, Constructed, ConstructedFactory>();
     return invoker.template create<Requested>(container, constructed_factory_);
   }
 

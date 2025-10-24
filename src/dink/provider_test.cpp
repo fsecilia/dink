@@ -22,8 +22,6 @@ struct CreatorFixture {
   };
 
   struct Container {};
-  using DependencyChain = TypeList<>;
-  static constexpr auto test_min_lifetime = scope::Lifetime::kDefault;
 
   // Stub invoker that returns canned values.
   template <typename ExpectedConstructed>
@@ -64,14 +62,10 @@ struct CreatorFixture {
   // InvokerFactory spy that verifies template args and returns StubInvoker.
   template <typename ExpectedFactory>
   struct InvokerFactory {
-    template <typename Container, typename DependencyChain,
-              scope::Lifetime min_lifetime, typename Constructed,
-              typename Factory>
+    template <typename Container, typename Constructed, typename Factory>
     constexpr auto create() -> Invoker<Constructed> {
       // Verify the factory was called with expected template parameters
       static_assert(std::same_as<Container, Container>);
-      static_assert(std::same_as<DependencyChain, DependencyChain>);
-      static_assert(min_lifetime == test_min_lifetime);
       static_assert(std::same_as<Constructed, Constructed>);
       static_assert(std::same_as<Factory, ExpectedFactory>);
 
@@ -99,8 +93,7 @@ struct CtorCompileTimeTest : CtorFixture {
     Container container{};
     Sut sut{InvokerFactory{}};
 
-    auto constructed =
-        sut.create<Constructed, DependencyChain, test_min_lifetime>(container);
+    auto constructed = sut.create<Constructed>(container);
 
     return constructed.value == Constructed::expected_value;
   }
@@ -118,13 +111,11 @@ struct ProviderCtorRunTimeTest : CtorFixture, Test {
 };
 
 TEST_F(ProviderCtorRunTimeTest, CreatesSharedPtr) {
-  test_result(*sut.create<std::shared_ptr<Constructed>, DependencyChain,
-                          test_min_lifetime>(container));
+  test_result(*sut.create<std::shared_ptr<Constructed>>(container));
 }
 
 TEST_F(ProviderCtorRunTimeTest, CreatesUniquePtr) {
-  test_result(*sut.create<std::unique_ptr<Constructed>, DependencyChain,
-                          test_min_lifetime>(container));
+  test_result(*sut.create<std::unique_ptr<Constructed>>(container));
 }
 
 // Factory
@@ -149,8 +140,7 @@ struct FactoryCompileTimeTest : FactoryFixture {
     InvokerFactory invoker_factory{};
     Sut sut{ConstructedFactory{}, invoker_factory};
 
-    auto constructed =
-        sut.create<Constructed, DependencyChain, test_min_lifetime>(container);
+    auto constructed = sut.create<Constructed>(container);
 
     return constructed.value == Constructed::expected_value;
   }
@@ -168,13 +158,11 @@ struct ProviderFactoryRunTimeTest : FactoryFixture, Test {
 };
 
 TEST_F(ProviderFactoryRunTimeTest, CreatesSharedPtr) {
-  test_result(*sut.create<std::shared_ptr<Constructed>, DependencyChain,
-                          test_min_lifetime>(container));
+  test_result(*sut.create<std::shared_ptr<Constructed>>(container));
 }
 
 TEST_F(ProviderFactoryRunTimeTest, CreatesUniquePtr) {
-  test_result(*sut.create<std::unique_ptr<Constructed>, DependencyChain,
-                          test_min_lifetime>(container));
+  test_result(*sut.create<std::unique_ptr<Constructed>>(container));
 }
 
 // ----------------------------------------------------------------------------

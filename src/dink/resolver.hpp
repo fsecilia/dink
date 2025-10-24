@@ -34,8 +34,7 @@ namespace dink {
 //
 // This type is not fit to match single-argument ctors, because it will match
 // copy and move ctors. That is handled by \ref SingleArgResolver.
-template <typename Container, typename DependencyChain,
-          scope::Lifetime min_lifetime>
+template <typename Container>
 class Resolver {
  public:
   //! Value conversion operator.
@@ -64,21 +63,9 @@ class Resolver {
  private:
   Container& container_;
 
-  template <typename CanonicalDeduced>
-  static constexpr auto assert_noncircular() noexcept -> void {
-    static_assert(meta::kDependentBool<
-                      !DependencyChain::template kContains<CanonicalDeduced>,
-                      DependencyChain>,
-                  "circular dependency detected");
-  }
-
   template <typename Deduced, typename CanonicalDeduced>
   constexpr auto resolve() const -> Deduced {
-    assert_noncircular<CanonicalDeduced>();
-    using NextDependencyChain =
-        DependencyChain::template Append<CanonicalDeduced>;
-    return container_
-        .template resolve<Deduced, NextDependencyChain, min_lifetime>();
+    return container_.template resolve<Deduced>();
   }
 };
 
@@ -112,8 +99,7 @@ class SingleArgResolver {
 };
 
 //! Sequence that consumes indices to produce Resolvers.
-template <template <typename Container, typename DependencyChain,
-                    scope::Lifetime min_lifetime> typename ResolverTemplate,
+template <template <typename Container> typename ResolverTemplate,
           template <typename Constructed,
                     typename Resolver> typename SingleArgResolverTemplate>
 struct ResolverSequence {
@@ -121,11 +107,10 @@ struct ResolverSequence {
   //
   // For arity 1, this creates a \c SingleArgResolver. For all other arities,
   // it creates a \c Resolver.
-  template <typename DependencyChain, scope::Lifetime min_lifetime,
-            typename Constructed, std::size_t arity, std::size_t index,
+  template <typename Constructed, std::size_t arity, std::size_t index,
             typename Container>
   constexpr auto create_element(Container& container) const noexcept -> auto {
-    using Resolver = ResolverTemplate<Container, DependencyChain, min_lifetime>;
+    using Resolver = ResolverTemplate<Container>;
     using SingleArgResolver = SingleArgResolverTemplate<Constructed, Resolver>;
     if constexpr (arity == 1) {
       return SingleArgResolver{Resolver{container}};

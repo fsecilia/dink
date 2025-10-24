@@ -25,7 +25,7 @@ struct ResolverReturnsRealInstancesFromContainerTest : Test {
   struct Container {
     const Deduced real_instance = Deduced{Deduced::expected_id};
 
-    template <typename, typename, scope::Lifetime>
+    template <typename>
     auto resolve() -> Deduced {
       return real_instance;
     }
@@ -41,8 +41,7 @@ struct ResolverReturnsRealInstancesFromContainerTest : Test {
   auto test() -> void {
     auto container = Container{};
 
-    Handler{}.handle(
-        Resolver<Container, TypeList<>, scope::Lifetime::kDefault>{container});
+    Handler{}.handle(Resolver<Container>{container});
   }
 };
 
@@ -103,96 +102,13 @@ struct ResolverDeducesTypeTest {
   }
 
   constexpr ResolverDeducesTypeTest() {
-    using Resolver = Resolver<Container, TypeList<>, scope::Lifetime::kDefault>;
+    using Resolver = Resolver<Container>;
     test_all_deductions<Resolver>();
     test_all_deductions<SingleArgResolver<Handler, Resolver>>();
   }
 };
 [[maybe_unused]] constexpr auto resolver_deduces_type_test =
     ResolverDeducesTypeTest{};
-
-// Tests that Resolver updates the dependency chain correctly.
-struct ResolverAppendsCanonicalDeducedToDependencyChainTest {
-  struct Deduced {};
-
-  using InitialDependencyChain = TypeList<int, void*>;
-  using ExpectedDependencyChain = TypeList<int, void*, Deduced>;
-
-  struct Container {
-    template <typename ActualDeduced, typename NextDependencyChain,
-              scope::Lifetime min_lifetime>
-    constexpr auto resolve() -> ActualDeduced {
-      static_assert(std::same_as<ExpectedDependencyChain, NextDependencyChain>);
-      return ActualDeduced{};
-    }
-  };
-
-  template <typename ActualDeduced>
-  struct Handler {
-    constexpr auto handle(ActualDeduced) const -> void {}
-  };
-
-  template <typename ActualDeduced>
-  constexpr auto test() -> void {
-    auto container = Container{};
-
-    Handler<ActualDeduced>{}.handle(
-        Resolver<Container, InitialDependencyChain, scope::Lifetime::kDefault>{
-            container});
-
-    Handler<ActualDeduced*>{}.handle(
-        Resolver<Container, InitialDependencyChain, scope::Lifetime::kDefault>{
-            container});
-
-    Handler<ActualDeduced&&>{}.handle(
-        Resolver<Container, InitialDependencyChain, scope::Lifetime::kDefault>{
-            container});
-
-    Handler<std::unique_ptr<ActualDeduced>>{}.handle(
-        Resolver<Container, InitialDependencyChain, scope::Lifetime::kDefault>{
-            container});
-  }
-
-  constexpr ResolverAppendsCanonicalDeducedToDependencyChainTest() {
-    test<Deduced>();
-  }
-};
-[[maybe_unused]] constexpr auto
-    resolver_appends_canonical_deduced_to_dependency_chain =
-        ResolverAppendsCanonicalDeducedToDependencyChainTest{};
-
-// Tests that Resolver forwards min_lifetime.
-struct ResolverForwardsMinLifetimeTest {
-  static constexpr auto expected_min_lifetime = scope::Lifetime::kSingleton;
-
-  struct Deduced {};
-
-  struct Container {
-    template <typename ActualDeduced, typename NextDependencyChain,
-              scope::Lifetime min_lifetime>
-    constexpr auto resolve() -> ActualDeduced {
-      static_assert(min_lifetime == expected_min_lifetime);
-      return ActualDeduced{};
-    }
-  };
-
-  template <typename ActualDeduced>
-  struct Handler {
-    constexpr auto handle(ActualDeduced) const -> void {}
-  };
-
-  template <typename ActualDeduced>
-  constexpr auto test() -> void {
-    auto container = Container{};
-
-    Handler<ActualDeduced>{}.handle(
-        Resolver<Container, TypeList<>, expected_min_lifetime>{container});
-  }
-
-  constexpr ResolverForwardsMinLifetimeTest() { test<Deduced>(); }
-};
-[[maybe_unused]] constexpr auto resolver_forwards_min_lifetime =
-    ResolverForwardsMinLifetimeTest{};
 
 // ----------------------------------------------------------------------------
 // SingleArgResolver
@@ -233,8 +149,7 @@ struct SingleArgResolverDoesNotMatchCopyOrMoveCtorsTest {
 // ----------------------------------------------------------------------------
 
 // Resolver spy that tracks the container it was given
-template <typename Container, typename DependencyChain,
-          scope::Lifetime min_lifetime>
+template <typename Container>
 struct ResolverSpy {
   Container* container_ptr = nullptr;
 
@@ -277,14 +192,10 @@ struct ResolverSequenceFixture {
     int_t id = 0;
   };
 
-  using DependencyChain = TypeList<>;
-  static constexpr auto min_lifetime = scope::Lifetime::kDefault;
-
   struct Constructed {};
 
-  template <typename Container, typename DependencyChain,
-            scope::Lifetime min_lifetime>
-  using Resolver = ResolverSpy<Container, DependencyChain, min_lifetime>;
+  template <typename Container>
+  using Resolver = ResolverSpy<Container>;
 
   template <typename Constructed, typename Resolver>
   using SingleArgResolver = SingleArgResolverSpy<Constructed, Resolver>;
@@ -302,10 +213,9 @@ struct ResolverSequenceCompileTimeTest : ResolverSequenceFixture {
   static constexpr auto test_resolver_type() {
     using Actual =
         decltype(std::declval<Sut>()
-                     .template create_element<DependencyChain, min_lifetime,
-                                              Constructed, arity, index>(
+                     .template create_element<Constructed, arity, index>(
                          std::declval<Container&>()));
-    using Expected = Resolver<Container, DependencyChain, min_lifetime>;
+    using Expected = Resolver<Container>;
 
     static_assert(std::same_as<Actual, Expected>);
   }
@@ -313,12 +223,10 @@ struct ResolverSequenceCompileTimeTest : ResolverSequenceFixture {
   // Test that arity == 1 produces SingleArgResolver
   template <std::size_t index>
   static constexpr auto test_single_arg_resolver_type() {
-    using Actual =
-        decltype(std::declval<Sut>()
-                     .template create_element<DependencyChain, min_lifetime,
-                                              Constructed, 1, index>(
-                         std::declval<Container&>()));
-    using ResolverType = Resolver<Container, DependencyChain, min_lifetime>;
+    using Actual = decltype(std::declval<Sut>()
+                                .template create_element<Constructed, 1, index>(
+                                    std::declval<Container&>()));
+    using ResolverType = Resolver<Container>;
     using Expected = SingleArgResolver<Constructed, ResolverType>;
 
     static_assert(std::same_as<Actual, Expected>);
@@ -355,8 +263,7 @@ struct ResolverSequenceRunTimeTest : ResolverSequenceFixture, Test {
 };
 
 TEST_F(ResolverSequenceRunTimeTest, Arity0PreservesContainer) {
-  auto resolver = sut.template create_element<DependencyChain, min_lifetime,
-                                              Constructed, 0, 0>(container);
+  auto resolver = sut.template create_element<Constructed, 0, 0>(container);
 
   EXPECT_EQ(resolver.container_ptr, &container);
   EXPECT_EQ(resolver.container_ptr->id, unique_id);
@@ -364,8 +271,7 @@ TEST_F(ResolverSequenceRunTimeTest, Arity0PreservesContainer) {
 
 TEST_F(ResolverSequenceRunTimeTest, Arity1PreservesContainer) {
   auto single_arg_resolver =
-      sut.template create_element<DependencyChain, min_lifetime, Constructed, 1,
-                                  0>(container);
+      sut.template create_element<Constructed, 1, 0>(container);
 
   // SingleArgResolver wraps Resolver, so check the wrapped resolver
   EXPECT_EQ(single_arg_resolver.resolver.container_ptr, &container);
@@ -373,10 +279,8 @@ TEST_F(ResolverSequenceRunTimeTest, Arity1PreservesContainer) {
 }
 
 TEST_F(ResolverSequenceRunTimeTest, Arity2PreservesContainer) {
-  auto resolver0 = sut.template create_element<DependencyChain, min_lifetime,
-                                               Constructed, 2, 0>(container);
-  auto resolver1 = sut.template create_element<DependencyChain, min_lifetime,
-                                               Constructed, 2, 1>(container);
+  auto resolver0 = sut.template create_element<Constructed, 2, 0>(container);
+  auto resolver1 = sut.template create_element<Constructed, 2, 1>(container);
 
   EXPECT_EQ(resolver0.container_ptr, &container);
   EXPECT_EQ(resolver1.container_ptr, &container);
@@ -384,12 +288,9 @@ TEST_F(ResolverSequenceRunTimeTest, Arity2PreservesContainer) {
 }
 
 TEST_F(ResolverSequenceRunTimeTest, Arity3PreservesContainer) {
-  auto resolver0 = sut.template create_element<DependencyChain, min_lifetime,
-                                               Constructed, 3, 0>(container);
-  auto resolver1 = sut.template create_element<DependencyChain, min_lifetime,
-                                               Constructed, 3, 1>(container);
-  auto resolver2 = sut.template create_element<DependencyChain, min_lifetime,
-                                               Constructed, 3, 2>(container);
+  auto resolver0 = sut.template create_element<Constructed, 3, 0>(container);
+  auto resolver1 = sut.template create_element<Constructed, 3, 1>(container);
+  auto resolver2 = sut.template create_element<Constructed, 3, 2>(container);
 
   EXPECT_EQ(resolver0.container_ptr, &container);
   EXPECT_EQ(resolver1.container_ptr, &container);
