@@ -13,6 +13,7 @@ list(APPEND dink_library_files
   lib.hpp
   meta.hpp
   provider.hpp
+  request_traits.hpp
   resolver.hpp
   scope.hpp
   smart_pointer_traits.hpp
@@ -26,6 +27,7 @@ list(APPEND dink_test_files
   canonical_test.cpp
   invoker_test.cpp
   provider_test.cpp
+  request_traits_test.cpp
   resolver_test.cpp
   scope_test.cpp
   smart_pointer_traits_test.cpp
