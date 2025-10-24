@@ -183,6 +183,7 @@ if (dink_enable_testing)
     target_compile_options(dink_test PUBLIC
       -Wno-ctad-maybe-unsupported
       -Wno-padded
+      -Wno-shadow
       -Wno-shadow-field-in-constructor
       -Wno-unneeded-member-function
       -Wno-unused-member-function
