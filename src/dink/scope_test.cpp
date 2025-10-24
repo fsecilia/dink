@@ -39,5 +39,11 @@ TEST_F(ScopeTestTransient, create_calls_provider_with_container) {
   ASSERT_EQ(&container, result.container);
 }
 
+TEST_F(ScopeTestTransient, repeated_create_calls_return_different_instances) {
+  const auto& result1 = sut.create(container, provider);
+  const auto& result2 = sut.create(container, provider);
+  ASSERT_NE(&result1, &result2);
+}
+
 }  // namespace
 }  // namespace dink::scope
