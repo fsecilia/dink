@@ -8,13 +8,7 @@
 namespace dink::scope {
 namespace {
 
-// ----------------------------------------------------------------------------
-// Transient
-// ----------------------------------------------------------------------------
-
-struct ScopeTransientTest : Test {
-  using Sut = Transient;
-
+struct ScopeTest : Test {
   struct Container {};
 
   struct Provided {
@@ -29,10 +23,18 @@ struct ScopeTransientTest : Test {
 
   Container container;
   Provider provider;
+};
+
+// ----------------------------------------------------------------------------
+// Transient
+// ----------------------------------------------------------------------------
+
+struct ScopeTestTransient : ScopeTest {
+  using Sut = Transient;
   Sut sut;
 };
 
-TEST_F(ScopeTransientTest, create) {
+TEST_F(ScopeTestTransient, create) {
   const auto result = sut.create(container, provider);
   ASSERT_EQ(&container, result.container);
 }
