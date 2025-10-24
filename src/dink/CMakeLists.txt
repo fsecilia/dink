@@ -27,6 +27,7 @@ list(APPEND dink_test_files
   invoker_test.cpp
   provider_test.cpp
   resolver_test.cpp
+  scope_test.cpp
   smart_pointer_traits_test.cpp
   test.hpp
   type_list_test.cpp
