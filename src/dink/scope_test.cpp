@@ -34,7 +34,7 @@ struct ScopeTestTransient : ScopeTest {
   Sut sut;
 };
 
-TEST_F(ScopeTestTransient, create) {
+TEST_F(ScopeTestTransient, create_calls_provider_with_container) {
   const auto result = sut.create(container, provider);
   ASSERT_EQ(&container, result.container);
 }
