@@ -45,5 +45,25 @@ TEST_F(ScopeTestTransient, repeated_create_calls_return_different_instances) {
   ASSERT_NE(&result1, &result2);
 }
 
+// ----------------------------------------------------------------------------
+// Singleton
+// ----------------------------------------------------------------------------
+
+struct ScopeTestSingleton : ScopeTest {
+  using Sut = Singleton;
+  Sut sut;
+};
+
+TEST_F(ScopeTestSingleton, create_calls_provider_with_container) {
+  const auto& result = sut.create(container, provider);
+  ASSERT_EQ(&container, result.container);
+}
+
+TEST_F(ScopeTestSingleton, repeated_create_calls_return_same_instance) {
+  const auto& result1 = sut.create(container, provider);
+  const auto& result2 = sut.create(container, provider);
+  ASSERT_EQ(&result1, &result2);
+}
+
 }  // namespace
 }  // namespace dink::scope

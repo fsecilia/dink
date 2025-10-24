@@ -19,6 +19,11 @@ struct Transient {
 
 //! resolves shared instances across requests
 struct Singleton {
+  template <typename Container, typename Provider>
+  static auto create(Container& container, Provider& provider) -> auto& {
+    static auto instance = provider.provide(container);
+    return instance;
+  }
 };
 
 }  // namespace dink::scope
