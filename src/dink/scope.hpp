@@ -14,32 +14,38 @@
 namespace dink::scope {
 
 //! Resolves one instance per request.
+template <typename Provider>
 class Transient {
  public:
   //! Resolves instance in requested form.
-  template <typename Requested, typename Container, typename Provider>
-  auto resolve(Container& container, Provider& provider)
-      -> std::remove_reference_t<Requested> {
+  template <typename Requested, typename Container>
+  auto resolve(Container& container) -> std::remove_reference_t<Requested> {
     using Provided = typename Provider::Provided;
 
     if constexpr (std::same_as<std::remove_cvref_t<Requested>, Provided>) {
       // Value type or rvalue reference.
-      return provider.template create<Requested>(container);
+      return provider_.template create<Requested>(container);
     } else if constexpr (SharedPtr<Requested> || UniquePtr<Requested>) {
       // Smart pointers with ownership semantics.
-      return provider.template create<Requested>(container);
+      return provider_.template create<Requested>(container);
     } else {
       static_assert(meta::kDependentFalse<Requested>,
                     "Transient scope: unsupported type conversion.");
     }
   }
+
+  Transient(Provider provider) noexcept : provider_{std::move(provider)} {}
+
+ private:
+  Provider provider_;
 };
 
 ///! Resolves one instance per provider.
+template <typename Provider>
 class Singleton {
  public:
   //! Resolves instance in requested form.
-  template <typename Requested, typename Container, typename Provider>
+  template <typename Requested, typename Container>
   auto resolve(Container& container, Provider& provider) const -> Requested {
     // Order matters here; check for smart pointers first so references to them
     // can be taken without taking the reference branch.
@@ -58,9 +64,11 @@ class Singleton {
     }
   }
 
+  Singleton(Provider provider) noexcept : provider_{std::move(provider)} {}
+
  private:
   //! Gets or creates cached instance.
-  template <typename Container, typename Provider>
+  template <typename Container>
   auto cached_instance(Container& container, Provider& provider) const
       -> Provider::Provided& {
     using Provided = Provider::Provided;
@@ -73,7 +81,7 @@ class Singleton {
   // The canonical shared_ptr points at instance with a no-op deleter. It
   // is itself cached. This means the control block is only allocated once
   // and weak_ptrs don't immediately expire.
-  template <typename Container, typename Provider>
+  template <typename Container>
   auto canonical_shared(Container& container, Provider& provider) const
       -> std::shared_ptr<typename Provider::Provided>& {
     using Provided = Provider::Provided;
@@ -81,6 +89,8 @@ class Singleton {
         &cached_instance(container, provider), [](Provided*) {}};
     return canonical_shared;
   }
+
+  Provider& provider_;
 };
 
 //! Resolves one externally-owned instance.
