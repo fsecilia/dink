@@ -273,6 +273,16 @@ TEST_F(ScopeTestSingleton,
   ASSERT_NE(&result, &other_result);
 }
 
+TEST_F(ScopeTestSingleton, shared_ptrs_share_control_block) {
+  const auto result1 =
+      sut.resolve<std::shared_ptr<Requested>>(container, provider);
+  const auto result2 =
+      sut.resolve<std::shared_ptr<Requested>>(container, provider);
+
+  EXPECT_EQ(result1.use_count(), result2.use_count());
+  EXPECT_EQ(3, result1.use_count());  // Both locals alive, plus canonical
+}
+
 TEST_F(ScopeTestSingleton, reference_and_shared_ptr_point_to_same_instance) {
   auto& reference = sut.resolve<Requested&>(container, provider);
   const auto shared =
