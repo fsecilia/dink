@@ -222,7 +222,7 @@ TEST_F(ScopeTestSingleton, resolves_same_pointer_to_const_per_provider) {
   ASSERT_EQ(result1, result2);
 }
 
-TEST_F(ScopeTestSingleton, resolves_shared_ptr_per_provider) {
+TEST_F(ScopeTestSingleton, resolves_same_shared_ptr_per_provider) {
   const auto result1 =
       sut.resolve<std::shared_ptr<Requested>>(container, provider);
   const auto result2 =
@@ -230,7 +230,7 @@ TEST_F(ScopeTestSingleton, resolves_shared_ptr_per_provider) {
   ASSERT_EQ(result1, result2);
 }
 
-TEST_F(ScopeTestSingleton, resolves_shared_ptr_to_const_per_provider) {
+TEST_F(ScopeTestSingleton, resolves_same_shared_ptr_to_const_per_provider) {
   const auto result1 =
       sut.resolve<std::shared_ptr<const Requested>>(container, provider);
   const auto result2 =
@@ -238,7 +238,7 @@ TEST_F(ScopeTestSingleton, resolves_shared_ptr_to_const_per_provider) {
   ASSERT_EQ(result1, result2);
 }
 
-TEST_F(ScopeTestSingleton, resolves_weak_ptr_per_provider) {
+TEST_F(ScopeTestSingleton, resolves_same_weak_ptr_per_provider) {
   const auto result1 =
       sut.resolve<std::weak_ptr<Requested>>(container, provider);
   const auto result2 =
@@ -246,7 +246,7 @@ TEST_F(ScopeTestSingleton, resolves_weak_ptr_per_provider) {
   ASSERT_EQ(result1.lock(), result2.lock());
 }
 
-TEST_F(ScopeTestSingleton, resolves_weak_ptr_to_const_per_provider) {
+TEST_F(ScopeTestSingleton, resolves_same_weak_ptr_to_const_per_provider) {
   const auto result1 =
       sut.resolve<std::weak_ptr<const Requested>>(container, provider);
   const auto result2 =
