@@ -5,7 +5,11 @@
 #pragma once
 
 #include <dink/lib.hpp>
+#include <dink/meta.hpp>
+#include <dink/smart_pointer_traits.hpp>
 #include <concepts>
+#include <memory>
+#include <type_traits>
 
 namespace dink::scope {
 
@@ -15,7 +19,18 @@ class Transient {
   //! resolves instance in requested form
   template <typename Requested, typename Container, typename Provider>
   auto resolve(Container& container, Provider& provider) -> Requested {
-    return provider.template create<Requested>(container);
+    using Provided = typename Provider::Provided;
+
+    if constexpr (std::same_as<std::remove_cvref_t<Requested>, Provided>) {
+      // Value type or rvalue reference
+      return provider.template create<Requested>(container);
+    } else if constexpr (SharedPtr<Requested> || UniquePtr<Requested>) {
+      // Smart pointers with ownership semantics
+      return provider.template create<Requested>(container);
+    } else {
+      static_assert(meta::kDependentFalse<Requested>,
+                    "Transient scope: unsupported type conversion.");
+    }
   }
 };
 

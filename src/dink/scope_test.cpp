@@ -10,20 +10,28 @@ namespace {
 
 struct ScopeTest : Test {
   struct Container {};
+  Container container;
 
   struct Requested {
     Container* container;
   };
 
+  // returns given container
   struct Provider {
     using Provided = Requested;
     template <typename Requested>
     auto create(Container& container) noexcept -> Requested {
-      return {&container};
+      if constexpr (SharedPtr<Requested>) {
+        return std::make_shared<
+            typename std::pointer_traits<Requested>::element_type>(&container);
+      } else if constexpr (UniquePtr<Requested>) {
+        return std::make_unique<
+            typename std::pointer_traits<Requested>::element_type>(&container);
+      } else {
+        return Requested{&container};
+      }
     }
   };
-
-  Container container;
   Provider provider;
 };
 
@@ -36,12 +44,44 @@ struct ScopeTestTransient : ScopeTest {
   Sut sut;
 };
 
-TEST_F(ScopeTestTransient, create_calls_provider_with_container) {
+TEST_F(ScopeTestTransient, create_value_calls_provider_with_container) {
   const auto result = sut.resolve<Requested>(container, provider);
   ASSERT_EQ(&container, result.container);
 }
 
-TEST_F(ScopeTestTransient, repeated_create_calls_return_different_instances) {
+TEST_F(ScopeTestTransient, create_const_value_calls_provider_with_container) {
+  const auto result = sut.resolve<const Requested>(container, provider);
+  ASSERT_EQ(&container, result.container);
+}
+
+TEST_F(ScopeTestTransient, create_shared_ptr_calls_provider_with_container) {
+  const auto result =
+      sut.resolve<std::shared_ptr<Requested>>(container, provider);
+  ASSERT_EQ(&container, result->container);
+}
+
+TEST_F(ScopeTestTransient,
+       create_shared_ptr_to_const_calls_provider_with_container) {
+  const auto result =
+      sut.resolve<std::shared_ptr<const Requested>>(container, provider);
+  ASSERT_EQ(&container, result->container);
+}
+
+TEST_F(ScopeTestTransient, create_unique_ptr_calls_provider_with_container) {
+  const auto result =
+      sut.resolve<std::unique_ptr<Requested>>(container, provider);
+  ASSERT_EQ(&container, result->container);
+}
+
+TEST_F(ScopeTestTransient,
+       create_unique_ptr_to_const_calls_provider_with_container) {
+  const auto result =
+      sut.resolve<std::unique_ptr<const Requested>>(container, provider);
+  ASSERT_EQ(&container, result->container);
+}
+
+TEST_F(ScopeTestTransient,
+       repeated_create_value_calls_return_different_instances) {
   const auto& result1 = sut.resolve<Requested>(container, provider);
   const auto& result2 = sut.resolve<Requested>(container, provider);
   ASSERT_NE(&result1, &result2);
