@@ -295,5 +295,29 @@ TEST_F(ScopeTestSingleton, weak_ptr_expires_with_canonical_shared_ptr) {
   EXPECT_TRUE(weak.expired());
 }
 
+struct ScopeTestSingletonCounts : ScopeTestSingleton {
+  struct CountingProvider : Provider {
+    int_t call_count = 0;
+    using Provided = Requested;
+
+    template <typename Requested>
+    auto create(Container& container) noexcept -> Requested {
+      ++call_count;
+      return Provider::template create<Requested>(container);
+    }
+  };
+};
+
+TEST_F(ScopeTestSingletonCounts, calls_provider_only_once) {
+  auto counting_provider = CountingProvider{};
+
+  sut.resolve<Requested&>(container, counting_provider);
+  sut.resolve<Requested&>(container, counting_provider);
+  sut.resolve<Requested*>(container, counting_provider);
+  sut.resolve<std::shared_ptr<Requested>&>(container, counting_provider);
+
+  EXPECT_EQ(1, counting_provider.call_count);
+}
+
 }  // namespace
 }  // namespace dink::scope
