@@ -8,19 +8,21 @@
 
 namespace dink::scope {
 
-//! resolves new instances per request
+//! resolves one instance per request
 struct Transient {
-  template <typename Container, typename Provider>
-  auto create(Container& container, Provider& provider) -> auto {
-    return provider.provide(container);
+  //! resolves instance in requested form
+  template <typename Requested, typename Container, typename Provider>
+  auto resolve(Container& container, Provider& provider) -> Requested {
+    return provider.template create<Requested>(container);
   }
 };
 
-//! resolves shared instances across requests
+//! resolves one instance per provider
 struct Singleton {
-  template <typename Container, typename Provider>
-  auto create(Container& container, Provider& provider) -> auto& {
-    static auto instance = provider.provide(container);
+  //! resolves instance in requested form
+  template <typename Requested, typename Container, typename Provider>
+  auto resolve(Container& container, Provider& provider) -> Requested& {
+    static auto instance = provider.template create<Requested>(container);
     return instance;
   }
 };

@@ -11,12 +11,14 @@ namespace {
 struct ScopeTest : Test {
   struct Container {};
 
-  struct Provided {
+  struct Requested {
     Container* container;
   };
 
   struct Provider {
-    auto provide(Container& container) noexcept -> Provided {
+    using Provided = Requested;
+    template <typename Requested>
+    auto create(Container& container) noexcept -> Requested {
       return {&container};
     }
   };
@@ -35,13 +37,13 @@ struct ScopeTestTransient : ScopeTest {
 };
 
 TEST_F(ScopeTestTransient, create_calls_provider_with_container) {
-  const auto result = sut.create(container, provider);
+  const auto result = sut.resolve<Requested>(container, provider);
   ASSERT_EQ(&container, result.container);
 }
 
 TEST_F(ScopeTestTransient, repeated_create_calls_return_different_instances) {
-  const auto& result1 = sut.create(container, provider);
-  const auto& result2 = sut.create(container, provider);
+  const auto& result1 = sut.resolve<Requested>(container, provider);
+  const auto& result2 = sut.resolve<Requested>(container, provider);
   ASSERT_NE(&result1, &result2);
 }
 
@@ -55,13 +57,13 @@ struct ScopeTestSingleton : ScopeTest {
 };
 
 TEST_F(ScopeTestSingleton, create_calls_provider_with_container) {
-  const auto& result = sut.create(container, provider);
+  const auto& result = sut.resolve<Requested>(container, provider);
   ASSERT_EQ(&container, result.container);
 }
 
 TEST_F(ScopeTestSingleton, repeated_create_calls_return_same_instance) {
-  const auto& result1 = sut.create(container, provider);
-  const auto& result2 = sut.create(container, provider);
+  const auto& result1 = sut.resolve<Requested>(container, provider);
+  const auto& result2 = sut.resolve<Requested>(container, provider);
   ASSERT_EQ(&result1, &result2);
 }
 
