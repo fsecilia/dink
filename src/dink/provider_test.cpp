@@ -4,6 +4,7 @@
 
 #include "provider.hpp"
 #include <dink/test.hpp>
+#include <dink/canonical.hpp>
 
 namespace dink::provider {
 namespace {
