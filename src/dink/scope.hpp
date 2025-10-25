@@ -9,7 +9,8 @@
 namespace dink::scope {
 
 //! resolves one instance per request
-struct Transient {
+class Transient {
+ public:
   //! resolves instance in requested form
   template <typename Requested, typename Container, typename Provider>
   auto resolve(Container& container, Provider& provider) -> Requested {
@@ -18,7 +19,8 @@ struct Transient {
 };
 
 //! resolves one instance per provider
-struct Singleton {
+class Singleton {
+ public:
   //! resolves instance in requested form
   template <typename Requested, typename Container, typename Provider>
   auto resolve(Container& container, Provider& provider) -> Requested& {
