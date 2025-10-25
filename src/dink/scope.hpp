@@ -18,7 +18,8 @@ class Transient {
  public:
   //! resolves instance in requested form
   template <typename Requested, typename Container, typename Provider>
-  auto resolve(Container& container, Provider& provider) -> Requested {
+  auto resolve(Container& container, Provider& provider)
+      -> std::remove_reference_t<Requested> {
     using Provided = typename Provider::Provided;
 
     if constexpr (std::same_as<std::remove_cvref_t<Requested>, Provided>) {

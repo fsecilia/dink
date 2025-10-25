@@ -20,7 +20,8 @@ struct ScopeTest : Test {
   struct Provider {
     using Provided = Requested;
     template <typename Requested>
-    auto create(Container& container) noexcept -> Requested {
+    auto create(Container& container) noexcept
+        -> std::remove_reference_t<Requested> {
       if constexpr (SharedPtr<Requested>) {
         return std::make_shared<
             typename std::pointer_traits<Requested>::element_type>(&container);
