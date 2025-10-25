@@ -5,6 +5,7 @@
 #pragma once
 
 #include <dink/lib.hpp>
+#include <concepts>
 
 namespace dink::scope {
 
@@ -18,13 +19,22 @@ class Transient {
   }
 };
 
-//! resolves one instance per provider
+///! resolves one instance per provider
 class Singleton {
  public:
   //! resolves instance in requested form
   template <typename Requested, typename Container, typename Provider>
   auto resolve(Container& container, Provider& provider) -> Requested& {
-    static auto instance = provider.template create<Requested>(container);
+    static_assert(std::same_as<Requested, typename Provider::Provided>);
+    return cached_instance(container, provider);
+  }
+
+ private:
+  template <typename Container, typename Provider>
+  auto cached_instance(Container& container, Provider& provider)
+      -> Provider::Provided& {
+    static auto instance =
+        provider.template create<typename Provider::Provided>(container);
     return instance;
   }
 };
