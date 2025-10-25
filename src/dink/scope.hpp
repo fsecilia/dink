@@ -13,20 +13,20 @@
 
 namespace dink::scope {
 
-//! resolves one instance per request
+//! Resolves one instance per request.
 class Transient {
  public:
-  //! resolves instance in requested form
+  //! Resolves instance in requested form.
   template <typename Requested, typename Container, typename Provider>
   auto resolve(Container& container, Provider& provider)
       -> std::remove_reference_t<Requested> {
     using Provided = typename Provider::Provided;
 
     if constexpr (std::same_as<std::remove_cvref_t<Requested>, Provided>) {
-      // Value type or rvalue reference
+      // Value type or rvalue reference.
       return provider.template create<Requested>(container);
     } else if constexpr (SharedPtr<Requested> || UniquePtr<Requested>) {
-      // Smart pointers with ownership semantics
+      // Smart pointers with ownership semantics.
       return provider.template create<Requested>(container);
     } else {
       static_assert(meta::kDependentFalse<Requested>,
@@ -35,13 +35,13 @@ class Transient {
   }
 };
 
-///! resolves one instance per provider
+///! Resolves one instance per provider.
 class Singleton {
  public:
-  //! resolves instance in requested form
+  //! Resolves instance in requested form.
   template <typename Requested, typename Container, typename Provider>
   auto resolve(Container& container, Provider& provider) const -> Requested {
-    // order matters here; check for smart pointers first so references to them
+    // Order matters here; check for smart pointers first so references to them
     // can be taken without taking the reference branch.
     if constexpr (SharedPtr<Requested> || WeakPtr<Requested>) {
       // shared_ptr/weak_ptr
@@ -50,7 +50,7 @@ class Singleton {
       // lvalue references
       return cached_instance(container, provider);
     } else if constexpr (std::is_pointer_v<Requested>) {
-      // pointers
+      // Pointers
       return &cached_instance(container, provider);
     } else {
       static_assert(meta::kDependentFalse<Requested>,
