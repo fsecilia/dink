@@ -265,5 +265,35 @@ TEST_F(ScopeTestSingleton,
   ASSERT_NE(&result, &other_result);
 }
 
+TEST_F(ScopeTestSingleton, reference_and_shared_ptr_point_to_same_instance) {
+  auto& reference = sut.resolve<Requested&>(container, provider);
+  const auto shared =
+      sut.resolve<std::shared_ptr<Requested>>(container, provider);
+
+  EXPECT_EQ(&reference, shared.get());
+}
+
+TEST_F(ScopeTestSingleton, weak_ptr_does_not_expire_while_singleton_alive) {
+  const auto weak = sut.resolve<std::weak_ptr<Requested>>(container, provider);
+
+  // Even with no shared_ptr in scope, weak_ptr should not expire
+  // because it tracks the canonical shared_ptr which aliases the static
+  EXPECT_FALSE(weak.expired());
+
+  auto shared = weak.lock();
+  EXPECT_NE(nullptr, shared);
+}
+
+TEST_F(ScopeTestSingleton, weak_ptr_expires_with_canonical_shared_ptr) {
+  // resolve reference directly to canonical shared_ptr
+  auto& canonical_shared_ptr =
+      sut.resolve<std::shared_ptr<Requested>&>(container, provider);
+  const auto weak = sut.resolve<std::weak_ptr<Requested>>(container, provider);
+
+  EXPECT_FALSE(weak.expired());
+  canonical_shared_ptr.reset();
+  EXPECT_TRUE(weak.expired());
+}
+
 }  // namespace
 }  // namespace dink::scope
