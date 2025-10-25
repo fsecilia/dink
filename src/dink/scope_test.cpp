@@ -55,6 +55,16 @@ TEST_F(ScopeTestTransient, resolves_const_value) {
   ASSERT_EQ(&container, result.container);
 }
 
+TEST_F(ScopeTestTransient, resolves_rvalue_reference) {
+  const auto&& result = sut.resolve<Requested&&>(container, provider);
+  ASSERT_EQ(&container, result.container);
+}
+
+TEST_F(ScopeTestTransient, resolves_rvalue_reference_to_const_value) {
+  const auto&& result = sut.resolve<const Requested&&>(container, provider);
+  ASSERT_EQ(&container, result.container);
+}
+
 TEST_F(ScopeTestTransient, resolves_shared_ptr) {
   const auto result =
       sut.resolve<std::shared_ptr<Requested>>(container, provider);
@@ -79,11 +89,60 @@ TEST_F(ScopeTestTransient, resolves_unique_ptr_to_const) {
   ASSERT_EQ(&container, result->container);
 }
 
-TEST_F(ScopeTestTransient,
-       repeated_create_value_calls_return_different_instances) {
+TEST_F(ScopeTestTransient, resolves_value_per_request) {
   const auto& result1 = sut.resolve<Requested>(container, provider);
   const auto& result2 = sut.resolve<Requested>(container, provider);
   ASSERT_NE(&result1, &result2);
+}
+
+TEST_F(ScopeTestTransient, resolves_const_value_per_request) {
+  const auto& result1 = sut.resolve<const Requested>(container, provider);
+  const auto& result2 = sut.resolve<const Requested>(container, provider);
+  ASSERT_NE(&result1, &result2);
+}
+
+TEST_F(ScopeTestTransient, resolves_rvalue_reference_per_request) {
+  const auto& result1 = sut.resolve<Requested&&>(container, provider);
+  const auto& result2 = sut.resolve<Requested&&>(container, provider);
+  ASSERT_NE(&result1, &result2);
+}
+
+TEST_F(ScopeTestTransient, resolves_rvalue_reference_to_const_per_request) {
+  const auto& result1 = sut.resolve<const Requested&&>(container, provider);
+  const auto& result2 = sut.resolve<const Requested&&>(container, provider);
+  ASSERT_NE(&result1, &result2);
+}
+
+TEST_F(ScopeTestTransient, resolves_shared_ptr_per_request) {
+  const auto result1 =
+      sut.resolve<std::shared_ptr<Requested>>(container, provider);
+  const auto result2 =
+      sut.resolve<std::shared_ptr<Requested>>(container, provider);
+  ASSERT_NE(result1, result2);
+}
+
+TEST_F(ScopeTestTransient, resolves_shared_ptr_to_const_per_request) {
+  const auto result1 =
+      sut.resolve<std::shared_ptr<const Requested>>(container, provider);
+  const auto result2 =
+      sut.resolve<std::shared_ptr<const Requested>>(container, provider);
+  ASSERT_NE(result1, result2);
+}
+
+TEST_F(ScopeTestTransient, resolves_unique_ptr_per_request) {
+  const auto result1 =
+      sut.resolve<std::unique_ptr<Requested>>(container, provider);
+  const auto result2 =
+      sut.resolve<std::unique_ptr<Requested>>(container, provider);
+  ASSERT_NE(result1, result2);
+}
+
+TEST_F(ScopeTestTransient, resolves_unique_ptr_to_const_per_request) {
+  const auto result1 =
+      sut.resolve<std::unique_ptr<const Requested>>(container, provider);
+  const auto result2 =
+      sut.resolve<std::unique_ptr<const Requested>>(container, provider);
+  ASSERT_NE(result1, result2);
 }
 
 // ----------------------------------------------------------------------------
@@ -139,10 +198,71 @@ TEST_F(ScopeTestSingleton, resolves_weak_ptr_to_const) {
   ASSERT_EQ(&container, result.lock()->container);
 }
 
-TEST_F(ScopeTestSingleton, repeated_create_calls_return_same_instance) {
+TEST_F(ScopeTestSingleton, resolves_same_reference_per_provider) {
   const auto& result1 = sut.resolve<Requested&>(container, provider);
   const auto& result2 = sut.resolve<Requested&>(container, provider);
   ASSERT_EQ(&result1, &result2);
+}
+
+TEST_F(ScopeTestSingleton, resolves_same_reference_to_const_per_provider) {
+  const auto& result1 = sut.resolve<const Requested&>(container, provider);
+  const auto& result2 = sut.resolve<const Requested&>(container, provider);
+  ASSERT_EQ(&result1, &result2);
+}
+
+TEST_F(ScopeTestSingleton, resolves_same_pointer_per_provider) {
+  const auto result1 = sut.resolve<Requested*>(container, provider);
+  const auto result2 = sut.resolve<Requested*>(container, provider);
+  ASSERT_EQ(result1, result2);
+}
+
+TEST_F(ScopeTestSingleton, resolves_same_pointer_to_const_per_provider) {
+  const auto result1 = sut.resolve<const Requested*>(container, provider);
+  const auto result2 = sut.resolve<const Requested*>(container, provider);
+  ASSERT_EQ(result1, result2);
+}
+
+TEST_F(ScopeTestSingleton, resolves_shared_ptr_per_provider) {
+  const auto result1 =
+      sut.resolve<std::shared_ptr<Requested>>(container, provider);
+  const auto result2 =
+      sut.resolve<std::shared_ptr<Requested>>(container, provider);
+  ASSERT_EQ(result1, result2);
+}
+
+TEST_F(ScopeTestSingleton, resolves_shared_ptr_to_const_per_provider) {
+  const auto result1 =
+      sut.resolve<std::shared_ptr<const Requested>>(container, provider);
+  const auto result2 =
+      sut.resolve<std::shared_ptr<const Requested>>(container, provider);
+  ASSERT_EQ(result1, result2);
+}
+
+TEST_F(ScopeTestSingleton, resolves_weak_ptr_per_provider) {
+  const auto result1 =
+      sut.resolve<std::weak_ptr<Requested>>(container, provider);
+  const auto result2 =
+      sut.resolve<std::weak_ptr<Requested>>(container, provider);
+  ASSERT_EQ(result1.lock(), result2.lock());
+}
+
+TEST_F(ScopeTestSingleton, resolves_weak_ptr_to_const_per_provider) {
+  const auto result1 =
+      sut.resolve<std::weak_ptr<const Requested>>(container, provider);
+  const auto result2 =
+      sut.resolve<std::weak_ptr<const Requested>>(container, provider);
+  ASSERT_EQ(result1.lock(), result2.lock());
+}
+
+TEST_F(ScopeTestSingleton,
+       resolves_different_references_for_different_providers) {
+  const auto& result = sut.resolve<Requested&>(container, provider);
+
+  struct OtherProvider : Provider {};
+  auto other_provider = OtherProvider{};
+  const auto& other_result = sut.resolve<Requested&>(container, other_provider);
+
+  ASSERT_NE(&result, &other_result);
 }
 
 }  // namespace
