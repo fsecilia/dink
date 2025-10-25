@@ -5,7 +5,6 @@
 #pragma once
 
 #include <dink/lib.hpp>
-#include <dink/canonical.hpp>
 #include <dink/meta.hpp>
 #include <dink/scope.hpp>
 #include <dink/type_list.hpp>
@@ -46,7 +45,7 @@ class Resolver {
   // it normally should be.
   template <typename Deduced>
   constexpr operator Deduced() {
-    return resolve<Deduced, Canonical<Deduced>>();
+    return resolve<Deduced>();
   }
 
   //! Reference conversion operator.
@@ -54,7 +53,7 @@ class Resolver {
   // This conversion matches only lvalue refs.
   template <typename Deduced>
   constexpr operator Deduced&() const {
-    return resolve<Deduced&, Canonical<Deduced>>();
+    return resolve<Deduced&>();
   }
 
   explicit constexpr Resolver(Container& container) noexcept
@@ -63,7 +62,7 @@ class Resolver {
  private:
   Container& container_;
 
-  template <typename Deduced, typename CanonicalDeduced>
+  template <typename Deduced>
   constexpr auto resolve() const -> Deduced {
     return container_.template resolve<Deduced>();
   }
