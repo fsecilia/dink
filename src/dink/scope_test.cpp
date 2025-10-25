@@ -254,6 +254,14 @@ TEST_F(ScopeTestSingleton, resolves_same_weak_ptr_to_const_per_provider) {
   ASSERT_EQ(result1.lock(), result2.lock());
 }
 
+TEST_F(ScopeTestSingleton, resolves_same_reference_to_const_and_non_const) {
+  auto& reference = sut.resolve<Requested&>(container, provider);
+  const auto& reference_to_const =
+      sut.resolve<const Requested&>(container, provider);
+
+  EXPECT_EQ(&reference, &reference_to_const);
+}
+
 TEST_F(ScopeTestSingleton,
        resolves_different_references_for_different_providers) {
   const auto& result = sut.resolve<Requested&>(container, provider);
