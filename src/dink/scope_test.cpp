@@ -96,14 +96,57 @@ struct ScopeTestSingleton : ScopeTest {
   Sut sut;
 };
 
-TEST_F(ScopeTestSingleton, create_calls_provider_with_container) {
-  const auto& result = sut.resolve<Requested>(container, provider);
+TEST_F(ScopeTestSingleton, create_reference_calls_provider_with_container) {
+  const auto& result = sut.resolve<Requested&>(container, provider);
   ASSERT_EQ(&container, result.container);
 }
 
+TEST_F(ScopeTestSingleton,
+       create_reference_to_const_calls_provider_with_container) {
+  const auto& result = sut.resolve<const Requested&>(container, provider);
+  ASSERT_EQ(&container, result.container);
+}
+
+TEST_F(ScopeTestSingleton, create_pointer_calls_provider_with_container) {
+  const auto* result = sut.resolve<Requested*>(container, provider);
+  ASSERT_EQ(&container, result->container);
+}
+
+TEST_F(ScopeTestSingleton,
+       create_pointer_to_const_calls_provider_with_container) {
+  const auto* result = sut.resolve<const Requested*>(container, provider);
+  ASSERT_EQ(&container, result->container);
+}
+
+TEST_F(ScopeTestSingleton, create_shared_ptr_calls_provider_with_container) {
+  const auto result =
+      sut.resolve<std::shared_ptr<Requested>>(container, provider);
+  ASSERT_EQ(&container, result->container);
+}
+
+TEST_F(ScopeTestSingleton,
+       create_shared_ptr_to_const_calls_provider_with_container) {
+  const auto result =
+      sut.resolve<std::shared_ptr<const Requested>>(container, provider);
+  ASSERT_EQ(&container, result->container);
+}
+
+TEST_F(ScopeTestSingleton, create_weak_ptr_calls_provider_with_container) {
+  const auto result =
+      sut.resolve<std::weak_ptr<Requested>>(container, provider);
+  ASSERT_EQ(&container, result.lock()->container);
+}
+
+TEST_F(ScopeTestSingleton,
+       create_weak_ptr_to_const_calls_provider_with_container) {
+  const auto result =
+      sut.resolve<std::weak_ptr<const Requested>>(container, provider);
+  ASSERT_EQ(&container, result.lock()->container);
+}
+
 TEST_F(ScopeTestSingleton, repeated_create_calls_return_same_instance) {
-  const auto& result1 = sut.resolve<Requested>(container, provider);
-  const auto& result2 = sut.resolve<Requested>(container, provider);
+  const auto& result1 = sut.resolve<Requested&>(container, provider);
+  const auto& result2 = sut.resolve<Requested&>(container, provider);
   ASSERT_EQ(&result1, &result2);
 }
 
