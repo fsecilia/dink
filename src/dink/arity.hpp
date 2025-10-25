@@ -6,6 +6,7 @@
 
 #include <dink/lib.hpp>
 #include <dink/meta.hpp>
+#include <concepts>
 #include <utility>
 
 #if !defined dink_max_deduced_arity
