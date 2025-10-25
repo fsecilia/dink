@@ -83,4 +83,39 @@ class Singleton {
   }
 };
 
+//! Resolves one externally-owned instance.
+template <typename Provided>
+class Instance {
+ public:
+  //! Resolves instance in requested form.
+  template <typename Requested, typename Container>
+  constexpr auto resolve(Container& /*container*/) const -> Requested {
+    if constexpr (std::is_lvalue_reference_v<Requested>) {
+      // Lvalue reference (mutable or const)
+      return *instance_;
+    } else if constexpr (std::is_pointer_v<Requested>) {
+      // Pointer (mutable or const)
+      return instance_;
+    } else if constexpr (SharedPtr<Requested> || WeakPtr<Requested>) {
+      // shared_ptr and weak_ptr - create with no-op deleter.
+      using Element = typename std::remove_cvref_t<Requested>::element_type;
+      return std::shared_ptr<Element>(instance_, [](Element*) {});
+    } else if constexpr (std::same_as<std::remove_cv_t<Requested>,
+                                      std::remove_cv_t<Provided>>) {
+      // Value - copy from instance
+      return *instance_;
+    } else {
+      static_assert(meta::kDependentFalse<Requested>,
+                    "Instance scope: Unsupported type conversion.");
+    }
+  }
+
+  // Constructs an Instance scope referencing an external object.
+  explicit constexpr Instance(Provided& instance) noexcept
+      : instance_{&instance} {}
+
+ private:
+  Provided* instance_;
+};
+
 }  // namespace dink::scope
