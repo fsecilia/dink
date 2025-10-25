@@ -44,37 +44,35 @@ struct ScopeTestTransient : ScopeTest {
   Sut sut;
 };
 
-TEST_F(ScopeTestTransient, create_value_calls_provider_with_container) {
+TEST_F(ScopeTestTransient, resolves_value) {
   const auto result = sut.resolve<Requested>(container, provider);
   ASSERT_EQ(&container, result.container);
 }
 
-TEST_F(ScopeTestTransient, create_const_value_calls_provider_with_container) {
+TEST_F(ScopeTestTransient, resolves_const_value) {
   const auto result = sut.resolve<const Requested>(container, provider);
   ASSERT_EQ(&container, result.container);
 }
 
-TEST_F(ScopeTestTransient, create_shared_ptr_calls_provider_with_container) {
+TEST_F(ScopeTestTransient, resolves_shared_ptr) {
   const auto result =
       sut.resolve<std::shared_ptr<Requested>>(container, provider);
   ASSERT_EQ(&container, result->container);
 }
 
-TEST_F(ScopeTestTransient,
-       create_shared_ptr_to_const_calls_provider_with_container) {
+TEST_F(ScopeTestTransient, resolves_shared_ptr_to_const) {
   const auto result =
       sut.resolve<std::shared_ptr<const Requested>>(container, provider);
   ASSERT_EQ(&container, result->container);
 }
 
-TEST_F(ScopeTestTransient, create_unique_ptr_calls_provider_with_container) {
+TEST_F(ScopeTestTransient, resolves_unique_ptr) {
   const auto result =
       sut.resolve<std::unique_ptr<Requested>>(container, provider);
   ASSERT_EQ(&container, result->container);
 }
 
-TEST_F(ScopeTestTransient,
-       create_unique_ptr_to_const_calls_provider_with_container) {
+TEST_F(ScopeTestTransient, resolves_unique_ptr_to_const) {
   const auto result =
       sut.resolve<std::unique_ptr<const Requested>>(container, provider);
   ASSERT_EQ(&container, result->container);
@@ -96,49 +94,45 @@ struct ScopeTestSingleton : ScopeTest {
   Sut sut;
 };
 
-TEST_F(ScopeTestSingleton, create_reference_calls_provider_with_container) {
+TEST_F(ScopeTestSingleton, resolves_reference) {
   const auto& result = sut.resolve<Requested&>(container, provider);
   ASSERT_EQ(&container, result.container);
 }
 
-TEST_F(ScopeTestSingleton,
-       create_reference_to_const_calls_provider_with_container) {
+TEST_F(ScopeTestSingleton, resolves_reference_to_const) {
   const auto& result = sut.resolve<const Requested&>(container, provider);
   ASSERT_EQ(&container, result.container);
 }
 
-TEST_F(ScopeTestSingleton, create_pointer_calls_provider_with_container) {
+TEST_F(ScopeTestSingleton, resolves_pointer) {
   const auto* result = sut.resolve<Requested*>(container, provider);
   ASSERT_EQ(&container, result->container);
 }
 
-TEST_F(ScopeTestSingleton,
-       create_pointer_to_const_calls_provider_with_container) {
+TEST_F(ScopeTestSingleton, resolves_pointer_to_const) {
   const auto* result = sut.resolve<const Requested*>(container, provider);
   ASSERT_EQ(&container, result->container);
 }
 
-TEST_F(ScopeTestSingleton, create_shared_ptr_calls_provider_with_container) {
+TEST_F(ScopeTestSingleton, resolves_shared_ptr) {
   const auto result =
       sut.resolve<std::shared_ptr<Requested>>(container, provider);
   ASSERT_EQ(&container, result->container);
 }
 
-TEST_F(ScopeTestSingleton,
-       create_shared_ptr_to_const_calls_provider_with_container) {
+TEST_F(ScopeTestSingleton, resolves_shared_ptr_to_const) {
   const auto result =
       sut.resolve<std::shared_ptr<const Requested>>(container, provider);
   ASSERT_EQ(&container, result->container);
 }
 
-TEST_F(ScopeTestSingleton, create_weak_ptr_calls_provider_with_container) {
+TEST_F(ScopeTestSingleton, resolves_weak_ptr) {
   const auto result =
       sut.resolve<std::weak_ptr<Requested>>(container, provider);
   ASSERT_EQ(&container, result.lock()->container);
 }
 
-TEST_F(ScopeTestSingleton,
-       create_weak_ptr_to_const_calls_provider_with_container) {
+TEST_F(ScopeTestSingleton, resolves_weak_ptr_to_const) {
   const auto result =
       sut.resolve<std::weak_ptr<const Requested>>(container, provider);
   ASSERT_EQ(&container, result.lock()->container);
