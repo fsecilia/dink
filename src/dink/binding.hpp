@@ -52,6 +52,7 @@ class BindBuilder {
   // Specify To type (From -> To mapping)
   template <typename To>
   constexpr auto as() && -> AsBuilder<From, To> {
+    static_assert(!std::is_abstract_v<To>);
     return {};
   }
 
