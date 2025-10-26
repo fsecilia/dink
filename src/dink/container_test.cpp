@@ -20,12 +20,29 @@ struct ContainerTest : Test {
       provider::Ctor<SingletonBound>{}}}};
 };
 
-TEST_F(ContainerTest, canonical_shared_ptr) {
+TEST_F(ContainerTest, canonical_shared_wraps_instance) {
+  const auto shared = sut.template resolve<std::shared_ptr<SingletonBound>>();
+  auto& instance = sut.template resolve<SingletonBound&>();
+  ASSERT_EQ(&instance, shared.get());
+}
+
+TEST_F(ContainerTest, canonical_shared_ptr_value) {
   const auto result1 = sut.template resolve<std::shared_ptr<SingletonBound>>();
   const auto result2 = sut.template resolve<std::shared_ptr<SingletonBound>>();
   ASSERT_EQ(result1, result2);
   ASSERT_EQ(result1.use_count(), result2.use_count());
-  ASSERT_GT(result1.use_count(), 1);
+  ASSERT_EQ(result1.use_count(), 3);  // result1 + result2 + canonical
+
+  auto& instance = sut.template resolve<SingletonBound&>();
+  ASSERT_EQ(&instance, result1.get());
+}
+
+TEST_F(ContainerTest, canonical_shared_ptr_identity) {
+  const auto result1 = sut.template resolve<std::shared_ptr<SingletonBound>&>();
+  const auto result2 = sut.template resolve<std::shared_ptr<SingletonBound>&>();
+  ASSERT_EQ(&result1, &result2);
+  ASSERT_EQ(result1.use_count(), result2.use_count());
+  ASSERT_EQ(result1.use_count(), 1);
 }
 
 }  // namespace dink
