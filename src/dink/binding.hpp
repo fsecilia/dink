@@ -35,6 +35,8 @@ class InBuilder;
 template <typename From, typename Scope>
 struct Binding {
   using FromType = From;
+  using ScopeType = Scope;
+
   Scope scope;
 
   explicit constexpr Binding(Scope scope) noexcept : scope{std::move(scope)} {}

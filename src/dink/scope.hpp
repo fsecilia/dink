@@ -30,6 +30,7 @@ auto cached_instance(Container& container, Provider& provider)
 template <typename Provider>
 class Transient {
  public:
+  static constexpr auto provides_references = false;
   using Provided = typename Provider::Provided;
 
   //! Resolves instance in requested form.
@@ -60,6 +61,7 @@ class Transient {
 template <typename Provider>
 class Singleton {
  public:
+  static constexpr auto provides_references = true;
   using Provided = typename Provider::Provided;
 
   //! Resolves instance in requested form.
@@ -92,6 +94,7 @@ class Singleton {
 template <typename Provider>
 class Deduced {
  public:
+  static constexpr auto provides_references = true;
   using Provided = typename Provider::Provided;
 
   //! Resolves instance in requested form.
@@ -120,9 +123,12 @@ class Deduced {
 };
 
 //! Resolves one externally-owned instance.
-template <typename Provided>
+template <typename Resolved>
 class Instance {
  public:
+  using Provided = Resolved;
+  static constexpr auto provides_references = true;
+
   //! Resolves instance in requested form.
   template <typename Requested, typename Container>
   constexpr auto resolve(Container& /*container*/) const -> Requested {
@@ -137,7 +143,7 @@ class Instance {
       using Element = typename std::remove_cvref_t<Requested>::element_type;
       return std::shared_ptr<Element>(instance_, [](Element*) {});
     } else if constexpr (std::same_as<std::remove_cv_t<Requested>,
-                                      std::remove_cv_t<Provided>>) {
+                                      std::remove_cv_t<Resolved>>) {
       // Value - copy from instance
       return *instance_;
     } else {
@@ -147,11 +153,11 @@ class Instance {
   }
 
   // Constructs an Instance scope referencing an external object.
-  explicit constexpr Instance(Provided& instance) noexcept
+  explicit constexpr Instance(Resolved& instance) noexcept
       : instance_{&instance} {}
 
  private:
-  Provided* instance_;
+  Resolved* instance_;
 };
 
 }  // namespace dink::scope

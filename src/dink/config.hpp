@@ -130,6 +130,10 @@ class Config {
   //
   // \tparam Resolved canonical type to look up
   // \return pointer to binding if found, otherwise nullptr
+  //
+  // The type of the result is a pointer to a binding if found, but nullptr_t
+  // otherwise. This distinction can be tested at compile-time to switch
+  // between found and not found branches.
   template <typename Resolved>
   auto find_binding() -> auto {
     static constexpr auto index =
