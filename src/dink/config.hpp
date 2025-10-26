@@ -59,7 +59,7 @@ struct BindingIndex<Resolved, index, BindingsTuple> {
   using CurrentBinding = std::tuple_element_t<index, BindingsTuple>;
 
   static constexpr auto value =
-      std::same_as<Resolved, typename CurrentBinding::from_type>
+      std::same_as<Resolved, typename CurrentBinding::FromType>
           ? index
           : BindingIndex<Resolved, index + 1, BindingsTuple>::value;
 };

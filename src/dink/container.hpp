@@ -26,11 +26,8 @@ concept IsContainer = requires(Container& container) {
   } -> std::same_as<meta::ConceptProbe>;
 };
 
-template <IsConfig Config, typename Parent>
-class Container;
-
 template <IsConfig Config>
-class Container<Config, void> {
+class Container {
  public:
   //! constructs root container with given bindings
   template <IsBinding... Bindings>
@@ -44,18 +41,19 @@ class Container<Config, void> {
   auto resolve() -> remove_rvalue_ref_t<Requested> {
     using Canonical = Canonical<Requested>;
     auto binding = config_.template find_binding<Canonical>();
-    using Binding = decltype(binding);
-    constexpr auto found_binding = !std::is_same_v<Binding, std::nullptr_t>;
+    using BindingPtr = decltype(binding);
+    constexpr auto found_binding = !std::is_same_v<BindingPtr, std::nullptr_t>;
     if constexpr (found_binding) {
-      // Handle canonical shared_ptr.
-      if constexpr (SharedPtr<Requested> || WeakPtr<Requested>) {
-        if constexpr (Binding::ScopeType::provides_references) {
-          return resolve_via_transitive_binding<Requested, Canonical>();
-        }
-      }
+      using Binding = std::remove_cvref_t<decltype(*binding)>;
 
-      // Delegate to bound scope.
-      return binding.scope.template resolve<Requested>(*this);
+      if constexpr ((SharedPtr<Requested> || WeakPtr<Requested>) &&
+                    Binding::ScopeType::provides_references) {
+        // Handle canonical shared_ptr.
+        return resolve_via_transitive_binding<Requested, Canonical>();
+      } else {
+        // Delegate to bound scope.
+        return binding->scope.template resolve<Requested>(*this);
+      }
     }
 
     // Delegate to default scope.
@@ -66,8 +64,8 @@ class Container<Config, void> {
   Config config_{};
 
   template <typename Constructed>
-  static constexpr auto default_scope =
-      scope::Deduced<provider::Ctor<Constructed>>{{}};
+  static auto default_scope = scope::Deduced<provider::Ctor<Constructed>>{
+      provider::Ctor<Constructed>{}};
 
   template <typename Constructed>
   struct TransitiveSingletonSharedPtrProvider {
