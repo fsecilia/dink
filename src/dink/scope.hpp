@@ -13,10 +13,25 @@
 
 namespace dink::scope {
 
+namespace detail {
+
+//! Gets or creates cached instance.
+template <typename Container, typename Provider>
+auto cached_instance(Container& container, Provider& provider)
+    -> Provider::Provided& {
+  using Provided = Provider::Provided;
+  static auto instance = provider.template create<Provided>(container);
+  return instance;
+}
+
+}  // namespace detail
+
 //! Resolves one instance per request.
 template <typename Provider>
 class Transient {
  public:
+  using Provided = typename Provider::Provided;
+
   //! Resolves instance in requested form.
   template <typename Requested, typename Container>
   auto resolve(Container& container) -> std::remove_reference_t<Requested> {
@@ -34,7 +49,8 @@ class Transient {
     }
   }
 
-  Transient(Provider provider) noexcept : provider_{std::move(provider)} {}
+  explicit constexpr Transient(Provider provider) noexcept
+      : provider_{std::move(provider)} {}
 
  private:
   Provider provider_;
@@ -44,53 +60,63 @@ class Transient {
 template <typename Provider>
 class Singleton {
  public:
+  using Provided = typename Provider::Provided;
+
   //! Resolves instance in requested form.
   template <typename Requested, typename Container>
-  auto resolve(Container& container, Provider& provider) const -> Requested {
+  auto resolve(Container& container) const -> Requested {
     // Order matters here; check for smart pointers first so references to them
     // can be taken without taking the reference branch.
     if constexpr (SharedPtr<Requested> || WeakPtr<Requested>) {
       // shared_ptr/weak_ptr
-      return canonical_shared(container, provider);
+      return detail::cached_instance(container, provider_);
     } else if constexpr (std::is_lvalue_reference_v<Requested>) {
       // lvalue references
-      return cached_instance(container, provider);
+      return detail::cached_instance(container, provider_);
     } else if constexpr (std::is_pointer_v<Requested>) {
       // Pointers
-      return &cached_instance(container, provider);
+      return &detail::cached_instance(container, provider_);
     } else {
       static_assert(meta::kDependentFalse<Requested>,
                     "Singleton scope: unsupported type conversion.");
     }
   }
 
-  Singleton(Provider provider) noexcept : provider_{std::move(provider)} {}
+  explicit constexpr Singleton(Provider provider) noexcept
+      : provider_{std::move(provider)} {}
 
  private:
-  //! Gets or creates cached instance.
-  template <typename Container>
-  auto cached_instance(Container& container, Provider& provider) const
-      -> Provider::Provided& {
-    using Provided = Provider::Provided;
-    static auto instance = provider.template create<Provided>(container);
-    return instance;
+  Provider provider_;
+};
+
+template <typename Provider>
+class Deduced {
+ public:
+  using Provided = typename Provider::Provided;
+
+  //! Resolves instance in requested form.
+  template <typename Requested, typename Container>
+  auto resolve(Container& container) -> std::remove_reference_t<Requested> {
+    if constexpr (SharedPtr<Requested> || WeakPtr<Requested>) {
+      // shared_ptr/weak_ptr
+      return detail::cached_instance(container, provider_);
+    } else if constexpr (std::is_lvalue_reference_v<Requested>) {
+      // lvalue references
+      return detail::cached_instance(container, provider_);
+    } else if constexpr (std::is_pointer_v<Requested>) {
+      // Pointers
+      return &detail::cached_instance(container, provider_);
+    } else {
+      // Value type or rvalue reference.
+      return provider_.template create<Requested>(container);
+    }
   }
 
-  //! Gets or creates canonical shared_ptr.
-  //
-  // The canonical shared_ptr points at instance with a no-op deleter. It
-  // is itself cached. This means the control block is only allocated once
-  // and weak_ptrs don't immediately expire.
-  template <typename Container>
-  auto canonical_shared(Container& container, Provider& provider) const
-      -> std::shared_ptr<typename Provider::Provided>& {
-    using Provided = Provider::Provided;
-    static auto canonical_shared = std::shared_ptr<Provided>{
-        &cached_instance(container, provider), [](Provided*) {}};
-    return canonical_shared;
-  }
+  explicit constexpr Deduced(Provider provider) noexcept
+      : provider_{std::move(provider)} {}
 
-  Provider& provider_;
+ private:
+  Provider provider_;
 };
 
 //! Resolves one externally-owned instance.
