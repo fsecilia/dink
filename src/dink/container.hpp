@@ -47,6 +47,8 @@ class Container {
       using Binding = std::remove_cvref_t<decltype(*binding)>;
       constexpr bool scope_provides_references =
           Binding::ScopeType::provides_references;
+      constexpr bool scope_supports_values =
+          Binding::ScopeType::supports_values;
       constexpr bool requested_is_lvalue_reference =
           std::is_lvalue_reference_v<Requested>;
       constexpr bool requested_is_pointer = std::is_pointer_v<Requested>;
@@ -61,15 +63,14 @@ class Container {
         return resolve_via_transitive_shared_ptr_binding<Requested,
                                                          Canonical>();
       }
-      // Promotion: Transient asked for reference/pointer → cache it in
-      // Singleton
+      // Promotion: Scope can't provide references, but user wants them
       else if constexpr (!scope_provides_references &&
                          (requested_is_lvalue_reference ||
                           requested_is_pointer)) {
         return resolve_via_transitive_singleton_binding<Requested, Canonical>();
       }
-      // Relegation: Singleton asked for value → create new in Transient
-      else if constexpr (scope_provides_references && requested_is_value) {
+      // Relegation: Scope can't provide values, but user wants them
+      else if constexpr (!scope_supports_values && requested_is_value) {
         return resolve_via_transitive_transient_binding<Requested, Canonical>();
       }
       // Normal case: delegate to bound scope
@@ -122,7 +123,8 @@ class Container {
     template <typename Requested, typename Container>
     auto create(Container& container) -> Requested {
       // Get reference from singleton, copy it to create value
-      return container.template resolve<Constructed&>();
+      auto& ref = container.template resolve<Constructed&>();
+      return ref;
     }
   };
 

@@ -32,6 +32,7 @@ template <typename Provider>
 class Transient {
  public:
   static constexpr auto provides_references = false;
+  static constexpr auto supports_values = true;
   using Provided = typename Provider::Provided;
 
   //! Resolves instance in requested form.
@@ -63,6 +64,7 @@ template <typename Provider>
 class Singleton {
  public:
   static constexpr auto provides_references = true;
+  static constexpr auto supports_values = false;
   using Provided = typename Provider::Provided;
 
   //! Resolves instance in requested form.
@@ -96,6 +98,7 @@ template <typename Provider>
 class Deduced {
  public:
   static constexpr auto provides_references = true;
+  static constexpr auto supports_values = true;
   using Provided = typename Provider::Provided;
 
   //! Resolves instance in requested form.
@@ -129,6 +132,7 @@ class Instance {
  public:
   using Provided = Resolved;
   static constexpr auto provides_references = true;
+  static constexpr auto supports_values = true;
 
   //! Resolves instance in requested form.
   template <typename Requested, typename Container>

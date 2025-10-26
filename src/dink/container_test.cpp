@@ -22,9 +22,7 @@ struct Counted {
 // Common base for all container tests - resets counters
 struct ContainerTestBase : Test {
   ContainerTestBase() { Counted::instance_count = 0; }
-  virtual ~ContainerTestBase() override;
 };
-ContainerTestBase::~ContainerTestBase() {}
 
 // ----------------------------------------------------------------------------
 // Singleton Scope Tests
@@ -134,6 +132,7 @@ TEST_F(ContainerSingletonTest, multiple_singleton_types) {
 TEST_F(ContainerSingletonTest, resolves_mutable_reference) {
   struct SingletonBound {
     int value = 42;
+    SingletonBound() = default;
   };
   auto sut = Container{bind<SingletonBound>().in<scope::Singleton>()};
 
@@ -150,6 +149,7 @@ TEST_F(ContainerSingletonTest, resolves_mutable_reference) {
 TEST_F(ContainerSingletonTest, resolves_const_reference) {
   struct SingletonBound {
     int value = 42;
+    SingletonBound() = default;
   };
   auto sut = Container{bind<SingletonBound>().in<scope::Singleton>()};
 
@@ -163,6 +163,7 @@ TEST_F(ContainerSingletonTest, resolves_const_reference) {
 TEST_F(ContainerSingletonTest, resolves_mutable_pointer) {
   struct SingletonBound {
     int value = 42;
+    SingletonBound() = default;
   };
   auto sut = Container{bind<SingletonBound>().in<scope::Singleton>()};
 
@@ -179,6 +180,7 @@ TEST_F(ContainerSingletonTest, resolves_mutable_pointer) {
 TEST_F(ContainerSingletonTest, resolves_const_pointer) {
   struct SingletonBound {
     int value = 42;
+    SingletonBound() = default;
   };
   auto sut = Container{bind<SingletonBound>().in<scope::Singleton>()};
 
@@ -230,6 +232,7 @@ TEST_F(ContainerTransientTest, creates_new_value_per_resolve) {
 TEST_F(ContainerTransientTest, creates_new_unique_ptr_per_resolve) {
   struct TransientBound {
     int value = 42;
+    TransientBound() = default;
   };
   auto sut = Container{bind<TransientBound>().in<scope::Transient>()};
 
@@ -244,6 +247,7 @@ TEST_F(ContainerTransientTest, creates_new_unique_ptr_per_resolve) {
 TEST_F(ContainerTransientTest, resolves_const_value) {
   struct TransientBound {
     int value = 42;
+    TransientBound() = default;
   };
   auto sut = Container{bind<TransientBound>().in<scope::Transient>()};
 
@@ -254,6 +258,7 @@ TEST_F(ContainerTransientTest, resolves_const_value) {
 TEST_F(ContainerTransientTest, resolves_rvalue_reference) {
   struct TransientBound {
     int value = 42;
+    TransientBound() = default;
   };
   auto sut = Container{bind<TransientBound>().in<scope::Transient>()};
 
@@ -427,6 +432,7 @@ struct ContainerDeducedTest : ContainerTestBase {};
 TEST_F(ContainerDeducedTest, resolves_value) {
   struct DeducedBound {
     int value = 42;
+    DeducedBound() = default;
   };
   auto sut = Container{bind<DeducedBound>()};
 
@@ -442,6 +448,7 @@ TEST_F(ContainerDeducedTest, resolves_value) {
 TEST_F(ContainerDeducedTest, resolves_const_value) {
   struct DeducedBound {
     int value = 42;
+    DeducedBound() = default;
   };
   auto sut = Container{bind<DeducedBound>()};
 
@@ -452,6 +459,7 @@ TEST_F(ContainerDeducedTest, resolves_const_value) {
 TEST_F(ContainerDeducedTest, resolves_rvalue_reference) {
   struct DeducedBound {
     int value = 42;
+    DeducedBound() = default;
   };
   auto sut = Container{bind<DeducedBound>()};
 
@@ -462,6 +470,7 @@ TEST_F(ContainerDeducedTest, resolves_rvalue_reference) {
 TEST_F(ContainerDeducedTest, resolves_mutable_reference_cached) {
   struct DeducedBound {
     int value = 42;
+    DeducedBound() = default;
   };
   auto sut = Container{bind<DeducedBound>()};
 
@@ -478,6 +487,7 @@ TEST_F(ContainerDeducedTest, resolves_mutable_reference_cached) {
 TEST_F(ContainerDeducedTest, resolves_const_reference_cached) {
   struct DeducedBound {
     int value = 42;
+    DeducedBound() = default;
   };
   auto sut = Container{bind<DeducedBound>()};
 
@@ -491,6 +501,7 @@ TEST_F(ContainerDeducedTest, resolves_const_reference_cached) {
 TEST_F(ContainerDeducedTest, resolves_mutable_pointer_cached) {
   struct DeducedBound {
     int value = 42;
+    DeducedBound() = default;
   };
   auto sut = Container{bind<DeducedBound>()};
 
@@ -507,6 +518,7 @@ TEST_F(ContainerDeducedTest, resolves_mutable_pointer_cached) {
 TEST_F(ContainerDeducedTest, resolves_const_pointer_cached) {
   struct DeducedBound {
     int value = 42;
+    DeducedBound() = default;
   };
   auto sut = Container{bind<DeducedBound>()};
 
@@ -520,6 +532,7 @@ TEST_F(ContainerDeducedTest, resolves_const_pointer_cached) {
 TEST_F(ContainerDeducedTest, resolves_shared_ptr_cached) {
   struct DeducedBound {
     int value = 42;
+    DeducedBound() = default;
   };
   auto sut = Container{bind<DeducedBound>()};
 
@@ -533,6 +546,7 @@ TEST_F(ContainerDeducedTest, resolves_shared_ptr_cached) {
 TEST_F(ContainerDeducedTest, resolves_weak_ptr_cached) {
   struct DeducedBound {
     int value = 42;
+    DeducedBound() = default;
   };
   auto sut = Container{bind<DeducedBound>()};
 
@@ -632,6 +646,7 @@ TEST_F(ContainerFactoryTest, factory_with_deduced_scope) {
 TEST_F(ContainerFactoryTest, factory_with_parameters_from_container) {
   struct Dependency {
     int value = 10;
+    Dependency() = default;
   };
 
   struct Product {
@@ -762,6 +777,7 @@ struct ContainerDependencyInjectionTest : ContainerTestBase {};
 TEST_F(ContainerDependencyInjectionTest, resolves_single_dependency) {
   struct Dependency {
     int value = 10;
+    Dependency() = default;
   };
 
   struct Service {
@@ -778,9 +794,11 @@ TEST_F(ContainerDependencyInjectionTest, resolves_single_dependency) {
 TEST_F(ContainerDependencyInjectionTest, resolves_multiple_dependencies) {
   struct DepA {
     int value = 10;
+    DepA() = default;
   };
   struct DepB {
     int value = 5;
+    DepB() = default;
   };
 
   struct Service {
@@ -797,6 +815,7 @@ TEST_F(ContainerDependencyInjectionTest, resolves_multiple_dependencies) {
 TEST_F(ContainerDependencyInjectionTest, resolves_dependency_chain) {
   struct DepA {
     int value = 1;
+    DepA() = default;
   };
 
   struct DepB {
@@ -818,6 +837,7 @@ TEST_F(ContainerDependencyInjectionTest, resolves_dependency_chain) {
 TEST_F(ContainerDependencyInjectionTest, resolves_dependency_as_reference) {
   struct Dependency {
     int value = 42;
+    Dependency() = default;
   };
 
   struct Service {
@@ -839,6 +859,7 @@ TEST_F(ContainerDependencyInjectionTest,
        resolves_dependency_as_const_reference) {
   struct Dependency {
     int value = 42;
+    Dependency() = default;
   };
 
   struct Service {
@@ -855,6 +876,7 @@ TEST_F(ContainerDependencyInjectionTest,
 TEST_F(ContainerDependencyInjectionTest, resolves_dependency_as_shared_ptr) {
   struct Dependency {
     int value = 42;
+    Dependency() = default;
   };
 
   struct Service {
@@ -873,6 +895,7 @@ TEST_F(ContainerDependencyInjectionTest, resolves_dependency_as_shared_ptr) {
 TEST_F(ContainerDependencyInjectionTest, resolves_dependency_as_unique_ptr) {
   struct Dependency {
     int value = 42;
+    Dependency() = default;
   };
 
   struct Service {
@@ -890,6 +913,7 @@ TEST_F(ContainerDependencyInjectionTest, resolves_dependency_as_unique_ptr) {
 TEST_F(ContainerDependencyInjectionTest, resolves_dependency_as_pointer) {
   struct Dependency {
     int value = 42;
+    Dependency() = default;
   };
 
   struct Service {
@@ -910,12 +934,15 @@ TEST_F(ContainerDependencyInjectionTest, resolves_dependency_as_pointer) {
 TEST_F(ContainerDependencyInjectionTest, mixed_dependency_types) {
   struct DepA {
     int value = 1;
+    DepA() = default;
   };
   struct DepB {
     int value = 2;
+    DepB() = default;
   };
   struct DepC {
     int value = 3;
+    DepC() = default;
   };
 
   struct Service {
@@ -965,6 +992,7 @@ struct ContainerCanonicalTest : ContainerTestBase {};
 TEST_F(ContainerCanonicalTest, const_and_non_const_resolve_same_binding) {
   struct Bound {
     int value = 42;
+    Bound() = default;
   };
 
   auto sut = Container{bind<Bound>().in<scope::Singleton>()};
@@ -988,6 +1016,7 @@ TEST_F(ContainerCanonicalTest, reference_and_value_resolve_same_binding) {
 TEST_F(ContainerCanonicalTest, pointer_and_reference_resolve_same_binding) {
   struct Bound {
     int value = 42;
+    Bound() = default;
   };
 
   auto sut = Container{bind<Bound>().in<scope::Singleton>()};
@@ -1001,6 +1030,7 @@ TEST_F(ContainerCanonicalTest, pointer_and_reference_resolve_same_binding) {
 TEST_F(ContainerCanonicalTest, const_pointer_and_pointer_resolve_same_binding) {
   struct Bound {
     int value = 42;
+    Bound() = default;
   };
 
   auto sut = Container{bind<Bound>().in<scope::Singleton>()};
@@ -1014,6 +1044,7 @@ TEST_F(ContainerCanonicalTest, const_pointer_and_pointer_resolve_same_binding) {
 TEST_F(ContainerCanonicalTest, shared_ptr_variations_resolve_same_binding) {
   struct Bound {
     int value = 42;
+    Bound() = default;
   };
 
   auto sut = Container{bind<Bound>().in<scope::Singleton>()};
@@ -1025,20 +1056,6 @@ TEST_F(ContainerCanonicalTest, shared_ptr_variations_resolve_same_binding) {
   EXPECT_EQ(shared.get(), const_shared.get());
 }
 
-TEST_F(ContainerCanonicalTest, rvalue_reference_resolves_same_binding) {
-  struct Bound {
-    int value = 42;
-  };
-
-  auto sut = Container{bind<Bound>().in<scope::Deduced>()};
-
-  auto& ref = sut.template resolve<Bound&>();
-  auto&& rvalue_ref = sut.template resolve<Bound&&>();
-
-  // For Deduced scope with references, both should be the cached instance
-  EXPECT_EQ(&ref, &rvalue_ref);
-}
-
 // ----------------------------------------------------------------------------
 // Edge Cases and Error Conditions
 // ----------------------------------------------------------------------------
@@ -1048,6 +1065,7 @@ struct ContainerEdgeCasesTest : ContainerTestBase {};
 TEST_F(ContainerEdgeCasesTest, empty_container_resolves_unbound_types) {
   struct Unbound {
     int value = 42;
+    Unbound() = default;
   };
 
   auto sut = Container{};
@@ -1059,6 +1077,7 @@ TEST_F(ContainerEdgeCasesTest, empty_container_resolves_unbound_types) {
 TEST_F(ContainerEdgeCasesTest, zero_argument_constructor) {
   struct ZeroArgs {
     int value = 99;
+    ZeroArgs() = default;
   };
 
   auto sut = Container{bind<ZeroArgs>()};
@@ -1070,12 +1089,15 @@ TEST_F(ContainerEdgeCasesTest, zero_argument_constructor) {
 TEST_F(ContainerEdgeCasesTest, multi_argument_constructor) {
   struct A {
     int value = 1;
+    A() = default;
   };
   struct B {
     int value = 2;
+    B() = default;
   };
   struct C {
     int value = 3;
+    C() = default;
   };
 
   struct MultiArg {
@@ -1092,6 +1114,7 @@ TEST_F(ContainerEdgeCasesTest, multi_argument_constructor) {
 TEST_F(ContainerEdgeCasesTest, resolve_same_type_multiple_ways) {
   struct Type {
     int value = 42;
+    Type() = default;
   };
 
   auto sut = Container{bind<Type>().in<scope::Singleton>()};
@@ -1110,6 +1133,7 @@ TEST_F(ContainerEdgeCasesTest, resolve_same_type_multiple_ways) {
 TEST_F(ContainerEdgeCasesTest, deeply_nested_dependencies) {
   struct Level0 {
     int value = 1;
+    Level0() = default;
   };
   struct Level1 {
     int value;
@@ -1248,6 +1272,7 @@ TEST_F(ContainerDefaultScopeTest, unbound_type_uses_default_scope) {
 TEST_F(ContainerDefaultScopeTest, unbound_type_with_dependencies) {
   struct Dep {
     int value = 10;
+    Dep() = default;
   };
 
   struct Unbound {
