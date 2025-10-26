@@ -244,4 +244,38 @@ constexpr auto bind() -> BindBuilder<From> {
   return {};
 }
 
+// ----------------------------------------------------------------------------
+// Concepts
+// ----------------------------------------------------------------------------
+
+namespace detail {
+
+template <typename>
+struct IsBinding : std::false_type {};
+
+template <typename From>
+struct IsBinding<BindBuilder<From>> : std::true_type {};
+
+template <typename From, typename To>
+struct IsBinding<AsBuilder<From, To>> : std::true_type {};
+
+template <typename From, typename To, typename Factory>
+struct IsBinding<ViaBuilder<From, To, Factory>> : std::true_type {};
+
+template <typename From, typename InstanceType>
+struct IsBinding<ToBuilder<From, InstanceType>> : std::true_type {};
+
+template <typename From, typename To, typename Provider,
+          template <typename> typename ScopeTemplate>
+struct IsBinding<InBuilder<From, To, Provider, ScopeTemplate>>
+    : std::true_type {};
+
+template <typename From, typename Scope>
+struct IsBinding<Binding<From, Scope>> : std::true_type {};
+
+}  // namespace detail
+
+template <typename T>
+concept IsBinding = detail::IsBinding<std::remove_cvref_t<T>>::value;
+
 }  // namespace dink
