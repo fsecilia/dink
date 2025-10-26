@@ -37,7 +37,7 @@ struct Binding {
   using FromType = From;
   using ScopeType = Scope;
 
-  Scope scope;
+  [[no_unique_address]] Scope scope;
 
   explicit constexpr Binding(Scope scope) noexcept : scope{std::move(scope)} {}
 };

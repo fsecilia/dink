@@ -54,7 +54,7 @@ class Transient {
       : provider_{std::move(provider)} {}
 
  private:
-  Provider provider_;
+  [[no_unique_address]] Provider provider_;
 };
 
 ///! Resolves one instance per provider.
@@ -88,7 +88,7 @@ class Singleton {
       : provider_{std::move(provider)} {}
 
  private:
-  Provider provider_;
+  [[no_unique_address]] Provider provider_;
 };
 
 template <typename Provider>
@@ -119,7 +119,7 @@ class Deduced {
       : provider_{std::move(provider)} {}
 
  private:
-  Provider provider_;
+  [[no_unique_address]] Provider provider_;
 };
 
 //! Resolves one externally-owned instance.

@@ -79,17 +79,27 @@ class Container {
     }
   };
 
-  template <typename Constructed>
-  inline static auto transitive_binding = Binding<
-      Constructed,
-      scope::Singleton<TransitiveSingletonSharedPtrProvider<Constructed>>>{
-      scope::Singleton{TransitiveSingletonSharedPtrProvider<Constructed>{}}};
+  template <typename Canonical>
+  constexpr auto make_shared_ptr_transitive_binding() {
+    using Provider = TransitiveSingletonSharedPtrProvider<Canonical>;
+    return Binding<Canonical, scope::Singleton<Provider>>{
+        scope::Singleton{Provider{}}};
+  }
 
   template <typename Requested, typename Canonical>
   auto resolve_via_transitive_binding() -> remove_rvalue_ref_t<Requested> {
-    return transitive_binding<Canonical>.scope.template resolve<Requested>(
-        *this);
+    return make_shared_ptr_transitive_binding<Canonical>()
+        .scope.template resolve<Requested>(*this);
   }
 };
+
+// Deduction guide - converts builders to Bindings, then deduces Config
+template <typename... Builders>
+Container(Builders&&...) -> Container<detail::ConfigFromTuple<
+    decltype(make_bindings(std::declval<Builders>()...))>>;
+
+// Deduction guide for Config directly
+template <IsConfig ConfigType>
+Container(ConfigType) -> Container<ConfigType>;
 
 }  // namespace dink
