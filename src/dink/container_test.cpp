@@ -22,7 +22,9 @@ struct Counted {
 // Common base for all container tests - resets counters
 struct ContainerTestBase : Test {
   ContainerTestBase() { Counted::instance_count = 0; }
+  virtual ~ContainerTestBase() override;
 };
+ContainerTestBase::~ContainerTestBase() {}
 
 // ----------------------------------------------------------------------------
 // Singleton Scope Tests
@@ -646,21 +648,6 @@ TEST_F(ContainerFactoryTest, factory_with_parameters_from_container) {
   EXPECT_EQ(20, product.combined_value);
 }
 
-#if 0
-TEST_F(ContainerFactoryTest, factory_returns_unique_ptr) {
-  struct Product {
-    int value = 42;
-  };
-
-  auto factory = []() { return std::make_unique<Product>(); };
-
-  auto sut = Container{bind<Product>().as<Product>().via(factory)};
-
-  auto unique = sut.template resolve<std::unique_ptr<Product>>();
-  EXPECT_EQ(42, unique->value);
-}
-#endif
-
 // ----------------------------------------------------------------------------
 // Interface/Implementation Binding Tests
 // ----------------------------------------------------------------------------
@@ -679,8 +666,8 @@ TEST_F(ContainerInterfaceTest, binds_interface_to_implementation) {
 
   auto sut = Container{bind<IService>().as<ServiceImpl>()};
 
-  auto& value = sut.template resolve<IService&>();
-  EXPECT_EQ(42, value.get_value());
+  auto& service = sut.template resolve<IService&>();
+  EXPECT_EQ(42, service.get_value());
 }
 
 TEST_F(ContainerInterfaceTest, interface_binding_with_singleton_scope) {
@@ -719,8 +706,8 @@ TEST_F(ContainerInterfaceTest, interface_binding_with_factory) {
 
   auto sut = Container{bind<IService>().as<ServiceImpl>().via(factory)};
 
-  auto& value = sut.template resolve<IService&>();
-  EXPECT_EQ(99, value.get_value());
+  auto& service = sut.template resolve<IService&>();
+  EXPECT_EQ(99, service.get_value());
 }
 
 TEST_F(ContainerInterfaceTest, resolves_implementation_directly) {
@@ -736,7 +723,7 @@ TEST_F(ContainerInterfaceTest, resolves_implementation_directly) {
   auto sut = Container{bind<IService>().as<ServiceImpl>()};
 
   // Can still resolve ServiceImpl directly (not bound)
-  auto impl = sut.template resolve<ServiceImpl>();
+  auto& impl = sut.template resolve<ServiceImpl&>();
   EXPECT_EQ(42, impl.get_value());
 }
 

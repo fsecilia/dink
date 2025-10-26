@@ -55,7 +55,7 @@ class Invoker<Constructed, void, ResolverSequence,
   }
 
   template <typename Requested, typename Container>
-  constexpr auto create(Container& container) const -> Requested {
+  constexpr auto create(Container& container) const -> auto {
     if constexpr (SharedPtr<Requested>) {
       return create_shared(container);
     } else if constexpr (UniquePtr<Requested>) {

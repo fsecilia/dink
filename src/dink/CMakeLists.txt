@@ -195,6 +195,7 @@ if (dink_enable_testing)
       -Wno-unneeded-member-function
       -Wno-unused-member-function
       -Wno-unused-template
+      -Wno-weak-vtables
     )
   endif()
 
