@@ -71,16 +71,20 @@ class Container<Config, void> {
 
   template <typename Constructed>
   struct TransitiveSingletonSharedPtrProvider {
+    using Provided = std::shared_ptr<Constructed>;
+
+    template <typename Requested, typename Container>
     auto create(Container& container) -> std::shared_ptr<Constructed> {
-      auto& ref = container.template resolve<Constructed&>(container);
+      auto& ref = container.template resolve<Constructed&>();
       return std::shared_ptr<Constructed>{&ref, [](Constructed*) {}};
     }
   };
 
   template <typename Constructed>
-  static constexpr auto transitive_binding =
-      Binding<Constructed, scope::Singleton<provider::Ctor<Constructed>>>{
-          scope::Singleton{TransitiveSingletonSharedPtrProvider{}}};
+  static constexpr auto transitive_binding = Binding<
+      Constructed,
+      scope::Singleton<TransitiveSingletonSharedPtrProvider<Constructed>>>{
+      scope::Singleton{TransitiveSingletonSharedPtrProvider<Constructed>{}}};
 
   template <typename Requested, typename Canonical>
   auto resolve_via_transitive_binding() -> remove_rvalue_ref_t<Requested> {
