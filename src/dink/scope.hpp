@@ -6,6 +6,7 @@
 
 #include <dink/lib.hpp>
 #include <dink/meta.hpp>
+#include <dink/remove_rvalue_ref.hpp>
 #include <dink/smart_pointer_traits.hpp>
 #include <concepts>
 #include <memory>
@@ -35,7 +36,7 @@ class Transient {
 
   //! Resolves instance in requested form.
   template <typename Requested, typename Container>
-  auto resolve(Container& container) -> std::remove_reference_t<Requested> {
+  auto resolve(Container& container) -> remove_rvalue_ref_t<Requested> {
     using Provided = typename Provider::Provided;
 
     if constexpr (std::same_as<std::remove_cvref_t<Requested>, Provided>) {
@@ -99,7 +100,7 @@ class Deduced {
 
   //! Resolves instance in requested form.
   template <typename Requested, typename Container>
-  auto resolve(Container& container) -> std::remove_reference_t<Requested> {
+  auto resolve(Container& container) -> remove_rvalue_ref_t<Requested> {
     if constexpr (SharedPtr<Requested> || WeakPtr<Requested>) {
       // shared_ptr/weak_ptr
       return detail::cached_instance(container, provider_);
