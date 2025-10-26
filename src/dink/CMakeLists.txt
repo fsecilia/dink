@@ -10,6 +10,7 @@ list(APPEND dink_library_files
   binding.hpp
   canonical.hpp
   config.hpp
+  container.hpp
   invoker.hpp
   lib.hpp
   meta.hpp
@@ -27,6 +28,7 @@ list(APPEND dink_test_files
   binding_test.cpp
   canonical_test.cpp
   config_test.cpp
+  container_test.cpp
   invoker_test.cpp
   provider_test.cpp
   request_traits_test.cpp
