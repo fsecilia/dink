@@ -19,8 +19,7 @@ class Ctor {
 
   template <typename Requested, typename Container>
   constexpr auto create(Container& container) -> auto {
-    const auto invoker =
-        invoker_factory_.template create<Container, Constructed, void>();
+    const auto invoker = invoker_factory_.template create<Constructed, void>();
     return invoker.template create<Requested>(container);
   }
 
@@ -41,8 +40,7 @@ class Factory {
   template <typename Requested, typename Container>
   constexpr auto create(Container& container) -> auto {
     const auto invoker =
-        invoker_factory_
-            .template create<Container, Constructed, ConstructedFactory>();
+        invoker_factory_.template create<Constructed, ConstructedFactory>();
     return invoker.template create<Requested>(container, constructed_factory_);
   }
 

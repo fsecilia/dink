@@ -264,8 +264,7 @@ struct InvokerFactoryCompileTimeTest : InvokerFactoryFixture {
   template <typename Constructed, std::size_t expected_arity>
   static constexpr auto test_ctor_type() {
     using Actual =
-        decltype(std::declval<Sut>()
-                     .template create<Constructed, void, ResolverSequence>());
+        decltype(std::declval<Sut>().template create<Constructed, void>());
     using Expected = Invoker<Constructed, void, ResolverSequence,
                              std::make_index_sequence<expected_arity>>;
 
@@ -279,8 +278,7 @@ struct InvokerFactoryCompileTimeTest : InvokerFactoryFixture {
   static constexpr auto test_factory_type() {
     using Actual =
         decltype(std::declval<Sut>()
-                     .template create<Constructed, ConstructedFactory,
-                                      ResolverSequence>());
+                     .template create<Constructed, ConstructedFactory>());
     using Expected = Invoker<Constructed, ConstructedFactory, ResolverSequence,
                              std::make_index_sequence<expected_arity>>;
 

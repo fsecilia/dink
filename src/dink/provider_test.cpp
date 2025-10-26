@@ -60,10 +60,9 @@ struct Fixture {
   // InvokerFactory spy that verifies template args and returns StubInvoker.
   template <typename ExpectedFactory>
   struct InvokerFactory {
-    template <typename Container, typename Constructed, typename Factory>
+    template <typename Constructed, typename Factory>
     constexpr auto create() -> Invoker<Constructed> {
       // Verify the factory was called with expected template parameters
-      static_assert(std::same_as<Container, Container>);
       static_assert(std::same_as<Constructed, Constructed>);
       static_assert(std::same_as<Factory, ExpectedFactory>);
 

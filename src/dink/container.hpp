@@ -54,18 +54,19 @@ class Container {
         // Delegate to bound scope.
         return binding->scope.template resolve<Requested>(*this);
       }
+    } else {
+      // Delegate to default scope.
+      return default_scope<Canonical>.template resolve<Requested>(*this);
     }
-
-    // Delegate to default scope.
-    return default_scope<Canonical>.template resolve<Requested>(*this);
   }
 
  private:
   Config config_{};
 
   template <typename Constructed>
-  static auto default_scope = scope::Deduced<provider::Ctor<Constructed>>{
-      provider::Ctor<Constructed>{}};
+  inline static auto default_scope =
+      scope::Deduced<provider::Ctor<Constructed>>{
+          provider::Ctor<Constructed>{}};
 
   template <typename Constructed>
   struct TransitiveSingletonSharedPtrProvider {
@@ -79,7 +80,7 @@ class Container {
   };
 
   template <typename Constructed>
-  static constexpr auto transitive_binding = Binding<
+  inline static auto transitive_binding = Binding<
       Constructed,
       scope::Singleton<TransitiveSingletonSharedPtrProvider<Constructed>>>{
       scope::Singleton{TransitiveSingletonSharedPtrProvider<Constructed>{}}};

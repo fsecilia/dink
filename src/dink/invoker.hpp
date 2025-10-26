@@ -139,9 +139,10 @@ template <template <typename Constructed, typename ConstructedFactory,
           typename ResolverSequenceFactory = ResolverSequenceFactory<>>
 class InvokerFactory {
  public:
-  template <typename Constructed, typename ConstructedFactory,
-            typename ResolverSequence>
+  template <typename Constructed, typename ConstructedFactory>
   constexpr auto create() -> auto {
+    using ResolverSequence =
+        std::remove_reference_t<decltype(resolver_sequence_factory_.create())>;
     return Invoker<
         Constructed, ConstructedFactory, ResolverSequence,
         std::make_index_sequence<arity<Constructed, ConstructedFactory>>>{

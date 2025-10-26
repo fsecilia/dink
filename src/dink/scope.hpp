@@ -66,7 +66,7 @@ class Singleton {
 
   //! Resolves instance in requested form.
   template <typename Requested, typename Container>
-  auto resolve(Container& container) const -> Requested {
+  auto resolve(Container& container) -> Requested {
     // Order matters here; check for smart pointers first so references to them
     // can be taken without taking the reference branch.
     if constexpr (SharedPtr<Requested> || WeakPtr<Requested>) {
@@ -131,7 +131,7 @@ class Instance {
 
   //! Resolves instance in requested form.
   template <typename Requested, typename Container>
-  constexpr auto resolve(Container& /*container*/) const -> Requested {
+  constexpr auto resolve(Container& /*container*/) -> Requested {
     if constexpr (std::is_lvalue_reference_v<Requested>) {
       // Lvalue reference (mutable or const)
       return *instance_;
