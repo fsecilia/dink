@@ -42,4 +42,11 @@ template <typename Qualified, typename Unqualified>
 concept DifferentUnqualifiedType =
     !std::same_as<std::remove_cvref_t<Qualified>, Unqualified>;
 
+//! arbitrary probing type for abstract concepts
+//
+// Some concepts check things that are so abstract, all you know is it should
+// accept, return, or contain a type. ConceptProbe is meant as a type
+// standardized for this purpose.
+struct ConceptProbe {};
+
 }  // namespace dink::meta
