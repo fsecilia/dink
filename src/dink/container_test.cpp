@@ -58,6 +58,34 @@ TEST_F(ContainerTest, weak_ptr_from_singleton) {
   EXPECT_EQ(weak1.lock(), weak2.lock());
 }
 
+TEST_F(ContainerTest, weak_ptr_does_not_expire_while_singleton_alive) {
+  struct SingletonBound {};
+  auto sut = Container{bind<SingletonBound>().in<scope::Singleton>()};
+
+  const auto& weak = sut.template resolve<std::weak_ptr<SingletonBound>>();
+
+  // Even with no shared_ptr in scope, weak_ptr should not expire
+  // because it tracks the canonical shared_ptr which aliases the static
+  EXPECT_FALSE(weak.expired());
+
+  auto shared = weak.lock();
+  EXPECT_NE(nullptr, shared);
+}
+
+TEST_F(ContainerTest, weak_ptr_expires_with_canonical_shared_ptr) {
+  struct SingletonBound {};
+  auto sut = Container{bind<SingletonBound>().in<scope::Singleton>()};
+
+  // resolve reference directly to canonical shared_ptr
+  auto& canonical_shared_ptr =
+      sut.template resolve<std::shared_ptr<SingletonBound>&>();
+  const auto weak = sut.template resolve<std::weak_ptr<SingletonBound>>();
+
+  EXPECT_FALSE(weak.expired());
+  canonical_shared_ptr.reset();
+  EXPECT_TRUE(weak.expired());
+}
+
 TEST_F(ContainerTest, const_shared_ptr) {
   struct SingletonBound {};
   auto sut = Container{bind<SingletonBound>().in<scope::Singleton>()};
@@ -169,6 +197,40 @@ TEST_F(ContainerTest, instance_scope_weak_ptr) {
 
   EXPECT_FALSE(weak.expired());
   EXPECT_EQ(&external_obj, weak.lock().get());
+}
+
+TEST_F(ContainerTest,
+       instance_scope_weak_ptr_does_not_expire_while_singleton_alive) {
+  struct External {};
+  External external_obj;
+
+  auto container = Container{bind<External>().to(external_obj)};
+
+  auto weak = container.template resolve<std::weak_ptr<External>>();
+
+  // Even with no shared_ptr in scope, weak_ptr should not expire
+  // because it tracks the canonical shared_ptr which aliases the static
+  EXPECT_FALSE(weak.expired());
+
+  auto shared = weak.lock();
+  EXPECT_NE(nullptr, shared);
+}
+
+TEST_F(ContainerTest,
+       instance_scope_weak_ptr_expires_with_canonical_shared_ptr) {
+  struct External {};
+  External external_obj;
+
+  auto container = Container{bind<External>().to(external_obj)};
+
+  // resolve reference directly to canonical shared_ptr
+  auto& canonical_shared_ptr =
+      container.template resolve<std::shared_ptr<External>&>();
+  const auto weak = container.template resolve<std::weak_ptr<External>>();
+
+  EXPECT_FALSE(weak.expired());
+  canonical_shared_ptr.reset();
+  EXPECT_TRUE(weak.expired());
 }
 
 }  // namespace dink
