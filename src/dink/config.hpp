@@ -101,8 +101,8 @@ using ConfigFromTuple = typename FindConfigFromTuple<Tuple>::type;
 //
 // Each binding maps from a requested type (from_type) to:
 // - The type to construct (to_type)
-// - How to construct it (provider)
-// - When to cache it (scope)
+// - The scope (when to cache)
+// - The provider (how to construct)
 //
 // \tparam bindings_t pack of binding_t types
 template <typename... Bindings>

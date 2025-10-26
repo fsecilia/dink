@@ -43,23 +43,31 @@ class Container {
     auto binding = config_.template find_binding<Canonical>();
     using BindingPtr = decltype(binding);
     constexpr auto found_binding = !std::is_same_v<BindingPtr, std::nullptr_t>;
+
     if constexpr (found_binding) {
       using Binding = std::remove_cvref_t<decltype(*binding)>;
       constexpr bool scope_provides_references =
           Binding::ScopeType::provides_references;
-      constexpr bool scope_supports_values =
-          Binding::ScopeType::supports_values;
+      constexpr bool scope_supports_values = !scope_provides_references;
+
       constexpr bool requested_is_lvalue_reference =
           std::is_lvalue_reference_v<Requested>;
       constexpr bool requested_is_pointer = std::is_pointer_v<Requested>;
+      constexpr bool requested_is_smart_ptr =
+          SharedPtr<Requested> || WeakPtr<Requested> || UniquePtr<Requested>;
       constexpr bool requested_is_value =
           !requested_is_lvalue_reference && !requested_is_pointer &&
-          !SharedPtr<Requested> && !WeakPtr<Requested> &&
-          !std::is_rvalue_reference_v<Requested>;
+          !requested_is_smart_ptr && !std::is_rvalue_reference_v<Requested>;
 
+      // FIRST: Force unique_ptr to always use transient behavior
+      if constexpr (UniquePtr<Requested>) {
+        // Extract provider from binding, wrap in Transient scope
+        auto transient = scope::Transient{};
+        return transient.template resolve<Requested>(*this, binding->provider);
+      }
       // Special case: shared_ptr/weak_ptr from reference-providing scope
-      if constexpr ((SharedPtr<Requested> || WeakPtr<Requested>) &&
-                    scope_provides_references) {
+      else if constexpr ((SharedPtr<Requested> || WeakPtr<Requested>) &&
+                         scope_provides_references) {
         return resolve_via_transitive_shared_ptr_binding<Requested,
                                                          Canonical>();
       }
@@ -67,29 +75,36 @@ class Container {
       else if constexpr (!scope_provides_references &&
                          (requested_is_lvalue_reference ||
                           requested_is_pointer)) {
-        return resolve_via_transitive_singleton_binding<Requested, Canonical>();
+        // Use the bound provider with Singleton scope for caching
+        auto singleton = scope::Singleton{};
+        return singleton.template resolve<Requested>(*this, binding->provider);
       }
       // Relegation: Scope can't provide values, but user wants them
       else if constexpr (!scope_supports_values && requested_is_value) {
         return resolve_via_transitive_transient_binding<Requested, Canonical>();
       }
-      // Normal case: delegate to bound scope
+      // Normal case: delegate to bound scope with bound provider
       else {
-        return binding->scope.template resolve<Requested>(*this);
+        return binding->scope.template resolve<Requested>(*this,
+                                                          binding->provider);
       }
     } else {
       // Delegate to default scope.
-      return default_scope<Canonical>.template resolve<Requested>(*this);
+      return default_scope<Canonical>.template resolve<Requested>(
+          *this, default_provider<Canonical>);
     }
   }
 
  private:
   Config config_{};
 
+  // Default scope is Transient (creates fresh instances)
   template <typename Constructed>
-  inline static auto default_scope =
-      scope::Deduced<provider::Ctor<Constructed>>{
-          provider::Ctor<Constructed>{}};
+  inline static auto default_scope = scope::Transient{};
+
+  // Default provider uses Ctor
+  template <typename Constructed>
+  inline static auto default_provider = provider::Ctor<Constructed>{};
 
   // Transitive Singleton for promotion: wraps shared_ptr around reference
   template <typename Constructed>
@@ -103,71 +118,35 @@ class Container {
     }
   };
 
-  // Transitive Singleton for promotion: caches value from Transient
-  template <typename Constructed>
-  struct TransitiveSingletonProvider {
-    using Provided = Constructed;
-
-    template <typename Requested, typename Container>
-    auto create(Container& container) -> Requested {
-      // Resolve as value from the transient binding
-      return container.template resolve<Constructed>();
-    }
-  };
-
   // Transitive Transient for relegation: creates value from Singleton
-  template <typename Constructed>
+  template <typename Canonical>
   struct TransitiveTransientProvider {
-    using Provided = Constructed;
+    using Provided = Canonical;
 
     template <typename Requested, typename Container>
     auto create(Container& container) -> Requested {
       // Get reference from singleton, copy it to create value
-      auto& ref = container.template resolve<Constructed&>();
+      auto& ref = container.template resolve<Canonical&>();
       return ref;
     }
   };
 
-  template <typename Canonical>
-  constexpr auto make_shared_ptr_transitive_binding() {
-    using Provider = TransitiveSingletonSharedPtrProvider<Canonical>;
-    return Binding<Canonical, scope::Singleton<Provider>>{
-        scope::Singleton{Provider{}}};
-  }
-
-  template <typename Canonical>
-  constexpr auto make_singleton_transitive_binding() {
-    using Provider = TransitiveSingletonProvider<Canonical>;
-    return Binding<Canonical, scope::Singleton<Provider>>{
-        scope::Singleton{Provider{}}};
-  }
-
-  template <typename Canonical>
-  constexpr auto make_transient_transitive_binding() {
-    using Provider = TransitiveTransientProvider<Canonical>;
-    return Binding<Canonical, scope::Transient<Provider>>{
-        scope::Transient{Provider{}}};
-  }
-
   template <typename Requested, typename Canonical>
   auto resolve_via_transitive_shared_ptr_binding()
       -> remove_rvalue_ref_t<Requested> {
-    return make_shared_ptr_transitive_binding<Canonical>()
-        .scope.template resolve<Requested>(*this);
-  }
-
-  template <typename Requested, typename Canonical>
-  auto resolve_via_transitive_singleton_binding()
-      -> remove_rvalue_ref_t<Requested> {
-    return make_singleton_transitive_binding<Canonical>()
-        .scope.template resolve<Requested>(*this);
+    using Provider = TransitiveSingletonSharedPtrProvider<Canonical>;
+    auto provider = Provider{};
+    auto singleton = scope::Singleton{};
+    return singleton.template resolve<Requested>(*this, provider);
   }
 
   template <typename Requested, typename Canonical>
   auto resolve_via_transitive_transient_binding()
       -> remove_rvalue_ref_t<Requested> {
-    return make_transient_transitive_binding<Canonical>()
-        .scope.template resolve<Requested>(*this);
+    using Provider = TransitiveTransientProvider<Canonical>;
+    auto provider = Provider{};
+    auto transient = scope::Transient{};
+    return transient.template resolve<Requested>(*this, provider);
   }
 };
 

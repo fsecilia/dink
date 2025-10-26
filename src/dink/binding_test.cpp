@@ -52,18 +52,18 @@ static_assert(
     std::same_as<decltype(bind<IFoo>().as<ConcreteFoo>().via(test_factory)),
                  ViaBuilder<IFoo, ConcreteFoo, TestFactory>>);
 
-// .in<Scope>() from BindBuilder produces InBuilder with Ctor<From>
+// .in<Scope>() from BindBuilder produces InBuilder
 static_assert(std::same_as<
               decltype(bind<IFoo>().in<scope::Singleton>()),
               InBuilder<IFoo, IFoo, provider::Ctor<IFoo>, scope::Singleton>>);
 
-// .as<To>().in<Scope>() produces InBuilder with Ctor<To>
+// .as<To>().in<Scope>() produces InBuilder
 static_assert(std::same_as<
               decltype(bind<IFoo>().as<ConcreteFoo>().in<scope::Transient>()),
               InBuilder<IFoo, ConcreteFoo, provider::Ctor<ConcreteFoo>,
                         scope::Transient>>);
 
-// .as<To>().via(factory).in<Scope>() produces InBuilder with Factory<To, F>
+// .as<To>().via(factory).in<Scope>() produces InBuilder
 static_assert(
     std::same_as<decltype(bind<IFoo>()
                               .as<ConcreteFoo>()
@@ -77,52 +77,55 @@ static_assert(
 // Binding Conversion Tests - Verify final Binding types
 // ----------------------------------------------------------------------------
 
-// bind<From>() converts to Binding<From, Deduced<Ctor<From>>>
+// bind<From>() converts to Binding<From, Transient, Ctor<From>>
 static_assert(
     std::same_as<decltype(Binding{bind<IFoo>()}),
-                 Binding<IFoo, scope::Deduced<provider::Ctor<IFoo>>>>);
+                 Binding<IFoo, scope::Transient, provider::Ctor<IFoo>>>);
 
-// .as<To>() converts to Binding<From, Deduced<Ctor<To>>>
+// .as<To>() converts to Binding<From, Transient, Ctor<To>>
 static_assert(
     std::same_as<decltype(Binding{bind<IFoo>().as<ConcreteFoo>()}),
-                 Binding<IFoo, scope::Deduced<provider::Ctor<ConcreteFoo>>>>);
+                 Binding<IFoo, scope::Transient, provider::Ctor<ConcreteFoo>>>);
 
-// .as<To>().via(factory) converts to Binding<From, Deduced<Factory<To, F>>>
+// .as<To>().via(factory) converts to Binding<From, Transient, Factory<To, F>>
 static_assert(
-    std::same_as<
-        decltype(Binding{bind<IFoo>().as<ConcreteFoo>().via(test_factory)}),
-        Binding<IFoo,
-                scope::Deduced<provider::Factory<ConcreteFoo, TestFactory>>>>);
+    std::same_as<decltype(Binding{
+                     bind<IFoo>().as<ConcreteFoo>().via(test_factory)}),
+                 Binding<IFoo, scope::Transient,
+                         provider::Factory<ConcreteFoo, TestFactory>>>);
 
-// .in<Singleton>() converts to Binding<From, Singleton<Ctor<From>>>
+// .in<Singleton>() converts to Binding<From, Singleton, Ctor<From>>
 static_assert(
     std::same_as<decltype(Binding{bind<IFoo>().in<scope::Singleton>()}),
-                 Binding<IFoo, scope::Singleton<provider::Ctor<IFoo>>>>);
+                 Binding<IFoo, scope::Singleton, provider::Ctor<IFoo>>>);
 
-// .in<Transient>() converts to Binding<From, Transient<Ctor<From>>>
+// .in<Transient>() converts to Binding<From, Transient, Ctor<From>>
 static_assert(
     std::same_as<decltype(Binding{bind<IFoo>().in<scope::Transient>()}),
-                 Binding<IFoo, scope::Transient<provider::Ctor<IFoo>>>>);
+                 Binding<IFoo, scope::Transient, provider::Ctor<IFoo>>>);
 
-// .as<To>().in<Scope>() converts to Binding<From, Scope<Ctor<To>>>
+// .as<To>().in<Scope>() converts to Binding<From, Scope, Ctor<To>>
 static_assert(
     std::same_as<decltype(Binding{
                      bind<IFoo>().as<ConcreteFoo>().in<scope::Transient>()}),
-                 Binding<IFoo, scope::Transient<provider::Ctor<ConcreteFoo>>>>);
+                 Binding<IFoo, scope::Transient, provider::Ctor<ConcreteFoo>>>);
 
-// .as<To>().via(f).in<Scope>() converts to Binding<From, Scope<Factory<To, F>>>
-static_assert(std::same_as<decltype(Binding{bind<IFoo>()
-                                                .as<ConcreteFoo>()
-                                                .via(test_factory)
-                                                .in<scope::Singleton>()}),
-                           Binding<IFoo, scope::Singleton<provider::Factory<
-                                             ConcreteFoo, TestFactory>>>>);
+// .as<To>().via(f).in<Scope>() converts to Binding<From, Scope, Factory<To, F>>
+static_assert(
+    std::same_as<decltype(Binding{bind<IFoo>()
+                                      .as<ConcreteFoo>()
+                                      .via(test_factory)
+                                      .in<scope::Singleton>()}),
+                 Binding<IFoo, scope::Singleton,
+                         provider::Factory<ConcreteFoo, TestFactory>>>);
 
-// .to(instance) converts to Binding<From, Instance<T>>
+// .to(instance) converts to Binding<From, Instance<T>, Instance<T>>
+// Note: This is a placeholder - needs proper provider type for external refs
 static_assert([]() constexpr {
   Instance inst;
-  return std::same_as<decltype(Binding{bind<IFoo>().to(inst)}),
-                      Binding<IFoo, scope::Instance<Instance>>>;
+  return std::same_as<
+      decltype(Binding{bind<IFoo>().to(inst)}),
+      Binding<IFoo, scope::Instance<Instance>, scope::Instance<Instance>>>;
 }());
 
 // ----------------------------------------------------------------------------
@@ -132,39 +135,28 @@ static_assert([]() constexpr {
 // All Ctor combinations with scopes
 static_assert(
     std::same_as<decltype(Binding{bind<IFoo>().in<scope::Transient>()}),
-                 Binding<IFoo, scope::Transient<provider::Ctor<IFoo>>>>);
+                 Binding<IFoo, scope::Transient, provider::Ctor<IFoo>>>);
 
 static_assert(
     std::same_as<decltype(Binding{bind<IFoo>().in<scope::Singleton>()}),
-                 Binding<IFoo, scope::Singleton<provider::Ctor<IFoo>>>>);
-
-static_assert(
-    std::same_as<decltype(Binding{bind<IFoo>().in<scope::Deduced>()}),
-                 Binding<IFoo, scope::Deduced<provider::Ctor<IFoo>>>>);
+                 Binding<IFoo, scope::Singleton, provider::Ctor<IFoo>>>);
 
 // All Factory combinations with scopes
-static_assert(std::same_as<decltype(Binding{bind<IFoo>()
-                                                .as<ConcreteFoo>()
-                                                .via(test_factory)
-                                                .in<scope::Transient>()}),
-                           Binding<IFoo, scope::Transient<provider::Factory<
-                                             ConcreteFoo, TestFactory>>>>);
-
-static_assert(std::same_as<decltype(Binding{bind<IFoo>()
-                                                .as<ConcreteFoo>()
-                                                .via(test_factory)
-                                                .in<scope::Singleton>()}),
-                           Binding<IFoo, scope::Singleton<provider::Factory<
-                                             ConcreteFoo, TestFactory>>>>);
+static_assert(
+    std::same_as<decltype(Binding{bind<IFoo>()
+                                      .as<ConcreteFoo>()
+                                      .via(test_factory)
+                                      .in<scope::Transient>()}),
+                 Binding<IFoo, scope::Transient,
+                         provider::Factory<ConcreteFoo, TestFactory>>>);
 
 static_assert(
-    std::same_as<
-        decltype(Binding{bind<IFoo>()
-                             .as<ConcreteFoo>()
-                             .via(test_factory)
-                             .in<scope::Deduced>()}),
-        Binding<IFoo,
-                scope::Deduced<provider::Factory<ConcreteFoo, TestFactory>>>>);
+    std::same_as<decltype(Binding{bind<IFoo>()
+                                      .as<ConcreteFoo>()
+                                      .via(test_factory)
+                                      .in<scope::Singleton>()}),
+                 Binding<IFoo, scope::Singleton,
+                         provider::Factory<ConcreteFoo, TestFactory>>>);
 
 // ----------------------------------------------------------------------------
 // Tuple Construction Test - Real-world usage pattern
@@ -187,31 +179,33 @@ static_assert([]() constexpr {
 
   static_assert(
       std::same_as<std::tuple_element_t<0, Tuple>,
-                   Binding<IFoo, scope::Deduced<provider::Ctor<IFoo>>>>);
+                   Binding<IFoo, scope::Transient, provider::Ctor<IFoo>>>);
+
+  static_assert(std::same_as<
+                std::tuple_element_t<1, Tuple>,
+                Binding<IFoo, scope::Transient, provider::Ctor<ConcreteFoo>>>);
 
   static_assert(
-      std::same_as<std::tuple_element_t<1, Tuple>,
-                   Binding<IFoo, scope::Deduced<provider::Ctor<ConcreteFoo>>>>);
-
-  static_assert(std::same_as<std::tuple_element_t<2, Tuple>,
-                             Binding<IFoo, scope::Deduced<provider::Factory<
-                                               ConcreteFoo, TestFactory>>>>);
+      std::same_as<std::tuple_element_t<2, Tuple>,
+                   Binding<IFoo, scope::Transient,
+                           provider::Factory<ConcreteFoo, TestFactory>>>);
 
   static_assert(
       std::same_as<
           std::tuple_element_t<3, Tuple>,
-          Binding<Bar, scope::Singleton<provider::Factory<Bar, BarFactory>>>>);
+          Binding<Bar, scope::Singleton, provider::Factory<Bar, BarFactory>>>);
 
   static_assert(
       std::same_as<std::tuple_element_t<4, Tuple>,
-                   Binding<IFoo, scope::Singleton<provider::Ctor<IFoo>>>>);
+                   Binding<IFoo, scope::Singleton, provider::Ctor<IFoo>>>);
 
   static_assert(std::same_as<
                 std::tuple_element_t<5, Tuple>,
-                Binding<IFoo, scope::Transient<provider::Ctor<ConcreteFoo>>>>);
+                Binding<IFoo, scope::Transient, provider::Ctor<ConcreteFoo>>>);
 
   static_assert(std::same_as<std::tuple_element_t<6, Tuple>,
-                             Binding<Instance, scope::Instance<Instance>>>);
+                             Binding<Instance, scope::Instance<Instance>,
+                                     scope::Instance<Instance>>>);
 
   return true;
 }());
@@ -221,11 +215,11 @@ static_assert([]() constexpr {
 // ----------------------------------------------------------------------------
 
 static_assert(
-    std::same_as<Binding<IFoo, scope::Deduced<provider::Ctor<IFoo>>>::FromType,
-                 IFoo>);
+    std::same_as<
+        Binding<IFoo, scope::Transient, provider::Ctor<IFoo>>::FromType, IFoo>);
 
 static_assert(
-    std::same_as<Binding<Bar, scope::Singleton<provider::Ctor<Bar>>>::FromType,
+    std::same_as<Binding<Bar, scope::Singleton, provider::Ctor<Bar>>::FromType,
                  Bar>);
 
 // ----------------------------------------------------------------------------
@@ -241,8 +235,9 @@ TEST_F(RuntimeTest, BindWithRuntimeFactory) {
   // Should still compile and deduce types correctly
   auto binding = Binding{bind<IFoo>().as<ConcreteFoo>().via(runtime_factory)};
 
-  using Expected = Binding<IFoo, scope::Deduced<provider::Factory<
-                                     ConcreteFoo, decltype(runtime_factory)>>>;
+  using Expected =
+      Binding<IFoo, scope::Transient,
+              provider::Factory<ConcreteFoo, decltype(runtime_factory)>>;
 
   static_assert(std::same_as<decltype(binding), Expected>);
 }
@@ -252,7 +247,8 @@ TEST_F(RuntimeTest, BindToInstanceReference) {
 
   auto binding = Binding{bind<Instance>().to(inst)};
 
-  using Expected = Binding<Instance, scope::Instance<Instance>>;
+  using Expected =
+      Binding<Instance, scope::Instance<Instance>, scope::Instance<Instance>>;
   static_assert(std::same_as<decltype(binding), Expected>);
 }
 

@@ -24,22 +24,24 @@ class ViaBuilder;
 template <typename From, typename InstanceType>
 class ToBuilder;
 
-template <typename From, typename To, typename Provider,
-          template <typename> typename ScopeTemplate>
+template <typename From, typename To, typename Provider, typename Scope>
 class InBuilder;
 
 // ----------------------------------------------------------------------------
 // Binding - Final type stored in container
 // ----------------------------------------------------------------------------
 
-template <typename From, typename Scope>
+template <typename From, typename Scope, typename Provider>
 struct Binding {
   using FromType = From;
   using ScopeType = Scope;
+  using ProviderType = Provider;
 
   [[no_unique_address]] Scope scope;
+  [[no_unique_address]] Provider provider;
 
-  explicit constexpr Binding(Scope scope) noexcept : scope{std::move(scope)} {}
+  explicit constexpr Binding(Scope scope, Provider provider) noexcept
+      : scope{std::move(scope)}, provider{std::move(provider)} {}
 };
 
 // ----------------------------------------------------------------------------
@@ -63,17 +65,17 @@ class BindBuilder {
   }
 
   // Specify scope with Ctor<From> provider
-  template <template <typename> typename ScopeTemplate>
-  constexpr auto
-  in() && -> InBuilder<From, From, provider::Ctor<From>, ScopeTemplate> {
-    return InBuilder<From, From, provider::Ctor<From>, ScopeTemplate>{
+  template <typename Scope>
+  constexpr auto in() && -> InBuilder<From, From, provider::Ctor<From>, Scope> {
+    return InBuilder<From, From, provider::Ctor<From>, Scope>{
         provider::Ctor<From>{}};
   }
 
-  // Default conversion: Deduced<Ctor<From>>
-  constexpr operator Binding<From, scope::Deduced<provider::Ctor<From>>>() && {
-    return Binding<From, scope::Deduced<provider::Ctor<From>>>{
-        scope::Deduced{provider::Ctor<From>{}}};
+  // Default conversion: Transient<Ctor<From>>
+  constexpr
+  operator Binding<From, scope::Transient, provider::Ctor<From>>() && {
+    return Binding<From, scope::Transient, provider::Ctor<From>>{
+        scope::Transient{}, provider::Ctor<From>{}};
   }
 };
 
@@ -91,17 +93,15 @@ class AsBuilder {
   }
 
   // Specify scope with Ctor<To> provider
-  template <template <typename> typename ScopeTemplate>
-  constexpr auto
-  in() && -> InBuilder<From, To, provider::Ctor<To>, ScopeTemplate> {
-    return InBuilder<From, To, provider::Ctor<To>, ScopeTemplate>{
-        provider::Ctor<To>{}};
+  template <typename Scope>
+  constexpr auto in() && -> InBuilder<From, To, provider::Ctor<To>, Scope> {
+    return InBuilder<From, To, provider::Ctor<To>, Scope>{provider::Ctor<To>{}};
   }
 
-  // Default conversion: Deduced<Ctor<To>>
-  constexpr operator Binding<From, scope::Deduced<provider::Ctor<To>>>() && {
-    return Binding<From, scope::Deduced<provider::Ctor<To>>>{
-        scope::Deduced{provider::Ctor<To>{}}};
+  // Default conversion: Transient<Ctor<To>>
+  constexpr operator Binding<From, scope::Transient, provider::Ctor<To>>() && {
+    return Binding<From, scope::Transient, provider::Ctor<To>>{
+        scope::Transient{}, provider::Ctor<To>{}};
   }
 };
 
@@ -113,18 +113,19 @@ template <typename From, typename To, typename Factory>
 class ViaBuilder {
  public:
   // Specify scope with Factory<To, Factory> provider
-  template <template <typename> typename ScopeTemplate>
-  constexpr auto in() && -> InBuilder<From, To, provider::Factory<To, Factory>,
-                                      ScopeTemplate> {
-    return InBuilder<From, To, provider::Factory<To, Factory>, ScopeTemplate>{
+  template <typename Scope>
+  constexpr auto
+  in() && -> InBuilder<From, To, provider::Factory<To, Factory>, Scope> {
+    return InBuilder<From, To, provider::Factory<To, Factory>, Scope>{
         provider::Factory<To, Factory>{std::move(factory_)}};
   }
 
-  // Default conversion: Deduced<Factory<To, Factory>>
-  constexpr
-  operator Binding<From, scope::Deduced<provider::Factory<To, Factory>>>() && {
-    return Binding<From, scope::Deduced<provider::Factory<To, Factory>>>{
-        scope::Deduced{provider::Factory<To, Factory>{std::move(factory_)}}};
+  // Default conversion: Transient<Factory<To, Factory>>
+  constexpr operator Binding<From, scope::Transient,
+                             provider::Factory<To, Factory>>() && {
+    return Binding<From, scope::Transient, provider::Factory<To, Factory>>{
+        scope::Transient{},
+        provider::Factory<To, Factory>{std::move(factory_)}};
   }
 
   explicit constexpr ViaBuilder(Factory factory) noexcept
@@ -138,12 +139,18 @@ class ViaBuilder {
 // ToBuilder - After .to(instance) - Terminal state
 // ----------------------------------------------------------------------------
 
+// Note: Instance binding requires a provider that holds the instance reference.
+// This will need provider::ExternalRef<InstanceType> or similar to be defined.
 template <typename From, typename InstanceType>
 class ToBuilder {
  public:
-  // Only conversion available - Instance scope is implicit
-  constexpr operator Binding<From, scope::Instance<InstanceType>>() && {
-    return Binding<From, scope::Instance<InstanceType>>{
+  // Conversion using scope::Instance - requires provider type for external refs
+  // TODO: Define appropriate provider type for instance bindings
+  constexpr operator Binding<From, scope::Instance<InstanceType>,
+                             scope::Instance<InstanceType>>() && {
+    return Binding<From, scope::Instance<InstanceType>,
+                   scope::Instance<InstanceType>>{
+        scope::Instance<InstanceType>{instance_},
         scope::Instance<InstanceType>{instance_}};
   }
 
@@ -158,14 +165,12 @@ class ToBuilder {
 // InBuilder - After .in<Scope>() - Terminal state
 // ----------------------------------------------------------------------------
 
-template <typename From, typename To, typename Provider,
-          template <typename> typename ScopeTemplate>
+template <typename From, typename To, typename Provider, typename Scope>
 class InBuilder {
  public:
   // Only conversion available - explicit scope specified
-  constexpr operator Binding<From, ScopeTemplate<Provider>>() && {
-    return Binding<From, ScopeTemplate<Provider>>{
-        ScopeTemplate<Provider>{std::move(provider_)}};
+  constexpr operator Binding<From, Scope, Provider>() && {
+    return Binding<From, Scope, Provider>{Scope{}, std::move(provider_)};
   }
 
   explicit constexpr InBuilder(Provider provider) noexcept
@@ -182,28 +187,28 @@ class InBuilder {
 // Deduction guide for BindBuilder
 template <typename From>
 Binding(BindBuilder<From>&&)
-    -> Binding<From, scope::Deduced<provider::Ctor<From>>>;
+    -> Binding<From, scope::Transient, provider::Ctor<From>>;
 
 // Deduction guide for AsBuilder
 template <typename From, typename To>
 Binding(AsBuilder<From, To>&&)
-    -> Binding<From, scope::Deduced<provider::Ctor<To>>>;
+    -> Binding<From, scope::Transient, provider::Ctor<To>>;
 
 // Deduction guide for ViaBuilder
 template <typename From, typename To, typename Factory>
 Binding(ViaBuilder<From, To, Factory>&&)
-    -> Binding<From, scope::Deduced<provider::Factory<To, Factory>>>;
+    -> Binding<From, scope::Transient, provider::Factory<To, Factory>>;
 
 // Deduction guide for ToBuilder
 template <typename From, typename InstanceType>
 Binding(ToBuilder<From, InstanceType>&&)
-    -> Binding<From, scope::Instance<InstanceType>>;
+    -> Binding<From, scope::Instance<InstanceType>,
+               scope::Instance<InstanceType>>;
 
 // Deduction guide for InBuilder
-template <typename From, typename To, typename Provider,
-          template <typename> typename ScopeTemplate>
-Binding(InBuilder<From, To, Provider, ScopeTemplate>&&)
-    -> Binding<From, ScopeTemplate<Provider>>;
+template <typename From, typename To, typename Provider, typename Scope>
+Binding(InBuilder<From, To, Provider, Scope>&&)
+    -> Binding<From, Scope, Provider>;
 
 // ----------------------------------------------------------------------------
 // Helper Functions
@@ -237,9 +242,9 @@ constexpr auto make_bindings(Builders&&... builders) {
 // that can be configured through method chaining.
 //
 // Example usage:
-//   bind<IFoo>()                              // Deduced<Ctor<IFoo>>
-//   bind<IFoo>().as<Foo>()                    // Deduced<Ctor<Foo>>
-//   bind<IFoo>().as<Foo>().via(factory)       // Deduced<Factory<Foo, F>>
+//   bind<IFoo>()                              // Transient<Ctor<IFoo>>
+//   bind<IFoo>().as<Foo>()                    // Transient<Ctor<Foo>>
+//   bind<IFoo>().as<Foo>().via(factory)       // Transient<Factory<Foo, F>>
 //   bind<IFoo>().in<scope::Singleton>()       // Singleton<Ctor<IFoo>>
 //   bind<IFoo>().to(instance)                 // Instance<decltype(instance)>
 template <typename From>
@@ -268,13 +273,11 @@ struct IsBinding<ViaBuilder<From, To, Factory>> : std::true_type {};
 template <typename From, typename InstanceType>
 struct IsBinding<ToBuilder<From, InstanceType>> : std::true_type {};
 
-template <typename From, typename To, typename Provider,
-          template <typename> typename ScopeTemplate>
-struct IsBinding<InBuilder<From, To, Provider, ScopeTemplate>>
-    : std::true_type {};
+template <typename From, typename To, typename Provider, typename Scope>
+struct IsBinding<InBuilder<From, To, Provider, Scope>> : std::true_type {};
 
-template <typename From, typename Scope>
-struct IsBinding<Binding<From, Scope>> : std::true_type {};
+template <typename From, typename Scope, typename Provider>
+struct IsBinding<Binding<From, Scope, Provider>> : std::true_type {};
 
 }  // namespace detail
 

@@ -28,115 +28,65 @@ auto cached_instance(Container& container, Provider& provider)
 }  // namespace detail
 
 //! Resolves one instance per request.
-template <typename Provider>
 class Transient {
  public:
   static constexpr auto provides_references = false;
-  static constexpr auto supports_values = true;
-  using Provided = typename Provider::Provided;
 
   //! Resolves instance in requested form.
-  template <typename Requested, typename Container>
-  auto resolve(Container& container) -> remove_rvalue_ref_t<Requested> {
+  template <typename Requested, typename Container, typename Provider>
+  auto resolve(Container& container, Provider& provider)
+      -> remove_rvalue_ref_t<Requested> {
     using Provided = typename Provider::Provided;
 
     if constexpr (std::same_as<std::remove_cvref_t<Requested>, Provided>) {
       // Value type or rvalue reference.
-      return provider_.template create<Requested>(container);
+      return provider.template create<Requested>(container);
     } else if constexpr (SharedPtr<Requested> || UniquePtr<Requested>) {
       // Smart pointers with ownership semantics.
-      return provider_.template create<Requested>(container);
+      return provider.template create<Requested>(container);
     } else {
       static_assert(meta::kDependentFalse<Requested>,
                     "Transient scope: unsupported type conversion.");
     }
   }
-
-  explicit constexpr Transient(Provider provider) noexcept
-      : provider_{std::move(provider)} {}
-
- private:
-  [[no_unique_address]] Provider provider_;
 };
 
 ///! Resolves one instance per provider.
-template <typename Provider>
 class Singleton {
  public:
   static constexpr auto provides_references = true;
-  static constexpr auto supports_values = false;
-  using Provided = typename Provider::Provided;
 
   //! Resolves instance in requested form.
-  template <typename Requested, typename Container>
-  auto resolve(Container& container) -> Requested {
+  template <typename Requested, typename Container, typename Provider>
+  auto resolve(Container& container, Provider& provider) -> Requested {
     // Order matters here; check for smart pointers first so references to them
     // can be taken without taking the reference branch.
     if constexpr (SharedPtr<Requested> || WeakPtr<Requested>) {
       // shared_ptr/weak_ptr
-      return detail::cached_instance(container, provider_);
+      return detail::cached_instance(container, provider);
     } else if constexpr (std::is_lvalue_reference_v<Requested>) {
       // lvalue references
-      return detail::cached_instance(container, provider_);
+      return detail::cached_instance(container, provider);
     } else if constexpr (std::is_pointer_v<Requested>) {
       // Pointers
-      return &detail::cached_instance(container, provider_);
+      return &detail::cached_instance(container, provider);
     } else {
       static_assert(meta::kDependentFalse<Requested>,
                     "Singleton scope: unsupported type conversion.");
     }
   }
-
-  explicit constexpr Singleton(Provider provider) noexcept
-      : provider_{std::move(provider)} {}
-
- private:
-  [[no_unique_address]] Provider provider_;
-};
-
-template <typename Provider>
-class Deduced {
- public:
-  static constexpr auto provides_references = true;
-  static constexpr auto supports_values = true;
-  using Provided = typename Provider::Provided;
-
-  //! Resolves instance in requested form.
-  template <typename Requested, typename Container>
-  auto resolve(Container& container) -> remove_rvalue_ref_t<Requested> {
-    if constexpr (SharedPtr<Requested> || WeakPtr<Requested>) {
-      // shared_ptr/weak_ptr
-      return detail::cached_instance(container, provider_);
-    } else if constexpr (std::is_lvalue_reference_v<Requested>) {
-      // lvalue references
-      return detail::cached_instance(container, provider_);
-    } else if constexpr (std::is_pointer_v<Requested>) {
-      // Pointers
-      return &detail::cached_instance(container, provider_);
-    } else {
-      // Value type or rvalue reference.
-      return provider_.template create<Requested>(container);
-    }
-  }
-
-  explicit constexpr Deduced(Provider provider) noexcept
-      : provider_{std::move(provider)} {}
-
- private:
-  [[no_unique_address]] Provider provider_;
 };
 
 //! Resolves one externally-owned instance.
 template <typename Resolved>
 class Instance {
  public:
-  using Provided = Resolved;
   static constexpr auto provides_references = true;
-  static constexpr auto supports_values = true;
 
   //! Resolves instance in requested form.
-  template <typename Requested, typename Container>
-  constexpr auto resolve(Container& /*container*/) -> Requested {
+  template <typename Requested, typename Container, typename Provider>
+  constexpr auto resolve(Container& /*container*/, Provider& /*provider*/)
+      -> Requested {
     if constexpr (std::is_lvalue_reference_v<Requested>) {
       // Lvalue reference (mutable or const)
       return *instance_;
@@ -147,10 +97,6 @@ class Instance {
       // shared_ptr and weak_ptr - create with no-op deleter.
       using Element = typename std::remove_cvref_t<Requested>::element_type;
       return std::shared_ptr<Element>(instance_, [](Element*) {});
-    } else if constexpr (std::same_as<std::remove_cv_t<Requested>,
-                                      std::remove_cv_t<Resolved>>) {
-      // Value - copy from instance
-      return *instance_;
     } else {
       static_assert(meta::kDependentFalse<Requested>,
                     "Instance scope: Unsupported type conversion.");
