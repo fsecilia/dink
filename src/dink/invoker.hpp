@@ -7,7 +7,6 @@
 #include <dink/lib.hpp>
 #include <dink/arity.hpp>
 #include <dink/resolver.hpp>
-#include <dink/scope.hpp>
 #include <dink/smart_pointer_traits.hpp>
 #include <memory>
 #include <utility>
