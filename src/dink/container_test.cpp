@@ -8,10 +8,13 @@
 
 namespace dink {
 
-struct ContainerTest : Test {
-};
+// ----------------------------------------------------------------------------
+// Singleton Scope Tests
+// ----------------------------------------------------------------------------
 
-TEST_F(ContainerTest, canonical_shared_wraps_instance) {
+struct ContainerSingletonTest : Test {};
+
+TEST_F(ContainerSingletonTest, canonical_shared_wraps_instance) {
   struct SingletonBound {};
   auto sut = Container{bind<SingletonBound>().in<scope::Singleton>()};
 
@@ -20,7 +23,7 @@ TEST_F(ContainerTest, canonical_shared_wraps_instance) {
   ASSERT_EQ(&instance, shared.get());
 }
 
-TEST_F(ContainerTest, canonical_shared_ptr_value) {
+TEST_F(ContainerSingletonTest, canonical_shared_ptr_value) {
   struct SingletonBound {};
   auto sut = Container{bind<SingletonBound>().in<scope::Singleton>()};
 
@@ -34,7 +37,7 @@ TEST_F(ContainerTest, canonical_shared_ptr_value) {
   ASSERT_EQ(&instance, result1.get());
 }
 
-TEST_F(ContainerTest, canonical_shared_ptr_identity) {
+TEST_F(ContainerSingletonTest, canonical_shared_ptr_identity) {
   struct SingletonBound {};
   auto sut = Container{bind<SingletonBound>().in<scope::Singleton>()};
 
@@ -47,7 +50,7 @@ TEST_F(ContainerTest, canonical_shared_ptr_identity) {
   ASSERT_EQ(result1.use_count(), 1);
 }
 
-TEST_F(ContainerTest, weak_ptr_from_singleton) {
+TEST_F(ContainerSingletonTest, weak_ptr_from_singleton) {
   struct SingletonBound {};
   auto sut = Container{bind<SingletonBound>().in<scope::Singleton>()};
 
@@ -58,7 +61,7 @@ TEST_F(ContainerTest, weak_ptr_from_singleton) {
   EXPECT_EQ(weak1.lock(), weak2.lock());
 }
 
-TEST_F(ContainerTest, weak_ptr_does_not_expire_while_singleton_alive) {
+TEST_F(ContainerSingletonTest, weak_ptr_does_not_expire_while_singleton_alive) {
   struct SingletonBound {};
   auto sut = Container{bind<SingletonBound>().in<scope::Singleton>()};
 
@@ -72,7 +75,7 @@ TEST_F(ContainerTest, weak_ptr_does_not_expire_while_singleton_alive) {
   EXPECT_NE(nullptr, shared);
 }
 
-TEST_F(ContainerTest, weak_ptr_expires_with_canonical_shared_ptr) {
+TEST_F(ContainerSingletonTest, weak_ptr_expires_with_canonical_shared_ptr) {
   struct SingletonBound {};
   auto sut = Container{bind<SingletonBound>().in<scope::Singleton>()};
 
@@ -86,7 +89,7 @@ TEST_F(ContainerTest, weak_ptr_expires_with_canonical_shared_ptr) {
   EXPECT_TRUE(weak.expired());
 }
 
-TEST_F(ContainerTest, const_shared_ptr) {
+TEST_F(ContainerSingletonTest, const_shared_ptr) {
   struct SingletonBound {};
   auto sut = Container{bind<SingletonBound>().in<scope::Singleton>()};
 
@@ -96,9 +99,7 @@ TEST_F(ContainerTest, const_shared_ptr) {
   EXPECT_EQ(&instance, shared.get());
 }
 
-TEST_F(ContainerTest, multiple_singleton_types) {
-  struct SingletonBound {};
-
+TEST_F(ContainerSingletonTest, multiple_singleton_types) {
   struct A {};
   struct B {};
 
@@ -112,45 +113,29 @@ TEST_F(ContainerTest, multiple_singleton_types) {
   EXPECT_NE(shared_b.get(), nullptr);
 }
 
-// Transient scope should NOT cache shared_ptr
-TEST_F(ContainerTest, transient_creates_new_shared_ptr) {
-  struct SingletonBound {};
-  auto sut = Container{bind<SingletonBound>().in<scope::Transient>()};
+// ----------------------------------------------------------------------------
+// Transient Scope Tests
+// ----------------------------------------------------------------------------
 
-  auto shared1 = sut.template resolve<std::shared_ptr<SingletonBound>>();
-  auto shared2 = sut.template resolve<std::shared_ptr<SingletonBound>>();
+struct ContainerTransientTest : Test {};
+
+TEST_F(ContainerTransientTest, creates_new_shared_ptr_per_resolve) {
+  struct TransientBound {};
+  auto sut = Container{bind<TransientBound>().in<scope::Transient>()};
+
+  auto shared1 = sut.template resolve<std::shared_ptr<TransientBound>>();
+  auto shared2 = sut.template resolve<std::shared_ptr<TransientBound>>();
 
   EXPECT_NE(shared1.get(), shared2.get());  // Different instances
 }
 
-// Mixed scopes
-TEST_F(ContainerTest, mixed_scopes) {
-  struct Transient {};
-  struct Singleton {};
+// ----------------------------------------------------------------------------
+// Instance Scope Tests
+// ----------------------------------------------------------------------------
 
-  auto sut = Container{bind<Transient>().in<scope::Transient>(),
-                       bind<Singleton>().in<scope::Singleton>()};
+struct ContainerInstanceTest : Test {};
 
-  auto t1 = sut.template resolve<std::shared_ptr<Transient>>();
-  auto t2 = sut.template resolve<std::shared_ptr<Transient>>();
-  EXPECT_NE(t1.get(), t2.get());
-
-  auto s1 = sut.template resolve<std::shared_ptr<Singleton>>();
-  auto s2 = sut.template resolve<std::shared_ptr<Singleton>>();
-  EXPECT_EQ(s1.get(), s2.get());
-}
-
-// Default scope (no binding)
-TEST_F(ContainerTest, unbound_type_uses_default_scope) {
-  struct SingletonBound {};
-  struct Unbound {};
-  auto sut = Container{bind<SingletonBound>()};
-
-  [[maybe_unused]] auto instance = sut.template resolve<Unbound>();
-  // Should work - uses default Deduced scope
-}
-
-TEST_F(ContainerTest, instance_scope_with_shared_ptr) {
+TEST_F(ContainerInstanceTest, shared_ptr_wraps_external_instance) {
   struct External {
     int value = 42;
   };
@@ -173,7 +158,7 @@ TEST_F(ContainerTest, instance_scope_with_shared_ptr) {
   EXPECT_EQ(&ref, shared1.get());
 }
 
-TEST_F(ContainerTest, instance_scope_canonical_shared_ptr_reference) {
+TEST_F(ContainerInstanceTest, canonical_shared_ptr_reference) {
   struct External {};
   External external_obj;
 
@@ -187,7 +172,7 @@ TEST_F(ContainerTest, instance_scope_canonical_shared_ptr_reference) {
   EXPECT_EQ(1, canonical1.use_count());        // Only canonical exists
 }
 
-TEST_F(ContainerTest, instance_scope_weak_ptr) {
+TEST_F(ContainerInstanceTest, weak_ptr_tracks_external_instance) {
   struct External {};
   External external_obj;
 
@@ -199,8 +184,7 @@ TEST_F(ContainerTest, instance_scope_weak_ptr) {
   EXPECT_EQ(&external_obj, weak.lock().get());
 }
 
-TEST_F(ContainerTest,
-       instance_scope_weak_ptr_does_not_expire_while_singleton_alive) {
+TEST_F(ContainerInstanceTest, weak_ptr_does_not_expire_while_instance_alive) {
   struct External {};
   External external_obj;
 
@@ -216,8 +200,7 @@ TEST_F(ContainerTest,
   EXPECT_NE(nullptr, shared);
 }
 
-TEST_F(ContainerTest,
-       instance_scope_weak_ptr_expires_with_canonical_shared_ptr) {
+TEST_F(ContainerInstanceTest, weak_ptr_expires_with_canonical_shared_ptr) {
   struct External {};
   External external_obj;
 
@@ -231,6 +214,43 @@ TEST_F(ContainerTest,
   EXPECT_FALSE(weak.expired());
   canonical_shared_ptr.reset();
   EXPECT_TRUE(weak.expired());
+}
+
+// ----------------------------------------------------------------------------
+// Mixed Scopes Tests
+// ----------------------------------------------------------------------------
+
+struct ContainerMixedScopesTest : Test {};
+
+TEST_F(ContainerMixedScopesTest, transient_and_singleton_coexist) {
+  struct Transient {};
+  struct Singleton {};
+
+  auto sut = Container{bind<Transient>().in<scope::Transient>(),
+                       bind<Singleton>().in<scope::Singleton>()};
+
+  auto t1 = sut.template resolve<std::shared_ptr<Transient>>();
+  auto t2 = sut.template resolve<std::shared_ptr<Transient>>();
+  EXPECT_NE(t1.get(), t2.get());
+
+  auto s1 = sut.template resolve<std::shared_ptr<Singleton>>();
+  auto s2 = sut.template resolve<std::shared_ptr<Singleton>>();
+  EXPECT_EQ(s1.get(), s2.get());
+}
+
+// ----------------------------------------------------------------------------
+// Default Scope Tests
+// ----------------------------------------------------------------------------
+
+struct ContainerDefaultScopeTest : Test {};
+
+TEST_F(ContainerDefaultScopeTest, unbound_type_uses_default_scope) {
+  struct SingletonBound {};
+  struct Unbound {};
+  auto sut = Container{bind<SingletonBound>()};
+
+  [[maybe_unused]] auto instance = sut.template resolve<Unbound>();
+  // Should work - uses default Deduced scope
 }
 
 }  // namespace dink
