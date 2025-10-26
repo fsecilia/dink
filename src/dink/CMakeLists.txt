@@ -15,6 +15,7 @@ list(APPEND dink_library_files
   lib.hpp
   meta.hpp
   provider.hpp
+  remove_rvalue_ref.hpp
   request_traits.hpp
   resolver.hpp
   scope.hpp
