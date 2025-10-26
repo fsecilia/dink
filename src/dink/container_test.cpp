@@ -38,11 +38,42 @@ TEST_F(ContainerTest, canonical_shared_ptr_value) {
 }
 
 TEST_F(ContainerTest, canonical_shared_ptr_identity) {
-  const auto result1 = sut.template resolve<std::shared_ptr<SingletonBound>&>();
-  const auto result2 = sut.template resolve<std::shared_ptr<SingletonBound>&>();
+  const auto& result1 =
+      sut.template resolve<std::shared_ptr<SingletonBound>&>();
+  const auto& result2 =
+      sut.template resolve<std::shared_ptr<SingletonBound>&>();
   ASSERT_EQ(&result1, &result2);
   ASSERT_EQ(result1.use_count(), result2.use_count());
   ASSERT_EQ(result1.use_count(), 1);
+}
+
+TEST_F(ContainerTest, weak_ptr_from_singleton) {
+  auto weak1 = sut.template resolve<std::weak_ptr<SingletonBound>>();
+  auto weak2 = sut.template resolve<std::weak_ptr<SingletonBound>>();
+
+  EXPECT_FALSE(weak1.expired());
+  EXPECT_EQ(weak1.lock(), weak2.lock());
+}
+
+TEST_F(ContainerTest, const_shared_ptr) {
+  auto shared = sut.template resolve<std::shared_ptr<const SingletonBound>>();
+  auto& instance = sut.template resolve<SingletonBound&>();
+
+  EXPECT_EQ(&instance, shared.get());
+}
+
+TEST_F(ContainerTest, multiple_singleton_types) {
+  struct A {};
+  struct B {};
+
+  auto container = Container{bind<A>().in<scope::Singleton>(),
+                             bind<B>().in<scope::Singleton>()};
+
+  auto shared_a = container.template resolve<std::shared_ptr<A>>();
+  auto shared_b = container.template resolve<std::shared_ptr<B>>();
+
+  EXPECT_NE(shared_a.get(), nullptr);
+  EXPECT_NE(shared_b.get(), nullptr);
 }
 
 }  // namespace dink
