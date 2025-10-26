@@ -9,10 +9,26 @@
 namespace dink {
 
 // ----------------------------------------------------------------------------
+// Common Test Infrastructure
+// ----------------------------------------------------------------------------
+
+// Base class for types that need instance counting
+struct Counted {
+  static inline int instance_count = 0;
+  int id;
+  Counted() : id{instance_count++} {}
+};
+
+// Common base for all container tests - resets counters
+struct ContainerTestBase : Test {
+  ContainerTestBase() { Counted::instance_count = 0; }
+};
+
+// ----------------------------------------------------------------------------
 // Singleton Scope Tests
 // ----------------------------------------------------------------------------
 
-struct ContainerSingletonTest : Test {};
+struct ContainerSingletonTest : ContainerTestBase {};
 
 TEST_F(ContainerSingletonTest, canonical_shared_wraps_instance) {
   struct SingletonBound {};
@@ -185,7 +201,7 @@ TEST_F(ContainerSingletonTest, reference_and_pointer_point_to_same_instance) {
 // Transient Scope Tests
 // ----------------------------------------------------------------------------
 
-struct ContainerTransientTest : Test {};
+struct ContainerTransientTest : ContainerTestBase {};
 
 TEST_F(ContainerTransientTest, creates_new_shared_ptr_per_resolve) {
   struct TransientBound {};
@@ -198,12 +214,7 @@ TEST_F(ContainerTransientTest, creates_new_shared_ptr_per_resolve) {
 }
 
 TEST_F(ContainerTransientTest, creates_new_value_per_resolve) {
-  struct TransientBound {
-    static inline int instance_count = 0;
-    int id;
-    TransientBound() : id{instance_count++} {}
-  };
-  TransientBound::instance_count = 0;
+  struct TransientBound : Counted {};
 
   auto sut = Container{bind<TransientBound>().in<scope::Transient>()};
 
@@ -252,7 +263,7 @@ TEST_F(ContainerTransientTest, resolves_rvalue_reference) {
 // Instance Scope Tests
 // ----------------------------------------------------------------------------
 
-struct ContainerInstanceTest : Test {};
+struct ContainerInstanceTest : ContainerTestBase {};
 
 TEST_F(ContainerInstanceTest, shared_ptr_wraps_external_instance) {
   struct External {
@@ -409,7 +420,7 @@ TEST_F(ContainerInstanceTest, resolves_const_pointer) {
 // Deduced Scope Tests
 // ----------------------------------------------------------------------------
 
-struct ContainerDeducedTest : Test {};
+struct ContainerDeducedTest : ContainerTestBase {};
 
 TEST_F(ContainerDeducedTest, resolves_value) {
   struct DeducedBound {
@@ -531,12 +542,7 @@ TEST_F(ContainerDeducedTest, resolves_weak_ptr_cached) {
 }
 
 TEST_F(ContainerDeducedTest, reference_and_value_have_different_behavior) {
-  struct DeducedBound {
-    static inline int instance_count = 0;
-    int id;
-    DeducedBound() : id{instance_count++} {}
-  };
-  DeducedBound::instance_count = 0;
+  struct DeducedBound : Counted {};
 
   auto sut = Container{bind<DeducedBound>()};
 
@@ -558,7 +564,7 @@ TEST_F(ContainerDeducedTest, reference_and_value_have_different_behavior) {
 // Factory Binding Tests
 // ----------------------------------------------------------------------------
 
-struct ContainerFactoryTest : Test {};
+struct ContainerFactoryTest : ContainerTestBase {};
 
 TEST_F(ContainerFactoryTest, resolves_with_factory) {
   struct Product {
@@ -567,50 +573,42 @@ TEST_F(ContainerFactoryTest, resolves_with_factory) {
 
   auto factory = []() { return Product{99}; };
 
-  auto sut = Container{bind<Product>().via(factory)};
+  auto sut = Container{bind<Product>().as<Product>().via(factory)};
 
   auto value = sut.template resolve<Product>();
   EXPECT_EQ(99, value.value);
 }
 
 TEST_F(ContainerFactoryTest, factory_with_singleton_scope) {
-  struct Product {
-    static inline int call_count = 0;
-    int id;
-    Product() : id{call_count++} {}
-  };
-  Product::call_count = 0;
+  struct Product : Counted {};
 
   auto factory = []() { return Product{}; };
 
-  auto sut = Container{bind<Product>().via(factory).in<scope::Singleton>()};
+  auto sut = Container{
+      bind<Product>().as<Product>().via(factory).in<scope::Singleton>()};
 
   auto& ref1 = sut.template resolve<Product&>();
   auto& ref2 = sut.template resolve<Product&>();
 
   EXPECT_EQ(&ref1, &ref2);
   EXPECT_EQ(0, ref1.id);
-  EXPECT_EQ(1, Product::call_count);  // Factory called once
+  EXPECT_EQ(1, Counted::instance_count);  // Factory called once
 }
 
 TEST_F(ContainerFactoryTest, factory_with_transient_scope) {
-  struct Product {
-    static inline int call_count = 0;
-    int id;
-    Product() : id{call_count++} {}
-  };
-  Product::call_count = 0;
+  struct Product : Counted {};
 
   auto factory = []() { return Product{}; };
 
-  auto sut = Container{bind<Product>().via(factory).in<scope::Transient>()};
+  auto sut = Container{
+      bind<Product>().as<Product>().via(factory).in<scope::Transient>()};
 
   auto value1 = sut.template resolve<Product>();
   auto value2 = sut.template resolve<Product>();
 
   EXPECT_EQ(0, value1.id);
   EXPECT_EQ(1, value2.id);
-  EXPECT_EQ(2, Product::call_count);  // Factory called twice
+  EXPECT_EQ(2, Counted::instance_count);  // Factory called twice
 }
 
 TEST_F(ContainerFactoryTest, factory_with_deduced_scope) {
@@ -620,7 +618,7 @@ TEST_F(ContainerFactoryTest, factory_with_deduced_scope) {
 
   auto factory = []() { return Product{42}; };
 
-  auto sut = Container{bind<Product>().via(factory)};
+  auto sut = Container{bind<Product>().as<Product>().via(factory)};
 
   auto value = sut.template resolve<Product>();
   auto& ref = sut.template resolve<Product&>();
@@ -641,7 +639,8 @@ TEST_F(ContainerFactoryTest, factory_with_parameters_from_container) {
 
   auto factory = [](Dependency dep) { return Product{dep}; };
 
-  auto sut = Container{bind<Dependency>(), bind<Product>().via(factory)};
+  auto sut =
+      Container{bind<Dependency>(), bind<Product>().as<Product>().via(factory)};
 
   auto product = sut.template resolve<Product>();
   EXPECT_EQ(20, product.combined_value);
@@ -654,7 +653,7 @@ TEST_F(ContainerFactoryTest, factory_returns_unique_ptr) {
 
   auto factory = []() { return std::make_unique<Product>(); };
 
-  auto sut = Container{bind<Product>().via(factory)};
+  auto sut = Container{bind<Product>().as<Product>().via(factory)};
 
   auto unique = sut.template resolve<std::unique_ptr<Product>>();
   EXPECT_EQ(42, unique->value);
@@ -664,7 +663,7 @@ TEST_F(ContainerFactoryTest, factory_returns_unique_ptr) {
 // Interface/Implementation Binding Tests
 // ----------------------------------------------------------------------------
 
-struct ContainerInterfaceTest : Test {};
+struct ContainerInterfaceTest : ContainerTestBase {};
 
 TEST_F(ContainerInterfaceTest, binds_interface_to_implementation) {
   struct IService {
@@ -688,13 +687,9 @@ TEST_F(ContainerInterfaceTest, interface_binding_with_singleton_scope) {
     virtual int get_id() const = 0;
   };
 
-  struct ServiceImpl : IService {
-    static inline int instance_count = 0;
-    int id;
-    ServiceImpl() : id{instance_count++} {}
+  struct ServiceImpl : IService, Counted {
     int get_id() const override { return id; }
   };
-  ServiceImpl::instance_count = 0;
 
   auto sut =
       Container{bind<IService>().as<ServiceImpl>().in<scope::Singleton>()};
@@ -773,7 +768,7 @@ TEST_F(ContainerInterfaceTest, multiple_interfaces_to_implementations) {
 // Dependency Injection Tests
 // ----------------------------------------------------------------------------
 
-struct ContainerDependencyInjectionTest : Test {};
+struct ContainerDependencyInjectionTest : ContainerTestBase {};
 
 TEST_F(ContainerDependencyInjectionTest, resolves_single_dependency) {
   struct Dependency {
@@ -949,12 +944,7 @@ TEST_F(ContainerDependencyInjectionTest, mixed_dependency_types) {
 
 TEST_F(ContainerDependencyInjectionTest,
        singleton_dependency_shared_across_services) {
-  struct SharedDep {
-    static inline int instance_count = 0;
-    int id;
-    SharedDep() : id{instance_count++} {}
-  };
-  SharedDep::instance_count = 0;
+  struct SharedDep : Counted {};
 
   struct ServiceA {
     SharedDep* dep;
@@ -974,14 +964,14 @@ TEST_F(ContainerDependencyInjectionTest,
 
   EXPECT_EQ(serviceA.dep, serviceB.dep);  // Same instance
   EXPECT_EQ(0, serviceA.dep->id);
-  EXPECT_EQ(1, SharedDep::instance_count);  // Only one created
+  EXPECT_EQ(1, Counted::instance_count);  // Only one created
 }
 
 // ----------------------------------------------------------------------------
 // Canonical Type Resolution Tests
 // ----------------------------------------------------------------------------
 
-struct ContainerCanonicalTest : Test {};
+struct ContainerCanonicalTest : ContainerTestBase {};
 
 TEST_F(ContainerCanonicalTest, const_and_non_const_resolve_same_binding) {
   struct Bound {
@@ -997,12 +987,7 @@ TEST_F(ContainerCanonicalTest, const_and_non_const_resolve_same_binding) {
 }
 
 TEST_F(ContainerCanonicalTest, reference_and_value_resolve_same_binding) {
-  struct Bound {
-    static inline int instance_count = 0;
-    int id;
-    Bound() : id{instance_count++} {}
-  };
-  Bound::instance_count = 0;
+  struct Bound : Counted {};
 
   auto sut = Container{bind<Bound>().in<scope::Singleton>()};
 
@@ -1069,7 +1054,7 @@ TEST_F(ContainerCanonicalTest, rvalue_reference_resolves_same_binding) {
 // Edge Cases and Error Conditions
 // ----------------------------------------------------------------------------
 
-struct ContainerEdgeCasesTest : Test {};
+struct ContainerEdgeCasesTest : ContainerTestBase {};
 
 TEST_F(ContainerEdgeCasesTest, empty_container_resolves_unbound_types) {
   struct Unbound {
@@ -1203,7 +1188,7 @@ TEST_F(ContainerEdgeCasesTest, resolve_from_multiple_containers) {
 // Mixed Scopes Tests
 // ----------------------------------------------------------------------------
 
-struct ContainerMixedScopesTest : Test {};
+struct ContainerMixedScopesTest : ContainerTestBase {};
 
 TEST_F(ContainerMixedScopesTest, transient_and_singleton_coexist) {
   struct Transient {};
@@ -1259,7 +1244,7 @@ TEST_F(ContainerMixedScopesTest, all_scopes_coexist) {
 // Default Scope Tests
 // ----------------------------------------------------------------------------
 
-struct ContainerDefaultScopeTest : Test {};
+struct ContainerDefaultScopeTest : ContainerTestBase {};
 
 TEST_F(ContainerDefaultScopeTest, unbound_type_uses_default_scope) {
   struct SingletonBound {};
@@ -1287,12 +1272,7 @@ TEST_F(ContainerDefaultScopeTest, unbound_type_with_dependencies) {
 }
 
 TEST_F(ContainerDefaultScopeTest, unbound_type_caches_for_references) {
-  struct Unbound {
-    static inline int instance_count = 0;
-    int id;
-    Unbound() : id{instance_count++} {}
-  };
-  Unbound::instance_count = 0;
+  struct Unbound : Counted {};
 
   auto sut = Container{};
 
@@ -1301,16 +1281,11 @@ TEST_F(ContainerDefaultScopeTest, unbound_type_caches_for_references) {
 
   EXPECT_EQ(&ref1, &ref2);
   EXPECT_EQ(0, ref1.id);
-  EXPECT_EQ(1, Unbound::instance_count);
+  EXPECT_EQ(1, Counted::instance_count);
 }
 
 TEST_F(ContainerDefaultScopeTest, unbound_type_creates_values) {
-  struct Unbound {
-    static inline int instance_count = 0;
-    int id;
-    Unbound() : id{instance_count++} {}
-  };
-  Unbound::instance_count = 0;
+  struct Unbound : Counted {};
 
   auto sut = Container{};
 
