@@ -92,10 +92,6 @@ class Instance {
     } else if constexpr (std::is_pointer_v<Requested>) {
       // Pointer (mutable or const)
       return &instance;
-    } else if constexpr (SharedPtr<Requested> || WeakPtr<Requested>) {
-      // shared_ptr and weak_ptr - create with no-op deleter
-      using Element = typename std::remove_cvref_t<Requested>::element_type;
-      return std::shared_ptr<Element>(&instance, [](Element*) {});
     } else {
       static_assert(meta::kDependentFalse<Requested>,
                     "Instance scope: unsupported type conversion.");
