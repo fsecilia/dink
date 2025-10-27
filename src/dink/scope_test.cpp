@@ -17,8 +17,9 @@ struct ScopeTest : Test {
   };
 
   // returns given container
+  template <typename Constructed>
   struct Provider {
-    using Provided = Requested;
+    using Provided = Constructed;
     template <typename Requested>
     auto create(Container& container) noexcept
         -> std::remove_reference_t<Requested> {
@@ -33,7 +34,6 @@ struct ScopeTest : Test {
       }
     }
   };
-  Provider provider;
 };
 
 // ----------------------------------------------------------------------------
@@ -43,6 +43,9 @@ struct ScopeTest : Test {
 struct ScopeTestTransient : ScopeTest {
   using Sut = Transient;
   Sut sut{};
+
+  using Provider = Provider<Requested>;
+  Provider provider;
 };
 
 TEST_F(ScopeTestTransient, resolves_value) {
@@ -155,74 +158,118 @@ struct ScopeTestSingleton : ScopeTest {
 };
 
 TEST_F(ScopeTestSingleton, resolves_reference) {
-  const auto& result = sut.resolve<Requested&>(container, provider);
+  struct UniqueRequested : Requested {};
+  using UniqueProvider = Provider<UniqueRequested>;
+  auto provider = UniqueProvider{};
+
+  const auto& result = sut.resolve<UniqueRequested&>(container, provider);
   ASSERT_EQ(&container, result.container);
 }
 
 TEST_F(ScopeTestSingleton, resolves_reference_to_const) {
-  const auto& result = sut.resolve<const Requested&>(container, provider);
+  struct UniqueRequested : Requested {};
+  using UniqueProvider = Provider<UniqueRequested>;
+  auto provider = UniqueProvider{};
+
+  const auto& result = sut.resolve<const UniqueRequested&>(container, provider);
   ASSERT_EQ(&container, result.container);
 }
 
 TEST_F(ScopeTestSingleton, resolves_pointer) {
-  const auto* result = sut.resolve<Requested*>(container, provider);
+  struct UniqueRequested : Requested {};
+  using UniqueProvider = Provider<UniqueRequested>;
+  auto provider = UniqueProvider{};
+
+  const auto* result = sut.resolve<UniqueRequested*>(container, provider);
   ASSERT_EQ(&container, result->container);
 }
 
 TEST_F(ScopeTestSingleton, resolves_pointer_to_const) {
-  const auto* result = sut.resolve<const Requested*>(container, provider);
+  struct UniqueRequested : Requested {};
+  using UniqueProvider = Provider<UniqueRequested>;
+  auto provider = UniqueProvider{};
+
+  const auto* result = sut.resolve<const UniqueRequested*>(container, provider);
   ASSERT_EQ(&container, result->container);
 }
 
 TEST_F(ScopeTestSingleton, resolves_same_reference_per_provider) {
-  const auto& result1 = sut.resolve<Requested&>(container, provider);
-  const auto& result2 = sut.resolve<Requested&>(container, provider);
+  struct UniqueRequested : Requested {};
+  using UniqueProvider = Provider<UniqueRequested>;
+  auto provider = UniqueProvider{};
+
+  const auto& result1 = sut.resolve<UniqueRequested&>(container, provider);
+  const auto& result2 = sut.resolve<UniqueRequested&>(container, provider);
   ASSERT_EQ(&result1, &result2);
 }
 
 TEST_F(ScopeTestSingleton, resolves_same_reference_to_const_per_provider) {
-  const auto& result1 = sut.resolve<const Requested&>(container, provider);
-  const auto& result2 = sut.resolve<const Requested&>(container, provider);
+  struct UniqueRequested : Requested {};
+  using UniqueProvider = Provider<UniqueRequested>;
+  auto provider = UniqueProvider{};
+
+  const auto& result1 =
+      sut.resolve<const UniqueRequested&>(container, provider);
+  const auto& result2 =
+      sut.resolve<const UniqueRequested&>(container, provider);
   ASSERT_EQ(&result1, &result2);
 }
 
 TEST_F(ScopeTestSingleton, resolves_same_pointer_per_provider) {
-  const auto result1 = sut.resolve<Requested*>(container, provider);
-  const auto result2 = sut.resolve<Requested*>(container, provider);
+  struct UniqueRequested : Requested {};
+  using UniqueProvider = Provider<UniqueRequested>;
+  auto provider = UniqueProvider{};
+
+  const auto result1 = sut.resolve<UniqueRequested*>(container, provider);
+  const auto result2 = sut.resolve<UniqueRequested*>(container, provider);
   ASSERT_EQ(result1, result2);
 }
 
 TEST_F(ScopeTestSingleton, resolves_same_pointer_to_const_per_provider) {
-  const auto result1 = sut.resolve<const Requested*>(container, provider);
-  const auto result2 = sut.resolve<const Requested*>(container, provider);
+  struct UniqueRequested : Requested {};
+  using UniqueProvider = Provider<UniqueRequested>;
+  auto provider = UniqueProvider{};
+
+  const auto result1 = sut.resolve<const UniqueRequested*>(container, provider);
+  const auto result2 = sut.resolve<const UniqueRequested*>(container, provider);
   ASSERT_EQ(result1, result2);
 }
 
 TEST_F(ScopeTestSingleton, resolves_same_reference_to_const_and_non_const) {
-  auto& reference = sut.resolve<Requested&>(container, provider);
+  struct UniqueRequested : Requested {};
+  using UniqueProvider = Provider<UniqueRequested>;
+  auto provider = UniqueProvider{};
+
+  auto& reference = sut.resolve<UniqueRequested&>(container, provider);
   const auto& reference_to_const =
-      sut.resolve<const Requested&>(container, provider);
+      sut.resolve<const UniqueRequested&>(container, provider);
 
   EXPECT_EQ(&reference, &reference_to_const);
 }
 
 TEST_F(ScopeTestSingleton,
        resolves_different_references_for_different_providers) {
-  const auto& result = sut.resolve<Requested&>(container, provider);
+  struct UniqueRequested : Requested {};
+  using UniqueProvider = Provider<UniqueRequested>;
+  auto provider = UniqueProvider{};
 
-  struct OtherProvider : Provider {};
+  const auto& result = sut.resolve<UniqueRequested&>(container, provider);
+
+  struct OtherProvider : Provider<UniqueRequested> {};
   auto other_provider = OtherProvider{};
   auto other_sut = Singleton{};
   const auto& other_result =
-      other_sut.resolve<Requested&>(container, other_provider);
+      other_sut.resolve<UniqueRequested&>(container, other_provider);
 
   ASSERT_NE(&result, &other_result);
 }
 
 struct ScopeTestSingletonCounts : ScopeTest {
-  struct CountingProvider : Provider {
+  struct UniqueRequested : Requested {};
+
+  struct CountingProvider : Provider<UniqueRequested> {
     int_t& call_count;
-    using Provided = Requested;
+    using Provided = UniqueRequested;
 
     template <typename Requested>
     auto create(Container& container) noexcept -> Requested {
