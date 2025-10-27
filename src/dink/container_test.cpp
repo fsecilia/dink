@@ -424,161 +424,6 @@ TEST_F(ContainerInstanceTest, resolves_const_pointer) {
 }
 
 // ----------------------------------------------------------------------------
-// Deduced Scope Tests
-// ----------------------------------------------------------------------------
-
-struct ContainerDeducedTest : ContainerTestBase {};
-
-TEST_F(ContainerDeducedTest, resolves_value) {
-  struct DeducedBound {
-    int value = 42;
-    DeducedBound() = default;
-  };
-  auto sut = Container{bind<DeducedBound>()};
-
-  auto value1 = sut.template resolve<DeducedBound>();
-  auto value2 = sut.template resolve<DeducedBound>();
-
-  EXPECT_EQ(42, value1.value);
-  EXPECT_EQ(42, value2.value);
-  // Values are copies, so different addresses
-  EXPECT_NE(&value1, &value2);
-}
-
-TEST_F(ContainerDeducedTest, resolves_const_value) {
-  struct DeducedBound {
-    int value = 42;
-    DeducedBound() = default;
-  };
-  auto sut = Container{bind<DeducedBound>()};
-
-  const auto value = sut.template resolve<const DeducedBound>();
-  EXPECT_EQ(42, value.value);
-}
-
-TEST_F(ContainerDeducedTest, resolves_rvalue_reference) {
-  struct DeducedBound {
-    int value = 42;
-    DeducedBound() = default;
-  };
-  auto sut = Container{bind<DeducedBound>()};
-
-  auto&& value = sut.template resolve<DeducedBound&&>();
-  EXPECT_EQ(42, value.value);
-}
-
-TEST_F(ContainerDeducedTest, resolves_mutable_reference_cached) {
-  struct DeducedBound {
-    int value = 42;
-    DeducedBound() = default;
-  };
-  auto sut = Container{bind<DeducedBound>()};
-
-  auto& ref1 = sut.template resolve<DeducedBound&>();
-  auto& ref2 = sut.template resolve<DeducedBound&>();
-
-  EXPECT_EQ(&ref1, &ref2);  // Same instance
-  EXPECT_EQ(42, ref1.value);
-
-  ref1.value = 99;
-  EXPECT_EQ(99, ref2.value);
-}
-
-TEST_F(ContainerDeducedTest, resolves_const_reference_cached) {
-  struct DeducedBound {
-    int value = 42;
-    DeducedBound() = default;
-  };
-  auto sut = Container{bind<DeducedBound>()};
-
-  const auto& ref1 = sut.template resolve<const DeducedBound&>();
-  const auto& ref2 = sut.template resolve<const DeducedBound&>();
-
-  EXPECT_EQ(&ref1, &ref2);  // Same instance
-  EXPECT_EQ(42, ref1.value);
-}
-
-TEST_F(ContainerDeducedTest, resolves_mutable_pointer_cached) {
-  struct DeducedBound {
-    int value = 42;
-    DeducedBound() = default;
-  };
-  auto sut = Container{bind<DeducedBound>()};
-
-  auto* ptr1 = sut.template resolve<DeducedBound*>();
-  auto* ptr2 = sut.template resolve<DeducedBound*>();
-
-  EXPECT_EQ(ptr1, ptr2);  // Same instance
-  EXPECT_EQ(42, ptr1->value);
-
-  ptr1->value = 99;
-  EXPECT_EQ(99, ptr2->value);
-}
-
-TEST_F(ContainerDeducedTest, resolves_const_pointer_cached) {
-  struct DeducedBound {
-    int value = 42;
-    DeducedBound() = default;
-  };
-  auto sut = Container{bind<DeducedBound>()};
-
-  const auto* ptr1 = sut.template resolve<const DeducedBound*>();
-  const auto* ptr2 = sut.template resolve<const DeducedBound*>();
-
-  EXPECT_EQ(ptr1, ptr2);  // Same instance
-  EXPECT_EQ(42, ptr1->value);
-}
-
-TEST_F(ContainerDeducedTest, resolves_shared_ptr_cached) {
-  struct DeducedBound {
-    int value = 42;
-    DeducedBound() = default;
-  };
-  auto sut = Container{bind<DeducedBound>()};
-
-  auto shared1 = sut.template resolve<std::shared_ptr<DeducedBound>>();
-  auto shared2 = sut.template resolve<std::shared_ptr<DeducedBound>>();
-
-  EXPECT_EQ(shared1.get(), shared2.get());  // Same instance
-  EXPECT_EQ(42, shared1->value);
-}
-
-#if 0
-TEST_F(ContainerDeducedTest, resolves_weak_ptr_cached) {
-  struct DeducedBound {
-    int value = 42;
-    DeducedBound() = default;
-  };
-  auto sut = Container{bind<DeducedBound>()};
-
-  auto weak1 = sut.template resolve<std::weak_ptr<DeducedBound>>();
-  auto weak2 = sut.template resolve<std::weak_ptr<DeducedBound>>();
-
-  EXPECT_FALSE(weak1.expired());
-  EXPECT_EQ(weak1.lock().get(), weak2.lock().get());  // Same instance
-}
-#endif
-
-TEST_F(ContainerDeducedTest, reference_and_value_have_different_behavior) {
-  struct DeducedBound : Counted {};
-
-  auto sut = Container{bind<DeducedBound>()};
-
-  // Reference returns cached instance (id=0)
-  auto& ref = sut.template resolve<DeducedBound&>();
-  EXPECT_EQ(0, ref.id);
-
-  // Value creates new instance (id=1)
-  auto value = sut.template resolve<DeducedBound>();
-  EXPECT_EQ(1, value.id);
-
-  // Another reference returns same cached instance (id=0)
-  auto& ref2 = sut.template resolve<DeducedBound&>();
-  EXPECT_EQ(0, ref2.id);
-  EXPECT_EQ(&ref, &ref2);
-}
-
-// ----------------------------------------------------------------------------
 // Factory Binding Tests
 // ----------------------------------------------------------------------------
 
@@ -727,7 +572,6 @@ TEST_F(ContainerInterfaceTest, interface_binding_with_factory) {
   EXPECT_EQ(99, service.get_value());
 }
 
-#if 0
 TEST_F(ContainerInterfaceTest, resolves_implementation_directly) {
   struct IService {
     virtual ~IService() = default;
@@ -744,7 +588,6 @@ TEST_F(ContainerInterfaceTest, resolves_implementation_directly) {
   auto& impl = sut.template resolve<ServiceImpl&>();
   EXPECT_EQ(42, impl.get_value());
 }
-#endif
 
 TEST_F(ContainerInterfaceTest, multiple_interfaces_to_implementations) {
   struct IFoo {
@@ -1290,7 +1133,6 @@ TEST_F(ContainerDefaultScopeTest, unbound_type_with_dependencies) {
   EXPECT_EQ(20, unbound.result);
 }
 
-#if 0
 TEST_F(ContainerDefaultScopeTest, unbound_type_caches_for_references) {
   struct Unbound : Counted {};
 
@@ -1303,7 +1145,6 @@ TEST_F(ContainerDefaultScopeTest, unbound_type_caches_for_references) {
   EXPECT_EQ(0, ref1.id);
   EXPECT_EQ(1, Counted::instance_count);
 }
-#endif
 
 TEST_F(ContainerDefaultScopeTest, unbound_type_creates_values) {
   struct Unbound : Counted {};

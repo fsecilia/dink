@@ -40,76 +40,93 @@ class Container {
   template <typename Requested>
   auto resolve() -> remove_rvalue_ref_t<Requested> {
     using Canonical = Canonical<Requested>;
-    auto binding = config_.template find_binding<Canonical>();
-    using BindingPtr = decltype(binding);
-    constexpr auto found_binding = !std::is_same_v<BindingPtr, std::nullptr_t>;
 
-    if constexpr (found_binding) {
+    if constexpr (auto binding = config_.template find_binding<Canonical>();
+                  !std::is_same_v<decltype(binding), std::nullptr_t>) {
+      // found binding
+
       using Binding = std::remove_cvref_t<decltype(*binding)>;
-      constexpr bool scope_provides_references =
+      constexpr auto scope_provides_references =
           Binding::ScopeType::provides_references;
-      constexpr bool scope_supports_values = !scope_provides_references;
 
-      constexpr bool requested_is_lvalue_reference =
-          std::is_lvalue_reference_v<Requested>;
-      constexpr bool requested_is_pointer = std::is_pointer_v<Requested>;
-      constexpr bool requested_is_smart_ptr =
-          SharedPtr<Requested> || WeakPtr<Requested> || UniquePtr<Requested>;
-      constexpr bool requested_is_value =
-          !requested_is_lvalue_reference && !requested_is_pointer &&
-          !requested_is_smart_ptr && !std::is_rvalue_reference_v<Requested>;
-
-      // FIRST: Force unique_ptr to always use transient behavior
       if constexpr (UniquePtr<Requested>) {
-        // Extract provider from binding, wrap in Transient scope
+        // UniquePtr: Always force transient behavior
         auto transient = scope::Transient{};
         return transient.template resolve<Requested>(*this, binding->provider);
-      }
-      // Special case: shared_ptr/weak_ptr from reference-providing scope
-      // Create a canonical shared_ptr that wraps the singleton instance
-      else if constexpr ((SharedPtr<Requested> || WeakPtr<Requested>) &&
-                         scope_provides_references) {
-        return resolve_via_canonical_shared_ptr<Requested, Canonical>();
-      }
-      // Promotion: Scope can't provide references, but user wants them
-      else if constexpr (!scope_provides_references &&
-                         (requested_is_lvalue_reference ||
-                          requested_is_pointer)) {
-        // Use the bound provider with Singleton scope for caching
-        auto singleton = scope::Singleton{};
-        return singleton.template resolve<Requested>(*this, binding->provider);
-      }
-      // Relegation: Scope can't provide values, but user wants them
-      // Create fresh instance using bound provider (symmetric with promotion)
-      else if constexpr (!scope_supports_values && requested_is_value) {
-        auto transient = scope::Transient{};
-        return transient.template resolve<Requested>(*this, binding->provider);
-      }
-      // Normal case: delegate to bound scope with bound provider
-      else {
-        return binding->scope.template resolve<Requested>(*this,
-                                                          binding->provider);
+      } else if constexpr (SharedPtr<Requested> || WeakPtr<Requested>) {
+        // SharedPtr / WeakPtr
+        if constexpr (scope_provides_references) {
+          // Bound to a ref-scope (e.g., singleton). Wrap the ref.
+          return resolve_via_canonical_shared_ptr<Requested, Canonical>();
+        } else {
+          // Bound to a value-scope (e.g., transient). Let it resolve.
+          return binding->scope.template resolve<Requested>(*this,
+                                                            binding->provider);
+        }
+      } else if constexpr (std::is_lvalue_reference_v<Requested> ||
+                           std::is_pointer_v<Requested>) {
+        // LValue Ref / Pointer
+        if constexpr (scope_provides_references) {
+          // Bound to a ref-scope. Normal case.
+          return binding->scope.template resolve<Requested>(*this,
+                                                            binding->provider);
+        } else {
+          // "Promotion": Bound to a value-scope, but ref wanted.
+          // Promote to singleton to cache the value.
+          auto singleton = scope::Singleton{};
+          return singleton.template resolve<Requested>(*this,
+                                                       binding->provider);
+        }
+      } else {
+        // Value Types (and rvalue refs)
+        if constexpr (scope_provides_references) {
+          // "Relegation": Bound to a ref-scope, but value wanted.
+          // Create a fresh instance.
+          auto transient = scope::Transient{};
+          return transient.template resolve<Requested>(*this,
+                                                       binding->provider);
+        } else {
+          // Bound to a value-scope. Normal case.
+          return binding->scope.template resolve<Requested>(*this,
+                                                            binding->provider);
+        }
       }
     } else {
-      // Delegate to default scope.
-      return default_scope<Canonical>.template resolve<Requested>(
-          *this, default_provider<Canonical>);
+      // no binding found
+
+      if constexpr (UniquePtr<Requested>) {
+        // UniquePtr: Always transient
+        auto transient = scope::Transient{};
+        return transient.template resolve<Requested>(
+            *this, default_provider<Canonical>);
+      } else if constexpr (SharedPtr<Requested> || WeakPtr<Requested>) {
+        // SharedPtr / WeakPtr: Always cached
+        return resolve_via_canonical_shared_ptr<Requested, Canonical>();
+      } else if constexpr (std::is_lvalue_reference_v<Requested> ||
+                           std::is_pointer_v<Requested>) {
+        // LValue Ref / Pointer: Always cached
+        auto singleton = scope::Singleton{};
+        return singleton.template resolve<Requested>(
+            *this, default_provider<Canonical>);
+      } else {
+        // Value Types: Always transient
+        auto transient = scope::Transient{};
+        return transient.template resolve<Requested>(
+            *this, default_provider<Canonical>);
+      }
     }
   }
 
  private:
   Config config_{};
 
-  // Default scope is Transient (creates fresh instances)
-  template <typename Constructed>
-  inline static auto default_scope = scope::Transient{};
-
   // Default provider uses Ctor
   template <typename Constructed>
   inline static auto default_provider = provider::Ctor<Constructed>{};
 
   // Transitive provider for canonical shared_ptr caching
-  // This provider resolves the reference (using bound provider), then wraps it
+  // This provider resolves the reference indirectly using bound provider by
+  // calling back into the container to resolve the original type, then wraps it
   template <typename Constructed>
   struct TransitiveSingletonSharedPtrProvider {
     using Provided = std::shared_ptr<Constructed>;
