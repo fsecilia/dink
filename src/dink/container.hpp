@@ -80,11 +80,10 @@ class Container {
         return singleton.template resolve<Requested>(*this, binding->provider);
       }
       // Relegation: Scope can't provide values, but user wants them
+      // Create fresh instance using bound provider (symmetric with promotion)
       else if constexpr (!scope_supports_values && requested_is_value) {
-        // Get reference from the bound scope, then copy to create value
-        auto& ref = binding->scope.template resolve<Canonical&>(
-            *this, binding->provider);
-        return ref;  // Copy from cached reference
+        auto transient = scope::Transient{};
+        return transient.template resolve<Requested>(*this, binding->provider);
       }
       // Normal case: delegate to bound scope with bound provider
       else {
