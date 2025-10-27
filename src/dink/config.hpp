@@ -104,7 +104,7 @@ using ConfigFromTuple = typename FindConfigFromTuple<Tuple>::type;
 // - The scope (when to cache)
 // - The provider (how to construct)
 //
-// \tparam bindings_t pack of binding_t types
+// \tparam Bindings pack of binding_t types
 template <typename... Bindings>
 class Config {
  public:
