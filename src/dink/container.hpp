@@ -65,6 +65,8 @@ static constexpr auto determine_strategy() -> ResolutionStrategy {
 }
 
 //! Creates a default binding when none exists
+//
+// Note: CanonicalSharedPtr strategy never calls this function.
 template <typename Canonical, ResolutionStrategy strategy>
 static constexpr auto make_default_binding() {
   if constexpr (strategy == ResolutionStrategy::ForceSingleton) {
@@ -74,9 +76,9 @@ static constexpr auto make_default_binding() {
     return Binding<Canonical, scope::Transient, provider::Ctor<Canonical>>{
         scope::Transient{}, provider::Ctor<Canonical>{}};
   } else {
-    static_assert(strategy == ResolutionStrategy::ForceTransient ||
-                      strategy == ResolutionStrategy::ForceSingleton,
-                  "unexpected strategy");
+    static_assert(strategy == ResolutionStrategy::ForceSingleton ||
+                      strategy == ResolutionStrategy::ForceTransient,
+                  "make_default_binding called with unexpected strategy");
   }
 }
 
@@ -136,14 +138,16 @@ struct ForceScoped {
 };
 
 //! Executes by wrapping reference in canonical shared_ptr
+//
+// Note: This strategy doesn't use a binding - it creates a new transitive
+// provider that wraps a recursive resolution.
 template <typename Scope, typename ProviderFactory>
 struct CanonicalSharedPtr {
   [[no_unique_address]] Scope scope{};
   [[no_unique_address]] ProviderFactory provider_factory{};
 
-  template <typename Requested, typename Container, typename Binding>
-  auto execute(Container& container, [[maybe_unused]] Binding& binding) const
-      -> remove_rvalue_ref_t<Requested> {
+  template <typename Requested, typename Container>
+  auto execute(Container& container) const -> remove_rvalue_ref_t<Requested> {
     using Canonical = Canonical<Requested>;
     auto provider = provider_factory.template create<Canonical>();
     return scope.template resolve<Requested>(container, provider);
@@ -222,7 +226,14 @@ class BindingResolver {
                                      provides_references>();
 
       auto executor = executor_factory_.template create<strategy>();
-      return executor.template execute<Requested>(container, *binding_ptr);
+
+      if constexpr (strategy == ResolutionStrategy::CanonicalSharedPtr) {
+        // CanonicalSharedPtr doesn't use the binding
+        return executor.template execute<Requested>(container);
+      } else {
+        // All other strategies execute with the binding
+        return executor.template execute<Requested>(container, *binding_ptr);
+      }
     } else {
       // No binding - call provided handler, passing factory for executor
       // creation
@@ -253,11 +264,18 @@ class FlatDispatcher {
           constexpr auto strategy =
               detail::determine_strategy<Requested, false, false>();
 
-          auto default_binding =
-              detail::make_default_binding<Canonical, strategy>();
           auto executor = factory.template create<strategy>();
-          return executor.template execute<Requested>(container,
-                                                      default_binding);
+
+          if constexpr (strategy == ResolutionStrategy::CanonicalSharedPtr) {
+            // CanonicalSharedPtr doesn't need a binding
+            return executor.template execute<Requested>(container);
+          } else {
+            // Other strategies need a default binding
+            auto default_binding =
+                detail::make_default_binding<Canonical, strategy>();
+            return executor.template execute<Requested>(container,
+                                                        default_binding);
+          }
         });
   }
 };
@@ -271,7 +289,7 @@ class HierarchicalDispatcher {
   [[no_unique_address]] BindingResolver resolver_;
 
  public:
-  explicit HierarchicalDispatcher(BindingResolver resolver = {})
+  explicit HierarchicalDispatcher(BindingResolver resolver = BindingResolver{})
       : resolver_{std::move(resolver)} {}
 
   template <typename Requested, typename Container, typename Config>
