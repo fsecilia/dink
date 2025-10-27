@@ -139,19 +139,17 @@ class ViaBuilder {
 // ToBuilder - After .to(instance) - Terminal state
 // ----------------------------------------------------------------------------
 
-// Note: Instance binding requires a provider that holds the instance reference.
-// This will need provider::ExternalRef<InstanceType> or similar to be defined.
 template <typename From, typename InstanceType>
 class ToBuilder {
  public:
-  // Conversion using scope::Instance - requires provider type for external refs
-  // TODO: Define appropriate provider type for instance bindings
+  // Conversion using scope::Instance with provider::Instance
   constexpr operator Binding<From, scope::Instance<InstanceType>,
-                             scope::Instance<InstanceType>>() && {
+                             provider::Instance<InstanceType>>() && {
     return Binding<From, scope::Instance<InstanceType>,
-                   scope::Instance<InstanceType>>{
-        scope::Instance<InstanceType>{instance_},
-        scope::Instance<InstanceType>{instance_}};
+                   provider::Instance<InstanceType>>{
+        scope::Instance<InstanceType>{},  // Stateless scope
+        provider::Instance<InstanceType>{
+            instance_}};  // Provider holds reference
   }
 
   explicit constexpr ToBuilder(InstanceType& instance) noexcept
@@ -203,7 +201,7 @@ Binding(ViaBuilder<From, To, Factory>&&)
 template <typename From, typename InstanceType>
 Binding(ToBuilder<From, InstanceType>&&)
     -> Binding<From, scope::Instance<InstanceType>,
-               scope::Instance<InstanceType>>;
+               provider::Instance<InstanceType>>;
 
 // Deduction guide for InBuilder
 template <typename From, typename To, typename Provider, typename Scope>

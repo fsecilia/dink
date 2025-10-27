@@ -91,31 +91,33 @@ class Instance {
 
   //! Resolves instance in requested form.
   template <typename Requested, typename Container, typename Provider>
-  constexpr auto resolve(Container& /*container*/, Provider& /*provider*/)
+  constexpr auto resolve(Container& container, Provider& provider)
       -> Requested {
+    // Get reference to the external instance from provider
+    auto& instance =
+        provider.template create<typename Provider::Provided&>(container);
+
     if constexpr (std::is_lvalue_reference_v<Requested>) {
       // Lvalue reference (mutable or const)
-      return *instance_;
+      return instance;
     } else if constexpr (std::is_pointer_v<Requested>) {
       // Pointer (mutable or const)
-      return instance_;
+      return &instance;
     } else if constexpr (SharedPtr<Requested> || WeakPtr<Requested>) {
-      // shared_ptr and weak_ptr - create with no-op deleter.
+      // shared_ptr and weak_ptr - create with no-op deleter
       using Element = typename std::remove_cvref_t<Requested>::element_type;
-      return std::shared_ptr<Element>(instance_, [](Element*) {});
+      return std::shared_ptr<Element>(&instance, [](Element*) {});
+    } else if constexpr (std::is_same_v<std::remove_cvref_t<Requested>,
+                                        Resolved>) {
+      // Value copy (for relegation case)
+      return instance;
     } else {
       static_assert(meta::kDependentFalse<Requested>,
-                    "Instance scope: use references/pointers only. "
-                    "Relegation will handle value requests.");
+                    "Instance scope: unsupported type conversion.");
     }
   }
 
-  // Constructs an Instance scope referencing an external object.
-  explicit constexpr Instance(Resolved& instance) noexcept
-      : instance_{&instance} {}
-
- private:
-  Resolved* instance_;
+  constexpr Instance() noexcept = default;
 };
 
 }  // namespace dink::scope

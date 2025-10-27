@@ -125,7 +125,7 @@ static_assert([]() constexpr {
   Instance inst;
   return std::same_as<
       decltype(Binding{bind<IFoo>().to(inst)}),
-      Binding<IFoo, scope::Instance<Instance>, scope::Instance<Instance>>>;
+      Binding<IFoo, scope::Instance<Instance>, provider::Instance<Instance>>>;
 }());
 
 // ----------------------------------------------------------------------------
@@ -205,7 +205,7 @@ static_assert([]() constexpr {
 
   static_assert(std::same_as<std::tuple_element_t<6, Tuple>,
                              Binding<Instance, scope::Instance<Instance>,
-                                     scope::Instance<Instance>>>);
+                                     provider::Instance<Instance>>>);
 
   return true;
 }());
@@ -245,10 +245,10 @@ TEST_F(RuntimeTest, BindWithRuntimeFactory) {
 TEST_F(RuntimeTest, BindToInstanceReference) {
   Instance inst{99};
 
-  auto binding = Binding{bind<Instance>().to(inst)};
+  [[maybe_unused]] auto binding = Binding{bind<Instance>().to(inst)};
 
-  using Expected =
-      Binding<Instance, scope::Instance<Instance>, scope::Instance<Instance>>;
+  using Expected = Binding<Instance, scope::Instance<Instance>,
+                           provider::Instance<Instance>>;
   static_assert(std::same_as<decltype(binding), Expected>);
 }
 
@@ -257,7 +257,7 @@ TEST_F(RuntimeTest, HeterogeneousTuple) {
   auto runtime_factory = []() { return ConcreteFoo{}; };
 
   // Mix of constexpr and runtime bindings
-  auto bindings = make_bindings(
+  [[maybe_unused]] auto bindings = make_bindings(
       bind<IFoo>(), bind<IFoo>().as<ConcreteFoo>().via(runtime_factory),
       bind<Instance>().to(inst));
 

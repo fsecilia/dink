@@ -529,7 +529,6 @@ TEST_F(ContainerDeducedTest, resolves_const_pointer_cached) {
   EXPECT_EQ(42, ptr1->value);
 }
 
-#if 0
 TEST_F(ContainerDeducedTest, resolves_shared_ptr_cached) {
   struct DeducedBound {
     int value = 42;
@@ -544,6 +543,7 @@ TEST_F(ContainerDeducedTest, resolves_shared_ptr_cached) {
   EXPECT_EQ(42, shared1->value);
 }
 
+#if 0
 TEST_F(ContainerDeducedTest, resolves_weak_ptr_cached) {
   struct DeducedBound {
     int value = 42;
