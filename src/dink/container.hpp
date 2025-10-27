@@ -27,7 +27,7 @@ enum class ResolutionStrategy {
 };
 
 // ----------------------------------------------------------------------------
-// Detail Helpers (shared by all dispatchers)
+// Detail Helpers
 // ----------------------------------------------------------------------------
 
 namespace detail {
@@ -73,6 +73,10 @@ static constexpr auto make_default_binding() {
   } else if constexpr (strategy == ResolutionStrategy::ForceTransient) {
     return Binding<Canonical, scope::Transient, provider::Ctor<Canonical>>{
         scope::Transient{}, provider::Ctor<Canonical>{}};
+  } else {
+    static_assert(strategy == ResolutionStrategy::ForceTransient ||
+                      strategy == ResolutionStrategy::ForceSingleton,
+                  "unexpected strategy");
   }
 }
 
@@ -93,34 +97,136 @@ struct TransitiveSingletonSharedPtrProvider {
   }
 };
 
+//! Factory for creating TransitiveSingletonSharedPtrProvider instances
+struct TransitiveSingletonSharedPtrProviderFactory {
+  template <typename Canonical>
+  auto create() const -> TransitiveSingletonSharedPtrProvider<Canonical> {
+    return {};
+  }
+};
+
 }  // namespace detail
 
 // ----------------------------------------------------------------------------
-// Strategy Executor
+// Execution Implementations
 // ----------------------------------------------------------------------------
 
-//! Executes a resolution strategy with a binding
-template <ResolutionStrategy strategy>
-struct StrategyExecutor {
+namespace execution {
+
+//! Executes using binding's scope and provider directly
+struct Normal {
   template <typename Requested, typename Container, typename Binding>
-  static auto execute(Container& container, Binding& binding)
+  auto execute(Container& container, Binding& binding) const
       -> remove_rvalue_ref_t<Requested> {
-    if constexpr (strategy == ResolutionStrategy::Normal) {
-      return binding.scope.template resolve<Requested>(container,
-                                                       binding.provider);
-    } else if constexpr (strategy == ResolutionStrategy::ForceTransient) {
-      const auto transient = scope::Transient{};
-      return transient.template resolve<Requested>(container, binding.provider);
-    } else if constexpr (strategy == ResolutionStrategy::ForceSingleton) {
-      const auto singleton = scope::Singleton{};
-      return singleton.template resolve<Requested>(container, binding.provider);
-    } else if constexpr (strategy == ResolutionStrategy::CanonicalSharedPtr) {
-      // Resolve reference through container, wrap in shared_ptr
-      using Canonical = Canonical<Requested>;
-      using Provider = detail::TransitiveSingletonSharedPtrProvider<Canonical>;
-      auto provider = Provider{};
-      const auto singleton = scope::Singleton{};
-      return singleton.template resolve<Requested>(container, provider);
+    return binding.scope.template resolve<Requested>(container,
+                                                     binding.provider);
+  }
+};
+
+//! Executes by forcing a specific scope type
+template <typename Scope>
+struct ForceScoped {
+  [[no_unique_address]] Scope scope{};
+
+  template <typename Requested, typename Container, typename Binding>
+  auto execute(Container& container, Binding& binding) const
+      -> remove_rvalue_ref_t<Requested> {
+    return scope.template resolve<Requested>(container, binding.provider);
+  }
+};
+
+//! Executes by wrapping reference in canonical shared_ptr
+template <typename Scope, typename ProviderFactory>
+struct CanonicalSharedPtr {
+  [[no_unique_address]] Scope scope{};
+  [[no_unique_address]] ProviderFactory provider_factory{};
+
+  template <typename Requested, typename Container, typename Binding>
+  auto execute(Container& container, [[maybe_unused]] Binding& binding) const
+      -> remove_rvalue_ref_t<Requested> {
+    using Canonical = Canonical<Requested>;
+    auto provider = provider_factory.template create<Canonical>();
+    return scope.template resolve<Requested>(container, provider);
+  }
+};
+
+}  // namespace execution
+
+// ----------------------------------------------------------------------------
+// Strategy Executor - Selects execution implementation by strategy enum
+// ----------------------------------------------------------------------------
+
+template <ResolutionStrategy strategy>
+struct StrategyExecutor;
+
+template <>
+struct StrategyExecutor<ResolutionStrategy::Normal> : execution::Normal {};
+
+template <>
+struct StrategyExecutor<ResolutionStrategy::ForceTransient>
+    : execution::ForceScoped<scope::Transient> {};
+
+template <>
+struct StrategyExecutor<ResolutionStrategy::ForceSingleton>
+    : execution::ForceScoped<scope::Singleton> {};
+
+template <>
+struct StrategyExecutor<ResolutionStrategy::CanonicalSharedPtr>
+    : execution::CanonicalSharedPtr<
+          scope::Singleton,
+          detail::TransitiveSingletonSharedPtrProviderFactory> {};
+
+// ----------------------------------------------------------------------------
+// Strategy Executor Factory
+// ----------------------------------------------------------------------------
+
+template <template <ResolutionStrategy> typename StrategyExecutorTemplate>
+struct DefaultStrategyExecutorFactory {
+  template <ResolutionStrategy strategy>
+  auto create() const -> StrategyExecutorTemplate<strategy> {
+    return {};
+  }
+};
+
+// ----------------------------------------------------------------------------
+// Binding Resolver - Common binding lookup and execution logic
+// ----------------------------------------------------------------------------
+
+template <template <ResolutionStrategy> typename StrategyExecutorTemplate,
+          typename ExecutorFactory>
+class BindingResolver {
+  [[no_unique_address]] ExecutorFactory executor_factory_{};
+
+ public:
+  explicit BindingResolver(ExecutorFactory executor_factory = {})
+      : executor_factory_{std::move(executor_factory)} {}
+
+  template <typename Requested, typename Container, typename Config,
+            typename NotFoundHandler>
+  auto resolve(Container& container, Config& config,
+               NotFoundHandler&& not_found_handler)
+      -> remove_rvalue_ref_t<Requested> {
+    using Canonical = Canonical<Requested>;
+
+    auto binding_ptr = config.template find_binding<Canonical>();
+    constexpr bool has_binding =
+        !std::is_same_v<decltype(binding_ptr), std::nullptr_t>;
+
+    if constexpr (has_binding) {
+      // Found binding - execute with determined strategy
+      using Binding = std::remove_cvref_t<decltype(*binding_ptr)>;
+      constexpr bool provides_references =
+          Binding::ScopeType::provides_references;
+      constexpr auto strategy =
+          detail::determine_strategy<Requested, has_binding,
+                                     provides_references>();
+
+      auto executor = executor_factory_.template create<strategy>();
+      return executor.template execute<Requested>(container, *binding_ptr);
+    } else {
+      // No binding - call provided handler, passing factory for executor
+      // creation
+      return not_found_handler(executor_factory_);
     }
   }
 };
@@ -129,37 +235,30 @@ struct StrategyExecutor {
 // Flat Dispatcher (for root containers)
 // ----------------------------------------------------------------------------
 
-template <template <ResolutionStrategy> typename StrategyExecutorTemplate>
+template <typename BindingResolver>
 class FlatDispatcher {
+  [[no_unique_address]] BindingResolver resolver_;
+
  public:
+  explicit FlatDispatcher(BindingResolver resolver = BindingResolver{})
+      : resolver_{std::move(resolver)} {}
+
   template <typename Requested, typename Container, typename Config>
-  static auto resolve(Container& container, Config& config)
+  auto resolve(Container& container, Config& config)
       -> remove_rvalue_ref_t<Requested> {
-    using Canonical = Canonical<Requested>;
+    return resolver_.template resolve<Requested>(
+        container, config,
+        [&container](auto& factory) -> remove_rvalue_ref_t<Requested> {
+          using Canonical = Canonical<Requested>;
+          constexpr auto strategy =
+              detail::determine_strategy<Requested, false, false>();
 
-    auto binding_ptr = config.template find_binding<Canonical>();
-    constexpr bool has_binding =
-        !std::is_same_v<decltype(binding_ptr), std::nullptr_t>;
-
-    if constexpr (has_binding) {
-      using Binding = std::remove_cvref_t<decltype(*binding_ptr)>;
-      constexpr bool provides_references =
-          Binding::ScopeType::provides_references;
-      constexpr auto strategy =
-          detail::determine_strategy<Requested, has_binding,
-                                     provides_references>();
-
-      return StrategyExecutorTemplate<strategy>::template execute<Requested>(
-          container, *binding_ptr);
-    } else {
-      constexpr auto strategy =
-          detail::determine_strategy<Requested, has_binding, false>();
-
-      auto default_binding =
-          detail::make_default_binding<Canonical, strategy>();
-      return StrategyExecutorTemplate<strategy>::template execute<Requested>(
-          container, default_binding);
-    }
+          auto default_binding =
+              detail::make_default_binding<Canonical, strategy>();
+          auto executor = factory.template create<strategy>();
+          return executor.template execute<Requested>(container,
+                                                      default_binding);
+        });
   }
 };
 
@@ -167,35 +266,22 @@ class FlatDispatcher {
 // Hierarchical Dispatcher (for child containers)
 // ----------------------------------------------------------------------------
 
-template <template <ResolutionStrategy> typename StrategyExecutorTemplate,
-          typename ParentContainer>
+template <typename BindingResolver, typename ParentContainer>
 class HierarchicalDispatcher {
+  [[no_unique_address]] BindingResolver resolver_;
+
  public:
+  explicit HierarchicalDispatcher(BindingResolver resolver = {})
+      : resolver_{std::move(resolver)} {}
+
   template <typename Requested, typename Container, typename Config>
-  static auto resolve(Container& container, Config& config,
-                      ParentContainer& parent)
+  auto resolve(Container& container, Config& config, ParentContainer& parent)
       -> remove_rvalue_ref_t<Requested> {
-    using Canonical = Canonical<Requested>;
-
-    auto binding_ptr = config.template find_binding<Canonical>();
-    constexpr bool has_binding =
-        !std::is_same_v<decltype(binding_ptr), std::nullptr_t>;
-
-    if constexpr (has_binding) {
-      // Found locally - resolve here
-      using Binding = std::remove_cvref_t<decltype(*binding_ptr)>;
-      constexpr bool provides_references =
-          Binding::ScopeType::provides_references;
-      constexpr auto strategy =
-          detail::determine_strategy<Requested, has_binding,
-                                     provides_references>();
-
-      return StrategyExecutorTemplate<strategy>::template execute<Requested>(
-          container, *binding_ptr);
-    } else {
-      // Not found locally - delegate to parent
-      return parent.template resolve<Requested>();
-    }
+    return resolver_.template resolve<Requested>(
+        container, config, [&parent](auto&) -> remove_rvalue_ref_t<Requested> {
+          // Delegate to parent - don't need factory for this
+          return parent.template resolve<Requested>();
+        });
   }
 };
 
@@ -214,27 +300,23 @@ concept IsContainer = requires(Container& container) {
 // Container - Forward Declaration
 // ----------------------------------------------------------------------------
 
-template <IsConfig Config, typename Parent = void,
-          template <ResolutionStrategy> typename StrategyExecutorTemplate =
-              StrategyExecutor>
+template <IsConfig Config, typename Dispatcher, typename Parent = void>
 class Container;
 
 // ----------------------------------------------------------------------------
 // Container - Root Specialization (Parent = void)
 // ----------------------------------------------------------------------------
 
-template <IsConfig Config,
-          template <ResolutionStrategy> typename StrategyExecutorTemplate>
-class Container<Config, void, StrategyExecutorTemplate> {
- private:
-  using Dispatcher = FlatDispatcher<StrategyExecutorTemplate>;
+template <IsConfig Config, typename Dispatcher>
+class Container<Config, Dispatcher, void> {
   Config config_{};
+  [[no_unique_address]] Dispatcher dispatcher_{};
 
  public:
   //! Resolve a dependency
   template <typename Requested>
   auto resolve() -> remove_rvalue_ref_t<Requested> {
-    return Dispatcher::template resolve<Requested>(*this, config_);
+    return dispatcher_.template resolve<Requested>(*this, config_);
   }
 
   //! Construct from bindings
@@ -244,25 +326,27 @@ class Container<Config, void, StrategyExecutorTemplate> {
 
   //! Construct from config directly
   explicit Container(Config config) noexcept : config_{std::move(config)} {}
+
+  //! Construct from config and dispatcher (for testing)
+  explicit Container(Config config, Dispatcher dispatcher) noexcept
+      : config_{std::move(config)}, dispatcher_{std::move(dispatcher)} {}
 };
 
 // ----------------------------------------------------------------------------
 // Container - Child Specialization (Parent != void)
 // ----------------------------------------------------------------------------
 
-template <IsConfig Config, typename Parent,
-          template <ResolutionStrategy> typename StrategyExecutorTemplate>
+template <IsConfig Config, typename Dispatcher, typename Parent>
 class Container {
- private:
-  using Dispatcher = HierarchicalDispatcher<StrategyExecutorTemplate, Parent>;
   Config config_{};
   Parent* parent_;
+  [[no_unique_address]] Dispatcher dispatcher_{};
 
  public:
   //! Resolve a dependency
   template <typename Requested>
   auto resolve() -> remove_rvalue_ref_t<Requested> {
-    return Dispatcher::template resolve<Requested>(*this, config_, *parent_);
+    return dispatcher_.template resolve<Requested>(*this, config_, *parent_);
   }
 
   //! Construct from parent and bindings
@@ -274,33 +358,52 @@ class Container {
   //! Construct from parent and config directly
   explicit Container(Parent& parent, Config config) noexcept
       : config_{std::move(config)}, parent_{&parent} {}
+
+  //! Construct from parent, config, and dispatcher (for testing)
+  explicit Container(Parent& parent, Config config,
+                     Dispatcher dispatcher) noexcept
+      : config_{std::move(config)},
+        parent_{&parent},
+        dispatcher_{std::move(dispatcher)} {}
 };
 
 // ----------------------------------------------------------------------------
 // Deduction Guides
 // ----------------------------------------------------------------------------
 
+// Helper aliases for default pipeline components
+namespace detail {
+using DefaultExecutorFactory = DefaultStrategyExecutorFactory<StrategyExecutor>;
+using DefaultResolver =
+    BindingResolver<StrategyExecutor, DefaultExecutorFactory>;
+using DefaultFlatDispatcher = FlatDispatcher<DefaultResolver>;
+}  // namespace detail
+
 // Deduction guide - converts builders to Bindings, then deduces Config
 template <typename... Builders>
 Container(Builders&&...)
     -> Container<detail::ConfigFromTuple<
                      decltype(make_bindings(std::declval<Builders>()...))>,
-                 void, StrategyExecutor>;
+                 detail::DefaultFlatDispatcher, void>;
 
 // Deduction guide for Config directly (root container)
 template <IsConfig ConfigType>
-Container(ConfigType) -> Container<ConfigType, void, StrategyExecutor>;
+Container(ConfigType)
+    -> Container<ConfigType, detail::DefaultFlatDispatcher, void>;
 
 // Deduction guide for child container with parent and bindings
 template <IsContainer ParentContainer, typename... Builders>
-Container(ParentContainer&, Builders&&...)
-    -> Container<detail::ConfigFromTuple<
-                     decltype(make_bindings(std::declval<Builders>()...))>,
-                 ParentContainer, StrategyExecutor>;
+Container(ParentContainer&, Builders&&...) -> Container<
+    detail::ConfigFromTuple<
+        decltype(make_bindings(std::declval<Builders>()...))>,
+    HierarchicalDispatcher<detail::DefaultResolver, ParentContainer>,
+    ParentContainer>;
 
 // Deduction guide for child container with parent and config
 template <IsContainer ParentContainer, IsConfig ConfigType>
-Container(ParentContainer&, ConfigType)
-    -> Container<ConfigType, ParentContainer, StrategyExecutor>;
+Container(ParentContainer&, ConfigType) -> Container<
+    ConfigType,
+    HierarchicalDispatcher<detail::DefaultResolver, ParentContainer>,
+    ParentContainer>;
 
 }  // namespace dink
