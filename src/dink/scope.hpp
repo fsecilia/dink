@@ -18,9 +18,9 @@ namespace detail {
 
 //! Gets or creates cached instance.
 template <typename Container, typename Provider>
-auto cached_instance(Container& container, Provider& provider)
-    -> Provider::Provided& {
-  using Provided = Provider::Provided;
+auto cached_instance(Container& container, Provider& provider) ->
+    typename Provider::Provided& {
+  using Provided = typename Provider::Provided;
   static auto instance = provider.template create<Provided>(container);
   return instance;
 }
@@ -59,17 +59,23 @@ class Singleton {
   //! Resolves instance in requested form.
   template <typename Requested, typename Container, typename Provider>
   auto resolve(Container& container, Provider& provider) -> Requested {
-    // Order matters here; check for smart pointers first so references to them
-    // can be taken without taking the reference branch.
-    if constexpr (SharedPtr<Requested> || WeakPtr<Requested>) {
-      // shared_ptr/weak_ptr
-      return detail::cached_instance(container, provider);
-    } else if constexpr (std::is_lvalue_reference_v<Requested>) {
+    if constexpr (std::is_lvalue_reference_v<Requested>) {
       // lvalue references
       return detail::cached_instance(container, provider);
     } else if constexpr (std::is_pointer_v<Requested>) {
       // Pointers
       return &detail::cached_instance(container, provider);
+    } else if constexpr (SharedPtr<Requested> || WeakPtr<Requested>) {
+      // shared_ptr/weak_ptr - Cache shared_ptr<Provided> via static
+      // This handles the canonical shared_ptr case
+      using Provided = typename Provider::Provided;
+      static_assert(
+          std::same_as<
+              Provided,
+              std::shared_ptr<std::remove_cvref_t<
+                  typename std::pointer_traits<Requested>::element_type>>>,
+          "Singleton with smart pointer: Provider must provide shared_ptr");
+      return detail::cached_instance(container, provider);
     } else {
       static_assert(meta::kDependentFalse<Requested>,
                     "Singleton scope: unsupported type conversion.");
@@ -99,7 +105,8 @@ class Instance {
       return std::shared_ptr<Element>(instance_, [](Element*) {});
     } else {
       static_assert(meta::kDependentFalse<Requested>,
-                    "Instance scope: Unsupported type conversion.");
+                    "Instance scope: use references/pointers only. "
+                    "Relegation will handle value requests.");
     }
   }
 

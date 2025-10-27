@@ -66,10 +66,10 @@ class Container {
         return transient.template resolve<Requested>(*this, binding->provider);
       }
       // Special case: shared_ptr/weak_ptr from reference-providing scope
+      // Create a canonical shared_ptr that wraps the singleton instance
       else if constexpr ((SharedPtr<Requested> || WeakPtr<Requested>) &&
                          scope_provides_references) {
-        return resolve_via_transitive_shared_ptr_binding<Requested,
-                                                         Canonical>();
+        return resolve_via_canonical_shared_ptr<Requested, Canonical>();
       }
       // Promotion: Scope can't provide references, but user wants them
       else if constexpr (!scope_provides_references &&
@@ -81,7 +81,10 @@ class Container {
       }
       // Relegation: Scope can't provide values, but user wants them
       else if constexpr (!scope_supports_values && requested_is_value) {
-        return resolve_via_transitive_transient_binding<Requested, Canonical>();
+        // Get reference from the bound scope, then copy to create value
+        auto& ref = binding->scope.template resolve<Canonical&>(
+            *this, binding->provider);
+        return ref;  // Copy from cached reference
       }
       // Normal case: delegate to bound scope with bound provider
       else {
@@ -106,47 +109,28 @@ class Container {
   template <typename Constructed>
   inline static auto default_provider = provider::Ctor<Constructed>{};
 
-  // Transitive Singleton for promotion: wraps shared_ptr around reference
+  // Transitive provider for canonical shared_ptr caching
+  // This provider resolves the reference (using bound provider), then wraps it
   template <typename Constructed>
   struct TransitiveSingletonSharedPtrProvider {
     using Provided = std::shared_ptr<Constructed>;
 
     template <typename Requested, typename Container>
     auto create(Container& container) -> std::shared_ptr<Constructed> {
+      // Resolve reference using the bound provider (through Container)
       auto& ref = container.template resolve<Constructed&>();
+      // Wrap in shared_ptr with no-op deleter
       return std::shared_ptr<Constructed>{&ref, [](Constructed*) {}};
     }
   };
 
-  // Transitive Transient for relegation: creates value from Singleton
-  template <typename Canonical>
-  struct TransitiveTransientProvider {
-    using Provided = Canonical;
-
-    template <typename Requested, typename Container>
-    auto create(Container& container) -> Requested {
-      // Get reference from singleton, copy it to create value
-      auto& ref = container.template resolve<Canonical&>();
-      return ref;
-    }
-  };
-
+  // Helper to resolve shared_ptr/weak_ptr via canonical shared_ptr
   template <typename Requested, typename Canonical>
-  auto resolve_via_transitive_shared_ptr_binding()
-      -> remove_rvalue_ref_t<Requested> {
+  auto resolve_via_canonical_shared_ptr() -> remove_rvalue_ref_t<Requested> {
     using Provider = TransitiveSingletonSharedPtrProvider<Canonical>;
     auto provider = Provider{};
     auto singleton = scope::Singleton{};
     return singleton.template resolve<Requested>(*this, provider);
-  }
-
-  template <typename Requested, typename Canonical>
-  auto resolve_via_transitive_transient_binding()
-      -> remove_rvalue_ref_t<Requested> {
-    using Provider = TransitiveTransientProvider<Canonical>;
-    auto provider = Provider{};
-    auto transient = scope::Transient{};
-    return transient.template resolve<Requested>(*this, provider);
   }
 };
 
