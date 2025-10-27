@@ -64,6 +64,22 @@ static constexpr auto determine_strategy() -> ResolutionStrategy {
   }
 }
 
+//! Default policy for determining resolution strategy
+struct DefaultStrategyPolicy {
+  template <typename Requested, bool has_binding, bool provides_references>
+  static constexpr auto determine() -> ResolutionStrategy {
+    return determine_strategy<Requested, has_binding, provides_references>();
+  }
+};
+
+//! Default policy for looking up bindings in config
+struct DefaultBindingLookup {
+  template <typename Canonical, typename Config>
+  static auto find(Config& config) {
+    return config.template find_binding<Canonical>();
+  }
+};
+
 //! Creates a default binding when none exists
 //
 // Note: CanonicalSharedPtr strategy never calls this function.
@@ -197,13 +213,21 @@ struct DefaultStrategyExecutorFactory {
 // ----------------------------------------------------------------------------
 
 template <template <ResolutionStrategy> typename StrategyExecutorTemplate,
-          typename ExecutorFactory>
+          typename ExecutorFactory,
+          typename StrategyPolicy = detail::DefaultStrategyPolicy,
+          typename BindingLookup = detail::DefaultBindingLookup>
 class BindingResolver {
   [[no_unique_address]] ExecutorFactory executor_factory_{};
+  [[no_unique_address]] StrategyPolicy strategy_policy_{};
+  [[no_unique_address]] BindingLookup lookup_policy_{};
 
  public:
-  explicit BindingResolver(ExecutorFactory executor_factory = {})
-      : executor_factory_{std::move(executor_factory)} {}
+  explicit BindingResolver(ExecutorFactory executor_factory = {},
+                           StrategyPolicy strategy_policy = {},
+                           BindingLookup lookup_policy = {})
+      : executor_factory_{std::move(executor_factory)},
+        strategy_policy_{std::move(strategy_policy)},
+        lookup_policy_{std::move(lookup_policy)} {}
 
   template <typename Requested, typename Container, typename Config,
             typename NotFoundHandler>
@@ -212,7 +236,7 @@ class BindingResolver {
       -> remove_rvalue_ref_t<Requested> {
     using Canonical = Canonical<Requested>;
 
-    auto binding_ptr = config.template find_binding<Canonical>();
+    auto binding_ptr = lookup_policy_.template find<Canonical>(config);
     constexpr bool has_binding =
         !std::is_same_v<decltype(binding_ptr), std::nullptr_t>;
 
@@ -222,8 +246,8 @@ class BindingResolver {
       constexpr bool provides_references =
           Binding::ScopeType::provides_references;
       constexpr auto strategy =
-          detail::determine_strategy<Requested, has_binding,
-                                     provides_references>();
+          StrategyPolicy::template determine<Requested, has_binding,
+                                             provides_references>();
 
       auto executor = executor_factory_.template create<strategy>();
 
@@ -261,8 +285,10 @@ class FlatDispatcher {
         container, config,
         [&container](auto& factory) -> remove_rvalue_ref_t<Requested> {
           using Canonical = Canonical<Requested>;
+          // Use the strategy policy that's part of the factory's resolver
           constexpr auto strategy =
-              detail::determine_strategy<Requested, false, false>();
+              detail::DefaultStrategyPolicy::template determine<Requested,
+                                                                false, false>();
 
           auto executor = factory.template create<strategy>();
 
@@ -393,7 +419,8 @@ class Container {
 namespace detail {
 using DefaultExecutorFactory = DefaultStrategyExecutorFactory<StrategyExecutor>;
 using DefaultResolver =
-    BindingResolver<StrategyExecutor, DefaultExecutorFactory>;
+    BindingResolver<StrategyExecutor, DefaultExecutorFactory,
+                    DefaultStrategyPolicy, DefaultBindingLookup>;
 using DefaultFlatDispatcher = FlatDispatcher<DefaultResolver>;
 }  // namespace detail
 
