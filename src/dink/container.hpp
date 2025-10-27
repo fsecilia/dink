@@ -94,12 +94,7 @@ class Container {
     } else {
       // no binding found
 
-      if constexpr (UniquePtr<Requested>) {
-        // UniquePtr: Always transient
-        const auto transient = scope::Transient{};
-        return transient.template resolve<Requested>(
-            *this, default_provider<Canonical>);
-      } else if constexpr (SharedPtr<Requested> || WeakPtr<Requested>) {
+      if constexpr (SharedPtr<Requested> || WeakPtr<Requested>) {
         // SharedPtr / WeakPtr: Always cached
         return resolve_via_canonical_shared_ptr<Requested, Canonical>();
       } else if constexpr (std::is_lvalue_reference_v<Requested> ||
