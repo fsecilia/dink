@@ -51,7 +51,7 @@ class Container {
 
       if constexpr (UniquePtr<Requested>) {
         // UniquePtr: Always force transient behavior
-        auto transient = scope::Transient{};
+        const auto transient = scope::Transient{};
         return transient.template resolve<Requested>(*this, binding->provider);
       } else if constexpr (SharedPtr<Requested> || WeakPtr<Requested>) {
         // SharedPtr / WeakPtr
@@ -73,7 +73,7 @@ class Container {
         } else {
           // "Promotion": Bound to a value-scope, but ref wanted.
           // Promote to singleton to cache the value.
-          auto singleton = scope::Singleton{};
+          const auto singleton = scope::Singleton{};
           return singleton.template resolve<Requested>(*this,
                                                        binding->provider);
         }
@@ -82,7 +82,7 @@ class Container {
         if constexpr (scope_provides_references) {
           // "Relegation": Bound to a ref-scope, but value wanted.
           // Create a fresh instance.
-          auto transient = scope::Transient{};
+          const auto transient = scope::Transient{};
           return transient.template resolve<Requested>(*this,
                                                        binding->provider);
         } else {
@@ -96,7 +96,7 @@ class Container {
 
       if constexpr (UniquePtr<Requested>) {
         // UniquePtr: Always transient
-        auto transient = scope::Transient{};
+        const auto transient = scope::Transient{};
         return transient.template resolve<Requested>(
             *this, default_provider<Canonical>);
       } else if constexpr (SharedPtr<Requested> || WeakPtr<Requested>) {
@@ -105,12 +105,12 @@ class Container {
       } else if constexpr (std::is_lvalue_reference_v<Requested> ||
                            std::is_pointer_v<Requested>) {
         // LValue Ref / Pointer: Always cached
-        auto singleton = scope::Singleton{};
+        const auto singleton = scope::Singleton{};
         return singleton.template resolve<Requested>(
             *this, default_provider<Canonical>);
       } else {
         // Value Types: Always transient
-        auto transient = scope::Transient{};
+        const auto transient = scope::Transient{};
         return transient.template resolve<Requested>(
             *this, default_provider<Canonical>);
       }
@@ -145,7 +145,7 @@ class Container {
   auto resolve_via_canonical_shared_ptr() -> remove_rvalue_ref_t<Requested> {
     using Provider = TransitiveSingletonSharedPtrProvider<Canonical>;
     auto provider = Provider{};
-    auto singleton = scope::Singleton{};
+    const auto singleton = scope::Singleton{};
     return singleton.template resolve<Requested>(*this, provider);
   }
 };

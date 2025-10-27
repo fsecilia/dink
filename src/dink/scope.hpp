@@ -34,7 +34,7 @@ class Transient {
 
   //! Resolves instance in requested form.
   template <typename Requested, typename Container, typename Provider>
-  auto resolve(Container& container, Provider& provider)
+  auto resolve(Container& container, Provider& provider) const
       -> remove_rvalue_ref_t<Requested> {
     using Provided = typename Provider::Provided;
 
@@ -58,7 +58,7 @@ class Singleton {
 
   //! Resolves instance in requested form.
   template <typename Requested, typename Container, typename Provider>
-  auto resolve(Container& container, Provider& provider) -> Requested {
+  auto resolve(Container& container, Provider& provider) const -> Requested {
     if constexpr (std::is_lvalue_reference_v<Requested>) {
       // lvalue references
       return detail::cached_instance(container, provider);
@@ -91,7 +91,7 @@ class Instance {
 
   //! Resolves instance in requested form.
   template <typename Requested, typename Container, typename Provider>
-  constexpr auto resolve(Container& container, Provider& provider)
+  constexpr auto resolve(Container& container, Provider& provider) const
       -> Requested {
     // Get reference to the external instance from provider
     auto& instance =
@@ -116,8 +116,6 @@ class Instance {
                     "Instance scope: unsupported type conversion.");
     }
   }
-
-  constexpr Instance() noexcept = default;
 };
 
 }  // namespace dink::scope
