@@ -188,7 +188,7 @@ struct DefaultStrategyPolicy {
   }
 
   explicit constexpr DefaultStrategyPolicy(
-      ExecutorFactory executor_factory = {})
+      ExecutorFactory executor_factory = ExecutorFactory{})
       : executor_factory_{std::move(executor_factory)} {}
 
  private:
@@ -229,25 +229,28 @@ struct DefaultStrategyPolicy {
 };
 
 // ----------------------------------------------------------------------------
-// Binding Locator - Common binding lookup and execution logic
+// Binding Locator - Locates bindings and executes resolution
 // ----------------------------------------------------------------------------
 
 template <typename StrategyPolicy = DefaultStrategyPolicy<>,
-          typename BindingLookup = detail::DefaultBindingLookup>
+          typename BindingLookup = detail::DefaultBindingLookup,
+          typename BindingFactory = detail::DefaultBindingFactory>
 class BindingLocator {
   [[no_unique_address]] StrategyPolicy strategy_policy_{};
   [[no_unique_address]] BindingLookup lookup_policy_{};
+  [[no_unique_address]] BindingFactory binding_factory_{};
 
  public:
   explicit BindingLocator(StrategyPolicy strategy_policy = StrategyPolicy{},
-                          BindingLookup lookup_policy = {})
+                          BindingLookup lookup_policy = {},
+                          BindingFactory binding_factory = {})
       : strategy_policy_{std::move(strategy_policy)},
-        lookup_policy_{std::move(lookup_policy)} {}
+        lookup_policy_{std::move(lookup_policy)},
+        binding_factory_{std::move(binding_factory)} {}
 
-  template <typename Requested, typename Container, typename Config,
-            typename NotFoundHandler>
-  auto resolve(Container& container, Config& config,
-               NotFoundHandler&& not_found_handler)
+  //! Resolves with found or default binding (for flat containers)
+  template <typename Requested, typename Container, typename Config>
+  auto resolve(Container& container, Config& config)
       -> remove_rvalue_ref_t<Requested> {
     using Canonical = Canonical<Requested>;
 
@@ -256,32 +259,102 @@ class BindingLocator {
         !std::is_same_v<decltype(binding_ptr), std::nullptr_t>;
 
     if constexpr (has_binding) {
-      // Found binding - execute with determined strategy
+      // Found binding - execute with it
       using Binding = std::remove_cvref_t<decltype(*binding_ptr)>;
       constexpr bool provides_references =
           Binding::ScopeType::provides_references;
 
-      auto executor =
-          strategy_policy_.template create_executor<Requested, has_binding,
-                                                    provides_references>();
-
-      // Check executor type to determine execution path
-      using ExecutorType = decltype(executor);
-      using CanonicalSharedPtrType = execution::CanonicalSharedPtr<
-          scope::Singleton,
-          detail::TransitiveSingletonSharedPtrProviderFactory>;
-
-      if constexpr (std::is_base_of_v<CanonicalSharedPtrType, ExecutorType> ||
-                    std::is_same_v<CanonicalSharedPtrType, ExecutorType>) {
-        // CanonicalSharedPtr doesn't use the binding
-        return executor.template execute<Requested>(container);
-      } else {
-        // All other strategies execute with the binding
-        return executor.template execute<Requested>(container, *binding_ptr);
-      }
+      return execute_with_binding<Requested, has_binding, provides_references>(
+          container, *binding_ptr);
     } else {
-      // No binding - call provided handler, passing strategy policy
-      return not_found_handler(strategy_policy_);
+      // No binding - create default and execute
+      return execute_with_default_binding<Requested>(container);
+    }
+  }
+
+  //! Resolves with found binding or delegates via handler (for hierarchical)
+  template <typename Requested, typename Container, typename Config,
+            typename NotFoundHandler>
+  auto resolve_or_delegate(Container& container, Config& config,
+                           NotFoundHandler&& not_found_handler)
+      -> remove_rvalue_ref_t<Requested> {
+    using Canonical = Canonical<Requested>;
+
+    auto binding_ptr = lookup_policy_.template find<Canonical>(config);
+    constexpr bool has_binding =
+        !std::is_same_v<decltype(binding_ptr), std::nullptr_t>;
+
+    if constexpr (has_binding) {
+      // Found binding - execute with it
+      using Binding = std::remove_cvref_t<decltype(*binding_ptr)>;
+      constexpr bool provides_references =
+          Binding::ScopeType::provides_references;
+
+      return execute_with_binding<Requested, has_binding, provides_references>(
+          container, *binding_ptr);
+    } else {
+      // No binding - delegate to handler (typically parent container)
+      return not_found_handler();
+    }
+  }
+
+ private:
+  //! Executes resolution with a specific binding
+  template <typename Requested, bool has_binding,
+            bool scope_provides_references, typename Container,
+            typename Binding>
+  auto execute_with_binding(Container& container, Binding& binding)
+      -> remove_rvalue_ref_t<Requested> {
+    auto executor =
+        strategy_policy_.template create_executor<Requested, has_binding,
+                                                  scope_provides_references>();
+
+    // Check executor type to determine execution path
+    using ExecutorType = decltype(executor);
+    using CanonicalSharedPtrType = execution::CanonicalSharedPtr<
+        scope::Singleton, detail::TransitiveSingletonSharedPtrProviderFactory>;
+
+    if constexpr (std::is_base_of_v<CanonicalSharedPtrType, ExecutorType> ||
+                  std::is_same_v<CanonicalSharedPtrType, ExecutorType>) {
+      // CanonicalSharedPtr doesn't use the binding
+      return executor.template execute<Requested>(container);
+    } else {
+      // All other strategies execute with the binding
+      return executor.template execute<Requested>(container, binding);
+    }
+  }
+
+  //! Executes resolution with a default binding
+  template <typename Requested, typename Container>
+  auto execute_with_default_binding(Container& container)
+      -> remove_rvalue_ref_t<Requested> {
+    using Canonical = Canonical<Requested>;
+
+    auto executor =
+        strategy_policy_.template create_executor<Requested, false, false>();
+
+    // Check executor type to determine execution path
+    using ExecutorType = decltype(executor);
+    using CanonicalSharedPtrType = execution::CanonicalSharedPtr<
+        scope::Singleton, detail::TransitiveSingletonSharedPtrProviderFactory>;
+    using SingletonType = execution::ForceScoped<scope::Singleton>;
+
+    if constexpr (std::is_base_of_v<CanonicalSharedPtrType, ExecutorType> ||
+                  std::is_same_v<CanonicalSharedPtrType, ExecutorType>) {
+      // CanonicalSharedPtr doesn't need a binding
+      return executor.template execute<Requested>(container);
+    } else {
+      // Other strategies need a default binding
+      // Determine which strategy to use for binding creation
+      constexpr auto binding_strategy =
+          (std::is_base_of_v<SingletonType, ExecutorType> ||
+           std::is_same_v<SingletonType, ExecutorType>)
+              ? ResolutionStrategy::PromoteToSingleton
+              : ResolutionStrategy::RelegateToTransient;
+
+      auto default_binding =
+          binding_factory_.template create<Canonical, binding_strategy>();
+      return executor.template execute<Requested>(container, default_binding);
     }
   }
 };
@@ -290,57 +363,18 @@ class BindingLocator {
 // Flat Dispatcher (for root containers)
 // ----------------------------------------------------------------------------
 
-template <typename BindingLocator,
-          typename BindingFactory = detail::DefaultBindingFactory>
+template <typename BindingLocator>
 class FlatDispatcher {
   [[no_unique_address]] BindingLocator binding_locator_;
-  [[no_unique_address]] BindingFactory binding_factory_;
 
  public:
-  explicit FlatDispatcher(BindingLocator binding_locator = BindingLocator{},
-                          BindingFactory binding_factory = BindingFactory{})
-      : binding_locator_{std::move(binding_locator)},
-        binding_factory_{std::move(binding_factory)} {}
+  explicit FlatDispatcher(BindingLocator binding_locator = BindingLocator{})
+      : binding_locator_{std::move(binding_locator)} {}
 
   template <typename Requested, typename Container, typename Config>
   auto resolve(Container& container, Config& config)
       -> remove_rvalue_ref_t<Requested> {
-    return binding_locator_.template resolve<Requested>(
-        container, config,
-        [&](auto& strategy_policy) -> remove_rvalue_ref_t<Requested> {
-          using Canonical = Canonical<Requested>;
-
-          auto executor =
-              strategy_policy
-                  .template create_executor<Requested, false, false>();
-
-          // Check executor type to determine execution path
-          using ExecutorType = decltype(executor);
-          using CanonicalSharedPtrType = execution::CanonicalSharedPtr<
-              scope::Singleton,
-              detail::TransitiveSingletonSharedPtrProviderFactory>;
-          using SingletonType = execution::ForceScoped<scope::Singleton>;
-
-          if constexpr (std::is_base_of_v<CanonicalSharedPtrType,
-                                          ExecutorType> ||
-                        std::is_same_v<CanonicalSharedPtrType, ExecutorType>) {
-            // CanonicalSharedPtr doesn't need a binding
-            return executor.template execute<Requested>(container);
-          } else {
-            // Other strategies need a default binding
-            // Determine which strategy to use for binding creation
-            constexpr auto binding_strategy =
-                (std::is_base_of_v<SingletonType, ExecutorType> ||
-                 std::is_same_v<SingletonType, ExecutorType>)
-                    ? ResolutionStrategy::PromoteToSingleton
-                    : ResolutionStrategy::RelegateToTransient;
-
-            auto default_binding =
-                binding_factory_.template create<Canonical, binding_strategy>();
-            return executor.template execute<Requested>(container,
-                                                        default_binding);
-          }
-        });
+    return binding_locator_.template resolve<Requested>(container, config);
   }
 };
 
@@ -360,10 +394,9 @@ class HierarchicalDispatcher {
   template <typename Requested, typename Container, typename Config>
   auto resolve(Container& container, Config& config, ParentContainer& parent)
       -> remove_rvalue_ref_t<Requested> {
-    return binding_locator_.template resolve<Requested>(
-        container, config,
-        [&parent](auto& /*strategy_policy*/) -> remove_rvalue_ref_t<Requested> {
-          // Delegate to parent - don't need strategy_policy for this
+    return binding_locator_.template resolve_or_delegate<Requested>(
+        container, config, [&parent]() -> remove_rvalue_ref_t<Requested> {
+          // Delegate to parent
           return parent.template resolve<Requested>();
         });
   }
@@ -458,9 +491,9 @@ class Container {
 // Helper aliases for default pipeline components
 namespace detail {
 using DefaultBindingLocator =
-    BindingLocator<DefaultStrategyPolicy<>, DefaultBindingLookup>;
-using DefaultFlatDispatcher =
-    FlatDispatcher<DefaultBindingLocator, DefaultBindingFactory>;
+    BindingLocator<DefaultStrategyPolicy<>, DefaultBindingLookup,
+                   DefaultBindingFactory>;
+using DefaultFlatDispatcher = FlatDispatcher<DefaultBindingLocator>;
 }  // namespace detail
 
 // Deduction guide - converts builders to Bindings, then deduces Config
