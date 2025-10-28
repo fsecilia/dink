@@ -41,20 +41,14 @@ struct BindingLookup {
 };
 
 //! Default policy for creating default bindings when none exist in config
+//
+// The binding's scope doesn't matter since executors either override it
+// (OverrideScope) or ignore it entirely (CacheSharedPtr).
 struct BindingFactory {
-  template <typename Canonical, ResolutionStrategy strategy>
+  template <typename Canonical>
   constexpr auto create() const {
-    if constexpr (strategy == ResolutionStrategy::PromoteToSingleton) {
-      return Binding<Canonical, scope::Singleton, provider::Ctor<Canonical>>{
-          scope::Singleton{}, provider::Ctor<Canonical>{}};
-    } else if constexpr (strategy == ResolutionStrategy::RelegateToTransient) {
-      return Binding<Canonical, scope::Transient, provider::Ctor<Canonical>>{
-          scope::Transient{}, provider::Ctor<Canonical>{}};
-    } else {
-      static_assert(strategy == ResolutionStrategy::PromoteToSingleton ||
-                        strategy == ResolutionStrategy::RelegateToTransient,
-                    "create called with unexpected strategy");
-    }
+    return Binding<Canonical, scope::Transient, provider::Ctor<Canonical>>{
+        scope::Transient{}, provider::Ctor<Canonical>{}};
   }
 };
 
@@ -228,13 +222,13 @@ struct StrategyPolicy {
 };
 
 // ----------------------------------------------------------------------------
-// Resolution Engine - Executes dependency resolution
+// Dispatcher - Dispatches resolution requests to appropriate executors
 // ----------------------------------------------------------------------------
 
 template <typename StrategyPolicy = StrategyPolicy<>,
           typename BindingLookup = detail::BindingLookup,
           typename BindingFactory = detail::BindingFactory>
-class ResolutionEngine {
+class Dispatcher {
   [[no_unique_address]] StrategyPolicy strategy_policy_{};
   [[no_unique_address]] BindingLookup lookup_policy_{};
   [[no_unique_address]] BindingFactory binding_factory_{};
@@ -245,9 +239,9 @@ class ResolutionEngine {
   friend class Container;
 
  public:
-  explicit ResolutionEngine(StrategyPolicy strategy_policy = StrategyPolicy{},
-                            BindingLookup lookup_policy = {},
-                            BindingFactory binding_factory = {})
+  explicit Dispatcher(StrategyPolicy strategy_policy = StrategyPolicy{},
+                      BindingLookup lookup_policy = {},
+                      BindingFactory binding_factory = {})
       : strategy_policy_{std::move(strategy_policy)},
         lookup_policy_{std::move(lookup_policy)},
         binding_factory_{std::move(binding_factory)} {}
@@ -300,19 +294,8 @@ class ResolutionEngine {
 
     auto executor =
         strategy_policy_.template create_executor<Requested, false, false>();
+    auto default_binding = binding_factory_.template create<Canonical>();
 
-    // Determine binding strategy based on executor type
-    using ExecutorType = decltype(executor);
-    using SingletonType = execution::OverrideScope<scope::Singleton>;
-
-    constexpr auto binding_strategy =
-        (std::is_base_of_v<SingletonType, ExecutorType> ||
-         std::is_same_v<SingletonType, ExecutorType>)
-            ? ResolutionStrategy::PromoteToSingleton
-            : ResolutionStrategy::RelegateToTransient;
-
-    auto default_binding =
-        binding_factory_.template create<Canonical, binding_strategy>();
     return executor.template execute<Requested>(container, default_binding);
   }
 };
@@ -332,27 +315,26 @@ concept IsContainer = requires(Container& container) {
 // Container - Forward Declaration
 // ----------------------------------------------------------------------------
 
-template <IsConfig Config, typename ResolutionEngine, typename Parent = void>
+template <IsConfig Config, typename Dispatcher, typename Parent = void>
 class Container;
 
 // ----------------------------------------------------------------------------
 // Container - Root Specialization (Parent = void)
 // ----------------------------------------------------------------------------
 
-template <IsConfig Config, typename ResolutionEngine>
-class Container<Config, ResolutionEngine, void> {
+template <IsConfig Config, typename Dispatcher>
+class Container<Config, Dispatcher, void> {
   Config config_{};
-  [[no_unique_address]] ResolutionEngine resolution_engine_{};
+  [[no_unique_address]] Dispatcher dispatcher_{};
 
  public:
   //! Resolve a dependency
   template <typename Requested>
   auto resolve() -> remove_rvalue_ref_t<Requested> {
-    return resolution_engine_.template resolve<Requested>(
+    return dispatcher_.template resolve<Requested>(
         *this, config_,
         [this]<typename R = Requested>() -> remove_rvalue_ref_t<R> {
-          return resolution_engine_.template execute_with_default_binding<R>(
-              *this);
+          return dispatcher_.template execute_with_default_binding<R>(*this);
         });
   }
 
@@ -364,27 +346,26 @@ class Container<Config, ResolutionEngine, void> {
   //! Construct from config directly
   explicit Container(Config config) noexcept : config_{std::move(config)} {}
 
-  //! Construct from config and resolution_engine (for testing)
-  explicit Container(Config config, ResolutionEngine resolution_engine) noexcept
-      : config_{std::move(config)},
-        resolution_engine_{std::move(resolution_engine)} {}
+  //! Construct from config and dispatcher (for testing)
+  explicit Container(Config config, Dispatcher dispatcher) noexcept
+      : config_{std::move(config)}, dispatcher_{std::move(dispatcher)} {}
 };
 
 // ----------------------------------------------------------------------------
 // Container - Child Specialization (Parent != void)
 // ----------------------------------------------------------------------------
 
-template <IsConfig Config, typename ResolutionEngine, typename Parent>
+template <IsConfig Config, typename Dispatcher, typename Parent>
 class Container {
   Config config_{};
   Parent* parent_;
-  [[no_unique_address]] ResolutionEngine resolution_engine_{};
+  [[no_unique_address]] Dispatcher dispatcher_{};
 
  public:
   //! Resolve a dependency
   template <typename Requested>
   auto resolve() -> remove_rvalue_ref_t<Requested> {
-    return resolution_engine_.template resolve<Requested>(
+    return dispatcher_.template resolve<Requested>(
         *this, config_, [this]() -> remove_rvalue_ref_t<Requested> {
           return parent_->template resolve<Requested>();
         });
@@ -400,12 +381,12 @@ class Container {
   explicit Container(Parent& parent, Config config) noexcept
       : config_{std::move(config)}, parent_{&parent} {}
 
-  //! Construct from parent, config, and resolution_engine (for testing)
+  //! Construct from parent, config, and dispatcher (for testing)
   explicit Container(Parent& parent, Config config,
-                     ResolutionEngine resolution_engine) noexcept
+                     Dispatcher dispatcher) noexcept
       : config_{std::move(config)},
         parent_{&parent},
-        resolution_engine_{std::move(resolution_engine)} {}
+        dispatcher_{std::move(dispatcher)} {}
 };
 
 // ----------------------------------------------------------------------------
@@ -414,8 +395,8 @@ class Container {
 
 // Helper aliases for default pipeline components
 namespace detail {
-using DefaultResolutionEngine =
-    ResolutionEngine<StrategyPolicy<>, BindingLookup, BindingFactory>;
+using DefaultDispatcher =
+    Dispatcher<StrategyPolicy<>, BindingLookup, BindingFactory>;
 }  // namespace detail
 
 // Deduction guide - converts builders to Bindings, then deduces Config
@@ -423,23 +404,22 @@ template <typename... Builders>
 Container(Builders&&...)
     -> Container<detail::ConfigFromTuple<
                      decltype(make_bindings(std::declval<Builders>()...))>,
-                 detail::DefaultResolutionEngine, void>;
+                 detail::DefaultDispatcher, void>;
 
 // Deduction guide for Config directly (root container)
 template <IsConfig ConfigType>
-Container(ConfigType)
-    -> Container<ConfigType, detail::DefaultResolutionEngine, void>;
+Container(ConfigType) -> Container<ConfigType, detail::DefaultDispatcher, void>;
 
 // Deduction guide for child container with parent and bindings
 template <IsContainer ParentContainer, typename... Builders>
 Container(ParentContainer&, Builders&&...)
     -> Container<detail::ConfigFromTuple<
                      decltype(make_bindings(std::declval<Builders>()...))>,
-                 detail::DefaultResolutionEngine, ParentContainer>;
+                 detail::DefaultDispatcher, ParentContainer>;
 
 // Deduction guide for child container with parent and config
 template <IsContainer ParentContainer, IsConfig ConfigType>
 Container(ParentContainer&, ConfigType)
-    -> Container<ConfigType, detail::DefaultResolutionEngine, ParentContainer>;
+    -> Container<ConfigType, detail::DefaultDispatcher, ParentContainer>;
 
 }  // namespace dink
