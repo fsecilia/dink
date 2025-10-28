@@ -26,7 +26,7 @@ struct BindingLookup {
 
 //! Policy for creating default bindings when none exist in config.
 //
-// The binding's scope doesn't matter since strategys either override it
+// The binding's scope doesn't matter since strategies either override it
 // (OverrideScope) or ignore it entirely (CacheSharedPtr).
 struct DefaultBindingFactory {
   template <typename Canonical>
@@ -224,15 +224,6 @@ template <typename StrategyPolicy = StrategyPolicy<>,
           typename BindingLookup = detail::BindingLookup,
           typename DefaultBindingFactory = detail::DefaultBindingFactory>
 class Dispatcher {
-  [[no_unique_address]] StrategyPolicy strategy_policy_{};
-  [[no_unique_address]] BindingLookup lookup_policy_{};
-  [[no_unique_address]] DefaultBindingFactory default_binding_factory_{};
-
-  // Allow Container to access execute_with_default_binding for root container
-  // case
-  template <IsConfig, typename, typename>
-  friend class Container;
-
  public:
   explicit Dispatcher(StrategyPolicy strategy_policy = StrategyPolicy{},
                       BindingLookup lookup_policy = {},
@@ -268,19 +259,6 @@ class Dispatcher {
     }
   }
 
- private:
-  //! Executes resolution with a specific binding
-  template <typename Requested, bool has_binding,
-            bool scope_provides_references, typename Container,
-            typename Binding>
-  auto execute(Container& container, Binding& binding)
-      -> remove_rvalue_ref_t<Requested> {
-    auto strategy =
-        strategy_policy_.template create_strategy<Requested, has_binding,
-                                                  scope_provides_references>();
-    return strategy.template execute<Requested>(container, binding);
-  }
-
   //! Executes resolution with a default binding
   template <typename Requested, typename Container>
   auto execute_with_default_binding(Container& container)
@@ -294,6 +272,23 @@ class Dispatcher {
 
     return strategy.template execute<Requested>(container, default_binding);
   }
+
+ private:
+  //! Executes resolution with a specific binding
+  template <typename Requested, bool has_binding,
+            bool scope_provides_references, typename Container,
+            typename Binding>
+  auto execute(Container& container, Binding& binding)
+      -> remove_rvalue_ref_t<Requested> {
+    auto strategy =
+        strategy_policy_.template create_strategy<Requested, has_binding,
+                                                  scope_provides_references>();
+    return strategy.template execute<Requested>(container, binding);
+  }
+
+  [[no_unique_address]] StrategyPolicy strategy_policy_{};
+  [[no_unique_address]] BindingLookup lookup_policy_{};
+  [[no_unique_address]] DefaultBindingFactory default_binding_factory_{};
 };
 
 // ----------------------------------------------------------------------------
@@ -329,7 +324,9 @@ class Container<Config, Dispatcher, void> {
   auto resolve() -> remove_rvalue_ref_t<Requested> {
     return dispatcher_.template resolve<Requested>(
         *this, config_,
-        [this]<typename R = Requested>() -> remove_rvalue_ref_t<R> {
+
+        // not found handler must be generic or it is instantiated too eagerly
+        [this]<typename R = Requested>() -> remove_rvalue_ref_t<Requested> {
           return dispatcher_.template execute_with_default_binding<R>(*this);
         });
   }
