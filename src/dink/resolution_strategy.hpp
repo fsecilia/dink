@@ -12,48 +12,9 @@
 #include <memory>
 
 namespace dink {
-namespace detail {
-
-//! Transitive provider for canonical shared_ptr caching.
-//
-// This provider resolves the reference indirectly by calling back into the
-// container to resolve the original type, then wraps it in a shared_ptr.
-template <typename Constructed>
-struct SharedPtrFromRefProvider {
-  using Provided = std::shared_ptr<Constructed>;
-
-  template <typename Requested, typename Container>
-  auto create(Container& container) -> std::shared_ptr<Constructed> {
-    // Resolve reference using the container (follows delegation chain)
-    auto& ref = container.template resolve<Constructed&>();
-    // Wrap in shared_ptr with no-op deleter
-    return std::shared_ptr<Constructed>{&ref, [](Constructed*) {}};
-  }
-};
-
-//! Factory for creating CachedSharedPtrProvider instances.
-struct SharedPtrFromRefProviderFactory {
-  template <typename Canonical>
-  auto create() const -> SharedPtrFromRefProvider<Canonical> {
-    return {};
-  }
-};
-
-}  // namespace detail
 
 // ----------------------------------------------------------------------------
-// Resolution Strategy
-// ----------------------------------------------------------------------------
-
-enum class ResolutionStrategy {
-  UseBoundScope,        // Use binding's scope and provider
-  RelegateToTransient,  // Override scope to transient, use bound provider
-  PromoteToSingleton,   // Override scope to singleton, use bound provider
-  CacheSharedPtr        // Cache shared_ptr to singleton
-};
-
-// ----------------------------------------------------------------------------
-// Execution Implementations
+// Resolution Strategies
 // ----------------------------------------------------------------------------
 
 namespace strategies {
@@ -100,38 +61,91 @@ struct CacheSharedPtr {
 
 }  // namespace strategies
 
+namespace detail {
+
+//! Transitive provider for canonical shared_ptr caching.
+//
+// This provider resolves the reference indirectly by calling back into the
+// container to resolve the original type, then wraps it in a shared_ptr.
+template <typename Constructed>
+struct SharedPtrFromRefProvider {
+  using Provided = std::shared_ptr<Constructed>;
+
+  template <typename Requested, typename Container>
+  auto create(Container& container) -> std::shared_ptr<Constructed> {
+    // Resolve reference using the container (follows delegation chain)
+    auto& ref = container.template resolve<Constructed&>();
+    // Wrap in shared_ptr with no-op deleter
+    return std::shared_ptr<Constructed>{&ref, [](Constructed*) {}};
+  }
+};
+
+//! Factory for creating CachedSharedPtrProvider instances.
+struct SharedPtrFromRefProviderFactory {
+  template <typename Canonical>
+  auto create() const -> SharedPtrFromRefProvider<Canonical> {
+    return {};
+  }
+};
+
+}  // namespace detail
+
 // ----------------------------------------------------------------------------
-// StrategySelector - Selects strategy by enum
+// StrategyType
 // ----------------------------------------------------------------------------
 
-template <ResolutionStrategy resolution_strategy>
-struct StrategySelector;
+//!
+enum class StrategyType {
+  UseBoundScope,        // Use binding's scope and provider
+  RelegateToTransient,  // Override scope to transient, use bound provider
+  PromoteToSingleton,   // Override scope to singleton, use bound provider
+  CacheSharedPtr        // Cache shared_ptr to singleton
+};
+
+// ----------------------------------------------------------------------------
+// StrategyByType
+// ----------------------------------------------------------------------------
+
+namespace detail {
+
+template <StrategyType strategy_type>
+struct StrategyByType;
 
 template <>
-struct StrategySelector<ResolutionStrategy::UseBoundScope>
-    : strategies::UseBoundScope {};
+struct StrategyByType<StrategyType::UseBoundScope> {
+  using type = strategies::UseBoundScope;
+};
 
 template <>
-struct StrategySelector<ResolutionStrategy::RelegateToTransient>
-    : strategies::OverrideScope<scope::Transient> {};
+struct StrategyByType<StrategyType::RelegateToTransient> {
+  using type = strategies::OverrideScope<scope::Transient>;
+};
 
 template <>
-struct StrategySelector<ResolutionStrategy::PromoteToSingleton>
-    : strategies::OverrideScope<scope::Singleton> {};
+struct StrategyByType<StrategyType::PromoteToSingleton> {
+  using type = strategies::OverrideScope<scope::Singleton>;
+};
 
 template <>
-struct StrategySelector<ResolutionStrategy::CacheSharedPtr>
-    : strategies::CacheSharedPtr<scope::Singleton,
-                                 detail::SharedPtrFromRefProviderFactory> {};
+struct StrategyByType<StrategyType::CacheSharedPtr> {
+  using type =
+      strategies::CacheSharedPtr<scope::Singleton,
+                                 detail::SharedPtrFromRefProviderFactory>;
+};
+
+}  // namespace detail
+
+//! Selects strategy by enum.
+template <StrategyType strategy_type>
+using StrategyByType = detail::StrategyByType<strategy_type>::type;
 
 // ----------------------------------------------------------------------------
 // Strategy Factory
 // ----------------------------------------------------------------------------
 
-template <template <ResolutionStrategy> typename StrategySelector>
 struct StrategyFactory {
-  template <ResolutionStrategy strategy>
-  auto create() const -> StrategySelector<strategy> {
+  template <StrategyType strategy_type>
+  auto create() const -> StrategyByType<strategy_type> {
     return {};
   }
 };

@@ -44,7 +44,7 @@ struct DefaultBindingFactory {
 // ----------------------------------------------------------------------------
 
 //! Determines strategy and creates appropriate instance
-template <typename StrategyFactory = StrategyFactory<StrategySelector>>
+template <typename StrategyFactory = StrategyFactory>
 class StrategyPolicy {
  public:
   explicit constexpr StrategyPolicy(
@@ -63,34 +63,32 @@ class StrategyPolicy {
   //! Determines resolution strategy based on requested type, binding, and scope
   template <typename Requested, bool has_binding,
             bool scope_provides_references>
-  static constexpr auto determine() -> ResolutionStrategy {
+  static constexpr auto determine() -> StrategyType {
     if constexpr (UniquePtr<Requested>) {
-      return ResolutionStrategy::RelegateToTransient;
+      return StrategyType::RelegateToTransient;
     } else if constexpr (SharedPtr<Requested> || WeakPtr<Requested>) {
       if constexpr (has_binding && !scope_provides_references) {
         // Transient scope with shared_ptr - let it create new instances
-        return ResolutionStrategy::UseBoundScope;
+        return StrategyType::UseBoundScope;
       } else {
         // Singleton scope or no binding - wrap via canonical shared_ptr
-        return ResolutionStrategy::CacheSharedPtr;
+        return StrategyType::CacheSharedPtr;
       }
     } else if constexpr (std::is_lvalue_reference_v<Requested> ||
                          std::is_pointer_v<Requested>) {
       if constexpr (has_binding) {
-        return scope_provides_references
-                   ? ResolutionStrategy::UseBoundScope
-                   : ResolutionStrategy::PromoteToSingleton;
+        return scope_provides_references ? StrategyType::UseBoundScope
+                                         : StrategyType::PromoteToSingleton;
       } else {
-        return ResolutionStrategy::PromoteToSingleton;
+        return StrategyType::PromoteToSingleton;
       }
     } else {
       // Value or RValue Ref
       if constexpr (has_binding) {
-        return scope_provides_references
-                   ? ResolutionStrategy::RelegateToTransient
-                   : ResolutionStrategy::UseBoundScope;
+        return scope_provides_references ? StrategyType::RelegateToTransient
+                                         : StrategyType::UseBoundScope;
       } else {
-        return ResolutionStrategy::RelegateToTransient;
+        return StrategyType::RelegateToTransient;
       }
     }
   }
