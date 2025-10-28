@@ -14,25 +14,9 @@
 #include <dink/smart_pointer_traits.hpp>
 
 namespace dink {
-
-// ----------------------------------------------------------------------------
-// Resolution Strategy
-// ----------------------------------------------------------------------------
-
-enum class ResolutionStrategy {
-  UseBoundScope,        // Use binding's scope and provider
-  RelegateToTransient,  // Override scope to transient, use bound provider
-  PromoteToSingleton,   // Override scope to singleton, use bound provider
-  CacheSharedPtr        // Cache shared_ptr to singleton
-};
-
-// ----------------------------------------------------------------------------
-// Detail Helpers
-// ----------------------------------------------------------------------------
-
 namespace detail {
 
-//! Default policy for looking up bindings in config
+//! Policy for looking up bindings in config.
 struct BindingLookup {
   template <typename Canonical, typename Config>
   auto find(Config& config) const {
@@ -40,11 +24,11 @@ struct BindingLookup {
   }
 };
 
-//! Default policy for creating default bindings when none exist in config
+//! Policy for creating default bindings when none exist in config.
 //
-// The binding's scope doesn't matter since executors either override it
+// The binding's scope doesn't matter since strategys either override it
 // (OverrideScope) or ignore it entirely (CacheSharedPtr).
-struct BindingFactory {
+struct DefaultBindingFactory {
   template <typename Canonical>
   constexpr auto create() const {
     return Binding<Canonical, scope::Transient, provider::Ctor<Canonical>>{
@@ -52,7 +36,7 @@ struct BindingFactory {
   }
 };
 
-//! Transitive provider for canonical shared_ptr caching
+//! Transitive provider for canonical shared_ptr caching.
 //
 // This provider resolves the reference indirectly by calling back into the
 // container to resolve the original type, then wraps it in a shared_ptr.
@@ -69,7 +53,7 @@ struct CachedSharedPtrProvider {
   }
 };
 
-//! Factory for creating CachedSharedPtrProvider instances
+//! Factory for creating CachedSharedPtrProvider instances.
 struct CachedSharedPtrProviderFactory {
   template <typename Canonical>
   auto create() const -> CachedSharedPtrProvider<Canonical> {
@@ -80,10 +64,21 @@ struct CachedSharedPtrProviderFactory {
 }  // namespace detail
 
 // ----------------------------------------------------------------------------
+// Resolution Strategy
+// ----------------------------------------------------------------------------
+
+enum class ResolutionStrategy {
+  UseBoundScope,        // Use binding's scope and provider
+  RelegateToTransient,  // Override scope to transient, use bound provider
+  PromoteToSingleton,   // Override scope to singleton, use bound provider
+  CacheSharedPtr        // Cache shared_ptr to singleton
+};
+
+// ----------------------------------------------------------------------------
 // Execution Implementations
 // ----------------------------------------------------------------------------
 
-namespace execution {
+namespace strategies {
 
 //! Executes using binding's scope and provider directly
 struct UseBoundScope {
@@ -125,64 +120,64 @@ struct CacheSharedPtr {
   }
 };
 
-}  // namespace execution
+}  // namespace strategies
 
 // ----------------------------------------------------------------------------
-// Strategy Executor - Selects execution implementation by strategy enum
+// Strategy - Selects execution implementation by strategy enum
 // ----------------------------------------------------------------------------
 
 template <ResolutionStrategy strategy>
-struct StrategyExecutor;
+struct Strategy;
 
 template <>
-struct StrategyExecutor<ResolutionStrategy::UseBoundScope>
-    : execution::UseBoundScope {};
+struct Strategy<ResolutionStrategy::UseBoundScope> : strategies::UseBoundScope {
+};
 
 template <>
-struct StrategyExecutor<ResolutionStrategy::RelegateToTransient>
-    : execution::OverrideScope<scope::Transient> {};
+struct Strategy<ResolutionStrategy::RelegateToTransient>
+    : strategies::OverrideScope<scope::Transient> {};
 
 template <>
-struct StrategyExecutor<ResolutionStrategy::PromoteToSingleton>
-    : execution::OverrideScope<scope::Singleton> {};
+struct Strategy<ResolutionStrategy::PromoteToSingleton>
+    : strategies::OverrideScope<scope::Singleton> {};
 
 template <>
-struct StrategyExecutor<ResolutionStrategy::CacheSharedPtr>
-    : execution::CacheSharedPtr<scope::Singleton,
-                                detail::CachedSharedPtrProviderFactory> {};
+struct Strategy<ResolutionStrategy::CacheSharedPtr>
+    : strategies::CacheSharedPtr<scope::Singleton,
+                                 detail::CachedSharedPtrProviderFactory> {};
 
 // ----------------------------------------------------------------------------
-// Strategy Executor Factory
+// Strategy Factory
 // ----------------------------------------------------------------------------
 
-template <template <ResolutionStrategy> typename StrategyExecutorTemplate>
-struct StrategyExecutorFactory {
+template <template <ResolutionStrategy> typename StrategyTemplate>
+struct StrategyFactory {
   template <ResolutionStrategy strategy>
-  auto create() const -> StrategyExecutorTemplate<strategy> {
+  auto create() const -> StrategyTemplate<strategy> {
     return {};
   }
 };
 
 // ----------------------------------------------------------------------------
-// Strategy Policy - Determines strategy and creates appropriate executor
+// Strategy Policy - Determines strategy and creates appropriate strategy
 // ----------------------------------------------------------------------------
 
-template <typename ExecutorFactory = StrategyExecutorFactory<StrategyExecutor>>
+template <typename StrategyFactory = StrategyFactory<Strategy>>
 struct StrategyPolicy {
-  [[no_unique_address]] ExecutorFactory executor_factory_{};
+  [[no_unique_address]] StrategyFactory strategy_factory_{};
 
-  //! Creates the appropriate executor for the given resolution context
+  //! Creates the appropriate strategy for the given resolution context
   template <typename Requested, bool has_binding,
             bool scope_provides_references>
-  auto create_executor() const {
+  auto create_strategy() const {
     constexpr auto strategy =
         determine<Requested, has_binding, scope_provides_references>();
-    return executor_factory_.template create<strategy>();
+    return strategy_factory_.template create<strategy>();
   }
 
   explicit constexpr StrategyPolicy(
-      ExecutorFactory executor_factory = ExecutorFactory{})
-      : executor_factory_{std::move(executor_factory)} {}
+      StrategyFactory strategy_factory = StrategyFactory{})
+      : strategy_factory_{std::move(strategy_factory)} {}
 
  private:
   //! Determines resolution strategy based on requested type, binding, and scope
@@ -222,16 +217,16 @@ struct StrategyPolicy {
 };
 
 // ----------------------------------------------------------------------------
-// Dispatcher - Dispatches resolution requests to appropriate executors
+// Dispatcher - Dispatches resolution requests to appropriate strategys
 // ----------------------------------------------------------------------------
 
 template <typename StrategyPolicy = StrategyPolicy<>,
           typename BindingLookup = detail::BindingLookup,
-          typename BindingFactory = detail::BindingFactory>
+          typename DefaultBindingFactory = detail::DefaultBindingFactory>
 class Dispatcher {
   [[no_unique_address]] StrategyPolicy strategy_policy_{};
   [[no_unique_address]] BindingLookup lookup_policy_{};
-  [[no_unique_address]] BindingFactory binding_factory_{};
+  [[no_unique_address]] DefaultBindingFactory default_binding_factory_{};
 
   // Allow Container to access execute_with_default_binding for root container
   // case
@@ -241,10 +236,10 @@ class Dispatcher {
  public:
   explicit Dispatcher(StrategyPolicy strategy_policy = StrategyPolicy{},
                       BindingLookup lookup_policy = {},
-                      BindingFactory binding_factory = {})
+                      DefaultBindingFactory binding_factory = {})
       : strategy_policy_{std::move(strategy_policy)},
         lookup_policy_{std::move(lookup_policy)},
-        binding_factory_{std::move(binding_factory)} {}
+        default_binding_factory_{std::move(binding_factory)} {}
 
   //! Resolves with found binding or calls not_found_handler
   template <typename Requested, typename Container, typename Config,
@@ -280,10 +275,10 @@ class Dispatcher {
             typename Binding>
   auto execute(Container& container, Binding& binding)
       -> remove_rvalue_ref_t<Requested> {
-    auto executor =
-        strategy_policy_.template create_executor<Requested, has_binding,
+    auto strategy =
+        strategy_policy_.template create_strategy<Requested, has_binding,
                                                   scope_provides_references>();
-    return executor.template execute<Requested>(container, binding);
+    return strategy.template execute<Requested>(container, binding);
   }
 
   //! Executes resolution with a default binding
@@ -292,11 +287,12 @@ class Dispatcher {
       -> remove_rvalue_ref_t<Requested> {
     using Canonical = Canonical<Requested>;
 
-    auto executor =
-        strategy_policy_.template create_executor<Requested, false, false>();
-    auto default_binding = binding_factory_.template create<Canonical>();
+    auto strategy =
+        strategy_policy_.template create_strategy<Requested, false, false>();
+    auto default_binding =
+        default_binding_factory_.template create<Canonical>();
 
-    return executor.template execute<Requested>(container, default_binding);
+    return strategy.template execute<Requested>(container, default_binding);
   }
 };
 
@@ -396,7 +392,7 @@ class Container {
 // Helper aliases for default pipeline components
 namespace detail {
 using DefaultDispatcher =
-    Dispatcher<StrategyPolicy<>, BindingLookup, BindingFactory>;
+    Dispatcher<StrategyPolicy<>, BindingLookup, DefaultBindingFactory>;
 }  // namespace detail
 
 // Deduction guide - converts builders to Bindings, then deduces Config
