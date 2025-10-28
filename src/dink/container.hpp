@@ -32,43 +32,41 @@ enum class ResolutionStrategy {
 
 namespace detail {
 
-//! Determines resolution strategy based on requested type and binding status
-template <typename Requested, bool has_binding, bool provides_references>
-static constexpr auto determine_strategy() -> ResolutionStrategy {
-  if constexpr (UniquePtr<Requested>) {
-    return ResolutionStrategy::RelegateToTransient;
-  } else if constexpr (SharedPtr<Requested> || WeakPtr<Requested>) {
-    if constexpr (has_binding && !provides_references) {
-      // Transient scope with shared_ptr - let it create new instances
-      return ResolutionStrategy::UseBoundScope;
-    } else {
-      // Singleton scope or no binding - wrap via canonical shared_ptr
-      return ResolutionStrategy::CacheSharedPtr;
-    }
-  } else if constexpr (std::is_lvalue_reference_v<Requested> ||
-                       std::is_pointer_v<Requested>) {
-    if constexpr (has_binding) {
-      return provides_references ? ResolutionStrategy::UseBoundScope
-                                 : ResolutionStrategy::PromoteToSingleton;
-    } else {
-      return ResolutionStrategy::PromoteToSingleton;
-    }
-  } else {
-    // Value or RValue Ref
-    if constexpr (has_binding) {
-      return provides_references ? ResolutionStrategy::RelegateToTransient
-                                 : ResolutionStrategy::UseBoundScope;
-    } else {
-      return ResolutionStrategy::RelegateToTransient;
-    }
-  }
-}
-
 //! Default policy for determining resolution strategy
 struct DefaultStrategyPolicy {
-  template <typename Requested, bool has_binding, bool provides_references>
+  //! Determines resolution strategy based on requested type, binding, and scope
+  template <typename Requested, bool has_binding,
+            bool scope_provides_references>
   static constexpr auto determine() -> ResolutionStrategy {
-    return determine_strategy<Requested, has_binding, provides_references>();
+    if constexpr (UniquePtr<Requested>) {
+      return ResolutionStrategy::RelegateToTransient;
+    } else if constexpr (SharedPtr<Requested> || WeakPtr<Requested>) {
+      if constexpr (has_binding && !scope_provides_references) {
+        // Transient scope with shared_ptr - let it create new instances
+        return ResolutionStrategy::UseBoundScope;
+      } else {
+        // Singleton scope or no binding - wrap via canonical shared_ptr
+        return ResolutionStrategy::CacheSharedPtr;
+      }
+    } else if constexpr (std::is_lvalue_reference_v<Requested> ||
+                         std::is_pointer_v<Requested>) {
+      if constexpr (has_binding) {
+        return scope_provides_references
+                   ? ResolutionStrategy::UseBoundScope
+                   : ResolutionStrategy::PromoteToSingleton;
+      } else {
+        return ResolutionStrategy::PromoteToSingleton;
+      }
+    } else {
+      // Value or RValue Ref
+      if constexpr (has_binding) {
+        return scope_provides_references
+                   ? ResolutionStrategy::RelegateToTransient
+                   : ResolutionStrategy::UseBoundScope;
+      } else {
+        return ResolutionStrategy::RelegateToTransient;
+      }
+    }
   }
 };
 
