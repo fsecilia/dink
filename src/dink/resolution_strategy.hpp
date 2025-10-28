@@ -19,7 +19,7 @@ namespace detail {
 // This provider resolves the reference indirectly by calling back into the
 // container to resolve the original type, then wraps it in a shared_ptr.
 template <typename Constructed>
-struct CachedSharedPtrProvider {
+struct SharedPtrFromRefProvider {
   using Provided = std::shared_ptr<Constructed>;
 
   template <typename Requested, typename Container>
@@ -32,9 +32,9 @@ struct CachedSharedPtrProvider {
 };
 
 //! Factory for creating CachedSharedPtrProvider instances.
-struct CachedSharedPtrProviderFactory {
+struct SharedPtrFromRefProviderFactory {
   template <typename Canonical>
-  auto create() const -> CachedSharedPtrProvider<Canonical> {
+  auto create() const -> SharedPtrFromRefProvider<Canonical> {
     return {};
   }
 };
@@ -101,37 +101,37 @@ struct CacheSharedPtr {
 }  // namespace strategies
 
 // ----------------------------------------------------------------------------
-// Strategy - Selects execution implementation by strategy enum
+// StrategySelector - Selects strategy by enum
 // ----------------------------------------------------------------------------
 
-template <ResolutionStrategy strategy>
-struct Strategy;
+template <ResolutionStrategy resolution_strategy>
+struct StrategySelector;
 
 template <>
-struct Strategy<ResolutionStrategy::UseBoundScope> : strategies::UseBoundScope {
-};
+struct StrategySelector<ResolutionStrategy::UseBoundScope>
+    : strategies::UseBoundScope {};
 
 template <>
-struct Strategy<ResolutionStrategy::RelegateToTransient>
+struct StrategySelector<ResolutionStrategy::RelegateToTransient>
     : strategies::OverrideScope<scope::Transient> {};
 
 template <>
-struct Strategy<ResolutionStrategy::PromoteToSingleton>
+struct StrategySelector<ResolutionStrategy::PromoteToSingleton>
     : strategies::OverrideScope<scope::Singleton> {};
 
 template <>
-struct Strategy<ResolutionStrategy::CacheSharedPtr>
+struct StrategySelector<ResolutionStrategy::CacheSharedPtr>
     : strategies::CacheSharedPtr<scope::Singleton,
-                                 detail::CachedSharedPtrProviderFactory> {};
+                                 detail::SharedPtrFromRefProviderFactory> {};
 
 // ----------------------------------------------------------------------------
 // Strategy Factory
 // ----------------------------------------------------------------------------
 
-template <template <ResolutionStrategy> typename StrategyTemplate>
+template <template <ResolutionStrategy> typename StrategySelector>
 struct StrategyFactory {
   template <ResolutionStrategy strategy>
-  auto create() const -> StrategyTemplate<strategy> {
+  auto create() const -> StrategySelector<strategy> {
     return {};
   }
 };

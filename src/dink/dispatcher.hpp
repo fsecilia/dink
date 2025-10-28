@@ -43,7 +43,7 @@ struct DefaultBindingFactory {
 // Strategy Policy - Determines strategy and creates appropriate strategy
 // ----------------------------------------------------------------------------
 
-template <typename StrategyFactory = StrategyFactory<Strategy>>
+template <typename StrategyFactory = StrategyFactory<StrategySelector>>
 struct StrategyPolicy {
   [[no_unique_address]] StrategyFactory strategy_factory_{};
 
