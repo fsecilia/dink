@@ -33,7 +33,7 @@ enum class ResolutionStrategy {
 namespace detail {
 
 //! Default policy for looking up bindings in config
-struct DefaultBindingLookup {
+struct BindingLookup {
   template <typename Canonical, typename Config>
   auto find(Config& config) const {
     return config.template find_binding<Canonical>();
@@ -41,7 +41,7 @@ struct DefaultBindingLookup {
 };
 
 //! Default policy for creating default bindings when none exist in config
-struct DefaultBindingFactory {
+struct BindingFactory {
   template <typename Canonical, ResolutionStrategy strategy>
   constexpr auto create() const {
     if constexpr (strategy == ResolutionStrategy::PromoteToSingleton) {
@@ -63,7 +63,7 @@ struct DefaultBindingFactory {
 // This provider resolves the reference indirectly by calling back into the
 // container to resolve the original type, then wraps it in a shared_ptr.
 template <typename Constructed>
-struct TransitiveSingletonSharedPtrProvider {
+struct CachedSharedPtrProvider {
   using Provided = std::shared_ptr<Constructed>;
 
   template <typename Requested, typename Container>
@@ -76,9 +76,9 @@ struct TransitiveSingletonSharedPtrProvider {
 };
 
 //! Factory for creating TransitiveSingletonSharedPtrProvider instances
-struct TransitiveSingletonSharedPtrProviderFactory {
+struct CachedSharedPtrProviderFactory {
   template <typename Canonical>
-  auto create() const -> TransitiveSingletonSharedPtrProvider<Canonical> {
+  auto create() const -> CachedSharedPtrProvider<Canonical> {
     return {};
   }
 };
@@ -92,7 +92,7 @@ struct TransitiveSingletonSharedPtrProviderFactory {
 namespace execution {
 
 //! Executes using binding's scope and provider directly
-struct Normal {
+struct UseBoundScope {
   template <typename Requested, typename Container, typename Binding>
   auto execute(Container& container, Binding& binding) const
       -> remove_rvalue_ref_t<Requested> {
@@ -103,7 +103,7 @@ struct Normal {
 
 //! Executes by forcing a specific scope type
 template <typename Scope>
-struct ForceScoped {
+struct OverrideScope {
   [[no_unique_address]] Scope scope{};
 
   template <typename Requested, typename Container, typename Binding>
@@ -118,7 +118,7 @@ struct ForceScoped {
 // Note: This strategy doesn't use a binding - it creates a new transitive
 // provider that wraps a recursive resolution.
 template <typename Scope, typename ProviderFactory>
-struct CanonicalSharedPtr {
+struct CacheSharedPtr {
   [[no_unique_address]] Scope scope{};
   [[no_unique_address]] ProviderFactory provider_factory{};
 
@@ -140,29 +140,28 @@ template <ResolutionStrategy strategy>
 struct StrategyExecutor;
 
 template <>
-struct StrategyExecutor<ResolutionStrategy::UseBoundScope> : execution::Normal {
-};
+struct StrategyExecutor<ResolutionStrategy::UseBoundScope>
+    : execution::UseBoundScope {};
 
 template <>
 struct StrategyExecutor<ResolutionStrategy::RelegateToTransient>
-    : execution::ForceScoped<scope::Transient> {};
+    : execution::OverrideScope<scope::Transient> {};
 
 template <>
 struct StrategyExecutor<ResolutionStrategy::PromoteToSingleton>
-    : execution::ForceScoped<scope::Singleton> {};
+    : execution::OverrideScope<scope::Singleton> {};
 
 template <>
 struct StrategyExecutor<ResolutionStrategy::CacheSharedPtr>
-    : execution::CanonicalSharedPtr<
-          scope::Singleton,
-          detail::TransitiveSingletonSharedPtrProviderFactory> {};
+    : execution::CacheSharedPtr<scope::Singleton,
+                                detail::CachedSharedPtrProviderFactory> {};
 
 // ----------------------------------------------------------------------------
 // Strategy Executor Factory
 // ----------------------------------------------------------------------------
 
 template <template <ResolutionStrategy> typename StrategyExecutorTemplate>
-struct DefaultStrategyExecutorFactory {
+struct StrategyExecutorFactory {
   template <ResolutionStrategy strategy>
   auto create() const -> StrategyExecutorTemplate<strategy> {
     return {};
@@ -173,9 +172,8 @@ struct DefaultStrategyExecutorFactory {
 // Strategy Policy - Determines strategy and creates appropriate executor
 // ----------------------------------------------------------------------------
 
-template <typename ExecutorFactory =
-              DefaultStrategyExecutorFactory<StrategyExecutor>>
-struct DefaultStrategyPolicy {
+template <typename ExecutorFactory = StrategyExecutorFactory<StrategyExecutor>>
+struct StrategyPolicy {
   [[no_unique_address]] ExecutorFactory executor_factory_{};
 
   //! Creates the appropriate executor for the given resolution context
@@ -187,7 +185,7 @@ struct DefaultStrategyPolicy {
     return executor_factory_.template create<strategy>();
   }
 
-  explicit constexpr DefaultStrategyPolicy(
+  explicit constexpr StrategyPolicy(
       ExecutorFactory executor_factory = ExecutorFactory{})
       : executor_factory_{std::move(executor_factory)} {}
 
@@ -232,9 +230,9 @@ struct DefaultStrategyPolicy {
 // Binding Locator - Locates bindings and executes resolution
 // ----------------------------------------------------------------------------
 
-template <typename StrategyPolicy = DefaultStrategyPolicy<>,
-          typename BindingLookup = detail::DefaultBindingLookup,
-          typename BindingFactory = detail::DefaultBindingFactory>
+template <typename StrategyPolicy = StrategyPolicy<>,
+          typename BindingLookup = detail::BindingLookup,
+          typename BindingFactory = detail::BindingFactory>
 class BindingLocator {
   [[no_unique_address]] StrategyPolicy strategy_policy_{};
   [[no_unique_address]] BindingLookup lookup_policy_{};
@@ -311,8 +309,9 @@ class BindingLocator {
 
     // Check executor type to determine execution path
     using ExecutorType = decltype(executor);
-    using CanonicalSharedPtrType = execution::CanonicalSharedPtr<
-        scope::Singleton, detail::TransitiveSingletonSharedPtrProviderFactory>;
+    using CanonicalSharedPtrType =
+        execution::CacheSharedPtr<scope::Singleton,
+                                  detail::CachedSharedPtrProviderFactory>;
 
     if constexpr (std::is_base_of_v<CanonicalSharedPtrType, ExecutorType> ||
                   std::is_same_v<CanonicalSharedPtrType, ExecutorType>) {
@@ -335,9 +334,10 @@ class BindingLocator {
 
     // Check executor type to determine execution path
     using ExecutorType = decltype(executor);
-    using CanonicalSharedPtrType = execution::CanonicalSharedPtr<
-        scope::Singleton, detail::TransitiveSingletonSharedPtrProviderFactory>;
-    using SingletonType = execution::ForceScoped<scope::Singleton>;
+    using CanonicalSharedPtrType =
+        execution::CacheSharedPtr<scope::Singleton,
+                                  detail::CachedSharedPtrProviderFactory>;
+    using SingletonType = execution::OverrideScope<scope::Singleton>;
 
     if constexpr (std::is_base_of_v<CanonicalSharedPtrType, ExecutorType> ||
                   std::is_same_v<CanonicalSharedPtrType, ExecutorType>) {
@@ -491,8 +491,7 @@ class Container {
 // Helper aliases for default pipeline components
 namespace detail {
 using DefaultBindingLocator =
-    BindingLocator<DefaultStrategyPolicy<>, DefaultBindingLookup,
-                   DefaultBindingFactory>;
+    BindingLocator<StrategyPolicy<>, BindingLookup, BindingFactory>;
 using DefaultFlatDispatcher = FlatDispatcher<DefaultBindingLocator>;
 }  // namespace detail
 
