@@ -75,7 +75,7 @@ struct CachedSharedPtrProvider {
   }
 };
 
-//! Factory for creating TransitiveSingletonSharedPtrProvider instances
+//! Factory for creating CachedSharedPtrProvider instances
 struct CachedSharedPtrProviderFactory {
   template <typename Canonical>
   auto create() const -> CachedSharedPtrProvider<Canonical> {
@@ -115,15 +115,16 @@ struct OverrideScope {
 
 //! Executes by wrapping reference in canonical shared_ptr
 //
-// Note: This strategy doesn't use a binding - it creates a new transitive
-// provider that wraps a recursive resolution.
+// Note: This strategy doesn't use the binding parameter - it creates a new
+// transitive provider that wraps a recursive resolution.
 template <typename Scope, typename ProviderFactory>
 struct CacheSharedPtr {
   [[no_unique_address]] Scope scope{};
   [[no_unique_address]] ProviderFactory provider_factory{};
 
-  template <typename Requested, typename Container>
-  auto execute(Container& container) const -> remove_rvalue_ref_t<Requested> {
+  template <typename Requested, typename Container, typename Binding>
+  auto execute(Container& container, Binding& /*binding*/) const
+      -> remove_rvalue_ref_t<Requested> {
     using Canonical = Canonical<Requested>;
     auto provider = provider_factory.template create<Canonical>();
     return scope.template resolve<Requested>(container, provider);
@@ -227,21 +228,21 @@ struct StrategyPolicy {
 };
 
 // ----------------------------------------------------------------------------
-// Binding Locator - Locates bindings and executes resolution
+// Resolution Engine - Locates bindings and executes resolution
 // ----------------------------------------------------------------------------
 
 template <typename StrategyPolicy = StrategyPolicy<>,
           typename BindingLookup = detail::BindingLookup,
           typename BindingFactory = detail::BindingFactory>
-class BindingLocator {
+class ResolutionEngine {
   [[no_unique_address]] StrategyPolicy strategy_policy_{};
   [[no_unique_address]] BindingLookup lookup_policy_{};
   [[no_unique_address]] BindingFactory binding_factory_{};
 
  public:
-  explicit BindingLocator(StrategyPolicy strategy_policy = StrategyPolicy{},
-                          BindingLookup lookup_policy = {},
-                          BindingFactory binding_factory = {})
+  explicit ResolutionEngine(StrategyPolicy strategy_policy = StrategyPolicy{},
+                            BindingLookup lookup_policy = {},
+                            BindingFactory binding_factory = {})
       : strategy_policy_{std::move(strategy_policy)},
         lookup_policy_{std::move(lookup_policy)},
         binding_factory_{std::move(binding_factory)} {}
@@ -250,24 +251,13 @@ class BindingLocator {
   template <typename Requested, typename Container, typename Config>
   auto resolve(Container& container, Config& config)
       -> remove_rvalue_ref_t<Requested> {
-    using Canonical = Canonical<Requested>;
-
-    auto binding_ptr = lookup_policy_.template find<Canonical>(config);
-    constexpr bool has_binding =
-        !std::is_same_v<decltype(binding_ptr), std::nullptr_t>;
-
-    if constexpr (has_binding) {
-      // Found binding - execute with it
-      using Binding = std::remove_cvref_t<decltype(*binding_ptr)>;
-      constexpr bool provides_references =
-          Binding::ScopeType::provides_references;
-
-      return execute_with_binding<Requested, has_binding, provides_references>(
-          container, *binding_ptr);
-    } else {
-      // No binding - create default and execute
-      return execute_with_default_binding<Requested>(container);
-    }
+    return resolve_or_delegate<Requested>(
+        container, config,
+        // This must be generic for lazy evaluation. A regular lambda is too
+        // eager and kicks off arity detection.
+        [&]<typename R = Requested>() -> remove_rvalue_ref_t<R> {
+          return execute_with_default_binding<R>(container);
+        });
   }
 
   //! Resolves with found binding or delegates via handler (for hierarchical)
@@ -288,10 +278,10 @@ class BindingLocator {
       constexpr bool provides_references =
           Binding::ScopeType::provides_references;
 
-      return execute_with_binding<Requested, has_binding, provides_references>(
-          container, *binding_ptr);
+      return execute<Requested, has_binding, provides_references>(container,
+                                                                  *binding_ptr);
     } else {
-      // No binding - delegate to handler (typically parent container)
+      // No binding - delegate to handler
       return not_found_handler();
     }
   }
@@ -301,26 +291,12 @@ class BindingLocator {
   template <typename Requested, bool has_binding,
             bool scope_provides_references, typename Container,
             typename Binding>
-  auto execute_with_binding(Container& container, Binding& binding)
+  auto execute(Container& container, Binding& binding)
       -> remove_rvalue_ref_t<Requested> {
     auto executor =
         strategy_policy_.template create_executor<Requested, has_binding,
                                                   scope_provides_references>();
-
-    // Check executor type to determine execution path
-    using ExecutorType = decltype(executor);
-    using CanonicalSharedPtrType =
-        execution::CacheSharedPtr<scope::Singleton,
-                                  detail::CachedSharedPtrProviderFactory>;
-
-    if constexpr (std::is_base_of_v<CanonicalSharedPtrType, ExecutorType> ||
-                  std::is_same_v<CanonicalSharedPtrType, ExecutorType>) {
-      // CanonicalSharedPtr doesn't use the binding
-      return executor.template execute<Requested>(container);
-    } else {
-      // All other strategies execute with the binding
-      return executor.template execute<Requested>(container, binding);
-    }
+    return executor.template execute<Requested>(container, binding);
   }
 
   //! Executes resolution with a default binding
@@ -332,30 +308,19 @@ class BindingLocator {
     auto executor =
         strategy_policy_.template create_executor<Requested, false, false>();
 
-    // Check executor type to determine execution path
+    // Determine binding strategy based on executor type
     using ExecutorType = decltype(executor);
-    using CanonicalSharedPtrType =
-        execution::CacheSharedPtr<scope::Singleton,
-                                  detail::CachedSharedPtrProviderFactory>;
     using SingletonType = execution::OverrideScope<scope::Singleton>;
 
-    if constexpr (std::is_base_of_v<CanonicalSharedPtrType, ExecutorType> ||
-                  std::is_same_v<CanonicalSharedPtrType, ExecutorType>) {
-      // CanonicalSharedPtr doesn't need a binding
-      return executor.template execute<Requested>(container);
-    } else {
-      // Other strategies need a default binding
-      // Determine which strategy to use for binding creation
-      constexpr auto binding_strategy =
-          (std::is_base_of_v<SingletonType, ExecutorType> ||
-           std::is_same_v<SingletonType, ExecutorType>)
-              ? ResolutionStrategy::PromoteToSingleton
-              : ResolutionStrategy::RelegateToTransient;
+    constexpr auto binding_strategy =
+        (std::is_base_of_v<SingletonType, ExecutorType> ||
+         std::is_same_v<SingletonType, ExecutorType>)
+            ? ResolutionStrategy::PromoteToSingleton
+            : ResolutionStrategy::RelegateToTransient;
 
-      auto default_binding =
-          binding_factory_.template create<Canonical, binding_strategy>();
-      return executor.template execute<Requested>(container, default_binding);
-    }
+    auto default_binding =
+        binding_factory_.template create<Canonical, binding_strategy>();
+    return executor.template execute<Requested>(container, default_binding);
   }
 };
 
@@ -363,18 +328,19 @@ class BindingLocator {
 // Flat Dispatcher (for root containers)
 // ----------------------------------------------------------------------------
 
-template <typename BindingLocator>
+template <typename ResolutionEngine>
 class FlatDispatcher {
-  [[no_unique_address]] BindingLocator binding_locator_;
+  [[no_unique_address]] ResolutionEngine resolution_engine_;
 
  public:
-  explicit FlatDispatcher(BindingLocator binding_locator = BindingLocator{})
-      : binding_locator_{std::move(binding_locator)} {}
+  explicit FlatDispatcher(
+      ResolutionEngine resolution_engine = ResolutionEngine{})
+      : resolution_engine_{std::move(resolution_engine)} {}
 
   template <typename Requested, typename Container, typename Config>
   auto resolve(Container& container, Config& config)
       -> remove_rvalue_ref_t<Requested> {
-    return binding_locator_.template resolve<Requested>(container, config);
+    return resolution_engine_.template resolve<Requested>(container, config);
   }
 };
 
@@ -382,19 +348,19 @@ class FlatDispatcher {
 // Hierarchical Dispatcher (for child containers)
 // ----------------------------------------------------------------------------
 
-template <typename BindingLocator, typename ParentContainer>
+template <typename ResolutionEngine, typename ParentContainer>
 class HierarchicalDispatcher {
-  [[no_unique_address]] BindingLocator binding_locator_;
+  [[no_unique_address]] ResolutionEngine resolution_engine_;
 
  public:
   explicit HierarchicalDispatcher(
-      BindingLocator binding_locator = BindingLocator{})
-      : binding_locator_{std::move(binding_locator)} {}
+      ResolutionEngine resolution_engine = ResolutionEngine{})
+      : resolution_engine_{std::move(resolution_engine)} {}
 
   template <typename Requested, typename Container, typename Config>
   auto resolve(Container& container, Config& config, ParentContainer& parent)
       -> remove_rvalue_ref_t<Requested> {
-    return binding_locator_.template resolve_or_delegate<Requested>(
+    return resolution_engine_.template resolve_or_delegate<Requested>(
         container, config, [&parent]() -> remove_rvalue_ref_t<Requested> {
           // Delegate to parent
           return parent.template resolve<Requested>();
@@ -490,9 +456,9 @@ class Container {
 
 // Helper aliases for default pipeline components
 namespace detail {
-using DefaultBindingLocator =
-    BindingLocator<StrategyPolicy<>, BindingLookup, BindingFactory>;
-using DefaultFlatDispatcher = FlatDispatcher<DefaultBindingLocator>;
+using DefaultResolutionEngine =
+    ResolutionEngine<StrategyPolicy<>, BindingLookup, BindingFactory>;
+using DefaultFlatDispatcher = FlatDispatcher<DefaultResolutionEngine>;
 }  // namespace detail
 
 // Deduction guide - converts builders to Bindings, then deduces Config
@@ -512,14 +478,14 @@ template <IsContainer ParentContainer, typename... Builders>
 Container(ParentContainer&, Builders&&...) -> Container<
     detail::ConfigFromTuple<
         decltype(make_bindings(std::declval<Builders>()...))>,
-    HierarchicalDispatcher<detail::DefaultBindingLocator, ParentContainer>,
+    HierarchicalDispatcher<detail::DefaultResolutionEngine, ParentContainer>,
     ParentContainer>;
 
 // Deduction guide for child container with parent and config
 template <IsContainer ParentContainer, IsConfig ConfigType>
 Container(ParentContainer&, ConfigType) -> Container<
     ConfigType,
-    HierarchicalDispatcher<detail::DefaultBindingLocator, ParentContainer>,
+    HierarchicalDispatcher<detail::DefaultResolutionEngine, ParentContainer>,
     ParentContainer>;
 
 }  // namespace dink
