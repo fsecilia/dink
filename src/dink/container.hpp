@@ -209,22 +209,22 @@ struct DefaultStrategyExecutorFactory {
 };
 
 // ----------------------------------------------------------------------------
-// Binding Resolver - Common binding lookup and execution logic
+// Binding Locator - Common binding lookup and execution logic
 // ----------------------------------------------------------------------------
 
 template <template <ResolutionStrategy> typename StrategyExecutorTemplate,
           typename ExecutorFactory,
           typename StrategyPolicy = detail::DefaultStrategyPolicy,
           typename BindingLookup = detail::DefaultBindingLookup>
-class BindingResolver {
+class BindingLocator {
   [[no_unique_address]] ExecutorFactory executor_factory_{};
   [[no_unique_address]] StrategyPolicy strategy_policy_{};
   [[no_unique_address]] BindingLookup lookup_policy_{};
 
  public:
-  explicit BindingResolver(ExecutorFactory executor_factory = {},
-                           StrategyPolicy strategy_policy = {},
-                           BindingLookup lookup_policy = {})
+  explicit BindingLocator(ExecutorFactory executor_factory = {},
+                          StrategyPolicy strategy_policy = {},
+                          BindingLookup lookup_policy = {})
       : executor_factory_{std::move(executor_factory)},
         strategy_policy_{std::move(strategy_policy)},
         lookup_policy_{std::move(lookup_policy)} {}
@@ -270,22 +270,22 @@ class BindingResolver {
 // Flat Dispatcher (for root containers)
 // ----------------------------------------------------------------------------
 
-template <typename BindingResolver>
+template <typename BindingLocator>
 class FlatDispatcher {
-  [[no_unique_address]] BindingResolver resolver_;
+  [[no_unique_address]] BindingLocator binding_locator_;
 
  public:
-  explicit FlatDispatcher(BindingResolver resolver = BindingResolver{})
-      : resolver_{std::move(resolver)} {}
+  explicit FlatDispatcher(BindingLocator binding_locator = BindingLocator{})
+      : binding_locator_{std::move(binding_locator)} {}
 
   template <typename Requested, typename Container, typename Config>
   auto resolve(Container& container, Config& config)
       -> remove_rvalue_ref_t<Requested> {
-    return resolver_.template resolve<Requested>(
+    return binding_locator_.template resolve<Requested>(
         container, config,
         [&container](auto& factory) -> remove_rvalue_ref_t<Requested> {
           using Canonical = Canonical<Requested>;
-          // Use the strategy policy that's part of the factory's resolver
+          // Use the strategy policy that's part of the factory's locator
           constexpr auto strategy =
               detail::DefaultStrategyPolicy::template determine<Requested,
                                                                 false, false>();
@@ -310,18 +310,19 @@ class FlatDispatcher {
 // Hierarchical Dispatcher (for child containers)
 // ----------------------------------------------------------------------------
 
-template <typename BindingResolver, typename ParentContainer>
+template <typename BindingLocator, typename ParentContainer>
 class HierarchicalDispatcher {
-  [[no_unique_address]] BindingResolver resolver_;
+  [[no_unique_address]] BindingLocator binding_locator_;
 
  public:
-  explicit HierarchicalDispatcher(BindingResolver resolver = BindingResolver{})
-      : resolver_{std::move(resolver)} {}
+  explicit HierarchicalDispatcher(
+      BindingLocator binding_locator = BindingLocator{})
+      : binding_locator_{std::move(binding_locator)} {}
 
   template <typename Requested, typename Container, typename Config>
   auto resolve(Container& container, Config& config, ParentContainer& parent)
       -> remove_rvalue_ref_t<Requested> {
-    return resolver_.template resolve<Requested>(
+    return binding_locator_.template resolve<Requested>(
         container, config, [&parent](auto&) -> remove_rvalue_ref_t<Requested> {
           // Delegate to parent - don't need factory for this
           return parent.template resolve<Requested>();
@@ -418,10 +419,10 @@ class Container {
 // Helper aliases for default pipeline components
 namespace detail {
 using DefaultExecutorFactory = DefaultStrategyExecutorFactory<StrategyExecutor>;
-using DefaultResolver =
-    BindingResolver<StrategyExecutor, DefaultExecutorFactory,
-                    DefaultStrategyPolicy, DefaultBindingLookup>;
-using DefaultFlatDispatcher = FlatDispatcher<DefaultResolver>;
+using DefaultBindingLocator =
+    BindingLocator<StrategyExecutor, DefaultExecutorFactory,
+                   DefaultStrategyPolicy, DefaultBindingLookup>;
+using DefaultFlatDispatcher = FlatDispatcher<DefaultBindingLocator>;
 }  // namespace detail
 
 // Deduction guide - converts builders to Bindings, then deduces Config
@@ -441,14 +442,14 @@ template <IsContainer ParentContainer, typename... Builders>
 Container(ParentContainer&, Builders&&...) -> Container<
     detail::ConfigFromTuple<
         decltype(make_bindings(std::declval<Builders>()...))>,
-    HierarchicalDispatcher<detail::DefaultResolver, ParentContainer>,
+    HierarchicalDispatcher<detail::DefaultBindingLocator, ParentContainer>,
     ParentContainer>;
 
 // Deduction guide for child container with parent and config
 template <IsContainer ParentContainer, IsConfig ConfigType>
 Container(ParentContainer&, ConfigType) -> Container<
     ConfigType,
-    HierarchicalDispatcher<detail::DefaultResolver, ParentContainer>,
+    HierarchicalDispatcher<detail::DefaultBindingLocator, ParentContainer>,
     ParentContainer>;
 
 }  // namespace dink
