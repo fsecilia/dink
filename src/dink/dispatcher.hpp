@@ -40,12 +40,16 @@ struct DefaultBindingFactory {
 }  // namespace detail
 
 // ----------------------------------------------------------------------------
-// Strategy Policy - Determines strategy and creates appropriate strategy
+// Strategy Policy
 // ----------------------------------------------------------------------------
 
+//! Determines strategy and creates appropriate instance
 template <typename StrategyFactory = StrategyFactory<StrategySelector>>
-struct StrategyPolicy {
-  [[no_unique_address]] StrategyFactory strategy_factory_{};
+class StrategyPolicy {
+ public:
+  explicit constexpr StrategyPolicy(
+      StrategyFactory strategy_factory = StrategyFactory{})
+      : strategy_factory_{std::move(strategy_factory)} {}
 
   //! Creates the appropriate strategy for the given resolution context
   template <typename Requested, bool has_binding,
@@ -56,11 +60,6 @@ struct StrategyPolicy {
     return strategy_factory_.template create<strategy>();
   }
 
-  explicit constexpr StrategyPolicy(
-      StrategyFactory strategy_factory = StrategyFactory{})
-      : strategy_factory_{std::move(strategy_factory)} {}
-
- private:
   //! Determines resolution strategy based on requested type, binding, and scope
   template <typename Requested, bool has_binding,
             bool scope_provides_references>
@@ -95,12 +94,16 @@ struct StrategyPolicy {
       }
     }
   }
+
+ private:
+  [[no_unique_address]] StrategyFactory strategy_factory_{};
 };
 
 // ----------------------------------------------------------------------------
-// Dispatcher - Dispatches resolution requests to appropriate strategys
+// Dispatcher
 // ----------------------------------------------------------------------------
 
+//! Dispatches resolution requests to appropriate strategies.
 template <typename StrategyPolicy = StrategyPolicy<>,
           typename BindingLookup = detail::BindingLookup,
           typename DefaultBindingFactory = detail::DefaultBindingFactory>
