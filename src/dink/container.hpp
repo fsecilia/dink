@@ -228,7 +228,7 @@ struct StrategyPolicy {
 };
 
 // ----------------------------------------------------------------------------
-// Resolution Engine - Locates bindings and executes resolution
+// Resolution Engine - Executes dependency resolution
 // ----------------------------------------------------------------------------
 
 template <typename StrategyPolicy = StrategyPolicy<>,
@@ -239,6 +239,11 @@ class ResolutionEngine {
   [[no_unique_address]] BindingLookup lookup_policy_{};
   [[no_unique_address]] BindingFactory binding_factory_{};
 
+  // Allow Container to access execute_with_default_binding for root container
+  // case
+  template <IsConfig, typename, typename>
+  friend class Container;
+
  public:
   explicit ResolutionEngine(StrategyPolicy strategy_policy = StrategyPolicy{},
                             BindingLookup lookup_policy = {},
@@ -247,24 +252,11 @@ class ResolutionEngine {
         lookup_policy_{std::move(lookup_policy)},
         binding_factory_{std::move(binding_factory)} {}
 
-  //! Resolves with found or default binding (for flat containers)
-  template <typename Requested, typename Container, typename Config>
-  auto resolve(Container& container, Config& config)
-      -> remove_rvalue_ref_t<Requested> {
-    return resolve_or_delegate<Requested>(
-        container, config,
-        // This must be generic for lazy evaluation. A regular lambda is too
-        // eager and kicks off arity detection.
-        [&]<typename R = Requested>() -> remove_rvalue_ref_t<R> {
-          return execute_with_default_binding<R>(container);
-        });
-  }
-
-  //! Resolves with found binding or delegates via handler (for hierarchical)
+  //! Resolves with found binding or calls not_found_handler
   template <typename Requested, typename Container, typename Config,
             typename NotFoundHandler>
-  auto resolve_or_delegate(Container& container, Config& config,
-                           NotFoundHandler&& not_found_handler)
+  auto resolve(Container& container, Config& config,
+               NotFoundHandler&& not_found_handler)
       -> remove_rvalue_ref_t<Requested> {
     using Canonical = Canonical<Requested>;
 
@@ -281,7 +273,8 @@ class ResolutionEngine {
       return execute<Requested, has_binding, provides_references>(container,
                                                                   *binding_ptr);
     } else {
-      // No binding - delegate to handler
+      // No binding - call handler (either creates default or delegates to
+      // parent)
       return not_found_handler();
     }
   }
@@ -325,50 +318,6 @@ class ResolutionEngine {
 };
 
 // ----------------------------------------------------------------------------
-// Flat Dispatcher (for root containers)
-// ----------------------------------------------------------------------------
-
-template <typename ResolutionEngine>
-class FlatDispatcher {
-  [[no_unique_address]] ResolutionEngine resolution_engine_;
-
- public:
-  explicit FlatDispatcher(
-      ResolutionEngine resolution_engine = ResolutionEngine{})
-      : resolution_engine_{std::move(resolution_engine)} {}
-
-  template <typename Requested, typename Container, typename Config>
-  auto resolve(Container& container, Config& config)
-      -> remove_rvalue_ref_t<Requested> {
-    return resolution_engine_.template resolve<Requested>(container, config);
-  }
-};
-
-// ----------------------------------------------------------------------------
-// Hierarchical Dispatcher (for child containers)
-// ----------------------------------------------------------------------------
-
-template <typename ResolutionEngine, typename ParentContainer>
-class HierarchicalDispatcher {
-  [[no_unique_address]] ResolutionEngine resolution_engine_;
-
- public:
-  explicit HierarchicalDispatcher(
-      ResolutionEngine resolution_engine = ResolutionEngine{})
-      : resolution_engine_{std::move(resolution_engine)} {}
-
-  template <typename Requested, typename Container, typename Config>
-  auto resolve(Container& container, Config& config, ParentContainer& parent)
-      -> remove_rvalue_ref_t<Requested> {
-    return resolution_engine_.template resolve_or_delegate<Requested>(
-        container, config, [&parent]() -> remove_rvalue_ref_t<Requested> {
-          // Delegate to parent
-          return parent.template resolve<Requested>();
-        });
-  }
-};
-
-// ----------------------------------------------------------------------------
 // Concepts
 // ----------------------------------------------------------------------------
 
@@ -383,23 +332,28 @@ concept IsContainer = requires(Container& container) {
 // Container - Forward Declaration
 // ----------------------------------------------------------------------------
 
-template <IsConfig Config, typename Dispatcher, typename Parent = void>
+template <IsConfig Config, typename ResolutionEngine, typename Parent = void>
 class Container;
 
 // ----------------------------------------------------------------------------
 // Container - Root Specialization (Parent = void)
 // ----------------------------------------------------------------------------
 
-template <IsConfig Config, typename Dispatcher>
-class Container<Config, Dispatcher, void> {
+template <IsConfig Config, typename ResolutionEngine>
+class Container<Config, ResolutionEngine, void> {
   Config config_{};
-  [[no_unique_address]] Dispatcher dispatcher_{};
+  [[no_unique_address]] ResolutionEngine resolution_engine_{};
 
  public:
   //! Resolve a dependency
   template <typename Requested>
   auto resolve() -> remove_rvalue_ref_t<Requested> {
-    return dispatcher_.template resolve<Requested>(*this, config_);
+    return resolution_engine_.template resolve<Requested>(
+        *this, config_,
+        [this]<typename R = Requested>() -> remove_rvalue_ref_t<R> {
+          return resolution_engine_.template execute_with_default_binding<R>(
+              *this);
+        });
   }
 
   //! Construct from bindings
@@ -410,26 +364,30 @@ class Container<Config, Dispatcher, void> {
   //! Construct from config directly
   explicit Container(Config config) noexcept : config_{std::move(config)} {}
 
-  //! Construct from config and dispatcher (for testing)
-  explicit Container(Config config, Dispatcher dispatcher) noexcept
-      : config_{std::move(config)}, dispatcher_{std::move(dispatcher)} {}
+  //! Construct from config and resolution_engine (for testing)
+  explicit Container(Config config, ResolutionEngine resolution_engine) noexcept
+      : config_{std::move(config)},
+        resolution_engine_{std::move(resolution_engine)} {}
 };
 
 // ----------------------------------------------------------------------------
 // Container - Child Specialization (Parent != void)
 // ----------------------------------------------------------------------------
 
-template <IsConfig Config, typename Dispatcher, typename Parent>
+template <IsConfig Config, typename ResolutionEngine, typename Parent>
 class Container {
   Config config_{};
   Parent* parent_;
-  [[no_unique_address]] Dispatcher dispatcher_{};
+  [[no_unique_address]] ResolutionEngine resolution_engine_{};
 
  public:
   //! Resolve a dependency
   template <typename Requested>
   auto resolve() -> remove_rvalue_ref_t<Requested> {
-    return dispatcher_.template resolve<Requested>(*this, config_, *parent_);
+    return resolution_engine_.template resolve<Requested>(
+        *this, config_, [this]() -> remove_rvalue_ref_t<Requested> {
+          return parent_->template resolve<Requested>();
+        });
   }
 
   //! Construct from parent and bindings
@@ -442,12 +400,12 @@ class Container {
   explicit Container(Parent& parent, Config config) noexcept
       : config_{std::move(config)}, parent_{&parent} {}
 
-  //! Construct from parent, config, and dispatcher (for testing)
+  //! Construct from parent, config, and resolution_engine (for testing)
   explicit Container(Parent& parent, Config config,
-                     Dispatcher dispatcher) noexcept
+                     ResolutionEngine resolution_engine) noexcept
       : config_{std::move(config)},
         parent_{&parent},
-        dispatcher_{std::move(dispatcher)} {}
+        resolution_engine_{std::move(resolution_engine)} {}
 };
 
 // ----------------------------------------------------------------------------
@@ -458,7 +416,6 @@ class Container {
 namespace detail {
 using DefaultResolutionEngine =
     ResolutionEngine<StrategyPolicy<>, BindingLookup, BindingFactory>;
-using DefaultFlatDispatcher = FlatDispatcher<DefaultResolutionEngine>;
 }  // namespace detail
 
 // Deduction guide - converts builders to Bindings, then deduces Config
@@ -466,26 +423,23 @@ template <typename... Builders>
 Container(Builders&&...)
     -> Container<detail::ConfigFromTuple<
                      decltype(make_bindings(std::declval<Builders>()...))>,
-                 detail::DefaultFlatDispatcher, void>;
+                 detail::DefaultResolutionEngine, void>;
 
 // Deduction guide for Config directly (root container)
 template <IsConfig ConfigType>
 Container(ConfigType)
-    -> Container<ConfigType, detail::DefaultFlatDispatcher, void>;
+    -> Container<ConfigType, detail::DefaultResolutionEngine, void>;
 
 // Deduction guide for child container with parent and bindings
 template <IsContainer ParentContainer, typename... Builders>
-Container(ParentContainer&, Builders&&...) -> Container<
-    detail::ConfigFromTuple<
-        decltype(make_bindings(std::declval<Builders>()...))>,
-    HierarchicalDispatcher<detail::DefaultResolutionEngine, ParentContainer>,
-    ParentContainer>;
+Container(ParentContainer&, Builders&&...)
+    -> Container<detail::ConfigFromTuple<
+                     decltype(make_bindings(std::declval<Builders>()...))>,
+                 detail::DefaultResolutionEngine, ParentContainer>;
 
 // Deduction guide for child container with parent and config
 template <IsContainer ParentContainer, IsConfig ConfigType>
-Container(ParentContainer&, ConfigType) -> Container<
-    ConfigType,
-    HierarchicalDispatcher<detail::DefaultResolutionEngine, ParentContainer>,
-    ParentContainer>;
+Container(ParentContainer&, ConfigType)
+    -> Container<ConfigType, detail::DefaultResolutionEngine, ParentContainer>;
 
 }  // namespace dink
