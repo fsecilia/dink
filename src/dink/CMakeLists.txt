@@ -186,25 +186,6 @@ if (dink_enable_testing)
   dink_enable_running_from_build_tree(dink_test)
   gtest_discover_tests(dink_test)
 
-  if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-    target_compile_options(dink_test PUBLIC
-      -Wno-ctad-maybe-unsupported
-      -Wno-padded
-      -Wno-shadow
-      -Wno-shadow-field-in-constructor
-      -Wno-unneeded-member-function
-      -Wno-unused-member-function
-      -Wno-unused-template
-      -Wno-weak-vtables
-    )
-  endif()
-
-  if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    target_compile_options(dink_test PUBLIC
-      -Wno-changes-meaning
-    )
-  endif()
-
   # dink_integration_test
   # ---------------------------------------------------------------------------
   add_executable(dink_integration_test dink_integration_test.cpp)

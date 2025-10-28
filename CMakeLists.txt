@@ -136,7 +136,23 @@ endfunction()
 # disables a few warnings generated when using gtest
 function(dink_configure_test_target_warnings target)
   if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-    target_compile_options(${target} PUBLIC -Wno-global-constructors)
+    target_compile_options(${target} PUBLIC
+      -Wno-ctad-maybe-unsupported
+      -Wno-global-constructors
+      -Wno-padded
+      -Wno-shadow
+      -Wno-shadow-field-in-constructor
+      -Wno-unneeded-member-function
+      -Wno-unused-member-function
+      -Wno-unused-template
+      -Wno-weak-vtables
+    )
+  endif()
+
+  if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    target_compile_options(dink_test PUBLIC
+      -Wno-changes-meaning
+    )
   endif()
 endfunction()
 
