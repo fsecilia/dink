@@ -20,10 +20,10 @@ namespace dink {
 // ----------------------------------------------------------------------------
 
 enum class ResolutionStrategy {
-  Normal,             // Use binding's scope and provider
-  ForceTransient,     // Override to transient
-  ForceSingleton,     // Override to singleton (promotion)
-  CanonicalSharedPtr  // Wrap via canonical shared_ptr
+  UseBoundScope,        // Use binding's scope and provider
+  RelegateToTransient,  // Override scope to transient, use bound provider
+  PromoteToSingleton,   // Override scope to singleton, use bound provider
+  CacheSharedPtr        // Cache shared_ptr to singleton
 };
 
 // ----------------------------------------------------------------------------
@@ -36,30 +36,30 @@ namespace detail {
 template <typename Requested, bool has_binding, bool provides_references>
 static constexpr auto determine_strategy() -> ResolutionStrategy {
   if constexpr (UniquePtr<Requested>) {
-    return ResolutionStrategy::ForceTransient;
+    return ResolutionStrategy::RelegateToTransient;
   } else if constexpr (SharedPtr<Requested> || WeakPtr<Requested>) {
     if constexpr (has_binding && !provides_references) {
       // Transient scope with shared_ptr - let it create new instances
-      return ResolutionStrategy::Normal;
+      return ResolutionStrategy::UseBoundScope;
     } else {
       // Singleton scope or no binding - wrap via canonical shared_ptr
-      return ResolutionStrategy::CanonicalSharedPtr;
+      return ResolutionStrategy::CacheSharedPtr;
     }
   } else if constexpr (std::is_lvalue_reference_v<Requested> ||
                        std::is_pointer_v<Requested>) {
     if constexpr (has_binding) {
-      return provides_references ? ResolutionStrategy::Normal
-                                 : ResolutionStrategy::ForceSingleton;
+      return provides_references ? ResolutionStrategy::UseBoundScope
+                                 : ResolutionStrategy::PromoteToSingleton;
     } else {
-      return ResolutionStrategy::ForceSingleton;
+      return ResolutionStrategy::PromoteToSingleton;
     }
   } else {
     // Value or RValue Ref
     if constexpr (has_binding) {
-      return provides_references ? ResolutionStrategy::ForceTransient
-                                 : ResolutionStrategy::Normal;
+      return provides_references ? ResolutionStrategy::RelegateToTransient
+                                 : ResolutionStrategy::UseBoundScope;
     } else {
-      return ResolutionStrategy::ForceTransient;
+      return ResolutionStrategy::RelegateToTransient;
     }
   }
 }
@@ -85,15 +85,15 @@ struct DefaultBindingLookup {
 // Note: CanonicalSharedPtr strategy never calls this function.
 template <typename Canonical, ResolutionStrategy strategy>
 static constexpr auto make_default_binding() {
-  if constexpr (strategy == ResolutionStrategy::ForceSingleton) {
+  if constexpr (strategy == ResolutionStrategy::PromoteToSingleton) {
     return Binding<Canonical, scope::Singleton, provider::Ctor<Canonical>>{
         scope::Singleton{}, provider::Ctor<Canonical>{}};
-  } else if constexpr (strategy == ResolutionStrategy::ForceTransient) {
+  } else if constexpr (strategy == ResolutionStrategy::RelegateToTransient) {
     return Binding<Canonical, scope::Transient, provider::Ctor<Canonical>>{
         scope::Transient{}, provider::Ctor<Canonical>{}};
   } else {
-    static_assert(strategy == ResolutionStrategy::ForceSingleton ||
-                      strategy == ResolutionStrategy::ForceTransient,
+    static_assert(strategy == ResolutionStrategy::PromoteToSingleton ||
+                      strategy == ResolutionStrategy::RelegateToTransient,
                   "make_default_binding called with unexpected strategy");
   }
 }
@@ -180,18 +180,19 @@ template <ResolutionStrategy strategy>
 struct StrategyExecutor;
 
 template <>
-struct StrategyExecutor<ResolutionStrategy::Normal> : execution::Normal {};
+struct StrategyExecutor<ResolutionStrategy::UseBoundScope> : execution::Normal {
+};
 
 template <>
-struct StrategyExecutor<ResolutionStrategy::ForceTransient>
+struct StrategyExecutor<ResolutionStrategy::RelegateToTransient>
     : execution::ForceScoped<scope::Transient> {};
 
 template <>
-struct StrategyExecutor<ResolutionStrategy::ForceSingleton>
+struct StrategyExecutor<ResolutionStrategy::PromoteToSingleton>
     : execution::ForceScoped<scope::Singleton> {};
 
 template <>
-struct StrategyExecutor<ResolutionStrategy::CanonicalSharedPtr>
+struct StrategyExecutor<ResolutionStrategy::CacheSharedPtr>
     : execution::CanonicalSharedPtr<
           scope::Singleton,
           detail::TransitiveSingletonSharedPtrProviderFactory> {};
@@ -251,7 +252,7 @@ class BindingLocator {
 
       auto executor = executor_factory_.template create<strategy>();
 
-      if constexpr (strategy == ResolutionStrategy::CanonicalSharedPtr) {
+      if constexpr (strategy == ResolutionStrategy::CacheSharedPtr) {
         // CanonicalSharedPtr doesn't use the binding
         return executor.template execute<Requested>(container);
       } else {
@@ -292,7 +293,7 @@ class FlatDispatcher {
 
           auto executor = factory.template create<strategy>();
 
-          if constexpr (strategy == ResolutionStrategy::CanonicalSharedPtr) {
+          if constexpr (strategy == ResolutionStrategy::CacheSharedPtr) {
             // CanonicalSharedPtr doesn't need a binding
             return executor.template execute<Requested>(container);
           } else {
