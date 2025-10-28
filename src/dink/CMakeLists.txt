@@ -41,6 +41,10 @@ list(APPEND dink_test_files
   version_test.cpp
 )
 
+list(APPEND dink_integration_test_files
+  container_integration_test.cpp
+  dink_integration_test.cpp
+)
 # -----------------------------------------------------------------------------
 # generated configuration
 # -----------------------------------------------------------------------------
@@ -188,7 +192,7 @@ if (dink_enable_testing)
 
   # dink_integration_test
   # ---------------------------------------------------------------------------
-  add_executable(dink_integration_test dink_integration_test.cpp)
+  add_executable(dink_integration_test ${dink_integration_test_files})
   target_link_libraries(dink_integration_test PUBLIC
     dink
     GTest::gmock_main
