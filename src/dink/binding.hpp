@@ -1,6 +1,12 @@
 // \file
 // Copyright (c) 2025 Frank Secilia
 // SPDX-License-Identifier: MIT
+//
+// \brief Defines binding triples and a fluent api to produce them.
+//
+// This module uses a type-state DSL to encode rules for generating valid
+// bindings; not all {scope, provider} pairs are useful, so the DSL guides
+// construction to useful combinations.
 
 #pragma once
 
@@ -11,7 +17,6 @@
 
 namespace dink {
 
-// Forward declarations
 template <typename From>
 class BindBuilder;
 
@@ -28,9 +33,18 @@ template <typename From, typename To, typename Provider, typename Scope>
 class InBuilder;
 
 // ----------------------------------------------------------------------------
-// Binding - Final type stored in container
+// Binding - Final type produced by DSL, stored in Config
 // ----------------------------------------------------------------------------
 
+//! Binding triples.
+//
+// Binding triples are combinations of a type and 2 instances,
+// <From, Scope, Provider>:
+// \tparam From defines what type the binding matches
+// \tparam Scope defines how the instances of the type are stored
+// \tparam Provider defines how the instances are created or obtained
+//
+// Since all 3 types can vary, each binding tends to be a unique type.
 template <typename From, typename Scope, typename Provider>
 struct Binding {
   using FromType = From;
@@ -179,31 +193,26 @@ class InBuilder {
 };
 
 // ----------------------------------------------------------------------------
-// Deduction Guides - Enable CTAD for Binding construction
+// Deduction Guides
 // ----------------------------------------------------------------------------
 
-// Deduction guide for BindBuilder
 template <typename From>
 Binding(BindBuilder<From>&&)
     -> Binding<From, scope::Transient, provider::Ctor<From>>;
 
-// Deduction guide for AsBuilder
 template <typename From, typename To>
 Binding(AsBuilder<From, To>&&)
     -> Binding<From, scope::Transient, provider::Ctor<To>>;
 
-// Deduction guide for ViaBuilder
 template <typename From, typename To, typename Factory>
 Binding(ViaBuilder<From, To, Factory>&&)
     -> Binding<From, scope::Transient, provider::Factory<To, Factory>>;
 
-// Deduction guide for ToBuilder
 template <typename From, typename InstanceType>
 Binding(ToBuilder<From, InstanceType>&&)
     -> Binding<From, scope::Instance<InstanceType>,
                provider::Instance<InstanceType>>;
 
-// Deduction guide for InBuilder
 template <typename From, typename To, typename Provider, typename Scope>
 Binding(InBuilder<From, To, Provider, Scope>&&)
     -> Binding<From, Scope, Provider>;
@@ -214,15 +223,15 @@ Binding(InBuilder<From, To, Provider, Scope>&&)
 
 //! Creates a tuple of bindings by forcing conversion of each builder.
 //
-// This helper explicitly constructs Binding objects from builders, which
-// enables storing heterogeneous bindings in a tuple. Without this,
-// std::make_tuple would store the builder types themselves rather than
-// converting them to Binding types.
+// This explicitly constructs Binding objects from builders, which enables
+// storing heterogeneous bindings in a tuple. Without this, std::make_tuple
+// would store the builder types themselves rather than converting them to
+// Binding types.
 //
 // Example usage:
 //   auto bindings = make_bindings(
-//     bind<IFoo>(),
-//     bind<IBar>().as<Bar>().in<scope::Singleton>(),
+//     bind<Type>(),
+//     bind<Interfacee>().as<Implementation>().in<scope::Singleton>(),
 //     bind<Config>().to(config_instance)
 //   );
 template <typename... Builders>
@@ -240,11 +249,12 @@ constexpr auto make_bindings(Builders&&... builders) {
 // that can be configured through method chaining.
 //
 // Example usage:
-//   bind<IFoo>()                              // Transient<Ctor<IFoo>>
-//   bind<IFoo>().as<Foo>()                    // Transient<Ctor<Foo>>
-//   bind<IFoo>().as<Foo>().via(factory)       // Transient<Factory<Foo, F>>
-//   bind<IFoo>().in<scope::Singleton>()       // Singleton<Ctor<IFoo>>
-//   bind<IFoo>().to(instance)                 // Instance<decltype(instance)>
+//   bind<Interface>() -> Transient<Ctor<Interface>>
+//   bind<Interface>().as<Implementation>() -> Transient<Ctor<Implementation>>
+//   bind<Interface>().as<Implementation>().via(factory)
+//     -> Transient<Factory<Implementation, decltype(factory)>>
+//   bind<Interface>().in<scope::Singleton>() -> Singleton<Ctor<Interface>>
+//   bind<Interface>().to(instance) -> Instance<decltype(instance)>
 template <typename From>
 constexpr auto bind() -> BindBuilder<From> {
   return {};
