@@ -5,18 +5,21 @@
 # project files
 # -----------------------------------------------------------------------------
 
+
 list(APPEND dink_library_files
   arity.hpp
   binding.hpp
   canonical.hpp
   config.hpp
   container.hpp
+  dispatcher.hpp
   invoker.hpp
   lib.hpp
   meta.hpp
   provider.hpp
   remove_rvalue_ref.hpp
   request_traits.hpp
+  resolution_strategy.hpp
   resolver.hpp
   scope.hpp
   smart_pointer_traits.hpp
@@ -30,9 +33,11 @@ list(APPEND dink_test_files
   canonical_test.cpp
   config_test.cpp
   container_test.cpp
+  dispatcher_test.cpp
   invoker_test.cpp
   provider_test.cpp
   request_traits_test.cpp
+  resolution_strategy_test.cpp
   resolver_test.cpp
   scope_test.cpp
   smart_pointer_traits_test.cpp
