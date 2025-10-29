@@ -130,10 +130,6 @@ Container(Builders&&...)
                      decltype(make_bindings(std::declval<Builders>()...))>,
                  Dispatcher<>, void>;
 
-// Root container from config
-template <IsConfig ConfigType>
-Container(ConfigType) -> Container<ConfigType, Dispatcher<>, void>;
-
 // Child container from parent and builders (no tag - default sharing)
 template <IsContainer ParentContainer, IsBinding... Builders>
 Container(ParentContainer&, Builders&&...)
@@ -149,39 +145,22 @@ Container(UniqueTag, ParentContainer&, Builders&&...)
                      decltype(make_bindings(std::declval<Builders>()...))>,
                  Dispatcher<>, ParentContainer, UniqueTag>;
 
-// Child container from parent and config (no tag)
-template <IsContainer ParentContainer, IsConfig ConfigType>
-Container(ParentContainer&, ConfigType)
-    -> Container<ConfigType, Dispatcher<>, ParentContainer, unique_type<>>;
-
-// Child container from tag, parent, and config (explicit unique)
-template <typename UniqueTag, IsContainer ParentContainer, IsConfig ConfigType>
-Container(UniqueTag, ParentContainer&, ConfigType)
-    -> Container<ConfigType, Dispatcher<>, ParentContainer, UniqueTag>;
-
 // ----------------------------------------------------------------------------
 // Factory Functions
 // ----------------------------------------------------------------------------
 
-//! Root container, no parent.
+//! Macro to generate unique container types.
 //
-// This produces a container with a unique tag every time.
-template <typename... Builders>
-auto make_container(Builders&&... builders) {
-  using Config = detail::ConfigFromTuple<decltype(make_bindings(
-      std::declval<Builders>()...))>;
-  return Container<Config, Dispatcher<>, void, unique_type<>>{
-      std::forward<Builders>(builders)...};
-}
+// Two containers with the same config have the same type. Because singletons
+// are keyed by <container, provider>, two containers with the same config will
+// share singletons, which is quite astonishing. There is no internal
+// workaround - the container type must be made unique - dink_unique_container()
+// creates a container with a tag unique to the instance.
+//
+// This is a macro so unique_type<> is generated once at each call site. There
+// is no other way in the language to generate this once per instance. All
+// other methods generate it once per type.
+#define dink_unique_container(...) \
+  Container { unique_type<>{}, __VA_ARGS__ }
 
-//! Child container, first arg is parent.
-//
-// This produces a container with a unique tag every time.
-template <IsContainer Parent, typename... Builders>
-auto make_container(Parent& parent, Builders&&... builders) {
-  using Config = detail::ConfigFromTuple<decltype(make_bindings(
-      std::declval<Builders>()...))>;
-  return Container<Config, Dispatcher<>, Parent, unique_type<>>{
-      parent, std::forward<Builders>(builders)...};
-}
 }  // namespace dink
