@@ -17,7 +17,7 @@
 namespace dink {
 namespace detail {
 
-//! Default policy for looking up bindings in config.
+//! Looks up bindings in config.
 struct BindingLocator {
   template <typename Canonical, typename Config>
   auto find(Config& config) const {
@@ -25,7 +25,7 @@ struct BindingLocator {
   }
 };
 
-//! Default policy for creating bindings when none exist in config.
+//! Creates effective bindings for unbound types.
 struct FallbackBindingFactory {
   template <typename Canonical>
   constexpr auto create() const {
@@ -53,19 +53,20 @@ class Dispatcher {
         lookup_policy_{std::move(lookup_policy)},
         fallback_binding_factory_{std::move(fallback_binding_factory)} {}
 
-  //! Resolves with found binding or calls not_found_handler
+  //! Resolves with found binding, delegates to parent, or uses fallback.
   template <typename Requested, typename Container, typename Config,
             typename Parent>
   auto resolve(Container& container, Config& config, Parent parent)
       -> remove_rvalue_ref_t<Requested> {
     using Canonical = Canonical<Requested>;
 
+    // Find binding.
     auto binding_ptr = lookup_policy_.template find<Canonical>(config);
     constexpr bool has_binding =
         !std::is_same_v<decltype(binding_ptr), std::nullptr_t>;
 
     if constexpr (has_binding) {
-      // Found binding - execute with it
+      // Found binding - execute with it.
       using Binding = std::remove_cvref_t<decltype(*binding_ptr)>;
       constexpr bool provides_references =
           Binding::ScopeType::provides_references;
@@ -73,18 +74,19 @@ class Dispatcher {
       return execute_strategy<Requested, has_binding, provides_references>(
           container, *binding_ptr);
     } else {
-      // no binding; try delegating to parent
+      // no binding found; try delegating to parent
       if constexpr (std::same_as<Parent, std::nullptr_t>) {
         // no binding, no parent, use fallback bindings
         return execute_fallback_strategy<Requested>(container);
       } else {
+        // no binding, but still have parent to try.
         return delegate_to_parent<Requested>(*parent);
       }
     }
   }
 
  private:
-  //! Executes strategy with a specific binding
+  //! Executes strategy with given binding.
   template <typename Requested, bool has_binding,
             bool scope_provides_references, typename Container,
             typename Binding>
@@ -96,7 +98,7 @@ class Dispatcher {
     return strategy.template execute<Requested>(container, binding);
   }
 
-  //! Executes strategy with a default binding
+  //! Executes strategy with fallback binding.
   template <typename Requested, typename Container>
   auto execute_fallback_strategy(Container& container)
       -> remove_rvalue_ref_t<Requested> {
