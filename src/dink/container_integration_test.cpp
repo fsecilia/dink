@@ -1159,4 +1159,899 @@ TEST_F(ContainerDefaultScopeTest, unbound_type_creates_values) {
   EXPECT_EQ(1, val2.id);
 }
 
+// ----------------------------------------------------------------------------
+// Promotion Tests (Transient → Singleton-like behavior)
+// ----------------------------------------------------------------------------
+//
+// Promotion occurs when a type bound as Transient is requested in a way that
+// requires shared ownership or reference semantics:
+//
+// PROMOTED (Transient → Singleton-like):
+// - References (T&, const T&) - must be stable across calls
+// - Pointers (T*, const T*) - must point to same instance
+// - weak_ptr<T> - requires a cached shared_ptr to track
+//
+// NOT PROMOTED (remains Transient):
+// - Values (T, T&&) - each call creates new instance
+// - unique_ptr<T> - exclusive ownership, each call creates new instance
+// - shared_ptr<T> - can create new instances in each shared_ptr
+//
+// Note: shared_ptr<T> from Transient creates NEW instances each time, not
+// promoted! This is intentional - transient shared_ptr means "give me a new
+// instance in a shared_ptr". Only weak_ptr requires promotion because it needs
+// a cached backing shared_ptr to track.
+//
+// ----------------------------------------------------------------------------
+
+struct ContainerPromotionTest : ContainerTestBase {};
+
+TEST_F(ContainerPromotionTest, transient_promoted_to_singleton_for_reference) {
+  struct TransientBound : Counted {};
+  auto sut = Container{bind<TransientBound>().in<scope::Transient>()};
+
+  // First reference request should cache
+  auto& ref1 = sut.template resolve<TransientBound&>();
+  auto& ref2 = sut.template resolve<TransientBound&>();
+
+  // Should return same instance (promoted to singleton)
+  EXPECT_EQ(&ref1, &ref2);
+  EXPECT_EQ(0, ref1.id);
+  EXPECT_EQ(1, Counted::instance_count);  // Only one instance created
+}
+
+TEST_F(ContainerPromotionTest,
+       transient_promoted_to_singleton_for_const_reference) {
+  struct TransientBound : Counted {};
+  auto sut = Container{bind<TransientBound>().in<scope::Transient>()};
+
+  const auto& ref1 = sut.template resolve<const TransientBound&>();
+  const auto& ref2 = sut.template resolve<const TransientBound&>();
+
+  EXPECT_EQ(&ref1, &ref2);
+  EXPECT_EQ(0, ref1.id);
+  EXPECT_EQ(1, Counted::instance_count);
+}
+
+TEST_F(ContainerPromotionTest, transient_promoted_to_singleton_for_pointer) {
+  struct TransientBound : Counted {};
+  auto sut = Container{bind<TransientBound>().in<scope::Transient>()};
+
+  auto* ptr1 = sut.template resolve<TransientBound*>();
+  auto* ptr2 = sut.template resolve<TransientBound*>();
+
+  EXPECT_EQ(ptr1, ptr2);
+  EXPECT_EQ(0, ptr1->id);
+  EXPECT_EQ(1, Counted::instance_count);
+}
+
+TEST_F(ContainerPromotionTest,
+       transient_promoted_to_singleton_for_const_pointer) {
+  struct TransientBound : Counted {};
+  auto sut = Container{bind<TransientBound>().in<scope::Transient>()};
+
+  const auto* ptr1 = sut.template resolve<const TransientBound*>();
+  const auto* ptr2 = sut.template resolve<const TransientBound*>();
+
+  EXPECT_EQ(ptr1, ptr2);
+  EXPECT_EQ(0, ptr1->id);
+  EXPECT_EQ(1, Counted::instance_count);
+}
+
+TEST_F(ContainerPromotionTest,
+       transient_shared_ptr_creates_new_instances_not_promoted) {
+  struct TransientBound : Counted {};
+  auto sut = Container{bind<TransientBound>().in<scope::Transient>()};
+
+  auto shared1 = sut.template resolve<std::shared_ptr<TransientBound>>();
+  auto shared2 = sut.template resolve<std::shared_ptr<TransientBound>>();
+
+  // Transient shared_ptr creates NEW instances (not promoted)
+  EXPECT_NE(shared1.get(), shared2.get());
+  EXPECT_EQ(0, shared1->id);
+  EXPECT_EQ(1, shared2->id);
+  EXPECT_EQ(2, Counted::instance_count);
+}
+
+TEST_F(ContainerPromotionTest, transient_promoted_to_singleton_for_weak_ptr) {
+  struct TransientBound : Counted {};
+  auto sut = Container{bind<TransientBound>().in<scope::Transient>()};
+
+  auto weak1 = sut.template resolve<std::weak_ptr<TransientBound>>();
+  auto weak2 = sut.template resolve<std::weak_ptr<TransientBound>>();
+
+  EXPECT_FALSE(weak1.expired());
+  EXPECT_EQ(weak1.lock(), weak2.lock());
+  EXPECT_EQ(0, weak1.lock()->id);
+  EXPECT_EQ(1, Counted::instance_count);
+}
+
+TEST_F(ContainerPromotionTest, transient_not_promoted_for_value_or_unique_ptr) {
+  struct TransientBound : Counted {};
+  auto sut = Container{bind<TransientBound>().in<scope::Transient>()};
+
+  // Values should still be transient
+  auto val1 = sut.template resolve<TransientBound>();
+  auto val2 = sut.template resolve<TransientBound>();
+  EXPECT_EQ(0, val1.id);
+  EXPECT_EQ(1, val2.id);
+
+  // unique_ptr should still be transient
+  auto unique1 = sut.template resolve<std::unique_ptr<TransientBound>>();
+  auto unique2 = sut.template resolve<std::unique_ptr<TransientBound>>();
+  EXPECT_NE(unique1.get(), unique2.get());
+  EXPECT_EQ(2, unique1->id);
+  EXPECT_EQ(3, unique2->id);
+  EXPECT_EQ(4, Counted::instance_count);
+}
+
+TEST_F(ContainerPromotionTest,
+       transient_promotion_consistent_across_different_request_types) {
+  struct TransientBound : Counted {};
+  auto sut = Container{bind<TransientBound>().in<scope::Transient>()};
+
+  // All reference-like requests should share the same promoted instance
+  // (but NOT shared_ptr, which creates new instances)
+  auto& ref = sut.template resolve<TransientBound&>();
+  auto* ptr = sut.template resolve<TransientBound*>();
+  auto weak = sut.template resolve<std::weak_ptr<TransientBound>>();
+
+  EXPECT_EQ(&ref, ptr);
+  EXPECT_EQ(ptr, weak.lock().get());
+  EXPECT_EQ(0, ref.id);
+  EXPECT_EQ(1, Counted::instance_count);
+}
+
+TEST_F(ContainerPromotionTest, transient_promotion_with_dependencies) {
+  struct Dependency : Counted {};
+  struct Service : Counted {
+    Dependency* dep;
+    explicit Service(Dependency& d) : dep{&d} {}
+  };
+
+  auto sut = Container{bind<Dependency>().in<scope::Transient>(),
+                       bind<Service>().in<scope::Transient>()};
+
+  // When Service is constructed by reference, it causes Dependency to be
+  // promoted (since Service's ctor takes Dependency&, which forces promotion)
+  auto& service = sut.template resolve<Service&>();
+
+  // Verify Dependency was promoted (id=0) and Service was promoted (id=1)
+  EXPECT_EQ(0, service.dep->id);  // Dependency created first
+  EXPECT_EQ(1, service.id);       // Service created second
+
+  // Verify subsequent reference requests return the same promoted instances
+  auto& service2 = sut.template resolve<Service&>();
+  EXPECT_EQ(&service, &service2);
+  EXPECT_EQ(service.dep, service2.dep);
+
+  EXPECT_EQ(2, Counted::instance_count);  // 1 Service + 1 Dependency
+}
+
+// ----------------------------------------------------------------------------
+// Relegation Tests (Singleton → Transient-like behavior)
+// ----------------------------------------------------------------------------
+//
+// Relegation occurs when a type bound as Singleton is requested in a way that
+// requires exclusive ownership or value semantics:
+//
+// RELEGATED (Singleton → Transient-like):
+// - Values (T) - creates new instances from provider
+// - rvalue references (T&&) - creates new instances from provider
+// - unique_ptr<T> - exclusive ownership, creates new instances
+//
+// NOT RELEGATED (remains Singleton):
+// - References (T&, const T&) - returns reference to singleton
+// - Pointers (T*, const T*) - returns pointer to singleton
+// - shared_ptr<T> - wraps singleton via canonical shared_ptr
+// - weak_ptr<T> - tracks the canonical shared_ptr of singleton
+//
+// Note: Relegated instances are NEW instances created by calling the provider
+// again, NOT copies of the singleton. The singleton instance remains unchanged
+// and can still be accessed via references/pointers.
+//
+// ----------------------------------------------------------------------------
+
+struct ContainerRelegationTest : ContainerTestBase {};
+
+TEST_F(ContainerRelegationTest, singleton_relegated_to_transient_for_value) {
+  struct SingletonBound : Counted {};
+  auto sut = Container{bind<SingletonBound>().in<scope::Singleton>()};
+
+  // Values should create new instances (relegated to transient)
+  auto val1 = sut.template resolve<SingletonBound>();
+  auto val2 = sut.template resolve<SingletonBound>();
+
+  EXPECT_NE(&val1, &val2);
+  EXPECT_EQ(0, val1.id);
+  EXPECT_EQ(1, val2.id);
+  EXPECT_EQ(2, Counted::instance_count);
+}
+
+TEST_F(ContainerRelegationTest,
+       singleton_relegated_to_transient_for_rvalue_reference) {
+  struct SingletonBound : Counted {};
+  auto sut = Container{bind<SingletonBound>().in<scope::Singleton>()};
+
+  auto&& rval1 = sut.template resolve<SingletonBound&&>();
+  auto&& rval2 = sut.template resolve<SingletonBound&&>();
+
+  EXPECT_NE(&rval1, &rval2);
+  EXPECT_EQ(0, rval1.id);
+  EXPECT_EQ(1, rval2.id);
+  EXPECT_EQ(2, Counted::instance_count);
+}
+
+TEST_F(ContainerRelegationTest,
+       singleton_relegated_to_transient_for_unique_ptr) {
+  struct SingletonBound : Counted {};
+  auto sut = Container{bind<SingletonBound>().in<scope::Singleton>()};
+
+  auto unique1 = sut.template resolve<std::unique_ptr<SingletonBound>>();
+  auto unique2 = sut.template resolve<std::unique_ptr<SingletonBound>>();
+
+  EXPECT_NE(unique1.get(), unique2.get());
+  EXPECT_EQ(0, unique1->id);
+  EXPECT_EQ(1, unique2->id);
+  EXPECT_EQ(2, Counted::instance_count);
+}
+
+TEST_F(ContainerRelegationTest,
+       singleton_not_relegated_for_references_or_shared_ptr) {
+  struct SingletonBound : Counted {};
+  auto sut = Container{bind<SingletonBound>().in<scope::Singleton>()};
+
+  // References should still be singleton
+  auto& ref1 = sut.template resolve<SingletonBound&>();
+  auto& ref2 = sut.template resolve<SingletonBound&>();
+  EXPECT_EQ(&ref1, &ref2);
+  EXPECT_EQ(0, ref1.id);
+
+  // Pointers should still be singleton
+  auto* ptr1 = sut.template resolve<SingletonBound*>();
+  auto* ptr2 = sut.template resolve<SingletonBound*>();
+  EXPECT_EQ(ptr1, ptr2);
+  EXPECT_EQ(&ref1, ptr1);
+
+  // shared_ptr should wrap the singleton (not relegated)
+  auto shared1 = sut.template resolve<std::shared_ptr<SingletonBound>>();
+  auto shared2 = sut.template resolve<std::shared_ptr<SingletonBound>>();
+  EXPECT_EQ(shared1.get(), shared2.get());
+  EXPECT_EQ(&ref1, shared1.get());
+
+  EXPECT_EQ(1, Counted::instance_count);  // Only one instance total
+}
+
+TEST_F(ContainerRelegationTest,
+       singleton_shared_ptr_wraps_singleton_not_relegated) {
+  struct SingletonBound : Counted {
+    int value = 42;
+    SingletonBound() = default;
+  };
+  auto sut = Container{bind<SingletonBound>().in<scope::Singleton>()};
+
+  // Modify the singleton
+  auto& singleton = sut.template resolve<SingletonBound&>();
+  singleton.value = 99;
+
+  // shared_ptr should wrap the singleton, showing the modified value
+  auto shared = sut.template resolve<std::shared_ptr<SingletonBound>>();
+  EXPECT_EQ(99, shared->value);
+  EXPECT_EQ(&singleton, shared.get());
+
+  // But values are relegated and create new instances with default value
+  auto val = sut.template resolve<SingletonBound>();
+  EXPECT_EQ(42, val.value);
+  EXPECT_NE(&singleton, &val);
+
+  EXPECT_EQ(2, Counted::instance_count);  // 1 singleton + 1 relegated value
+}
+
+TEST_F(ContainerRelegationTest,
+       singleton_relegation_creates_new_instances_not_copies) {
+  struct SingletonBound : Counted {
+    int value = 42;
+    SingletonBound() = default;
+  };
+  auto sut = Container{bind<SingletonBound>().in<scope::Singleton>()};
+
+  // Get singleton reference and modify it
+  auto& singleton = sut.template resolve<SingletonBound&>();
+  singleton.value = 99;
+
+  // Values are relegated to transient - creates NEW instances from provider
+  // NOT copies of the singleton
+  auto val1 = sut.template resolve<SingletonBound>();
+  auto val2 = sut.template resolve<SingletonBound>();
+
+  EXPECT_EQ(42, val1.value);  // Default value from provider, not modified value
+  EXPECT_EQ(42, val2.value);  // Default value from provider, not modified value
+  EXPECT_NE(&singleton, &val1);
+  EXPECT_NE(&singleton, &val2);
+  EXPECT_NE(&val1, &val2);
+
+  // Singleton itself is unchanged
+  EXPECT_EQ(99, singleton.value);
+}
+
+TEST_F(ContainerRelegationTest, singleton_relegation_with_dependencies) {
+  struct Dependency : Counted {
+    int value = 42;
+    Dependency() = default;
+  };
+  struct Service : Counted {
+    Dependency dep;
+    explicit Service(Dependency d) : dep{d} {}
+  };
+
+  auto sut = Container{bind<Dependency>().in<scope::Singleton>(),
+                       bind<Service>().in<scope::Singleton>()};
+
+  // Service value will relegate, which will relegate Dependency
+  // Each Service creates its own new Dependency instance
+  auto service1 = sut.template resolve<Service>();
+  auto service2 = sut.template resolve<Service>();
+
+  EXPECT_NE(&service1, &service2);
+  EXPECT_NE(&service1.dep, &service2.dep);
+
+  // First resolution: Dependency (id=0) then Service (id=1)
+  EXPECT_EQ(0, service1.dep.id);
+  EXPECT_EQ(1, service1.id);
+
+  // Second resolution: Dependency (id=2) then Service (id=3)
+  EXPECT_EQ(2, service2.dep.id);
+  EXPECT_EQ(3, service2.id);
+
+  EXPECT_EQ(4, Counted::instance_count);  // 2 Service + 2 Dependency
+}
+
+// ----------------------------------------------------------------------------
+// Hierarchical Container Tests - Basic Delegation
+// ----------------------------------------------------------------------------
+
+struct ContainerHierarchyTest : ContainerTestBase {};
+
+TEST_F(ContainerHierarchyTest, child_finds_binding_in_parent) {
+  struct ParentBound {
+    int value = 42;
+    ParentBound() = default;
+  };
+
+  auto parent = Container{bind<ParentBound>()};
+  auto child = Container{parent};
+
+  auto result = child.template resolve<ParentBound>();
+  EXPECT_EQ(42, result.value);
+}
+
+TEST_F(ContainerHierarchyTest, child_overrides_parent_binding) {
+  struct Bound {
+    int value;
+    explicit Bound(int v = 0) : value{v} {}
+  };
+
+  auto parent_factory = []() { return Bound{42}; };
+  auto child_factory = []() { return Bound{99}; };
+
+  auto parent = Container{bind<Bound>().as<Bound>().via(parent_factory)};
+  auto child = Container{parent, bind<Bound>().as<Bound>().via(child_factory)};
+
+  auto parent_result = parent.template resolve<Bound>();
+  auto child_result = child.template resolve<Bound>();
+
+  EXPECT_EQ(42, parent_result.value);
+  EXPECT_EQ(99, child_result.value);
+}
+
+TEST_F(ContainerHierarchyTest, multi_level_hierarchy) {
+  struct GrandparentBound {
+    int value = 1;
+    GrandparentBound() = default;
+  };
+  struct ParentBound {
+    int value = 2;
+    ParentBound() = default;
+  };
+  struct ChildBound {
+    int value = 3;
+    ChildBound() = default;
+  };
+
+  auto grandparent = Container{bind<GrandparentBound>()};
+  auto parent = Container{grandparent, bind<ParentBound>()};
+  auto child = Container{parent, bind<ChildBound>()};
+
+  // Child can resolve from all levels
+  auto g_result = child.template resolve<GrandparentBound>();
+  auto p_result = child.template resolve<ParentBound>();
+  auto c_result = child.template resolve<ChildBound>();
+
+  EXPECT_EQ(1, g_result.value);
+  EXPECT_EQ(2, p_result.value);
+  EXPECT_EQ(3, c_result.value);
+}
+
+TEST_F(ContainerHierarchyTest,
+       child_overrides_parent_in_multi_level_hierarchy) {
+  struct Bound {
+    int value;
+    explicit Bound(int v = 0) : value{v} {}
+  };
+
+  auto grandparent_factory = []() { return Bound{1}; };
+  auto parent_factory = []() { return Bound{2}; };
+  auto child_factory = []() { return Bound{3}; };
+
+  auto grandparent =
+      Container{bind<Bound>().as<Bound>().via(grandparent_factory)};
+  auto parent =
+      Container{grandparent, bind<Bound>().as<Bound>().via(parent_factory)};
+  auto child = Container{parent, bind<Bound>().as<Bound>().via(child_factory)};
+
+  auto grandparent_result = grandparent.template resolve<Bound>();
+  auto parent_result = parent.template resolve<Bound>();
+  auto child_result = child.template resolve<Bound>();
+
+  EXPECT_EQ(1, grandparent_result.value);
+  EXPECT_EQ(2, parent_result.value);
+  EXPECT_EQ(3, child_result.value);
+}
+
+TEST_F(ContainerHierarchyTest, unbound_type_uses_fallback_in_hierarchy) {
+  struct Unbound {
+    int value = 42;
+    Unbound() = default;
+  };
+
+  auto parent = Container{};
+  auto child = Container{parent};
+
+  // Should use fallback binding at the root level
+  auto result = child.template resolve<Unbound>();
+  EXPECT_EQ(42, result.value);
+}
+
+// ----------------------------------------------------------------------------
+// Hierarchical Container Tests - Singleton Sharing
+// ----------------------------------------------------------------------------
+
+struct ContainerHierarchySingletonTest : ContainerTestBase {};
+
+TEST_F(ContainerHierarchySingletonTest, singleton_in_parent_shared_with_child) {
+  struct SingletonBound : Counted {};
+
+  auto parent = Container{bind<SingletonBound>().in<scope::Singleton>()};
+  auto child = Container{parent};
+
+  auto& parent_ref = parent.template resolve<SingletonBound&>();
+  auto& child_ref = child.template resolve<SingletonBound&>();
+
+  EXPECT_EQ(&parent_ref, &child_ref);
+  EXPECT_EQ(0, parent_ref.id);
+  EXPECT_EQ(1, Counted::instance_count);
+}
+
+TEST_F(ContainerHierarchySingletonTest,
+       singleton_in_grandparent_shared_with_all) {
+  struct SingletonBound : Counted {};
+
+  auto grandparent = Container{bind<SingletonBound>().in<scope::Singleton>()};
+  auto parent = Container{grandparent};
+  auto child = Container{parent};
+
+  auto& grandparent_ref = grandparent.template resolve<SingletonBound&>();
+  auto& parent_ref = parent.template resolve<SingletonBound&>();
+  auto& child_ref = child.template resolve<SingletonBound&>();
+
+  EXPECT_EQ(&grandparent_ref, &parent_ref);
+  EXPECT_EQ(&parent_ref, &child_ref);
+  EXPECT_EQ(0, grandparent_ref.id);
+  EXPECT_EQ(1, Counted::instance_count);
+}
+
+TEST_F(ContainerHierarchySingletonTest,
+       child_singleton_does_not_affect_parent) {
+  struct SingletonBound : Counted {};
+
+  auto parent = Container{};
+  auto child = Container{parent, bind<SingletonBound>().in<scope::Singleton>()};
+
+  auto& child_ref = child.template resolve<SingletonBound&>();
+  // Parent should create new instance (fallback)
+  auto& parent_ref = parent.template resolve<SingletonBound&>();
+
+  EXPECT_NE(&child_ref, &parent_ref);
+  EXPECT_EQ(0, child_ref.id);
+  EXPECT_EQ(1, parent_ref.id);
+  EXPECT_EQ(2, Counted::instance_count);
+}
+
+TEST_F(ContainerHierarchySingletonTest,
+       parent_and_child_can_have_separate_singletons) {
+  struct Bound : Counted {};
+
+  auto parent = Container{bind<Bound>().in<scope::Singleton>()};
+  auto child = Container{parent, bind<Bound>().in<scope::Singleton>()};
+
+  auto& parent_ref = parent.template resolve<Bound&>();
+  auto& child_ref = child.template resolve<Bound&>();
+
+  // Child overrides, so they should be different
+  EXPECT_NE(&parent_ref, &child_ref);
+  EXPECT_EQ(0, parent_ref.id);
+  EXPECT_EQ(1, child_ref.id);
+  EXPECT_EQ(2, Counted::instance_count);
+}
+
+// ----------------------------------------------------------------------------
+// Hierarchical Container Tests - Transient Behavior
+// ----------------------------------------------------------------------------
+
+struct ContainerHierarchyTransientTest : ContainerTestBase {};
+
+TEST_F(ContainerHierarchyTransientTest,
+       transient_in_parent_creates_new_instances_for_child) {
+  struct TransientBound : Counted {};
+
+  auto parent = Container{bind<TransientBound>().in<scope::Transient>()};
+  auto child = Container{parent};
+
+  auto parent_val1 = parent.template resolve<TransientBound>();
+  auto child_val1 = child.template resolve<TransientBound>();
+  auto child_val2 = child.template resolve<TransientBound>();
+
+  EXPECT_EQ(0, parent_val1.id);
+  EXPECT_EQ(1, child_val1.id);
+  EXPECT_EQ(2, child_val2.id);
+  EXPECT_EQ(3, Counted::instance_count);
+}
+
+TEST_F(ContainerHierarchyTransientTest,
+       transient_in_grandparent_creates_new_instances_for_all) {
+  struct TransientBound : Counted {};
+
+  auto grandparent = Container{bind<TransientBound>().in<scope::Transient>()};
+  auto parent = Container{grandparent};
+  auto child = Container{parent};
+
+  auto grandparent_val = grandparent.template resolve<TransientBound>();
+  auto parent_val = parent.template resolve<TransientBound>();
+  auto child_val = child.template resolve<TransientBound>();
+
+  EXPECT_EQ(0, grandparent_val.id);
+  EXPECT_EQ(1, parent_val.id);
+  EXPECT_EQ(2, child_val.id);
+  EXPECT_EQ(3, Counted::instance_count);
+}
+
+// ----------------------------------------------------------------------------
+// Hierarchical Container Tests - Promotion in Hierarchy
+// ----------------------------------------------------------------------------
+//
+// IMPORTANT: Promotion state lives with the Provider, not the Container.
+//
+// When a child container delegates to a parent's binding:
+// - Child and parent share the same Provider instance
+// - They share the same promoted instance (cached in Provider's static)
+//
+// To have separate promoted instances:
+// - Each container needs its own binding (separate Providers)
+// - Then each Provider has its own promotion state
+//
+// This is the correct behavior: promotion is a property of the
+// binding/provider, not the container requesting the instance.
+//
+// ----------------------------------------------------------------------------
+
+struct ContainerHierarchyPromotionTest : ContainerTestBase {};
+
+TEST_F(ContainerHierarchyPromotionTest, child_promotes_transient_from_parent) {
+  struct TransientBound : Counted {};
+
+  auto parent = Container{bind<TransientBound>().in<scope::Transient>()};
+  auto child = Container{parent};
+
+  // Child requests by reference, should promote
+  auto& child_ref1 = child.template resolve<TransientBound&>();
+  auto& child_ref2 = child.template resolve<TransientBound&>();
+
+  EXPECT_EQ(&child_ref1, &child_ref2);
+  EXPECT_EQ(0, child_ref1.id);
+  EXPECT_EQ(1, Counted::instance_count);
+}
+
+TEST_F(ContainerHierarchyPromotionTest,
+       child_shares_parent_promoted_instance_when_delegating) {
+  struct TransientBound : Counted {};
+
+  auto parent = Container{bind<TransientBound>().in<scope::Transient>()};
+  auto child = Container{parent};  // Child has no binding, will delegate
+
+  // Parent promotes to singleton when requested by reference
+  auto& parent_ref = parent.template resolve<TransientBound&>();
+
+  // Child delegates to parent, gets same promoted instance
+  auto& child_ref = child.template resolve<TransientBound&>();
+
+  EXPECT_EQ(&parent_ref, &child_ref);  // Same instance!
+  EXPECT_EQ(0, parent_ref.id);
+  EXPECT_EQ(1, Counted::instance_count);  // Only one instance created
+}
+
+TEST_F(ContainerHierarchyPromotionTest,
+       child_has_separate_promoted_instance_with_own_binding) {
+  struct TransientBound : Counted {};
+
+  auto parent = Container{bind<TransientBound>().in<scope::Transient>()};
+  auto child = Container{parent, bind<TransientBound>().in<scope::Transient>()};
+
+  // Each promotes separately because each has its own binding
+  auto& parent_ref = parent.template resolve<TransientBound&>();
+  auto& child_ref = child.template resolve<TransientBound&>();
+
+  EXPECT_NE(&parent_ref, &child_ref);  // Different instances!
+  EXPECT_EQ(0, parent_ref.id);
+  EXPECT_EQ(1, child_ref.id);
+  EXPECT_EQ(2, Counted::instance_count);
+}
+
+TEST_F(ContainerHierarchyPromotionTest,
+       grandparent_parent_child_share_promoted_instance_when_delegating) {
+  struct TransientBound : Counted {};
+
+  auto grandparent = Container{bind<TransientBound>().in<scope::Transient>()};
+  auto parent = Container{grandparent};  // No binding, delegates to grandparent
+  auto child =
+      Container{parent};  // No binding, delegates to parent → grandparent
+
+  auto& grandparent_ref = grandparent.template resolve<TransientBound&>();
+  auto& parent_ref = parent.template resolve<TransientBound&>();
+  auto& child_ref = child.template resolve<TransientBound&>();
+
+  // All share grandparent's promoted instance
+  EXPECT_EQ(&grandparent_ref, &parent_ref);
+  EXPECT_EQ(&parent_ref, &child_ref);
+  EXPECT_EQ(0, grandparent_ref.id);
+  EXPECT_EQ(1, Counted::instance_count);
+}
+
+TEST_F(
+    ContainerHierarchyPromotionTest,
+    grandparent_parent_child_have_separate_promoted_instances_with_own_bindings) {
+  struct TransientBound : Counted {};
+
+  auto grandparent = Container{bind<TransientBound>().in<scope::Transient>()};
+  auto parent =
+      Container{grandparent, bind<TransientBound>().in<scope::Transient>()};
+  auto child = Container{parent, bind<TransientBound>().in<scope::Transient>()};
+
+  auto& grandparent_ref = grandparent.template resolve<TransientBound&>();
+  auto& parent_ref = parent.template resolve<TransientBound&>();
+  auto& child_ref = child.template resolve<TransientBound&>();
+
+  // Each has its own promoted instance
+  EXPECT_NE(&grandparent_ref, &parent_ref);
+  EXPECT_NE(&parent_ref, &child_ref);
+  EXPECT_EQ(0, grandparent_ref.id);
+  EXPECT_EQ(1, parent_ref.id);
+  EXPECT_EQ(2, child_ref.id);
+  EXPECT_EQ(3, Counted::instance_count);
+}
+
+// ----------------------------------------------------------------------------
+// Hierarchical Container Tests - Relegation in Hierarchy
+// ----------------------------------------------------------------------------
+
+struct ContainerHierarchyRelegationTest : ContainerTestBase {};
+
+TEST_F(ContainerHierarchyRelegationTest,
+       child_relegates_singleton_from_parent) {
+  struct SingletonBound : Counted {};
+
+  auto parent = Container{bind<SingletonBound>().in<scope::Singleton>()};
+  auto child = Container{parent};
+
+  // Child requests by value, should relegate
+  auto child_val1 = child.template resolve<SingletonBound>();
+  auto child_val2 = child.template resolve<SingletonBound>();
+
+  EXPECT_NE(&child_val1, &child_val2);
+  EXPECT_EQ(0, child_val1.id);
+  EXPECT_EQ(1, child_val2.id);
+  EXPECT_EQ(2, Counted::instance_count);
+}
+
+TEST_F(ContainerHierarchyRelegationTest,
+       parent_singleton_reference_differs_from_child_relegated_values) {
+  struct SingletonBound : Counted {};
+
+  auto parent = Container{bind<SingletonBound>().in<scope::Singleton>()};
+  auto child = Container{parent};
+
+  auto& parent_ref = parent.template resolve<SingletonBound&>();
+  auto child_val = child.template resolve<SingletonBound>();
+
+  EXPECT_NE(&parent_ref, &child_val);
+  EXPECT_EQ(0, parent_ref.id);
+  EXPECT_EQ(1, child_val.id);
+  EXPECT_EQ(2, Counted::instance_count);
+}
+
+TEST_F(ContainerHierarchyRelegationTest,
+       grandparent_singleton_reference_accessible_but_child_can_relegate) {
+  struct SingletonBound : Counted {};
+
+  auto grandparent = Container{bind<SingletonBound>().in<scope::Singleton>()};
+  auto parent = Container{grandparent};
+  auto child = Container{parent};
+
+  auto& grandparent_ref = grandparent.template resolve<SingletonBound&>();
+  auto& child_ref = child.template resolve<SingletonBound&>();
+  auto child_val = child.template resolve<SingletonBound>();
+
+  EXPECT_EQ(&grandparent_ref, &child_ref);  // References share
+  EXPECT_NE(&grandparent_ref, &child_val);  // Value is relegated
+  EXPECT_EQ(0, grandparent_ref.id);
+  EXPECT_EQ(1, child_val.id);
+  EXPECT_EQ(2, Counted::instance_count);
+}
+
+// ----------------------------------------------------------------------------
+// Complex Hierarchical Scenarios
+// ----------------------------------------------------------------------------
+
+struct ContainerHierarchyComplexTest : ContainerTestBase {};
+
+TEST_F(ContainerHierarchyComplexTest, mixed_scopes_across_hierarchy) {
+  struct SingletonInGrandparent : Counted {};
+  struct TransientInParent : Counted {};
+  struct SingletonInChild : Counted {};
+
+  auto grandparent =
+      Container{bind<SingletonInGrandparent>().in<scope::Singleton>()};
+  auto parent =
+      Container{grandparent, bind<TransientInParent>().in<scope::Transient>()};
+  auto child =
+      Container{parent, bind<SingletonInChild>().in<scope::Singleton>()};
+
+  // Singleton from grandparent shared
+  auto& sg1 = child.template resolve<SingletonInGrandparent&>();
+  auto& sg2 = child.template resolve<SingletonInGrandparent&>();
+  EXPECT_EQ(&sg1, &sg2);
+  EXPECT_EQ(0, sg1.id);
+
+  // Transient from parent creates new instances
+  auto tp1 = child.template resolve<TransientInParent>();
+  auto tp2 = child.template resolve<TransientInParent>();
+  EXPECT_NE(&tp1, &tp2);
+  EXPECT_EQ(1, tp1.id);
+  EXPECT_EQ(2, tp2.id);
+
+  // Singleton in child
+  auto& sc1 = child.template resolve<SingletonInChild&>();
+  auto& sc2 = child.template resolve<SingletonInChild&>();
+  EXPECT_EQ(&sc1, &sc2);
+  EXPECT_EQ(3, sc1.id);
+
+  EXPECT_EQ(4, Counted::instance_count);
+}
+
+TEST_F(ContainerHierarchyComplexTest, dependency_chain_across_hierarchy) {
+  struct GrandparentDep : Counted {};
+  struct ParentDep : Counted {
+    GrandparentDep* dep;
+    explicit ParentDep(GrandparentDep& d) : dep{&d} {}
+  };
+  struct ChildService : Counted {
+    ParentDep* dep;
+    explicit ChildService(ParentDep& d) : dep{&d} {}
+  };
+
+  auto grandparent = Container{bind<GrandparentDep>().in<scope::Singleton>()};
+  auto parent = Container{grandparent, bind<ParentDep>()};
+  auto child = Container{parent, bind<ChildService>()};
+
+  auto& service = child.template resolve<ChildService&>();
+
+  EXPECT_EQ(0, service.dep->dep->id);  // GrandparentDep
+  EXPECT_EQ(1, service.dep->id);       // ParentDep
+  EXPECT_EQ(2, service.id);            // ChildService
+  EXPECT_EQ(3, Counted::instance_count);
+}
+
+TEST_F(ContainerHierarchyComplexTest,
+       promotion_and_relegation_across_hierarchy) {
+  struct Bound : Counted {};
+
+  auto parent = Container{bind<Bound>().in<scope::Transient>()};
+  auto child = Container{parent, bind<Bound>().in<scope::Singleton>()};
+
+  // Parent transient promoted to singleton
+  auto& parent_ref1 = parent.template resolve<Bound&>();
+  auto& parent_ref2 = parent.template resolve<Bound&>();
+  EXPECT_EQ(&parent_ref1, &parent_ref2);
+  EXPECT_EQ(0, parent_ref1.id);
+
+  // Child singleton
+  auto& child_ref = child.template resolve<Bound&>();
+  EXPECT_EQ(1, child_ref.id);
+
+  // Child singleton relegated to transient
+  auto child_val1 = child.template resolve<Bound>();
+  auto child_val2 = child.template resolve<Bound>();
+  EXPECT_NE(&child_val1, &child_val2);
+  EXPECT_EQ(2, child_val1.id);
+  EXPECT_EQ(3, child_val2.id);
+
+  EXPECT_EQ(4, Counted::instance_count);
+}
+
+TEST_F(ContainerHierarchyComplexTest,
+       sibling_containers_share_parent_promotion_when_delegating) {
+  struct Bound : Counted {};
+
+  auto parent = Container{bind<Bound>().in<scope::Transient>()};
+  auto child1 = Container{parent};  // No binding, delegates to parent
+  auto child2 = Container{parent};  // No binding, delegates to parent
+
+  // Both children delegate to parent, share parent's promoted instance
+  auto& child1_ref = child1.template resolve<Bound&>();
+  auto& child2_ref = child2.template resolve<Bound&>();
+
+  EXPECT_EQ(&child1_ref, &child2_ref);  // Same instance!
+  EXPECT_EQ(0, child1_ref.id);
+  EXPECT_EQ(1, Counted::instance_count);
+}
+
+TEST_F(ContainerHierarchyComplexTest,
+       sibling_containers_are_independent_with_own_bindings) {
+  struct Bound : Counted {};
+
+  auto parent = Container{bind<Bound>().in<scope::Transient>()};
+  auto child1 = make_container(parent, bind<Bound>().in<scope::Singleton>());
+  auto child2 = make_container(parent, bind<Bound>().in<scope::Singleton>());
+
+  static_assert(!std::same_as<decltype(child1), decltype(child2)>);
+
+  // Each child has own binding, promotes separately
+  auto& child1_ref = child1.template resolve<Bound&>();
+  auto& child2_ref = child2.template resolve<Bound&>();
+
+  EXPECT_NE(&child1_ref, &child2_ref);  // Different instances!
+  EXPECT_EQ(0, child1_ref.id);
+  EXPECT_EQ(1, child2_ref.id);
+  EXPECT_EQ(2, Counted::instance_count);
+}
+
+TEST_F(ContainerHierarchyComplexTest, deep_hierarchy_with_multiple_overrides) {
+  struct Bound {
+    int value;
+    explicit Bound(int v = 0) : value{v} {}
+  };
+
+  auto level0_factory = []() { return Bound{0}; };
+  auto level2_factory = []() { return Bound{2}; };
+  auto level4_factory = []() { return Bound{4}; };
+
+  auto level0 = Container{bind<Bound>().as<Bound>().via(level0_factory)};
+  auto level1 = Container{level0};
+  auto level2 =
+      Container{level1, bind<Bound>().as<Bound>().via(level2_factory)};
+  auto level3 = Container{level2};
+  auto level4 =
+      Container{level3, bind<Bound>().as<Bound>().via(level4_factory)};
+
+  auto r0 = level0.template resolve<Bound>();
+  auto r1 = level1.template resolve<Bound>();
+  auto r2 = level2.template resolve<Bound>();
+  auto r3 = level3.template resolve<Bound>();
+  auto r4 = level4.template resolve<Bound>();
+
+  EXPECT_EQ(0, r0.value);
+  EXPECT_EQ(0, r1.value);  // Inherits from level0
+  EXPECT_EQ(2, r2.value);  // Overrides
+  EXPECT_EQ(2, r3.value);  // Inherits from level2
+  EXPECT_EQ(4, r4.value);  // Overrides
+}
+
 }  // namespace dink
