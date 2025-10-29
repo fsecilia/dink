@@ -17,18 +17,15 @@
 namespace dink {
 namespace detail {
 
-//! Policy for looking up bindings in config.
-struct BindingLookup {
+//! Default policy for looking up bindings in config.
+struct BindingLocator {
   template <typename Canonical, typename Config>
   auto find(Config& config) const {
     return config.template find_binding<Canonical>();
   }
 };
 
-//! Policy for creating default bindings when none exist in config.
-//
-// The binding's scope doesn't matter since strategies either override it
-// (OverrideScope) or ignore it entirely (CacheSharedPtr).
+//! Default policy for creating bindings when none exist in config.
 struct FallbackBindingFactory {
   template <typename Canonical>
   constexpr auto create() const {
@@ -44,11 +41,11 @@ struct FallbackBindingFactory {
 // ----------------------------------------------------------------------------
 
 //! Dispatches resolution requests to appropriate strategies.
-template <typename BindingLookup = detail::BindingLookup,
+template <typename BindingLocator = detail::BindingLocator,
           typename FallbackBindingFactory = detail::FallbackBindingFactory>
 class Dispatcher {
  public:
-  explicit Dispatcher(BindingLookup lookup_policy = {},
+  explicit Dispatcher(BindingLocator lookup_policy = {},
                       FallbackBindingFactory fallback_binding_factory = {})
       : lookup_policy_{std::move(lookup_policy)},
         fallback_binding_factory_{std::move(fallback_binding_factory)} {}
@@ -114,7 +111,7 @@ class Dispatcher {
     return parent.template resolve<Requested>();
   }
 
-  [[no_unique_address]] BindingLookup lookup_policy_{};
+  [[no_unique_address]] BindingLocator lookup_policy_{};
   [[no_unique_address]] FallbackBindingFactory fallback_binding_factory_{};
 };
 
