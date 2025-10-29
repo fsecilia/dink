@@ -56,9 +56,9 @@ class Invoker<Constructed, void, ResolverSequence,
 
   template <typename Requested, typename Container>
   constexpr auto create(Container& container) const -> auto {
-    if constexpr (SharedPtr<Requested>) {
+    if constexpr (IsSharedPtr<Requested>) {
       return create_shared(container);
-    } else if constexpr (UniquePtr<Requested>) {
+    } else if constexpr (IsUniquePtr<Requested>) {
       return create_unique(container);
     } else {
       return create_value(container);
@@ -114,9 +114,9 @@ class Invoker<Constructed, ConstructedFactory, ResolverSequence,
   constexpr auto create(Container& container,
                         ConstructedFactory& constructed_factory) const
       -> Requested {
-    if constexpr (SharedPtr<Requested>) {
+    if constexpr (IsSharedPtr<Requested>) {
       return create_shared(container, constructed_factory);
-    } else if constexpr (UniquePtr<Requested>) {
+    } else if constexpr (IsUniquePtr<Requested>) {
       return create_unique(container, constructed_factory);
     } else {
       return create_value(container, constructed_factory);

@@ -23,10 +23,10 @@ struct ScopeTest : Test {
     template <typename Requested>
     auto create(Container& container) noexcept
         -> std::remove_reference_t<Requested> {
-      if constexpr (SharedPtr<Requested>) {
+      if constexpr (IsSharedPtr<Requested>) {
         return std::make_shared<
             typename std::pointer_traits<Requested>::element_type>(&container);
-      } else if constexpr (UniquePtr<Requested>) {
+      } else if constexpr (IsUniquePtr<Requested>) {
         return std::make_unique<
             typename std::pointer_traits<Requested>::element_type>(&container);
       } else {

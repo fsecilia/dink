@@ -65,9 +65,6 @@ class Container;
 
 template <IsConfig Config, typename Dispatcher, typename Tag>
 class Container<Config, Dispatcher, void, Tag> {
-  Config config_{};
-  [[no_unique_address]] Dispatcher dispatcher_{};
-
  public:
   //! Resolve a dependency
   template <typename Requested>
@@ -90,7 +87,11 @@ class Container<Config, Dispatcher, void, Tag> {
 
   //! Construct from config and dispatcher (for testing)
   Container(Config config, Dispatcher dispatcher) noexcept
-      : config_{std::move(config)}, dispatcher_{std::move(dispatcher)} {}
+      : dispatcher_{std::move(dispatcher)}, config_{std::move(config)} {}
+
+ private:
+  [[no_unique_address]] Dispatcher dispatcher_{};
+  Config config_{};
 };
 
 // ----------------------------------------------------------------------------

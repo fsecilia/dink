@@ -264,7 +264,7 @@ constexpr auto bind() -> BindBuilder<From> {
 // Concepts
 // ----------------------------------------------------------------------------
 
-namespace detail {
+namespace traits {
 
 template <typename>
 struct IsBinding : std::false_type {};
@@ -287,9 +287,12 @@ struct IsBinding<InBuilder<From, To, Provider, Scope>> : std::true_type {};
 template <typename From, typename Scope, typename Provider>
 struct IsBinding<Binding<From, Scope, Provider>> : std::true_type {};
 
-}  // namespace detail
+template <typename Binding>
+inline constexpr auto is_binding = IsBinding<Binding>::value;
 
-template <typename T>
-concept IsBinding = detail::IsBinding<std::remove_cvref_t<T>>::value;
+}  // namespace traits
+
+template <typename Binding>
+concept IsBinding = traits::is_binding<Binding>;
 
 }  // namespace dink

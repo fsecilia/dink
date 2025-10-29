@@ -117,12 +117,12 @@ struct StrategyFactory {
   template <typename Requested, bool has_binding,
             bool scope_provides_references>
   static constexpr auto create_strategy() {
-    if constexpr (UniquePtr<Requested>) {
+    if constexpr (IsUniquePtr<Requested>) {
       // unique_ptr
       return strategies::RelegateToTransient{};
-    } else if constexpr (SharedPtr<Requested> || WeakPtr<Requested>) {
+    } else if constexpr (IsSharedPtr<Requested> || IsWeakPtr<Requested>) {
       // shared_ptr or weak_ptr.
-      if constexpr (SharedPtr<Requested> && has_binding &&
+      if constexpr (IsSharedPtr<Requested> && has_binding &&
                     !scope_provides_references) {
         // Transient scope with shared_ptr; let it create new instances.
         return strategies::UseBoundScope{};

@@ -38,7 +38,7 @@ class Transient {
       -> remove_rvalue_ref_t<Requested> {
     using Provided = typename Provider::Provided;
 
-    if constexpr (SharedPtr<Requested> || UniquePtr<Requested> ||
+    if constexpr (IsSharedPtr<Requested> || IsUniquePtr<Requested> ||
                   std::same_as<std::remove_cvref_t<Requested>, Provided>) {
       // Value type or rvalue reference.
       return provider.template create<Requested>(container);
@@ -57,7 +57,7 @@ class Singleton {
   //! Resolves instance in requested form.
   template <typename Requested, typename Container, typename Provider>
   auto resolve(Container& container, Provider& provider) const -> Requested {
-    if constexpr (SharedPtr<Requested> || WeakPtr<Requested> ||
+    if constexpr (IsSharedPtr<Requested> || IsWeakPtr<Requested> ||
                   std::is_lvalue_reference_v<Requested>) {
       // shared/weak pointers and lvalue references
       return detail::cached_instance(container, provider);
