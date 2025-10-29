@@ -33,12 +33,23 @@ concept IsContainer = requires(Container& container) {
 // Each call returns a different lambda with a unique closure type. This
 // provides compile-time uniqueness without macros or non-standard features.
 template <typename Impl = decltype([] {})>
-struct UniqueType {
-  using UniqueImplType = Impl;
-};
+struct UniqueType {};
+
+namespace traits {
 
 template <typename UniqueType>
-concept IsUniqueType = requires { typename UniqueType::UniqueImplType; };
+struct IsUniqueType : std::false_type {};
+
+template <typename Impl>
+struct IsUniqueType<UniqueType<Impl>> : std::true_type {};
+
+template <typename UniqueType>
+inline constexpr auto is_unique_type = IsUniqueType<UniqueType>::value;
+
+}  // namespace traits
+
+template <typename UniqueType>
+concept IsUniqueType = traits::is_unique_type<UniqueType>;
 
 // ----------------------------------------------------------------------------
 // Container - Forward Declaration
