@@ -12,12 +12,19 @@
 #include <memory>
 
 namespace dink {
-
-// ----------------------------------------------------------------------------
-// Resolution Strategies - Implementation Details
-// ----------------------------------------------------------------------------
-
 namespace detail {
+
+//! Executes by forcing a specific scope type
+template <typename Scope>
+struct OverrideScope {
+  [[no_unique_address]] Scope scope{};
+
+  template <typename Requested, typename Container, typename Binding>
+  auto execute(Container& container, Binding& binding) const
+      -> remove_rvalue_ref_t<Requested> {
+    return scope.template resolve<Requested>(container, binding.provider);
+  }
+};
 
 //! Transitive provider for canonical shared_ptr caching.
 //
@@ -44,20 +51,6 @@ struct SharedPtrFromRefProviderFactory {
   }
 };
 
-namespace strategies {
-
-//! Executes by forcing a specific scope type
-template <typename Scope>
-struct OverrideScope {
-  [[no_unique_address]] Scope scope{};
-
-  template <typename Requested, typename Container, typename Binding>
-  auto execute(Container& container, Binding& binding) const
-      -> remove_rvalue_ref_t<Requested> {
-    return scope.template resolve<Requested>(container, binding.provider);
-  }
-};
-
 //! Executes by wrapping reference in canonical shared_ptr
 //
 // Note: This strategy doesn't use the binding parameter - it creates a new
@@ -76,7 +69,6 @@ struct CacheSharedPtrImpl {
   }
 };
 
-}  // namespace strategies
 }  // namespace detail
 
 // ----------------------------------------------------------------------------
@@ -96,14 +88,15 @@ struct UseBoundScope {
 };
 
 //! Executes by forcing transient scope
-using RelegateToTransient = detail::strategies::OverrideScope<scope::Transient>;
+using RelegateToTransient = detail::OverrideScope<scope::Transient>;
 
 //! Executes by forcing singleton scope
-using PromoteToSingleton = detail::strategies::OverrideScope<scope::Singleton>;
+using PromoteToSingleton = detail::OverrideScope<scope::Singleton>;
 
 //! Executes by wrapping reference in canonical shared_ptr
-using CacheSharedPtr = detail::strategies::CacheSharedPtrImpl<
-    scope::Singleton, detail::SharedPtrFromRefProviderFactory>;
+using CacheSharedPtr =
+    detail::CacheSharedPtrImpl<scope::Singleton,
+                               detail::SharedPtrFromRefProviderFactory>;
 
 }  // namespace strategies
 
