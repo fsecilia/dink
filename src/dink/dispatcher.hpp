@@ -29,7 +29,7 @@ struct BindingLookup {
 //
 // The binding's scope doesn't matter since strategies either override it
 // (OverrideScope) or ignore it entirely (CacheSharedPtr).
-struct DefaultBindingFactory {
+struct FallbackBindingFactory {
   template <typename Canonical>
   constexpr auto create() const {
     return Binding<Canonical, scope::Transient, provider::Ctor<Canonical>>{
@@ -90,13 +90,13 @@ struct StrategyFactory {
 
 //! Dispatches resolution requests to appropriate strategies.
 template <typename BindingLookup = detail::BindingLookup,
-          typename DefaultBindingFactory = detail::DefaultBindingFactory>
+          typename FallbackBindingFactory = detail::FallbackBindingFactory>
 class Dispatcher {
  public:
   explicit Dispatcher(BindingLookup lookup_policy = {},
-                      DefaultBindingFactory binding_factory = {})
+                      FallbackBindingFactory fallback_binding_factory = {})
       : lookup_policy_{std::move(lookup_policy)},
-        default_binding_factory_{std::move(binding_factory)} {}
+        fallback_binding_factory_{std::move(fallback_binding_factory)} {}
 
   //! Resolves with found binding or calls not_found_handler
   template <typename Requested, typename Container, typename Config,
@@ -127,15 +127,15 @@ class Dispatcher {
 
   //! Executes resolution with a default binding
   template <typename Requested, typename Container>
-  auto execute_strategy_with_default_binding(Container& container)
+  auto execute_strategy_with_fallback_binding(Container& container)
       -> remove_rvalue_ref_t<Requested> {
     using Canonical = Canonical<Requested>;
 
     auto strategy = StrategyFactory::create_strategy<Requested, false, false>();
-    auto default_binding =
-        default_binding_factory_.template create<Canonical>();
+    auto fallback_binding =
+        fallback_binding_factory_.template create<Canonical>();
 
-    return strategy.template execute<Requested>(container, default_binding);
+    return strategy.template execute<Requested>(container, fallback_binding);
   }
 
  private:
@@ -152,7 +152,7 @@ class Dispatcher {
   }
 
   [[no_unique_address]] BindingLookup lookup_policy_{};
-  [[no_unique_address]] DefaultBindingFactory default_binding_factory_{};
+  [[no_unique_address]] FallbackBindingFactory fallback_binding_factory_{};
 };
 
 }  // namespace dink

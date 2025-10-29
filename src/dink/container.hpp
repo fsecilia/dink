@@ -49,7 +49,8 @@ class Container<Config, Dispatcher, void> {
 
         // not found handler must be generic or it is instantiated too eagerly
         [this]<typename R = Requested>() -> remove_rvalue_ref_t<Requested> {
-          return dispatcher_.template execute_with_default_binding<R>(*this);
+          return dispatcher_.template execute_strategy_with_fallback_binding<R>(
+              *this);
         });
   }
 
