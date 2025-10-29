@@ -44,14 +44,7 @@ class Container<Config, Dispatcher, void> {
   //! Resolve a dependency
   template <typename Requested>
   auto resolve() -> remove_rvalue_ref_t<Requested> {
-    return dispatcher_.template resolve<Requested>(
-        *this, config_,
-
-        // not found handler must be generic or it is instantiated too eagerly
-        [this]<typename R = Requested>() -> remove_rvalue_ref_t<Requested> {
-          return dispatcher_.template execute_strategy_with_fallback_binding<R>(
-              *this);
-        });
+    return dispatcher_.template resolve<Requested>(*this, config_, nullptr);
   }
 
   //! Construct from bindings
@@ -81,10 +74,7 @@ class Container {
   //! Resolve a dependency
   template <typename Requested>
   auto resolve() -> remove_rvalue_ref_t<Requested> {
-    return dispatcher_.template resolve<Requested>(
-        *this, config_, [this]() -> remove_rvalue_ref_t<Requested> {
-          return parent_->template resolve<Requested>();
-        });
+    return dispatcher_.template resolve<Requested>(*this, config_, parent_);
   }
 
   //! Construct from parent and bindings

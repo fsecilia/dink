@@ -100,9 +100,8 @@ class Dispatcher {
 
   //! Resolves with found binding or calls not_found_handler
   template <typename Requested, typename Container, typename Config,
-            typename NotFoundHandler>
-  auto resolve(Container& container, Config& config,
-               NotFoundHandler&& not_found_handler)
+            typename Parent>
+  auto resolve(Container& container, Config& config, Parent parent)
       -> remove_rvalue_ref_t<Requested> {
     using Canonical = Canonical<Requested>;
 
@@ -119,13 +118,30 @@ class Dispatcher {
       return execute_strategy<Requested, has_binding, provides_references>(
           container, *binding_ptr);
     } else {
-      // No binding - call handler (either creates default or delegates to
-      // parent)
-      return not_found_handler();
+      // no binding; try delegating to parent
+      if constexpr (std::same_as<Parent, std::nullptr_t>) {
+        // no binding, no parent, use fallback bindings
+        return execute_strategy_with_fallback_binding<Requested>(container);
+      } else {
+        return delegate_to_parent<Requested>(*parent);
+      }
     }
   }
 
-  //! Executes resolution with a default binding
+ private:
+  //! Executes strategy with a specific binding
+  template <typename Requested, bool has_binding,
+            bool scope_provides_references, typename Container,
+            typename Binding>
+  auto execute_strategy(Container& container, Binding& binding)
+      -> remove_rvalue_ref_t<Requested> {
+    auto strategy =
+        StrategyFactory::create_strategy<Requested, has_binding,
+                                         scope_provides_references>();
+    return strategy.template execute<Requested>(container, binding);
+  }
+
+  //! Executes strategy with a default binding
   template <typename Requested, typename Container>
   auto execute_strategy_with_fallback_binding(Container& container)
       -> remove_rvalue_ref_t<Requested> {
@@ -138,17 +154,9 @@ class Dispatcher {
     return strategy.template execute<Requested>(container, fallback_binding);
   }
 
- private:
-  //! Executes resolution with a specific binding
-  template <typename Requested, bool has_binding,
-            bool scope_provides_references, typename Container,
-            typename Binding>
-  auto execute_strategy(Container& container, Binding& binding)
-      -> remove_rvalue_ref_t<Requested> {
-    auto strategy =
-        StrategyFactory::create_strategy<Requested, has_binding,
-                                         scope_provides_references>();
-    return strategy.template execute<Requested>(container, binding);
+  template <typename Requested>
+  auto delegate_to_parent(auto& parent) -> remove_rvalue_ref_t<Requested> {
+    return parent.template resolve<Requested>();
   }
 
   [[no_unique_address]] BindingLookup lookup_policy_{};
