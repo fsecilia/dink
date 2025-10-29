@@ -100,10 +100,6 @@ class Container<Config, Dispatcher, void, Tag> {
 
 template <IsConfig Config, typename Dispatcher, typename Parent, typename Tag>
 class Container {
-  Config config_{};
-  Parent* parent_;
-  [[no_unique_address]] Dispatcher dispatcher_{};
-
  public:
   //! Resolve a dependency
   template <typename Requested>
@@ -135,9 +131,14 @@ class Container {
 
   //! Construct from parent, config, and dispatcher.
   Container(Parent& parent, Config config, Dispatcher dispatcher) noexcept
-      : config_{std::move(config)},
-        parent_{&parent},
-        dispatcher_{std::move(dispatcher)} {}
+      : dispatcher_{std::move(dispatcher)},
+        config_{std::move(config)},
+        parent_{&parent} {}
+
+ private:
+  [[no_unique_address]] Dispatcher dispatcher_{};
+  Config config_{};
+  Parent* parent_{};
 };
 
 // ----------------------------------------------------------------------------
