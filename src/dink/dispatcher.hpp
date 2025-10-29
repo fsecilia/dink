@@ -50,36 +50,34 @@ struct StrategyFactory {
             bool scope_provides_references>
   static constexpr auto create_strategy() {
     if constexpr (UniquePtr<Requested>) {
+      // unique_ptr
       return strategies::RelegateToTransient{};
     } else if constexpr (SharedPtr<Requested> || WeakPtr<Requested>) {
+      // shared_ptr or weak_ptr.
       if constexpr (has_binding && !scope_provides_references) {
-        // Transient scope with shared_ptr - let it create new instances
+        // Transient scope with shared_ptr; let it create new instances.
         return strategies::UseBoundScope{};
       } else {
-        // Singleton scope or no binding - wrap via canonical shared_ptr
+        // Singleton scope, or no binding; wrap via canonical shared_ptr.
         return strategies::CacheSharedPtr{};
       }
     } else if constexpr (std::is_lvalue_reference_v<Requested> ||
                          std::is_pointer_v<Requested>) {
-      // Lvalue ref or pointer
-      if constexpr (has_binding) {
-        if constexpr (scope_provides_references) {
-          return strategies::UseBoundScope{};
-        } else {
-          return strategies::PromoteToSingleton{};
-        }
+      // Lvalue ref or pointer.
+      if constexpr (has_binding && scope_provides_references) {
+        // Ref-providing scope (singleton) and a binding; use the binding.
+        return strategies::UseBoundScope{};
       } else {
+        // No binding or a value-providing scope; must be a singleton.
         return strategies::PromoteToSingleton{};
       }
     } else {
-      // Value or rvalue Ref
-      if constexpr (has_binding) {
-        if constexpr (scope_provides_references) {
-          return strategies::RelegateToTransient{};
-        } else {
-          return strategies::UseBoundScope{};
-        }
+      // Value or rvalue ref.
+      if constexpr (has_binding && !scope_provides_references) {
+        // Value-providing scope (transient) and a binding; use the binding.
+        return strategies::UseBoundScope{};
       } else {
+        // No binding or a ref-providing scope; must be transient.
         return strategies::RelegateToTransient{};
       }
     }
