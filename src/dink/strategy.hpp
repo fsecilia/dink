@@ -37,7 +37,6 @@ struct UseLocalScopeAndProvider {
   template <typename Requested, typename Container, typename Binding>
   auto execute(Container& container, Binding&) const
       -> remove_rvalue_ref_t<Requested> {
-    static_assert(IsSharedPtr<Requested> || IsWeakPtr<Requested>);
     using Canonical = Canonical<Requested>;
     auto provider = provider_factory.template create<Canonical>();
     return scope.template resolve<Requested>(container, provider);
@@ -76,7 +75,7 @@ struct Provider {
 
 //! Substitutable factory for creating Provider instances.
 template <template <typename> class Provider = Provider>
-struct Factory {
+struct ProviderFactory {
   template <typename Canonical>
   constexpr auto create() const -> Provider<Canonical> {
     return {};
@@ -112,9 +111,8 @@ using PromoteToSingleton = strategy_impls::UseLocalScope<scope::Singleton>;
 // When resolving a shared_ptr to a reference, the bound scope and provider are
 // used indirectly by recursing into the container. Recursing is performed by
 // overriding both the scope and provider.
-using CacheSharedPtr =
-    strategy_impls::UseLocalScopeAndProvider<scope::Singleton,
-                                             aliasing_shared_ptr::Factory<>>;
+using CacheSharedPtr = strategy_impls::UseLocalScopeAndProvider<
+    scope::Singleton, aliasing_shared_ptr::ProviderFactory<>>;
 
 }  // namespace strategies
 
