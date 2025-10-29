@@ -13,6 +13,29 @@
 
 namespace dink {
 
+//! Hierarchical DI Container
+//
+// Container is the user-facing facade that contains a config, dispatcher, and
+// optional parent. It presents a resolve() method that can construct any
+// constructible type.
+//
+// By default, values are constructed on the fly, transiently. They can be
+// configured to be cached in the container by binding them in a config.
+//
+// Regardless of configuration, requests for values, rvalue references, and
+// unique_ptrs always produce new instances. Requests for lvalue references,
+// pointers, or weak_ptrs always produce a value cached by the container.
+// Requests for shared_ptrs produce new instances, unless their element type is
+// configured to return references, in which case they alias the managed
+// reference.
+//
+// In general, it should work intuitively. If you ask for a value, you get a
+// value. If you ask for a reference, you get a cached reference. The rest are
+// details.
+template <IsConfig Config, typename Dispatcher, typename Parent = void,
+          typename Tag = meta::UniqueType<>>
+class Container;
+
 // ----------------------------------------------------------------------------
 // Concepts
 // ----------------------------------------------------------------------------
@@ -25,26 +48,13 @@ concept IsContainer = requires(Container& container) {
 };
 
 // ----------------------------------------------------------------------------
-// Container - Forward Declaration
+// Container
 // ----------------------------------------------------------------------------
 
-template <IsConfig Config, typename Dispatcher, typename Parent = void,
-          typename Tag = meta::UniqueType<>>
-class Container;
-
-// ----------------------------------------------------------------------------
-// Container - Root Specialization (Parent = void)
-// ----------------------------------------------------------------------------
-
+//! Root Specialization, Parent = void
 template <IsConfig Config, typename Dispatcher, typename Tag>
 class Container<Config, Dispatcher, void, Tag> {
  public:
-  //! Resolve a dependency
-  template <typename Requested>
-  auto resolve() -> remove_rvalue_ref_t<Requested> {
-    return dispatcher_.template resolve<Requested>(*this, config_, nullptr);
-  }
-
   //! Construct from bindings (no tag)
   template <IsBinding... Bindings>
   explicit Container(Bindings&&... bindings) noexcept
@@ -62,24 +72,21 @@ class Container<Config, Dispatcher, void, Tag> {
   Container(Config config, Dispatcher dispatcher) noexcept
       : dispatcher_{std::move(dispatcher)}, config_{std::move(config)} {}
 
+  //! Resolve a dependency
+  template <typename Requested>
+  auto resolve() -> remove_rvalue_ref_t<Requested> {
+    return dispatcher_.template resolve<Requested>(*this, config_, nullptr);
+  }
+
  private:
   [[no_unique_address]] Dispatcher dispatcher_{};
   Config config_{};
 };
 
-// ----------------------------------------------------------------------------
-// Container - Child Specialization (Parent != void)
-// ----------------------------------------------------------------------------
-
+//! Child Specialization, Parent != void
 template <IsConfig Config, typename Dispatcher, typename Parent, typename Tag>
 class Container {
  public:
-  //! Resolve a dependency
-  template <typename Requested>
-  auto resolve() -> remove_rvalue_ref_t<Requested> {
-    return dispatcher_.template resolve<Requested>(*this, config_, parent_);
-  }
-
   //! Construct from parent and bindings (no tag - default behavior)
   template <IsBinding... Bindings>
   explicit Container(Parent& parent, Bindings&&... bindings) noexcept
@@ -107,6 +114,12 @@ class Container {
       : dispatcher_{std::move(dispatcher)},
         config_{std::move(config)},
         parent_{&parent} {}
+
+  //! Resolve a dependency
+  template <typename Requested>
+  auto resolve() -> remove_rvalue_ref_t<Requested> {
+    return dispatcher_.template resolve<Requested>(*this, config_, parent_);
+  }
 
  private:
   [[no_unique_address]] Dispatcher dispatcher_{};
