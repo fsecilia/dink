@@ -8,6 +8,26 @@
 // bindings; not all {scope, provider} pairs are useful, so the DSL guides
 // construction to useful combinations.
 
+// State Graph Mermaid Chart
+// ----------------------------------------------------------------------------
+// stateDiagram-v2
+//     [*] --> BindBuilder : bind<From>()
+//
+//     BindBuilder --> AsBuilder : .as<To>()
+//     BindBuilder --> InBuilder : .in<Scope>()
+//     BindBuilder --> ToBuilder : .to(instance)
+//     BindBuilder --> [*] : (implicit conversion to Binding)
+//
+//     AsBuilder --> [*] : (implicit conversion to Binding)
+//     AsBuilder --> ViaBuilder : .via(factory)
+//     AsBuilder --> InBuilder : .in<Scope>()
+//
+//     ViaBuilder --> [*] : (implicit conversion to Binding)
+//     ViaBuilder --> InBuilder : .in<Scope>()
+//
+//     ToBuilder --> [*] : (implicit conversion to Binding)
+//     InBuilder --> [*] : (implicit conversion to Binding)
+
 #pragma once
 
 #include <dink/lib.hpp>
@@ -33,7 +53,7 @@ template <typename From, typename To, typename Provider, typename Scope>
 class InBuilder;
 
 // ----------------------------------------------------------------------------
-// Binding - Final type produced by DSL, stored in Config
+// Binding
 // ----------------------------------------------------------------------------
 
 //! Binding triples.
@@ -45,6 +65,8 @@ class InBuilder;
 // \tparam Provider defines how the instances are created or obtained
 //
 // Since all 3 types can vary, each binding tends to be a unique type.
+//
+// This is the final type produced by the DSL. It is stored in Config.
 template <typename From, typename Scope, typename Provider>
 struct Binding {
   using FromType = From;
@@ -59,9 +81,10 @@ struct Binding {
 };
 
 // ----------------------------------------------------------------------------
-// BindBuilder - Initial state after bind<From>()
+// BindBuilder
 // ----------------------------------------------------------------------------
 
+//! Initial state after bind<From>().
 template <typename From>
 class BindBuilder {
  public:
@@ -94,9 +117,10 @@ class BindBuilder {
 };
 
 // ----------------------------------------------------------------------------
-// AsBuilder - After .as<To>()
+// AsBuilder
 // ----------------------------------------------------------------------------
 
+//! State after .as<To>().
 template <typename From, typename To>
 class AsBuilder {
  public:
@@ -120,9 +144,10 @@ class AsBuilder {
 };
 
 // ----------------------------------------------------------------------------
-// ViaBuilder - After .as<To>().via(factory)
+// ViaBuilder
 // ----------------------------------------------------------------------------
 
+//! State after .as<To>().via(factory).
 template <typename From, typename To, typename Factory>
 class ViaBuilder {
  public:
@@ -150,9 +175,10 @@ class ViaBuilder {
 };
 
 // ----------------------------------------------------------------------------
-// ToBuilder - After .to(instance) - Terminal state
+// ToBuilder
 // ----------------------------------------------------------------------------
 
+//! State after .to(instance) - Terminal
 template <typename From, typename InstanceType>
 class ToBuilder {
  public:
@@ -174,9 +200,10 @@ class ToBuilder {
 };
 
 // ----------------------------------------------------------------------------
-// InBuilder - After .in<Scope>() - Terminal state
+// InBuilder
 // ----------------------------------------------------------------------------
 
+//! State after .in<Scope>() - Terminal
 template <typename From, typename To, typename Provider, typename Scope>
 class InBuilder {
  public:
