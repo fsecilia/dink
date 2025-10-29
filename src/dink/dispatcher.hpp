@@ -71,7 +71,8 @@ struct StrategyFactory {
       } else {
         return strategies::PromoteToSingleton{};
       }
-    } else {  // Value or rvalue Ref
+    } else {
+      // Value or rvalue Ref
       if constexpr (has_binding) {
         if constexpr (scope_provides_references) {
           return strategies::RelegateToTransient{};
@@ -117,8 +118,8 @@ class Dispatcher {
       constexpr bool provides_references =
           Binding::ScopeType::provides_references;
 
-      return execute<Requested, has_binding, provides_references>(container,
-                                                                  *binding_ptr);
+      return execute_strategy<Requested, has_binding, provides_references>(
+          container, *binding_ptr);
     } else {
       // No binding - call handler (either creates default or delegates to
       // parent)
@@ -128,7 +129,7 @@ class Dispatcher {
 
   //! Executes resolution with a default binding
   template <typename Requested, typename Container>
-  auto execute_with_default_binding(Container& container)
+  auto execute_strategy_with_default_binding(Container& container)
       -> remove_rvalue_ref_t<Requested> {
     using Canonical = Canonical<Requested>;
 
@@ -144,7 +145,7 @@ class Dispatcher {
   template <typename Requested, bool has_binding,
             bool scope_provides_references, typename Container,
             typename Binding>
-  auto execute(Container& container, Binding& binding)
+  auto execute_strategy(Container& container, Binding& binding)
       -> remove_rvalue_ref_t<Requested> {
     auto strategy =
         StrategyFactory::create_strategy<Requested, has_binding,
