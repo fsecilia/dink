@@ -40,61 +40,49 @@ struct DefaultBindingFactory {
 }  // namespace detail
 
 // ----------------------------------------------------------------------------
-// Strategy Policy
+// StrategyFactory
 // ----------------------------------------------------------------------------
 
-//! Determines strategy and creates appropriate instance
-template <typename StrategyFactory = StrategyFactory>
-class StrategyPolicy {
- public:
-  explicit constexpr StrategyPolicy(
-      StrategyFactory strategy_factory = StrategyFactory{})
-      : strategy_factory_{std::move(strategy_factory)} {}
-
+//! Determines and creates the appropriate resolution strategy
+struct StrategyFactory {
   //! Creates the appropriate strategy for the given resolution context
   template <typename Requested, bool has_binding,
             bool scope_provides_references>
-  auto create_strategy() const {
-    constexpr auto strategy =
-        determine<Requested, has_binding, scope_provides_references>();
-    return strategy_factory_.template create<strategy>();
-  }
-
-  //! Determines resolution strategy based on requested type, binding, and scope
-  template <typename Requested, bool has_binding,
-            bool scope_provides_references>
-  static constexpr auto determine() -> StrategyType {
+  static constexpr auto create_strategy() {
     if constexpr (UniquePtr<Requested>) {
-      return StrategyType::RelegateToTransient;
+      return strategies::RelegateToTransient{};
     } else if constexpr (SharedPtr<Requested> || WeakPtr<Requested>) {
       if constexpr (has_binding && !scope_provides_references) {
         // Transient scope with shared_ptr - let it create new instances
-        return StrategyType::UseBoundScope;
+        return strategies::UseBoundScope{};
       } else {
         // Singleton scope or no binding - wrap via canonical shared_ptr
-        return StrategyType::CacheSharedPtr;
+        return strategies::CacheSharedPtr{};
       }
     } else if constexpr (std::is_lvalue_reference_v<Requested> ||
                          std::is_pointer_v<Requested>) {
+      // Lvalue ref or pointer
       if constexpr (has_binding) {
-        return scope_provides_references ? StrategyType::UseBoundScope
-                                         : StrategyType::PromoteToSingleton;
+        if constexpr (scope_provides_references) {
+          return strategies::UseBoundScope{};
+        } else {
+          return strategies::PromoteToSingleton{};
+        }
       } else {
-        return StrategyType::PromoteToSingleton;
+        return strategies::PromoteToSingleton{};
       }
-    } else {
-      // Value or RValue Ref
+    } else {  // Value or rvalue Ref
       if constexpr (has_binding) {
-        return scope_provides_references ? StrategyType::RelegateToTransient
-                                         : StrategyType::UseBoundScope;
+        if constexpr (scope_provides_references) {
+          return strategies::RelegateToTransient{};
+        } else {
+          return strategies::UseBoundScope{};
+        }
       } else {
-        return StrategyType::RelegateToTransient;
+        return strategies::RelegateToTransient{};
       }
     }
   }
-
- private:
-  [[no_unique_address]] StrategyFactory strategy_factory_{};
 };
 
 // ----------------------------------------------------------------------------
@@ -102,16 +90,13 @@ class StrategyPolicy {
 // ----------------------------------------------------------------------------
 
 //! Dispatches resolution requests to appropriate strategies.
-template <typename StrategyPolicy = StrategyPolicy<>,
-          typename BindingLookup = detail::BindingLookup,
+template <typename BindingLookup = detail::BindingLookup,
           typename DefaultBindingFactory = detail::DefaultBindingFactory>
 class Dispatcher {
  public:
-  explicit Dispatcher(StrategyPolicy strategy_policy = StrategyPolicy{},
-                      BindingLookup lookup_policy = {},
+  explicit Dispatcher(BindingLookup lookup_policy = {},
                       DefaultBindingFactory binding_factory = {})
-      : strategy_policy_{std::move(strategy_policy)},
-        lookup_policy_{std::move(lookup_policy)},
+      : lookup_policy_{std::move(lookup_policy)},
         default_binding_factory_{std::move(binding_factory)} {}
 
   //! Resolves with found binding or calls not_found_handler
@@ -147,8 +132,7 @@ class Dispatcher {
       -> remove_rvalue_ref_t<Requested> {
     using Canonical = Canonical<Requested>;
 
-    auto strategy =
-        strategy_policy_.template create_strategy<Requested, false, false>();
+    auto strategy = StrategyFactory::create_strategy<Requested, false, false>();
     auto default_binding =
         default_binding_factory_.template create<Canonical>();
 
@@ -163,12 +147,11 @@ class Dispatcher {
   auto execute(Container& container, Binding& binding)
       -> remove_rvalue_ref_t<Requested> {
     auto strategy =
-        strategy_policy_.template create_strategy<Requested, has_binding,
-                                                  scope_provides_references>();
+        StrategyFactory::create_strategy<Requested, has_binding,
+                                         scope_provides_references>();
     return strategy.template execute<Requested>(container, binding);
   }
 
-  [[no_unique_address]] StrategyPolicy strategy_policy_{};
   [[no_unique_address]] BindingLookup lookup_policy_{};
   [[no_unique_address]] DefaultBindingFactory default_binding_factory_{};
 };

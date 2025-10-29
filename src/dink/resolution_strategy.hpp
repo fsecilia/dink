@@ -14,52 +14,8 @@
 namespace dink {
 
 // ----------------------------------------------------------------------------
-// Resolution Strategies
+// Resolution Strategies - Implementation Details
 // ----------------------------------------------------------------------------
-
-namespace strategies {
-
-//! Executes using binding's scope and provider directly
-struct UseBoundScope {
-  template <typename Requested, typename Container, typename Binding>
-  auto execute(Container& container, Binding& binding) const
-      -> remove_rvalue_ref_t<Requested> {
-    return binding.scope.template resolve<Requested>(container,
-                                                     binding.provider);
-  }
-};
-
-//! Executes by forcing a specific scope type
-template <typename Scope>
-struct OverrideScope {
-  [[no_unique_address]] Scope scope{};
-
-  template <typename Requested, typename Container, typename Binding>
-  auto execute(Container& container, Binding& binding) const
-      -> remove_rvalue_ref_t<Requested> {
-    return scope.template resolve<Requested>(container, binding.provider);
-  }
-};
-
-//! Executes by wrapping reference in canonical shared_ptr
-//
-// Note: This strategy doesn't use the binding parameter - it creates a new
-// transitive provider that wraps a recursive resolution.
-template <typename Scope, typename ProviderFactory>
-struct CacheSharedPtr {
-  [[no_unique_address]] Scope scope{};
-  [[no_unique_address]] ProviderFactory provider_factory{};
-
-  template <typename Requested, typename Container, typename Binding>
-  auto execute(Container& container, Binding& /*binding*/) const
-      -> remove_rvalue_ref_t<Requested> {
-    using Canonical = Canonical<Requested>;
-    auto provider = provider_factory.template create<Canonical>();
-    return scope.template resolve<Requested>(container, provider);
-  }
-};
-
-}  // namespace strategies
 
 namespace detail {
 
@@ -80,7 +36,7 @@ struct SharedPtrFromRefProvider {
   }
 };
 
-//! Factory for creating CachedSharedPtrProvider instances.
+//! Factory for creating SharedPtrFromRefProvider instances.
 struct SharedPtrFromRefProviderFactory {
   template <typename Canonical>
   auto create() const -> SharedPtrFromRefProvider<Canonical> {
@@ -88,66 +44,66 @@ struct SharedPtrFromRefProviderFactory {
   }
 };
 
-}  // namespace detail
+namespace strategies {
 
-// ----------------------------------------------------------------------------
-// StrategyType
-// ----------------------------------------------------------------------------
+//! Executes by forcing a specific scope type
+template <typename Scope>
+struct OverrideScope {
+  [[no_unique_address]] Scope scope{};
 
-//!
-enum class StrategyType {
-  UseBoundScope,        // Use binding's scope and provider
-  RelegateToTransient,  // Override scope to transient, use bound provider
-  PromoteToSingleton,   // Override scope to singleton, use bound provider
-  CacheSharedPtr        // Cache shared_ptr to singleton
-};
-
-// ----------------------------------------------------------------------------
-// StrategyByType
-// ----------------------------------------------------------------------------
-
-namespace detail {
-
-template <StrategyType strategy_type>
-struct StrategyByType;
-
-template <>
-struct StrategyByType<StrategyType::UseBoundScope> {
-  using type = strategies::UseBoundScope;
-};
-
-template <>
-struct StrategyByType<StrategyType::RelegateToTransient> {
-  using type = strategies::OverrideScope<scope::Transient>;
-};
-
-template <>
-struct StrategyByType<StrategyType::PromoteToSingleton> {
-  using type = strategies::OverrideScope<scope::Singleton>;
-};
-
-template <>
-struct StrategyByType<StrategyType::CacheSharedPtr> {
-  using type =
-      strategies::CacheSharedPtr<scope::Singleton,
-                                 detail::SharedPtrFromRefProviderFactory>;
-};
-
-}  // namespace detail
-
-//! Selects strategy by enum.
-template <StrategyType strategy_type>
-using StrategyByType = detail::StrategyByType<strategy_type>::type;
-
-// ----------------------------------------------------------------------------
-// Strategy Factory
-// ----------------------------------------------------------------------------
-
-struct StrategyFactory {
-  template <StrategyType strategy_type>
-  auto create() const -> StrategyByType<strategy_type> {
-    return {};
+  template <typename Requested, typename Container, typename Binding>
+  auto execute(Container& container, Binding& binding) const
+      -> remove_rvalue_ref_t<Requested> {
+    return scope.template resolve<Requested>(container, binding.provider);
   }
 };
 
+//! Executes by wrapping reference in canonical shared_ptr
+//
+// Note: This strategy doesn't use the binding parameter - it creates a new
+// transitive provider that wraps a recursive resolution.
+template <typename Scope, typename ProviderFactory>
+struct CacheSharedPtrImpl {
+  [[no_unique_address]] Scope scope{};
+  [[no_unique_address]] ProviderFactory provider_factory{};
+
+  template <typename Requested, typename Container, typename Binding>
+  auto execute(Container& container, Binding& /*binding*/) const
+      -> remove_rvalue_ref_t<Requested> {
+    using Canonical = Canonical<Requested>;
+    auto provider = provider_factory.template create<Canonical>();
+    return scope.template resolve<Requested>(container, provider);
+  }
+};
+
+}  // namespace strategies
+}  // namespace detail
+
+// ----------------------------------------------------------------------------
+// Resolution Strategies - Public Interface
+// ----------------------------------------------------------------------------
+
+namespace strategies {
+
+//! Executes using binding's scope and provider directly
+struct UseBoundScope {
+  template <typename Requested, typename Container, typename Binding>
+  auto execute(Container& container, Binding& binding) const
+      -> remove_rvalue_ref_t<Requested> {
+    return binding.scope.template resolve<Requested>(container,
+                                                     binding.provider);
+  }
+};
+
+//! Executes by forcing transient scope
+using RelegateToTransient = detail::strategies::OverrideScope<scope::Transient>;
+
+//! Executes by forcing singleton scope
+using PromoteToSingleton = detail::strategies::OverrideScope<scope::Singleton>;
+
+//! Executes by wrapping reference in canonical shared_ptr
+using CacheSharedPtr = detail::strategies::CacheSharedPtrImpl<
+    scope::Singleton, detail::SharedPtrFromRefProviderFactory>;
+
+}  // namespace strategies
 }  // namespace dink
