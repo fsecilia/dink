@@ -77,7 +77,10 @@ class Dispatcher {
       // no binding found; try delegating to parent
       if constexpr (std::same_as<Parent, std::nullptr_t>) {
         // no binding, no parent, use fallback bindings
-        return execute_fallback_strategy<Requested>(container);
+        auto fallback_binding =
+            fallback_binding_factory_.template create<Canonical>();
+        return execute_strategy<Requested, false, false>(container,
+                                                         fallback_binding);
       } else {
         // no binding, but still have parent to try.
         return delegate_to_parent<Requested>(*parent);
@@ -96,18 +99,6 @@ class Dispatcher {
         strategy_factory_.template create<Requested, has_binding,
                                           scope_provides_references>();
     return strategy.template execute<Requested>(container, binding);
-  }
-
-  //! Executes strategy with fallback binding.
-  template <typename Requested, typename Container>
-  auto execute_fallback_strategy(Container& container)
-      -> remove_rvalue_ref_t<Requested> {
-    using Canonical = Canonical<Requested>;
-
-    auto fallback_binding =
-        fallback_binding_factory_.template create<Canonical>();
-    return execute_strategy<Requested, false, false>(container,
-                                                     fallback_binding);
   }
 
   template <typename Requested>
