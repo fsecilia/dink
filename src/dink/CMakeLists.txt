@@ -18,7 +18,6 @@ list(APPEND dink_library_files
   meta.hpp
   provider.hpp
   remove_rvalue_ref.hpp
-  request_traits.hpp
   resolution_strategy.hpp
   resolver.hpp
   scope.hpp
@@ -36,7 +35,6 @@ list(APPEND dink_test_files
   dispatcher_test.cpp
   invoker_test.cpp
   provider_test.cpp
-  request_traits_test.cpp
   resolution_strategy_test.cpp
   resolver_test.cpp
   scope_test.cpp
