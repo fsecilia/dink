@@ -2003,24 +2003,94 @@ TEST_F(ContainerHierarchyComplexTest,
   EXPECT_EQ(1, Counted::instance_count);
 }
 
+// This test shows a surprising result that can't be avoided.
+// Two containers with the same type cache the same singletons.
+// This is because they are cached in Meyers singletons keyed on container and
+// provider. When they are the same, the same singletons are found.
+// The solution is found in
+// sibling_containers_using_macro_are_independent_with_own_bindings:
+// use dink_unique_container to distinguish between containers with the same
+// bindings.
 TEST_F(ContainerHierarchyComplexTest,
-       sibling_containers_are_independent_with_own_bindings) {
+       sibling_containers_with_same_type_share_singletons) {
   struct Bound : Counted {};
 
   auto parent = Container{bind<Bound>().in<scope::Transient>()};
-  auto child1 = make_container(parent, bind<Bound>().in<scope::Singleton>());
-  auto child2 = make_container(parent, bind<Bound>().in<scope::Singleton>());
 
+  // these two have the same type
+  auto child1 = Container(parent, bind<Bound>().in<scope::Singleton>());
+  auto child2 = Container(parent, bind<Bound>().in<scope::Singleton>());
+  static_assert(std::same_as<decltype(child1), decltype(child2)>);
+
+  // Children with the same type have the same binding, even during promotion.
+  auto& child1_ref = child1.template resolve<Bound&>();
+  auto& child2_ref = child2.template resolve<Bound&>();
+
+  EXPECT_EQ(&child1_ref, &child2_ref);
+  EXPECT_EQ(0, child1_ref.id);
+  EXPECT_EQ(0, child2_ref.id);
+  EXPECT_EQ(1, Counted::instance_count);
+}
+
+// Promoted instances are real singletons.
+TEST_F(ContainerHierarchyComplexTest,
+       sibling_containers_with_same_promoted_type_share_singletons) {
+  struct Bound : Counted {};
+
+  auto parent = Container{bind<Bound>().in<scope::Transient>()};
+
+  // these two have the same type
+  auto child1 = Container(parent, bind<Bound>().in<scope::Transient>());
+  auto child2 = Container(parent, bind<Bound>().in<scope::Transient>());
+  static_assert(std::same_as<decltype(child1), decltype(child2)>);
+
+  // Children with the same type have the same binding, even during promotion.
+  auto& child1_ref = child1.template resolve<Bound&>();
+  auto& child2_ref = child2.template resolve<Bound&>();
+
+  EXPECT_EQ(&child1_ref, &child2_ref);
+  EXPECT_EQ(0, child1_ref.id);
+  EXPECT_EQ(0, child2_ref.id);
+  EXPECT_EQ(1, Counted::instance_count);
+}
+
+TEST_F(ContainerHierarchyComplexTest,
+       sibling_containers_using_macro_are_independent_with_own_bindings) {
+  struct Bound : Counted {};
+
+  auto parent = Container{bind<Bound>().in<scope::Transient>()};
+
+  // using dink_unique_container, these two have unique types
+  auto child1 =
+      dink_unique_container(parent, bind<Bound>().in<scope::Singleton>());
+  auto child2 =
+      dink_unique_container(parent, bind<Bound>().in<scope::Singleton>());
   static_assert(!std::same_as<decltype(child1), decltype(child2)>);
 
   // Each child has own binding, promotes separately
   auto& child1_ref = child1.template resolve<Bound&>();
   auto& child2_ref = child2.template resolve<Bound&>();
 
-  EXPECT_NE(&child1_ref, &child2_ref);  // Different instances!
+  EXPECT_NE(&child1_ref, &child2_ref);
   EXPECT_EQ(0, child1_ref.id);
   EXPECT_EQ(1, child2_ref.id);
   EXPECT_EQ(2, Counted::instance_count);
+}
+
+TEST_F(ContainerHierarchyComplexTest,
+       promoted_transitive_instances_are_root_singletons) {
+  struct Bound : Counted {};
+
+  auto parent = Container{bind<Bound>().in<scope::Singleton>()};
+  auto child = Container{parent};
+
+  auto& parent_ref = parent.template resolve<Bound&>();
+  auto& child_ref = child.template resolve<Bound&>();
+
+  EXPECT_EQ(&parent_ref, &child_ref);
+  EXPECT_EQ(0, parent_ref.id);
+  EXPECT_EQ(0, child_ref.id);
+  EXPECT_EQ(1, Counted::instance_count);
 }
 
 TEST_F(ContainerHierarchyComplexTest, deep_hierarchy_with_multiple_overrides) {
