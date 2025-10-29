@@ -34,6 +34,7 @@ list(APPEND dink_test_files
   container_test.cpp
   dispatcher_test.cpp
   invoker_test.cpp
+  meta_test.cpp
   provider_test.cpp
   resolver_test.cpp
   scope_test.cpp

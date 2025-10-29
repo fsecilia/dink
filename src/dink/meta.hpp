@@ -49,4 +49,32 @@ concept DifferentUnqualifiedType =
 // standardized for this purpose.
 struct ConceptProbe {};
 
+// ----------------------------------------------------------------------------
+// UniqueType
+// ----------------------------------------------------------------------------
+
+//! Generates a unique type using a lambda's closure type.
+//
+// Each instantiation returns a different lambda with a unique closure type.
+// This provides compile-time uniqueness without macros or non-standard
+// features.
+template <typename Impl = decltype([] {})>
+struct UniqueType {};
+
+namespace traits {
+
+template <typename UniqueType>
+struct IsUniqueType : std::false_type {};
+
+template <typename Impl>
+struct IsUniqueType<UniqueType<Impl>> : std::true_type {};
+
+template <typename UniqueType>
+inline constexpr auto is_unique_type = IsUniqueType<UniqueType>::value;
+
+}  // namespace traits
+
+template <typename UniqueType>
+concept IsUniqueType = traits::is_unique_type<UniqueType>;
+
 }  // namespace dink::meta
