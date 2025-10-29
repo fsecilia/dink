@@ -41,13 +41,16 @@ struct FallbackBindingFactory {
 // ----------------------------------------------------------------------------
 
 //! Dispatches resolution requests to appropriate strategies.
-template <typename BindingLocator = detail::BindingLocator,
+template <typename StrategyFactory = StrategyFactory,
+          typename BindingLocator = detail::BindingLocator,
           typename FallbackBindingFactory = detail::FallbackBindingFactory>
 class Dispatcher {
  public:
-  explicit Dispatcher(BindingLocator lookup_policy = {},
+  explicit Dispatcher(StrategyFactory strategy_factory = {},
+                      BindingLocator lookup_policy = {},
                       FallbackBindingFactory fallback_binding_factory = {})
-      : lookup_policy_{std::move(lookup_policy)},
+      : strategy_factory_{std::move(strategy_factory)},
+        lookup_policy_{std::move(lookup_policy)},
         fallback_binding_factory_{std::move(fallback_binding_factory)} {}
 
   //! Resolves with found binding or calls not_found_handler
@@ -88,8 +91,8 @@ class Dispatcher {
   auto execute_strategy(Container& container, Binding& binding)
       -> remove_rvalue_ref_t<Requested> {
     auto strategy =
-        StrategyFactory::create_strategy<Requested, has_binding,
-                                         scope_provides_references>();
+        strategy_factory_.template create_strategy<Requested, has_binding,
+                                                   scope_provides_references>();
     return strategy.template execute<Requested>(container, binding);
   }
 
@@ -99,7 +102,8 @@ class Dispatcher {
       -> remove_rvalue_ref_t<Requested> {
     using Canonical = Canonical<Requested>;
 
-    auto strategy = StrategyFactory::create_strategy<Requested, false, false>();
+    auto strategy =
+        strategy_factory_.template create_strategy<Requested, false, false>();
     auto fallback_binding =
         fallback_binding_factory_.template create<Canonical>();
 
@@ -111,6 +115,7 @@ class Dispatcher {
     return parent.template resolve<Requested>();
   }
 
+  [[no_unique_address]] StrategyFactory strategy_factory_{};
   [[no_unique_address]] BindingLocator lookup_policy_{};
   [[no_unique_address]] FallbackBindingFactory fallback_binding_factory_{};
 };
