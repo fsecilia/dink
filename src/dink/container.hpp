@@ -32,15 +32,20 @@ concept IsContainer = requires(Container& container) {
 //
 // Each call returns a different lambda with a unique closure type. This
 // provides compile-time uniqueness without macros or non-standard features.
-template <typename impl = decltype([] {})>
-using unique_type = impl;
+template <typename Impl = decltype([] {})>
+struct UniqueType {
+  using UniqueImplType = Impl;
+};
+
+template <typename UniqueType>
+concept IsUniqueType = requires { typename UniqueType::UniqueImplType; };
 
 // ----------------------------------------------------------------------------
 // Container - Forward Declaration
 // ----------------------------------------------------------------------------
 
 template <IsConfig Config, typename Dispatcher, typename Parent = void,
-          typename Tag = unique_type<>>
+          typename Tag = UniqueType<>>
 class Container;
 
 // ----------------------------------------------------------------------------
@@ -64,11 +69,16 @@ class Container<Config, Dispatcher, void, Tag> {
   explicit Container(Bindings&&... bindings) noexcept
       : config_{make_bindings(std::forward<Bindings>(bindings)...)} {}
 
+  //! Construct from bindings (with tag)
+  template <IsUniqueType UniqueType, IsBinding... Bindings>
+  Container(UniqueType, Bindings&&... bindings) noexcept
+      : config_{make_bindings(std::forward<Bindings>(bindings)...)} {}
+
   //! Construct from config directly (no tag)
   explicit Container(Config config) noexcept : config_{std::move(config)} {}
 
   //! Construct from config and dispatcher (for testing)
-  explicit Container(Config config, Dispatcher dispatcher) noexcept
+  Container(Config config, Dispatcher dispatcher) noexcept
       : config_{std::move(config)}, dispatcher_{std::move(dispatcher)} {}
 };
 
@@ -96,24 +106,23 @@ class Container {
         parent_{&parent} {}
 
   //! Construct from tag, parent, and bindings (explicit unique tag)
-  template <typename UniqueTag, IsBinding... Bindings>
-    requires(!IsContainer<UniqueTag>)
-  explicit Container(UniqueTag, Parent& parent, Bindings&&... bindings) noexcept
+  template <IsUniqueType UniqueType, IsBinding... Bindings>
+    requires(!IsContainer<UniqueType>)
+  Container(UniqueType, Parent& parent, Bindings&&... bindings) noexcept
       : config_{make_bindings(std::forward<Bindings>(bindings)...)},
         parent_{&parent} {}
 
   //! Construct from parent and config directly (no tag)
-  explicit Container(Parent& parent, Config config) noexcept
+  Container(Parent& parent, Config config) noexcept
       : config_{std::move(config)}, parent_{&parent} {}
 
   //! Construct from tag, parent, and config (explicit unique tag)
-  template <typename UniqueTag>
-  explicit Container(UniqueTag, Parent& parent, Config config) noexcept
+  template <IsUniqueType UniqueType>
+  Container(UniqueType, Parent& parent, Config config) noexcept
       : config_{std::move(config)}, parent_{&parent} {}
 
-  //! Construct from parent, config, and dispatcher (for testing)
-  explicit Container(Parent& parent, Config config,
-                     Dispatcher dispatcher) noexcept
+  //! Construct from parent, config, and dispatcher.
+  Container(Parent& parent, Config config, Dispatcher dispatcher) noexcept
       : config_{std::move(config)},
         parent_{&parent},
         dispatcher_{std::move(dispatcher)} {}
@@ -130,20 +139,27 @@ Container(Builders&&...)
                      decltype(make_bindings(std::declval<Builders>()...))>,
                  Dispatcher<>, void>;
 
-// Child container from parent and builders (no tag - default sharing)
+// Root container from builders (with tag)
+template <IsUniqueType UniqueType, IsBinding... Builders>
+Container(UniqueType, Builders&&...)
+    -> Container<detail::ConfigFromTuple<
+                     decltype(make_bindings(std::declval<Builders>()...))>,
+                 Dispatcher<>, void, UniqueType>;
+
+// Child container from parent and builders (no tag)
 template <IsContainer ParentContainer, IsBinding... Builders>
 Container(ParentContainer&, Builders&&...)
     -> Container<detail::ConfigFromTuple<
                      decltype(make_bindings(std::declval<Builders>()...))>,
-                 Dispatcher<>, ParentContainer, unique_type<>>;
+                 Dispatcher<>, ParentContainer>;
 
-// Child container from tag, parent, and builders (explicit unique)
-template <typename UniqueTag, IsContainer ParentContainer,
+// Child container from tag, parent, and builders (with tag)
+template <IsUniqueType UniqueType, IsContainer ParentContainer,
           IsBinding... Builders>
-Container(UniqueTag, ParentContainer&, Builders&&...)
+Container(UniqueType, ParentContainer&, Builders&&...)
     -> Container<detail::ConfigFromTuple<
                      decltype(make_bindings(std::declval<Builders>()...))>,
-                 Dispatcher<>, ParentContainer, UniqueTag>;
+                 Dispatcher<>, ParentContainer, UniqueType>;
 
 // ----------------------------------------------------------------------------
 // Factory Functions
@@ -161,6 +177,9 @@ Container(UniqueTag, ParentContainer&, Builders&&...)
 // is no other way in the language to generate this once per instance. All
 // other methods generate it once per type.
 #define dink_unique_container(...) \
-  Container { unique_type<>{}, __VA_ARGS__ }
+  Container {                      \
+    UniqueType<> {}                \
+    __VA_OPT__(, ) __VA_ARGS__     \
+  }
 
 }  // namespace dink

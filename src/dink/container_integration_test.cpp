@@ -2078,6 +2078,17 @@ TEST_F(ContainerHierarchyComplexTest,
 }
 
 TEST_F(ContainerHierarchyComplexTest,
+       repeated_macro_invocations_create_unique_types) {
+  auto c1 = dink_unique_container();
+  auto c2 = dink_unique_container(c1);
+  auto c3 = dink_unique_container(c1);
+
+  static_assert(!std::same_as<decltype(c1), decltype(c2)>);
+  static_assert(!std::same_as<decltype(c2), decltype(c3)>);
+  static_assert(!std::same_as<decltype(c1), decltype(c3)>);
+}
+
+TEST_F(ContainerHierarchyComplexTest,
        promoted_transitive_instances_are_root_singletons) {
   struct Bound : Counted {};
 
