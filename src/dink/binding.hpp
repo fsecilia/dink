@@ -218,7 +218,7 @@ Binding(InBuilder<From, To, Provider, Scope>&&)
     -> Binding<From, Scope, Provider>;
 
 // ----------------------------------------------------------------------------
-// Helper Functions
+// Factory Functions
 // ----------------------------------------------------------------------------
 
 //! Creates a tuple of bindings by forcing conversion of each builder.
