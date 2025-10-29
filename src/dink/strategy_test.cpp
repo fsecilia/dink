@@ -17,6 +17,7 @@ struct StrategyTest : Test {
   struct Requested {
     const Container* container{};
     const Provider* provider{};
+    const ProviderFactory* provider_factory{};
     const Scope* scope{};
   };
 
@@ -34,7 +35,7 @@ struct StrategyTest : Test {
   struct ProviderFactory {
     template <typename Canonical>
     auto create() const -> Provider {
-      return Provider{this};
+      return Provider{.provider_factory = this};
     }
   };
 
@@ -45,8 +46,10 @@ struct StrategyTest : Test {
 
     template <typename Requested>
     auto resolve(Container& container, Provider& provider) const -> Requested {
-      return Requested{
-          .container = &container, .provider = &provider, .scope = this};
+      return Requested{.container = &container,
+                       .provider = &provider,
+                       .provider_factory = provider.provider_factory,
+                       .scope = this};
     }
   };
 
@@ -104,7 +107,7 @@ TEST_F(StrategyImplsTest, UseLocalScopeAndProviderUsesMembers) {
   auto actual = sut.template execute<Requested>(container, binding);
 
   ASSERT_EQ(&container, actual.container);
-  ASSERT_EQ(&sut.provider_factory, actual.provider->provider_factory);
+  ASSERT_EQ(&sut.provider_factory, actual.provider_factory);
   ASSERT_EQ(&sut.scope, actual.scope);
 }
 
