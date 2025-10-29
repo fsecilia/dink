@@ -122,7 +122,8 @@ struct StrategyFactory {
       return strategies::RelegateToTransient{};
     } else if constexpr (SharedPtr<Requested> || WeakPtr<Requested>) {
       // shared_ptr or weak_ptr.
-      if constexpr (has_binding && !scope_provides_references) {
+      if constexpr (SharedPtr<Requested> && has_binding &&
+                    !scope_provides_references) {
         // Transient scope with shared_ptr; let it create new instances.
         return strategies::UseBoundScope{};
       } else {
