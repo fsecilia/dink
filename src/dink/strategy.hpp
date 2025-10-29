@@ -72,7 +72,7 @@ struct CacheSharedPtrImpl {
 }  // namespace detail
 
 // ----------------------------------------------------------------------------
-// Resolution Strategies - Public Interface
+// Strategies
 // ----------------------------------------------------------------------------
 
 namespace strategies {

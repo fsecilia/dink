@@ -18,10 +18,10 @@ list(APPEND dink_library_files
   meta.hpp
   provider.hpp
   remove_rvalue_ref.hpp
-  resolution_strategy.hpp
   resolver.hpp
   scope.hpp
   smart_pointer_traits.hpp
+  strategy.hpp
   type_list.hpp
   version.hpp
 )
@@ -35,10 +35,10 @@ list(APPEND dink_test_files
   dispatcher_test.cpp
   invoker_test.cpp
   provider_test.cpp
-  resolution_strategy_test.cpp
   resolver_test.cpp
   scope_test.cpp
   smart_pointer_traits_test.cpp
+  strategy_test.cpp
   test.hpp
   type_list_test.cpp
   version_test.cpp

@@ -11,8 +11,8 @@
 #include <dink/meta.hpp>
 #include <dink/provider.hpp>
 #include <dink/remove_rvalue_ref.hpp>
-#include <dink/resolution_strategy.hpp>
 #include <dink/smart_pointer_traits.hpp>
+#include <dink/strategy.hpp>
 
 namespace dink {
 namespace detail {
