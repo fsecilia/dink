@@ -39,9 +39,7 @@ struct StrategyTest : Test {
     }
   };
 
-  struct Scope {};
-
-  struct ValueScope : Scope {
+  struct Scope {
     static constexpr auto provides_references = false;
 
     template <typename Requested>
@@ -53,27 +51,8 @@ struct StrategyTest : Test {
     }
   };
 
-  struct ReferenceScope : Scope {
-    static constexpr auto provides_references = true;
-
-    mutable Requested referenced{};
-
-    template <typename Requested>
-    auto resolve(Container& container, Provider& provider) const -> Requested& {
-      referenced.container = &container;
-      referenced.provider = &provider;
-      referenced.scope = this;
-      return referenced;
-    }
-  };
-
-  struct ValueBinding {
-    ValueScope scope;
-    Provider provider;
-  };
-
-  struct ReferenceBinding {
-    ReferenceScope scope;
+  struct Binding {
+    Scope scope;
     Provider provider;
   };
 };
@@ -85,10 +64,10 @@ struct StrategyTest : Test {
 struct StrategyImplsTest : StrategyTest {};
 
 TEST_F(StrategyImplsTest, UseLocalScopeUsesMemberScopeAndBoundProvider) {
-  using Sut = strategy_impls::UseLocalScope<ValueScope>;
-  auto sut = Sut{ValueScope{}};
+  using Sut = strategy_impls::UseLocalScope<Scope>;
+  auto sut = Sut{Scope{}};
   auto container = Container{};
-  auto binding = ValueBinding{};
+  auto binding = Binding{};
 
   auto actual = sut.template execute<Requested>(container, binding);
 
@@ -98,11 +77,10 @@ TEST_F(StrategyImplsTest, UseLocalScopeUsesMemberScopeAndBoundProvider) {
 }
 
 TEST_F(StrategyImplsTest, UseLocalScopeAndProviderUsesMembers) {
-  using Sut =
-      strategy_impls::UseLocalScopeAndProvider<ValueScope, ProviderFactory>;
-  auto sut = Sut{ValueScope{}, ProviderFactory{}};
+  using Sut = strategy_impls::UseLocalScopeAndProvider<Scope, ProviderFactory>;
+  auto sut = Sut{Scope{}, ProviderFactory{}};
   auto container = Container{};
-  auto binding = ValueBinding{};
+  auto binding = Binding{};
 
   auto actual = sut.template execute<Requested>(container, binding);
 
@@ -146,7 +124,7 @@ TEST_F(StrategiesTest, UseBindingUsesProvidedBinding) {
   using Sut = strategies::UseBinding;
   auto sut = Sut{};
   auto container = Container{};
-  auto binding = ValueBinding{};
+  auto binding = Binding{};
 
   auto actual = sut.template execute<Requested>(container, binding);
 
