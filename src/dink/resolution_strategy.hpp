@@ -109,7 +109,7 @@ struct StrategyFactory {
   //! Creates the appropriate strategy for the given resolution context
   template <typename Requested, bool has_binding,
             bool scope_provides_references>
-  constexpr auto create_strategy() {
+  constexpr auto create() {
     if constexpr (IsUniquePtr<Requested>) {
       // unique_ptr
       return strategies::RelegateToTransient{};

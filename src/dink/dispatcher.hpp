@@ -91,8 +91,8 @@ class Dispatcher {
   auto execute_strategy(Container& container, Binding& binding)
       -> remove_rvalue_ref_t<Requested> {
     auto strategy =
-        strategy_factory_.template create_strategy<Requested, has_binding,
-                                                   scope_provides_references>();
+        strategy_factory_.template create<Requested, has_binding,
+                                          scope_provides_references>();
     return strategy.template execute<Requested>(container, binding);
   }
 
@@ -103,7 +103,7 @@ class Dispatcher {
     using Canonical = Canonical<Requested>;
 
     auto strategy =
-        strategy_factory_.template create_strategy<Requested, false, false>();
+        strategy_factory_.template create<Requested, false, false>();
     auto fallback_binding =
         fallback_binding_factory_.template create<Canonical>();
 
