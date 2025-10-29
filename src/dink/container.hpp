@@ -100,7 +100,7 @@ class Container {
 // ----------------------------------------------------------------------------
 
 // Deduction guide - converts builders to Bindings, then deduces Config
-template <typename... Builders>
+template <IsBinding... Builders>
 Container(Builders&&...)
     -> Container<detail::ConfigFromTuple<
                      decltype(make_bindings(std::declval<Builders>()...))>,
@@ -111,7 +111,7 @@ template <IsConfig ConfigType>
 Container(ConfigType) -> Container<ConfigType, Dispatcher<>, void>;
 
 // Deduction guide for child container with parent and bindings
-template <IsContainer ParentContainer, typename... Builders>
+template <IsContainer ParentContainer, IsBinding... Builders>
 Container(ParentContainer&, Builders&&...)
     -> Container<detail::ConfigFromTuple<
                      decltype(make_bindings(std::declval<Builders>()...))>,
