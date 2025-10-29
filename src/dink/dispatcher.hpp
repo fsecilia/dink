@@ -76,7 +76,7 @@ class Dispatcher {
       // no binding; try delegating to parent
       if constexpr (std::same_as<Parent, std::nullptr_t>) {
         // no binding, no parent, use fallback bindings
-        return execute_strategy_with_fallback_binding<Requested>(container);
+        return execute_fallback_strategy<Requested>(container);
       } else {
         return delegate_to_parent<Requested>(*parent);
       }
@@ -98,16 +98,14 @@ class Dispatcher {
 
   //! Executes strategy with a default binding
   template <typename Requested, typename Container>
-  auto execute_strategy_with_fallback_binding(Container& container)
+  auto execute_fallback_strategy(Container& container)
       -> remove_rvalue_ref_t<Requested> {
     using Canonical = Canonical<Requested>;
 
-    auto strategy =
-        strategy_factory_.template create<Requested, false, false>();
     auto fallback_binding =
         fallback_binding_factory_.template create<Canonical>();
-
-    return strategy.template execute<Requested>(container, fallback_binding);
+    return execute_strategy<Requested, false, false>(container,
+                                                     fallback_binding);
   }
 
   template <typename Requested>
