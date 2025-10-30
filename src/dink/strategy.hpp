@@ -135,7 +135,7 @@ struct StrategyFactory {
   // themselves are unrelated.
   template <typename Requested, bool has_binding,
             bool scope_provides_references>
-  constexpr auto create() -> auto {
+  constexpr auto create() const noexcept -> auto {
     if constexpr (IsUniquePtr<Requested>) {
       // unique_ptr; always transient. Relegate if necessary.
       return strategies::RelegateToTransient{};
