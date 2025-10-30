@@ -29,8 +29,7 @@ struct BindingLocator {
 struct FallbackBindingFactory {
   template <typename FromType>
   constexpr auto create() const -> auto {
-    return Binding<FromType, scope::Transient, provider::Ctor<FromType>>{
-        scope::Transient{}, provider::Ctor<FromType>{}};
+    return Binding<FromType, scope::Transient, provider::Ctor<FromType>>{};
   }
 };
 
