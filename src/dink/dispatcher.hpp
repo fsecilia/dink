@@ -47,10 +47,10 @@ template <typename StrategyFactory = StrategyFactory,
 class Dispatcher {
  public:
   explicit Dispatcher(StrategyFactory strategy_factory = {},
-                      BindingLocator lookup_policy = {},
+                      BindingLocator binding_locator = {},
                       FallbackBindingFactory fallback_binding_factory = {})
       : strategy_factory_{std::move(strategy_factory)},
-        lookup_policy_{std::move(lookup_policy)},
+        binding_locator_{std::move(binding_locator)},
         fallback_binding_factory_{std::move(fallback_binding_factory)} {}
 
   //! Resolves with found binding, delegates to parent, or uses fallback.
@@ -60,19 +60,19 @@ class Dispatcher {
       -> remove_rvalue_ref_t<Requested> {
     using Canonical = Canonical<Requested>;
 
-    // Find binding.
-    auto binding_ptr = lookup_policy_.template find<Canonical>(config);
+    // Look up binding.
+    auto binding = binding_locator_.template find<Canonical>(config);
     constexpr bool has_binding =
-        !std::is_same_v<decltype(binding_ptr), std::nullptr_t>;
+        !std::is_same_v<decltype(binding), std::nullptr_t>;
 
     if constexpr (has_binding) {
       // Found binding - execute with it.
-      using Binding = std::remove_cvref_t<decltype(*binding_ptr)>;
-      constexpr bool provides_references =
+      using Binding = std::remove_cvref_t<decltype(*binding)>;
+      constexpr auto scope_provides_references =
           Binding::ScopeType::provides_references;
 
-      return execute_strategy<Requested, has_binding, provides_references>(
-          container, *binding_ptr);
+      return execute_strategy<Requested, has_binding,
+                              scope_provides_references>(container, *binding);
     } else if constexpr (std::same_as<Parent, std::nullptr_t>) {
       // no binding, no parent, use fallback bindings
       auto fallback_binding =
@@ -99,7 +99,7 @@ class Dispatcher {
   }
 
   [[no_unique_address]] StrategyFactory strategy_factory_{};
-  [[no_unique_address]] BindingLocator lookup_policy_{};
+  [[no_unique_address]] BindingLocator binding_locator_{};
   [[no_unique_address]] FallbackBindingFactory fallback_binding_factory_{};
 };
 
