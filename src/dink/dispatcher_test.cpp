@@ -63,19 +63,26 @@ struct DefaultsFallbackBindingFactoryTest {
 // ----------------------------------------------------------------------------
 
 struct DispatcherTest : Test {
-  struct Binding {
-    struct ScopeType {
-      static constexpr auto provides_references = true;
-    };
-
+  struct UntypedBinding {
     using Id = int_t;
     Id id{};
 
     static constexpr auto initialized_id = Id{3};
 
-    auto operator==(const Binding&) const noexcept -> bool = default;
+    auto operator==(const UntypedBinding&) const noexcept -> bool = default;
   };
-  Binding binding{Binding::initialized_id};
+
+  struct ReferenceBinding : UntypedBinding {
+    struct ScopeType {
+      static constexpr auto provides_references = true;
+    };
+  };
+
+  struct ValueBinding : UntypedBinding {
+    struct ScopeType {
+      static constexpr auto provides_references = false;
+    };
+  };
 
   struct Config {};
   Config config{};
@@ -87,8 +94,8 @@ struct DispatcherTest : Test {
   Requested requested;
 
   struct MockStrategy {
-    MOCK_METHOD(Requested&, execute, (Container & container, Binding& binding),
-                (const));
+    MOCK_METHOD(Requested&, execute,
+                (Container & container, UntypedBinding& binding), (const));
     virtual ~MockStrategy() = default;
   };
   StrictMock<MockStrategy> mock_strategy{};
@@ -125,14 +132,15 @@ struct DispatcherTest : Test {
 // ----------------------------------------------------------------------------
 
 struct DispatcherTestBindingFound : DispatcherTest {
+  template <typename Binding>
   struct MockBindingLocator {
     MOCK_METHOD(Binding*, find, (Config & config), (const, noexcept));
     virtual ~MockBindingLocator() = default;
   };
-  StrictMock<MockBindingLocator> mock_binding_locator;
 
+  template <typename Binding>
   struct BindingLocator {
-    MockBindingLocator* mock = nullptr;
+    MockBindingLocator<Binding>* mock = nullptr;
 
     template <typename FromType, typename Config>
     constexpr auto find(Config& config) const -> Binding* {
@@ -143,20 +151,48 @@ struct DispatcherTestBindingFound : DispatcherTest {
   };
 
   struct FallbackBindingFactory {};
-
-  using Sut =
-      Dispatcher<BindingLocator, FallbackBindingFactory, StrategyFactory>;
-  Sut sut{BindingLocator{&mock_binding_locator}, FallbackBindingFactory{},
-          StrategyFactory{&mock_strategy_factory}};
 };
 
-TEST_F(DispatcherTestBindingFound, ResolveExecutesStrategyWithBinding) {
+TEST_F(DispatcherTestBindingFound,
+       ResolveExecutesStrategyWithReferenceBinding) {
+  using Binding = ReferenceBinding;
+  Binding binding{Binding::initialized_id};
+  StrictMock<MockBindingLocator<Binding>> mock_binding_locator;
+
+  using Sut = Dispatcher<BindingLocator<Binding>, FallbackBindingFactory,
+                         StrategyFactory>;
+  Sut sut{BindingLocator{&mock_binding_locator}, FallbackBindingFactory{},
+          StrategyFactory{&mock_strategy_factory}};
+
   EXPECT_CALL(mock_binding_locator, find(Ref(config)))
       .WillOnce(Return(&binding));
   EXPECT_CALL(mock_strategy_factory, create(true, true))
       .WillOnce(Return(Strategy{&mock_strategy}));
 
   EXPECT_CALL(mock_strategy, execute(Ref(container), Ref(binding)))
+      .WillOnce(ReturnRef(requested));
+
+  auto& result = sut.template resolve<Requested&>(container, config, nullptr);
+
+  ASSERT_EQ(&result, &requested);
+}
+
+TEST_F(DispatcherTestBindingFound, ResolveExecutesStrategyWithValueBinding) {
+  using Binding = ValueBinding;
+  Binding binding{Binding::initialized_id};
+  StrictMock<MockBindingLocator<Binding>> mock_binding_locator;
+
+  using Sut = Dispatcher<BindingLocator<Binding>, FallbackBindingFactory,
+                         StrategyFactory>;
+  Sut sut{BindingLocator{&mock_binding_locator}, FallbackBindingFactory{},
+          StrategyFactory{&mock_strategy_factory}};
+
+  EXPECT_CALL(mock_binding_locator, find(Ref(config)))
+      .WillOnce(Return(&binding));
+  EXPECT_CALL(mock_strategy_factory, create(true, false))
+      .WillOnce(Return(Strategy{&mock_strategy}));
+
+  EXPECT_CALL(mock_strategy, execute(Ref(container), binding))
       .WillOnce(ReturnRef(requested));
 
   auto& result = sut.template resolve<Requested&>(container, config, nullptr);
@@ -183,6 +219,9 @@ struct DispatcherTestBindingNotFound : DispatcherTest {
 
 struct DispatcherTestBindingNotFoundUseFallback
     : DispatcherTestBindingNotFound {
+  using Binding = ValueBinding;
+  Binding binding{Binding::initialized_id};
+
   struct FallbackBindingFactory {
     mutable Binding binding;
 

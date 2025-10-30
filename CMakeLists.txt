@@ -146,12 +146,13 @@ function(dink_configure_test_target_warnings target)
       -Wno-unused-member-function
       -Wno-unused-template
       -Wno-weak-vtables
-    )
+          )
   endif()
 
   if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     target_compile_options(dink_test PUBLIC
       -Wno-changes-meaning
+      -Wno-unused-local-typedefs
     )
   endif()
 endfunction()
