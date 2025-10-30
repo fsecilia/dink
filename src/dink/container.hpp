@@ -13,6 +13,10 @@
 
 namespace dink {
 
+// ----------------------------------------------------------------------------
+// Container
+// ----------------------------------------------------------------------------
+
 //! Hierarchical DI Container
 //
 // Container is the user-facing facade that contains a config, dispatcher, and
@@ -35,21 +39,6 @@ namespace dink {
 template <IsConfig Config, typename Dispatcher, typename Parent = void,
           typename Tag = meta::UniqueType<>>
 class Container;
-
-// ----------------------------------------------------------------------------
-// Concepts
-// ----------------------------------------------------------------------------
-
-template <typename Container>
-concept IsContainer = requires(Container& container) {
-  {
-    container.template resolve<meta::ConceptProbe>()
-  } -> std::same_as<meta::ConceptProbe>;
-};
-
-// ----------------------------------------------------------------------------
-// Container
-// ----------------------------------------------------------------------------
 
 //! Root Specialization, Parent = void
 template <IsConfig Config, typename Dispatcher, typename Tag>
@@ -91,7 +80,6 @@ class Container {
 
   //! Construct from parent and bindings with tag.
   template <meta::IsUniqueType UniqueType, IsBinding... Bindings>
-    requires(!IsContainer<UniqueType>)
   Container(UniqueType, Parent& parent, Bindings&&... bindings) noexcept
       : Container{parent, Config{std::forward<Bindings>(bindings)...},
                   Dispatcher{}} {}
@@ -112,6 +100,21 @@ class Container {
   [[dink_no_unique_address]] Dispatcher dispatcher_{};
   Config config_{};
   Parent* parent_{};
+};
+
+// ----------------------------------------------------------------------------
+// Concepts
+// ----------------------------------------------------------------------------
+
+//! Identifies valid container types
+//
+// A container's primary function is to resolve instances of the requested
+// type.
+template <typename Container>
+concept IsContainer = requires(Container& container) {
+  {
+    container.template resolve<meta::ConceptProbe>()
+  } -> std::same_as<meta::ConceptProbe>;
 };
 
 // ----------------------------------------------------------------------------
