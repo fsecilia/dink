@@ -91,13 +91,13 @@ class Config {
   using BindingsTuple = std::tuple<Bindings...>;
 
   //! Construct from a tuple of bindings.
-  explicit constexpr Config(std::tuple<Bindings...> bindings) noexcept
+  explicit constexpr Config(BindingsTuple bindings) noexcept
       : bindings_{std::move(bindings)} {}
 
   //! Construct from individual binding arguments.
-  template <typename... Args>
+  template <IsBinding... Args>
   explicit constexpr Config(Args&&... args) noexcept
-      : bindings_{std::forward<Args>(args)...} {}
+      : Config{std::tuple{std::forward<Args>(args)...}} {}
 
   //! Finds first binding with matching From type.
   //
@@ -124,9 +124,5 @@ class Config {
  private:
   [[dink_no_unique_address]] BindingsTuple bindings_;
 };
-
-//! Constructs config from individual bindings.
-template <IsBinding... Bindings>
-Config(Bindings&&...) -> Config<std::remove_cvref_t<Bindings>...>;
 
 }  // namespace dink
