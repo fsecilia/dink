@@ -8,6 +8,10 @@
 namespace dink {
 namespace {
 
+// ----------------------------------------------------------------------------
+// defaults::BindingLocator
+// ----------------------------------------------------------------------------
+
 struct DefaultsBindingLocatorTest {
   struct FromType {
     int_t id{};
