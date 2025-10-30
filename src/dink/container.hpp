@@ -55,24 +55,21 @@ concept IsContainer = requires(Container& container) {
 template <IsConfig Config, typename Dispatcher, typename Tag>
 class Container<Config, Dispatcher, void, Tag> {
  public:
-  //! Construct from bindings (no tag)
+  //! Construct from bindings without tag.
   template <IsBinding... Bindings>
   explicit Container(Bindings&&... bindings) noexcept
-      : config_{make_bindings(std::forward<Bindings>(bindings)...)} {}
+      : Container{Tag{}, std::forward<Bindings>(bindings)...} {}
 
-  //! Construct from bindings (with tag)
+  //! Construct from bindings with tag.
   template <meta::IsUniqueType UniqueType, IsBinding... Bindings>
-  Container(UniqueType, Bindings&&... bindings) noexcept
-      : config_{make_bindings(std::forward<Bindings>(bindings)...)} {}
+  explicit Container(UniqueType, Bindings&&... bindings) noexcept
+      : Container{Config{std::forward<Bindings>(bindings)...}, Dispatcher{}} {}
 
-  //! Construct from config directly (no tag)
-  explicit Container(Config config) noexcept : config_{std::move(config)} {}
-
-  //! Construct from config and dispatcher (for testing)
+  //! Construct from components.
   Container(Config config, Dispatcher dispatcher) noexcept
       : dispatcher_{std::move(dispatcher)}, config_{std::move(config)} {}
 
-  //! Resolve a dependency
+  //! Resolve a dependency.
   template <typename Requested>
   auto resolve() -> remove_rvalue_ref_t<Requested> {
     return dispatcher_.template resolve<Requested>(*this, config_, nullptr);
@@ -87,35 +84,25 @@ class Container<Config, Dispatcher, void, Tag> {
 template <IsConfig Config, typename Dispatcher, typename Parent, typename Tag>
 class Container {
  public:
-  //! Construct from parent and bindings (no tag - default behavior)
+  //! Construct from parent and bindings without tag.
   template <IsBinding... Bindings>
   explicit Container(Parent& parent, Bindings&&... bindings) noexcept
-      : config_{make_bindings(std::forward<Bindings>(bindings)...)},
-        parent_{&parent} {}
+      : Container{Tag{}, parent, std::forward<Bindings>(bindings)...} {}
 
-  //! Construct from tag, parent, and bindings (explicit unique tag)
+  //! Construct from parent and bindings with tag.
   template <meta::IsUniqueType UniqueType, IsBinding... Bindings>
     requires(!IsContainer<UniqueType>)
   Container(UniqueType, Parent& parent, Bindings&&... bindings) noexcept
-      : config_{make_bindings(std::forward<Bindings>(bindings)...)},
-        parent_{&parent} {}
+      : Container{parent, Config{std::forward<Bindings>(bindings)...},
+                  Dispatcher{}} {}
 
-  //! Construct from parent and config directly (no tag)
-  Container(Parent& parent, Config config) noexcept
-      : config_{std::move(config)}, parent_{&parent} {}
-
-  //! Construct from tag, parent, and config (explicit unique tag)
-  template <meta::IsUniqueType UniqueType>
-  Container(UniqueType, Parent& parent, Config config) noexcept
-      : config_{std::move(config)}, parent_{&parent} {}
-
-  //! Construct from parent, config, and dispatcher.
+  //! Construct from components.
   Container(Parent& parent, Config config, Dispatcher dispatcher) noexcept
       : dispatcher_{std::move(dispatcher)},
         config_{std::move(config)},
         parent_{&parent} {}
 
-  //! Resolve a dependency
+  //! Resolve a dependency.
   template <typename Requested>
   auto resolve() -> remove_rvalue_ref_t<Requested> {
     return dispatcher_.template resolve<Requested>(*this, config_, parent_);
@@ -131,25 +118,25 @@ class Container {
 // Deduction Guides
 // ----------------------------------------------------------------------------
 
-// Root container from builders
+// Root container from builders.
 template <IsBinding... Builders>
 Container(Builders&&...)
     -> Container<decltype(Config{make_bindings(std::declval<Builders>()...)}),
                  Dispatcher<>, void>;
 
-// Root container from builders (with tag)
+// Root container from builders with tag.
 template <meta::IsUniqueType UniqueType, IsBinding... Builders>
 Container(UniqueType, Builders&&...)
     -> Container<decltype(Config{make_bindings(std::declval<Builders>()...)}),
                  Dispatcher<>, void, UniqueType>;
 
-// Child container from parent and builders (no tag)
+// Child container from parent and builders.
 template <IsContainer ParentContainer, IsBinding... Builders>
 Container(ParentContainer&, Builders&&...)
     -> Container<decltype(Config{make_bindings(std::declval<Builders>()...)}),
                  Dispatcher<>, ParentContainer>;
 
-// Child container from tag, parent, and builders (with tag)
+// Child container from parent and builders with tag.
 template <meta::IsUniqueType UniqueType, IsContainer ParentContainer,
           IsBinding... Builders>
 Container(UniqueType, ParentContainer&, Builders&&...)
