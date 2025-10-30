@@ -98,9 +98,8 @@ class SingleArgResolver {
 };
 
 //! Sequence that consumes indices to produce Resolvers.
-template <template <typename Container> typename ResolverTemplate,
-          template <typename Constructed,
-                    typename Resolver> typename SingleArgResolverTemplate>
+template <template <typename> typename Resolver,
+          template <typename, typename> typename SingleArgResolver>
 struct ResolverSequence {
   //! Creates a resolver sequence element, choosing the type based on arity.
   //
@@ -109,10 +108,9 @@ struct ResolverSequence {
   template <typename Constructed, std::size_t arity, std::size_t index,
             typename Container>
   constexpr auto create_element(Container& container) const noexcept -> auto {
-    using Resolver = ResolverTemplate<Container>;
-    using SingleArgResolver = SingleArgResolverTemplate<Constructed, Resolver>;
     if constexpr (arity == 1) {
-      return SingleArgResolver{Resolver{container}};
+      return SingleArgResolver<Constructed, Resolver<Container>>{
+          Resolver{container}};
     } else {
       return Resolver{container};
     }
