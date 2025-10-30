@@ -76,7 +76,7 @@ struct Binding {
   [[no_unique_address]] Scope scope;
   [[no_unique_address]] Provider provider;
 
-  explicit constexpr Binding(Scope scope, Provider provider) noexcept
+  constexpr Binding(Scope scope, Provider provider) noexcept
       : scope{std::move(scope)}, provider{std::move(provider)} {}
 };
 
@@ -111,8 +111,7 @@ class BindBuilder {
   // Default conversion: Transient<Ctor<From>>
   constexpr
   operator Binding<From, scope::Transient, provider::Ctor<From>>() && {
-    return Binding<From, scope::Transient, provider::Ctor<From>>{
-        scope::Transient{}, provider::Ctor<From>{}};
+    return {scope::Transient{}, provider::Ctor<From>{}};
   }
 };
 
@@ -138,8 +137,7 @@ class AsBuilder {
 
   // Default conversion: Transient<Ctor<To>>
   constexpr operator Binding<From, scope::Transient, provider::Ctor<To>>() && {
-    return Binding<From, scope::Transient, provider::Ctor<To>>{
-        scope::Transient{}, provider::Ctor<To>{}};
+    return {scope::Transient{}, provider::Ctor<To>{}};
   }
 };
 
@@ -162,9 +160,8 @@ class ViaBuilder {
   // Default conversion: Transient<Factory<To, Factory>>
   constexpr operator Binding<From, scope::Transient,
                              provider::Factory<To, Factory>>() && {
-    return Binding<From, scope::Transient, provider::Factory<To, Factory>>{
-        scope::Transient{},
-        provider::Factory<To, Factory>{std::move(factory_)}};
+    return {scope::Transient{},
+            provider::Factory<To, Factory>{std::move(factory_)}};
   }
 
   explicit constexpr ViaBuilder(Factory factory) noexcept
@@ -185,10 +182,8 @@ class ToBuilder {
   // Conversion using scope::Instance with provider::Instance
   constexpr operator Binding<From, scope::Instance<InstanceType>,
                              provider::Instance<InstanceType>>() && {
-    return Binding<From, scope::Instance<InstanceType>,
-                   provider::Instance<InstanceType>>{
-        scope::Instance<InstanceType>{},
-        provider::Instance<InstanceType>{instance_}};
+    return {scope::Instance<InstanceType>{},
+            provider::Instance<InstanceType>{instance_}};
   }
 
   explicit constexpr ToBuilder(InstanceType& instance) noexcept
