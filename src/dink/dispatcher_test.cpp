@@ -16,7 +16,7 @@ struct DefaultsBindingLocatorTest {
   struct FromType {
     int_t id{};
   };
-  static constexpr auto expected_from = FromType{5};
+  static constexpr auto expected_from = FromType{3};
 
   struct Config {
     template <typename FromType>
