@@ -92,6 +92,29 @@ struct ConfigTest {
       std::same_as<Config<Binding0, Binding1, Binding2>,
                    decltype(Config{std::tuple{binding0, binding1, binding2}})>,
       "multiple-element args should produce multiple-element Config");
+
+  [[maybe_unused]] static inline auto sut =
+      Config{binding0, binding1, binding2};
+
+  // find_binding.
+  static_assert(
+      std::same_as<Binding0*,
+                   decltype(sut.template find_binding<Binding0::FromType>())>,
+      "should find binding0");
+  static_assert(
+      std::same_as<Binding1*,
+                   decltype(sut.template find_binding<Binding1::FromType>())>,
+      "should find binding1");
+  static_assert(
+      std::same_as<Binding2*,
+                   decltype(sut.template find_binding<Binding2::FromType>())>,
+      "should find binding2");
+  static_assert(
+      std::same_as<std::nullptr_t, decltype(sut.template find_binding<void>())>,
+      "should not find binding");
+  static_assert(std::same_as<std::nullptr_t,
+                             decltype(sut.template find_binding<void*>())>,
+                "should not find binding");
 };
 
 }  // namespace
