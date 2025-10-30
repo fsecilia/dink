@@ -94,11 +94,12 @@ struct DispatcherTest : Test {
   StrictMock<MockStrategy> mock_strategy{};
 
   struct Strategy {
+    MockStrategy* mock = nullptr;
+
     template <typename Requested, typename Container, typename Binding>
     auto execute(Container& container, Binding& binding) const -> Requested& {
       return mock->execute(container, binding);
     }
-    MockStrategy* mock = nullptr;
   };
 
   struct StrategyFactory {
@@ -123,13 +124,14 @@ struct DispatcherTestBindingFound : DispatcherTest {
   StrictMock<MockBindingLocator> mock_binding_locator;
 
   struct BindingLocator {
+    MockBindingLocator* mock = nullptr;
+
     template <typename FromType, typename Config>
     constexpr auto find(Config& config) const -> Binding* {
       static_assert(std::same_as<Requested, FromType>);
       static_assert(std::same_as<DispatcherTest::Config, Config>);
       return mock->find(config);
     }
-    MockBindingLocator* mock = nullptr;
   };
 
   struct FallbackBindingFactory {};
