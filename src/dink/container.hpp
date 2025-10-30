@@ -14,6 +14,28 @@
 namespace dink {
 
 // ----------------------------------------------------------------------------
+// Concepts
+// ----------------------------------------------------------------------------
+
+//! Identifies valid container types
+//
+// A container's primary function is to resolve instances of the requested
+// type.
+template <typename Container>
+concept IsContainer = requires(Container& container) {
+  {
+    container.template resolve<meta::ConceptProbe>()
+  } -> std::same_as<meta::ConceptProbe>;
+};
+
+//! Identifies types valid for parent container parameters.
+//
+// Parent container parameters can be a container or void.
+template <typename Container>
+concept IsParentContainer =
+    IsContainer<Container> || std::same_as<Container, void>;
+
+// ----------------------------------------------------------------------------
 // Container
 // ----------------------------------------------------------------------------
 
@@ -36,7 +58,7 @@ namespace dink {
 // In general, it should work intuitively. If you ask for a value, you get a
 // value. If you ask for a reference, you get a cached reference. The rest are
 // details.
-template <IsConfig Config, typename Dispatcher, typename Parent = void,
+template <IsConfig Config, typename Dispatcher, IsParentContainer Parent = void,
           typename Tag = meta::UniqueType<>>
 class Container;
 
@@ -70,7 +92,8 @@ class Container<Config, Dispatcher, void, Tag> {
 };
 
 //! Child Specialization, Parent != void
-template <IsConfig Config, typename Dispatcher, typename Parent, typename Tag>
+template <IsConfig Config, typename Dispatcher, IsParentContainer Parent,
+          typename Tag>
 class Container {
  public:
   //! Construct from parent and bindings without tag.
@@ -103,21 +126,6 @@ class Container {
 };
 
 // ----------------------------------------------------------------------------
-// Concepts
-// ----------------------------------------------------------------------------
-
-//! Identifies valid container types
-//
-// A container's primary function is to resolve instances of the requested
-// type.
-template <typename Container>
-concept IsContainer = requires(Container& container) {
-  {
-    container.template resolve<meta::ConceptProbe>()
-  } -> std::same_as<meta::ConceptProbe>;
-};
-
-// ----------------------------------------------------------------------------
 // Deduction Guides
 // ----------------------------------------------------------------------------
 
@@ -134,13 +142,13 @@ Container(UniqueType, Builders&&...)
                  Dispatcher<>, void, UniqueType>;
 
 // Child container from parent and builders.
-template <IsContainer ParentContainer, IsBinding... Builders>
+template <IsParentContainer ParentContainer, IsBinding... Builders>
 Container(ParentContainer&, Builders&&...)
     -> Container<decltype(Config{make_bindings(std::declval<Builders>()...)}),
                  Dispatcher<>, ParentContainer>;
 
 // Child container from parent and builders with tag.
-template <meta::IsUniqueType UniqueType, IsContainer ParentContainer,
+template <meta::IsUniqueType UniqueType, IsParentContainer ParentContainer,
           IsBinding... Builders>
 Container(UniqueType, ParentContainer&, Builders&&...)
     -> Container<decltype(Config{make_bindings(std::declval<Builders>()...)}),
