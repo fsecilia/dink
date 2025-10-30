@@ -20,19 +20,18 @@ namespace dink {
 // This type relies on specific interactions in overload resolution. It
 // requires both a non-const value conversion operator and a const reference
 // conversion operator. The const-qualified, reference-returning operator must
-// be present to enable conversion to reference types at all. Its
-// const-qualification is necessary to avoid ambiguity when both operators are
-// instantiated with the same Deduced type for value conversions. For mutable
-// lvalue references, both operators become viable (via template argument
-// deduction of Deduced& for the value operator), but the non-const operator is
-// eventually selected due to a better implicit object parameter conversion
-// sequence.
+// be present to enable conversion to reference types at all. Const is
+// necessary to avoid ambiguity when both operators are instantiated with the
+// same Deduced type for value conversions. For mutable lvalue references, both
+// operators become viable (via template argument deduction of Deduced& for the
+// value operator), but the non-const operator is eventually selected due to a
+// better implicit object parameter conversion sequence.
 //
 // Both operators are required, the reference version must be const to avoid
 // ambiguity, and the non-const version is selected for mutable references.
 //
 // This type is not fit to match single-argument ctors, because it will match
-// copy and move ctors. That is handled by \ref SingleArgResolver.
+// copy and move ctors. That is handled by \c SingleArgResolver.
 template <typename Container>
 class Resolver {
  public:
