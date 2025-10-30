@@ -41,17 +41,17 @@ struct FallbackBindingFactory {
 // ----------------------------------------------------------------------------
 
 //! Dispatches resolution requests to appropriate strategies.
-template <typename StrategyFactory = StrategyFactory,
-          typename BindingLocator = defaults::BindingLocator,
-          typename FallbackBindingFactory = defaults::FallbackBindingFactory>
+template <typename BindingLocator = defaults::BindingLocator,
+          typename FallbackBindingFactory = defaults::FallbackBindingFactory,
+          typename StrategyFactory = StrategyFactory>
 class Dispatcher {
  public:
-  explicit Dispatcher(StrategyFactory strategy_factory = {},
-                      BindingLocator binding_locator = {},
-                      FallbackBindingFactory fallback_binding_factory = {})
-      : strategy_factory_{std::move(strategy_factory)},
-        binding_locator_{std::move(binding_locator)},
-        fallback_binding_factory_{std::move(fallback_binding_factory)} {}
+  explicit Dispatcher(BindingLocator binding_locator = {},
+                      FallbackBindingFactory fallback_binding_factory = {},
+                      StrategyFactory strategy_factory = {})
+      : binding_locator_{std::move(binding_locator)},
+        fallback_binding_factory_{std::move(fallback_binding_factory)},
+        strategy_factory_{std::move(strategy_factory)} {}
 
   //! Resolves with found binding, delegates to parent, or uses fallback.
   template <typename Requested, typename Container, typename Config,
@@ -98,9 +98,9 @@ class Dispatcher {
     return strategy.template execute<Requested>(container, binding);
   }
 
-  [[dink_no_unique_address]] StrategyFactory strategy_factory_{};
   [[dink_no_unique_address]] BindingLocator binding_locator_{};
   [[dink_no_unique_address]] FallbackBindingFactory fallback_binding_factory_{};
+  [[dink_no_unique_address]] StrategyFactory strategy_factory_{};
 };
 
 }  // namespace dink
