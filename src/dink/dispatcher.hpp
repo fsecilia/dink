@@ -27,10 +27,10 @@ struct BindingLocator {
 
 //! Creates effective bindings for unbound types.
 struct FallbackBindingFactory {
-  template <typename Canonical>
+  template <typename FromType>
   constexpr auto create() const -> auto {
-    return Binding<Canonical, scope::Transient, provider::Ctor<Canonical>>{
-        scope::Transient{}, provider::Ctor<Canonical>{}};
+    return Binding<FromType, scope::Transient, provider::Ctor<FromType>>{
+        scope::Transient{}, provider::Ctor<FromType>{}};
   }
 };
 
