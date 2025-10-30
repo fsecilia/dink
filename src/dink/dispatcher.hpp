@@ -15,7 +15,7 @@
 #include <dink/strategy.hpp>
 
 namespace dink {
-namespace detail {
+namespace defaults {
 
 //! Looks up bindings in config.
 struct BindingLocator {
@@ -34,7 +34,7 @@ struct FallbackBindingFactory {
   }
 };
 
-}  // namespace detail
+}  // namespace defaults
 
 // ----------------------------------------------------------------------------
 // Dispatcher
@@ -42,8 +42,8 @@ struct FallbackBindingFactory {
 
 //! Dispatches resolution requests to appropriate strategies.
 template <typename StrategyFactory = StrategyFactory,
-          typename BindingLocator = detail::BindingLocator,
-          typename FallbackBindingFactory = detail::FallbackBindingFactory>
+          typename BindingLocator = defaults::BindingLocator,
+          typename FallbackBindingFactory = defaults::FallbackBindingFactory>
 class Dispatcher {
  public:
   explicit Dispatcher(StrategyFactory strategy_factory = {},
