@@ -102,13 +102,21 @@ struct DispatcherTest : Test {
     }
   };
 
+  struct MockStrategyFactory {
+    MOCK_METHOD(Strategy, create,
+                (bool has_binding, bool scope_provides_references));
+    virtual ~MockStrategyFactory() = default;
+  };
+  StrictMock<MockStrategyFactory> mock_strategy_factory;
+
   struct StrategyFactory {
-    MockStrategy* mock_strategy = nullptr;
+    MockStrategyFactory* mock = nullptr;
+
     template <typename Requested, bool has_binding,
               bool scope_provides_references>
-    constexpr auto create() -> auto {
+    constexpr auto create() -> Strategy {
       static_assert(std::same_as<DispatcherTest::Requested&, Requested>);
-      return Strategy{mock_strategy};
+      return mock->create(has_binding, scope_provides_references);
     }
   };
 };
@@ -139,12 +147,15 @@ struct DispatcherTestBindingFound : DispatcherTest {
   using Sut =
       Dispatcher<BindingLocator, FallbackBindingFactory, StrategyFactory>;
   Sut sut{BindingLocator{&mock_binding_locator}, FallbackBindingFactory{},
-          StrategyFactory{&mock_strategy}};
+          StrategyFactory{&mock_strategy_factory}};
 };
 
 TEST_F(DispatcherTestBindingFound, ResolveExecutesStrategyWithBinding) {
   EXPECT_CALL(mock_binding_locator, find(Ref(config)))
       .WillOnce(Return(&binding));
+  EXPECT_CALL(mock_strategy_factory, create(true, true))
+      .WillOnce(Return(Strategy{&mock_strategy}));
+
   EXPECT_CALL(mock_strategy, execute(Ref(container), Ref(binding)))
       .WillOnce(ReturnRef(requested));
 
@@ -185,11 +196,13 @@ struct DispatcherTestBindingNotFoundUseFallback
   using Sut =
       Dispatcher<BindingLocator, FallbackBindingFactory, StrategyFactory>;
   Sut sut{BindingLocator{}, FallbackBindingFactory{binding},
-          StrategyFactory{&mock_strategy}};
+          StrategyFactory{&mock_strategy_factory}};
 };
 
 TEST_F(DispatcherTestBindingNotFoundUseFallback,
        ResolveExecutesFallbackStrategy) {
+  EXPECT_CALL(mock_strategy_factory, create(false, false))
+      .WillOnce(Return(Strategy{&mock_strategy}));
   EXPECT_CALL(mock_strategy, execute(Ref(container), binding))
       .WillOnce(ReturnRef(requested));
 
@@ -221,7 +234,7 @@ struct DispatcherTestBindingNotFoundHasParent : DispatcherTestBindingNotFound {
   using Sut =
       Dispatcher<BindingLocator, FallbackBindingFactory, StrategyFactory>;
   Sut sut{BindingLocator{}, FallbackBindingFactory{},
-          StrategyFactory{&mock_strategy}};
+          StrategyFactory{&mock_strategy_factory}};
 };
 
 TEST_F(DispatcherTestBindingNotFoundHasParent, ResolveDelegatesToParent) {
