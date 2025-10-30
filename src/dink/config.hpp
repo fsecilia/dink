@@ -56,27 +56,6 @@ template <typename From, typename BindingsTuple>
 inline static constexpr auto binding_index =
     BindingIndex<From, 0, BindingsTuple>::value;
 
-// ----------------------------------------------------------------------------
-// ConfigFromTuple
-// ----------------------------------------------------------------------------
-
-//! Creates a config_t type from a tuple of bindings.
-//
-// Used primarily with deduction guides to convert tuple<Bindings...> to
-// Config<Bindings...>.
-template <typename Tuple>
-struct FindConfigFromTuple;
-
-//! Specialization to extract bindings from given tuple.
-template <template <typename...> class Tuple, typename... Bindings>
-struct FindConfigFromTuple<Tuple<Bindings...>> {
-  using type = Config<Bindings...>;
-};
-
-//! Alias for creating config from tuple.
-template <typename Tuple>
-using ConfigFromTuple = typename FindConfigFromTuple<Tuple>::type;
-
 }  // namespace detail
 
 // ----------------------------------------------------------------------------

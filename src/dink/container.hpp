@@ -134,30 +134,26 @@ class Container {
 // Root container from builders
 template <IsBinding... Builders>
 Container(Builders&&...)
-    -> Container<detail::ConfigFromTuple<
-                     decltype(make_bindings(std::declval<Builders>()...))>,
+    -> Container<decltype(Config{make_bindings(std::declval<Builders>()...)}),
                  Dispatcher<>, void>;
 
 // Root container from builders (with tag)
 template <meta::IsUniqueType UniqueType, IsBinding... Builders>
 Container(UniqueType, Builders&&...)
-    -> Container<detail::ConfigFromTuple<
-                     decltype(make_bindings(std::declval<Builders>()...))>,
+    -> Container<decltype(Config{make_bindings(std::declval<Builders>()...)}),
                  Dispatcher<>, void, UniqueType>;
 
 // Child container from parent and builders (no tag)
 template <IsContainer ParentContainer, IsBinding... Builders>
 Container(ParentContainer&, Builders&&...)
-    -> Container<detail::ConfigFromTuple<
-                     decltype(make_bindings(std::declval<Builders>()...))>,
+    -> Container<decltype(Config{make_bindings(std::declval<Builders>()...)}),
                  Dispatcher<>, ParentContainer>;
 
 // Child container from tag, parent, and builders (with tag)
 template <meta::IsUniqueType UniqueType, IsContainer ParentContainer,
           IsBinding... Builders>
 Container(UniqueType, ParentContainer&, Builders&&...)
-    -> Container<detail::ConfigFromTuple<
-                     decltype(make_bindings(std::declval<Builders>()...))>,
+    -> Container<decltype(Config{make_bindings(std::declval<Builders>()...)}),
                  Dispatcher<>, ParentContainer, UniqueType>;
 
 // ----------------------------------------------------------------------------
