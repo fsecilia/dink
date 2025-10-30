@@ -24,8 +24,10 @@ class Ctor {
     return invoker.template create<Requested>(container);
   }
 
-  explicit constexpr Ctor(InvokerFactory invoker_factory = {}) noexcept
+  explicit constexpr Ctor(InvokerFactory invoker_factory) noexcept
       : invoker_factory_{std::move(invoker_factory)} {}
+
+  constexpr Ctor() = default;
 
  private:
   [[dink_no_unique_address]] InvokerFactory invoker_factory_{};
@@ -49,6 +51,8 @@ class Factory {
                              InvokerFactory invoker_factory = {}) noexcept
       : constructed_factory_{std::move(constructed_factory)},
         invoker_factory_{std::move(invoker_factory)} {}
+
+  constexpr Factory() = default;
 
  private:
   [[dink_no_unique_address]] ConstructedFactory constructed_factory_{};
