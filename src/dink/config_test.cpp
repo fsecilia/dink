@@ -71,15 +71,14 @@ struct ConfigTest {
   static auto constexpr binding2 = Binding2{};
 
   // Empty ctors.
-  static_assert(std::same_as<Config<>, decltype(Config{std::tuple{}})>,
-                "empty tuple should produce empty Config");
   static_assert(std::same_as<Config<>, decltype(Config{})>,
                 "empty args should produce empty Config");
+  static_assert(std::same_as<Config<>, decltype(Config{std::tuple{}})>,
+                "empty tuple should produce empty Config");
 
   // Single-element ctors.
-  static_assert(
-      std::same_as<Config<Binding0>, decltype(Config{std::tuple{binding0}})>,
-      "single-element tuple should produce single-element Config");
+  static_assert(std::same_as<Config<Binding0>, decltype(Config{binding0})>,
+                "single-element tuple should produce single-element Config");
   static_assert(
       std::same_as<Config<Binding0>, decltype(Config{std::tuple{binding0}})>,
       "single-element args should produce single-element Config");
@@ -87,7 +86,7 @@ struct ConfigTest {
   // Multiple-element ctors.
   static_assert(
       std::same_as<Config<Binding0, Binding1, Binding2>,
-                   decltype(Config{std::tuple{binding0, binding1, binding2}})>,
+                   decltype(Config{binding0, binding1, binding2})>,
       "multiple-element tuple should produce multiple-element Config");
   static_assert(
       std::same_as<Config<Binding0, Binding1, Binding2>,
