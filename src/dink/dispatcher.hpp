@@ -19,16 +19,16 @@ namespace detail {
 
 //! Looks up bindings in config.
 struct BindingLocator {
-  template <typename Canonical, typename Config>
-  auto find(Config& config) const {
-    return config.template find_binding<Canonical>();
+  template <typename FromType, typename Config>
+  constexpr auto find(Config& config) const -> auto {
+    return config.template find_binding<FromType>();
   }
 };
 
 //! Creates effective bindings for unbound types.
 struct FallbackBindingFactory {
   template <typename Canonical>
-  constexpr auto create() const {
+  constexpr auto create() const -> auto {
     return Binding<Canonical, scope::Transient, provider::Ctor<Canonical>>{
         scope::Transient{}, provider::Ctor<Canonical>{}};
   }
