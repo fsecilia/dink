@@ -52,7 +52,7 @@ struct BindingIndexTest {
 
 static_assert(IsConfig<Config<>>, "should match a real, empty Config");
 static_assert(
-    IsConfig<Config<Binding<int, scope::Transient, provider::Ctor<int_t>>>>,
+    IsConfig<Config<Binding<int_t, scope::Transient, provider::Ctor<int_t>>>>,
     "should match a Config");
 static_assert(!IsConfig<int_t>, "should not match an int");
 static_assert(!IsConfig<std::tuple<>>, "should not match a tuple");
