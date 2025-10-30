@@ -59,18 +59,6 @@ inline static constexpr auto binding_index =
 }  // namespace detail
 
 // ----------------------------------------------------------------------------
-// Concepts
-// ----------------------------------------------------------------------------
-
-//! Identifies valid configuration types.
-//
-// A config must support finding bindings by resolved type.
-template <typename config_t>
-concept IsConfig = requires(config_t& config) {
-  config.template find_binding<meta::ConceptProbe>();
-};
-
-// ----------------------------------------------------------------------------
 // Config
 // ----------------------------------------------------------------------------
 
@@ -125,9 +113,25 @@ class Config {
   [[dink_no_unique_address]] BindingsTuple bindings_;
 };
 
+// ----------------------------------------------------------------------------
+// Deduction Guides
+// ----------------------------------------------------------------------------
+
 //! Converts binding-likes to actual bindings.
 template <IsBinding... Bindings>
 Config(Bindings&&...) -> Config<
     std::remove_cvref_t<decltype(Binding{std::declval<Bindings>()})>...>;
+
+// ----------------------------------------------------------------------------
+// Concepts
+// ----------------------------------------------------------------------------
+
+//! Identifies valid configuration types.
+//
+// A config must support finding bindings by resolved type.
+template <typename config_t>
+concept IsConfig = requires(config_t& config) {
+  config.template find_binding<meta::ConceptProbe>();
+};
 
 }  // namespace dink
