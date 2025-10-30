@@ -57,6 +57,44 @@ static_assert(
 static_assert(!IsConfig<int_t>, "should not match an int");
 static_assert(!IsConfig<std::tuple<>>, "should not match a tuple");
 
+// ----------------------------------------------------------------------------
+// Config
+// ----------------------------------------------------------------------------
+
+struct ConfigTest {
+  using Binding0 = Binding<int_t, scope::Transient, provider::Ctor<int_t>>;
+  using Binding1 = Binding<uint_t, scope::Transient, provider::Ctor<uint_t>>;
+  using Binding2 = Binding<char, scope::Transient, provider::Ctor<char>>;
+
+  static auto constexpr binding0 = Binding0{};
+  static auto constexpr binding1 = Binding1{};
+  static auto constexpr binding2 = Binding2{};
+
+  // Empty ctors.
+  static_assert(std::same_as<Config<>, decltype(Config{std::tuple{}})>,
+                "empty tuple should produce empty Config");
+  static_assert(std::same_as<Config<>, decltype(Config{})>,
+                "empty args should produce empty Config");
+
+  // Single-element ctors.
+  static_assert(
+      std::same_as<Config<Binding0>, decltype(Config{std::tuple{binding0}})>,
+      "single-element tuple should produce single-element Config");
+  static_assert(
+      std::same_as<Config<Binding0>, decltype(Config{std::tuple{binding0}})>,
+      "single-element args should produce single-element Config");
+
+  // Multiple-element ctors.
+  static_assert(
+      std::same_as<Config<Binding0, Binding1, Binding2>,
+                   decltype(Config{std::tuple{binding0, binding1, binding2}})>,
+      "multiple-element tuple should produce multiple-element Config");
+  static_assert(
+      std::same_as<Config<Binding0, Binding1, Binding2>,
+                   decltype(Config{std::tuple{binding0, binding1, binding2}})>,
+      "multiple-element args should produce multiple-element Config");
+};
+
 }  // namespace
 }  // namespace detail
 }  // namespace dink
