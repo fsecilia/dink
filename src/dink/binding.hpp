@@ -187,9 +187,8 @@ class ToBuilder {
                              provider::Instance<InstanceType>>() && {
     return Binding<From, scope::Instance<InstanceType>,
                    provider::Instance<InstanceType>>{
-        scope::Instance<InstanceType>{},  // Stateless scope
-        provider::Instance<InstanceType>{
-            instance_}};  // Provider holds reference
+        scope::Instance<InstanceType>{},
+        provider::Instance<InstanceType>{instance_}};
   }
 
   explicit constexpr ToBuilder(InstanceType& instance) noexcept
