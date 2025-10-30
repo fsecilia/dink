@@ -17,7 +17,7 @@ namespace strategy_impls {
 //! Overrides scope but uses bound provider.
 template <typename Scope>
 struct UseLocalScope {
-  [[no_unique_address]] Scope scope{};
+  [[dink_no_unique_address]] Scope scope{};
 
   //! Resolves local scope using provider from given binding.
   template <typename Requested, typename Container, typename Binding>
@@ -30,8 +30,8 @@ struct UseLocalScope {
 //! Overrides scope and provider.
 template <typename Scope, typename ProviderFactory>
 struct UseLocalScopeAndProvider {
-  [[no_unique_address]] Scope scope{};
-  [[no_unique_address]] ProviderFactory provider_factory{};
+  [[dink_no_unique_address]] Scope scope{};
+  [[dink_no_unique_address]] ProviderFactory provider_factory{};
 
   //! Resolves local scope using provider from local factory.
   template <typename Requested, typename Container, typename Binding>

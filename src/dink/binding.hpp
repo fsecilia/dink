@@ -73,8 +73,8 @@ struct Binding {
   using ScopeType = Scope;
   using ProviderType = Provider;
 
-  [[no_unique_address]] Scope scope;
-  [[no_unique_address]] Provider provider;
+  [[dink_no_unique_address]] Scope scope;
+  [[dink_no_unique_address]] Provider provider;
 
   constexpr Binding(Scope scope, Provider provider) noexcept
       : scope{std::move(scope)}, provider{std::move(provider)} {}

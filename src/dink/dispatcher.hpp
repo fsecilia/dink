@@ -98,9 +98,9 @@ class Dispatcher {
     return strategy.template execute<Requested>(container, binding);
   }
 
-  [[no_unique_address]] StrategyFactory strategy_factory_{};
-  [[no_unique_address]] BindingLocator binding_locator_{};
-  [[no_unique_address]] FallbackBindingFactory fallback_binding_factory_{};
+  [[dink_no_unique_address]] StrategyFactory strategy_factory_{};
+  [[dink_no_unique_address]] BindingLocator binding_locator_{};
+  [[dink_no_unique_address]] FallbackBindingFactory fallback_binding_factory_{};
 };
 
 }  // namespace dink

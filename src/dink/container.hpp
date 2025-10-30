@@ -79,7 +79,7 @@ class Container<Config, Dispatcher, void, Tag> {
   }
 
  private:
-  [[no_unique_address]] Dispatcher dispatcher_{};
+  [[dink_no_unique_address]] Dispatcher dispatcher_{};
   Config config_{};
 };
 
@@ -122,7 +122,7 @@ class Container {
   }
 
  private:
-  [[no_unique_address]] Dispatcher dispatcher_{};
+  [[dink_no_unique_address]] Dispatcher dispatcher_{};
   Config config_{};
   Parent* parent_{};
 };
