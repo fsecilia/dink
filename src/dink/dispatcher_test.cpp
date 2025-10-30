@@ -58,5 +58,178 @@ struct DefaultsFallbackBindingFactoryTest {
 [[maybe_unused]] constexpr auto defaults_fallback_binding_factory_test =
     DefaultsFallbackBindingFactoryTest{};
 
+// ----------------------------------------------------------------------------
+// Dispatcher
+// ----------------------------------------------------------------------------
+
+struct DispatcherTest : Test {
+  struct Binding {
+    struct ScopeType {
+      static constexpr auto provides_references = true;
+    };
+
+    using Id = int_t;
+    Id id{};
+
+    static constexpr auto initialized_id = Id{3};
+
+    auto operator==(const Binding&) const noexcept -> bool = default;
+  };
+  Binding binding{Binding::initialized_id};
+
+  struct Config {};
+  Config config{};
+
+  struct Container {};
+  Container container{};
+
+  struct Requested {};
+  Requested requested;
+
+  struct MockStrategy {
+    MOCK_METHOD(Requested&, execute, (Container & container, Binding& binding),
+                (const));
+    virtual ~MockStrategy() = default;
+  };
+  StrictMock<MockStrategy> mock_strategy{};
+
+  struct Strategy {
+    template <typename Requested, typename Container, typename Binding>
+    auto execute(Container& container, Binding& binding) const -> Requested& {
+      return mock->execute(container, binding);
+    }
+    MockStrategy* mock = nullptr;
+  };
+
+  struct StrategyFactory {
+    MockStrategy* mock_strategy = nullptr;
+    template <typename Requested, bool has_binding,
+              bool scope_provides_references>
+    constexpr auto create() -> auto {
+      static_assert(std::same_as<DispatcherTest::Requested&, Requested>);
+      return Strategy{mock_strategy};
+    }
+  };
+};
+
+// Binding Found
+// ----------------------------------------------------------------------------
+
+struct DispatcherTestBindingFound : DispatcherTest {
+  struct MockBindingLocator {
+    MOCK_METHOD(Binding*, find, (Config & config), (const, noexcept));
+    virtual ~MockBindingLocator() = default;
+  };
+  StrictMock<MockBindingLocator> mock_binding_locator;
+
+  struct BindingLocator {
+    template <typename FromType, typename Config>
+    constexpr auto find(Config& config) const -> Binding* {
+      static_assert(std::same_as<Requested, FromType>);
+      static_assert(std::same_as<DispatcherTest::Config, Config>);
+      return mock->find(config);
+    }
+    MockBindingLocator* mock = nullptr;
+  };
+
+  struct FallbackBindingFactory {};
+
+  using Sut =
+      Dispatcher<BindingLocator, FallbackBindingFactory, StrategyFactory>;
+  Sut sut{BindingLocator{&mock_binding_locator}, FallbackBindingFactory{},
+          StrategyFactory{&mock_strategy}};
+};
+
+TEST_F(DispatcherTestBindingFound, ResolveExecutesStrategyWithBinding) {
+  EXPECT_CALL(mock_binding_locator, find(Ref(config)))
+      .WillOnce(Return(&binding));
+  EXPECT_CALL(mock_strategy, execute(Ref(container), Ref(binding)))
+      .WillOnce(ReturnRef(requested));
+
+  auto& result = sut.template resolve<Requested&>(container, config, nullptr);
+
+  ASSERT_EQ(&result, &requested);
+}
+
+// Binding Not Found
+// ----------------------------------------------------------------------------
+
+struct DispatcherTestBindingNotFound : DispatcherTest {
+  struct BindingLocator {
+    template <typename FromType, typename Config>
+    constexpr auto find(Config&) const -> std::nullptr_t {
+      static_assert(std::same_as<Requested, FromType>);
+      static_assert(std::same_as<DispatcherTest::Config, Config>);
+      return nullptr;
+    }
+  };
+};
+
+// Binding Not Found, Use Fallback
+// ----------------------------------------------------------------------------
+
+struct DispatcherTestBindingNotFoundUseFallback
+    : DispatcherTestBindingNotFound {
+  struct FallbackBindingFactory {
+    mutable Binding binding;
+
+    template <typename FromType>
+    constexpr auto create() const -> Binding& {
+      static_assert(std::same_as<Requested, FromType>);
+      return binding;
+    }
+  };
+
+  using Sut =
+      Dispatcher<BindingLocator, FallbackBindingFactory, StrategyFactory>;
+  Sut sut{BindingLocator{}, FallbackBindingFactory{binding},
+          StrategyFactory{&mock_strategy}};
+};
+
+TEST_F(DispatcherTestBindingNotFoundUseFallback,
+       ResolveExecutesFallbackStrategy) {
+  EXPECT_CALL(mock_strategy, execute(Ref(container), binding))
+      .WillOnce(ReturnRef(requested));
+
+  auto& result = sut.template resolve<Requested&>(container, config, nullptr);
+
+  ASSERT_EQ(&result, &requested);
+}
+
+// Binding Not Found, Has Parent
+// ----------------------------------------------------------------------------
+
+struct DispatcherTestBindingNotFoundHasParent : DispatcherTestBindingNotFound {
+  struct FallbackBindingFactory {};
+
+  struct MockParent {
+    MOCK_METHOD(Requested&, resolve, ());
+    virtual ~MockParent() = default;
+  };
+  StrictMock<MockParent> mock_parent{};
+
+  struct Parent {
+    template <typename Requested>
+    auto resolve() -> Requested& {
+      return mock->resolve();
+    }
+    MockParent* mock = nullptr;
+  };
+
+  using Sut =
+      Dispatcher<BindingLocator, FallbackBindingFactory, StrategyFactory>;
+  Sut sut{BindingLocator{}, FallbackBindingFactory{},
+          StrategyFactory{&mock_strategy}};
+};
+
+TEST_F(DispatcherTestBindingNotFoundHasParent, ResolveDelegatesToParent) {
+  auto parent = Parent{&mock_parent};
+  EXPECT_CALL(mock_parent, resolve()).WillOnce(ReturnRef(requested));
+
+  auto& result = sut.template resolve<Requested&>(container, config, &parent);
+
+  ASSERT_EQ(&result, &requested);
+}
+
 }  // namespace
 }  // namespace dink
