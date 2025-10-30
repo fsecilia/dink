@@ -129,9 +129,13 @@ struct StrategyFactory {
   // references or transient values.
   //
   // This is where promotion and relegation are decided.
+  //
+  // \returns strategy of varying types
+  // The return type varies with the strategy chosen. The strategy types
+  // themselves are unrelated.
   template <typename Requested, bool has_binding,
             bool scope_provides_references>
-  constexpr auto create() {
+  constexpr auto create() -> auto {
     if constexpr (IsUniquePtr<Requested>) {
       // unique_ptr; always transient. Relegate if necessary.
       return strategies::RelegateToTransient{};
