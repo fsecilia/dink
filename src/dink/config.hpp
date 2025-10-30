@@ -112,12 +112,13 @@ class Config {
   using BindingsTuple = std::tuple<Bindings...>;
 
   //! Construct from a tuple of bindings.
-  explicit Config(std::tuple<Bindings...> bindings)
+  explicit constexpr Config(std::tuple<Bindings...> bindings) noexcept
       : bindings_{std::move(bindings)} {}
 
   //! Construct from individual binding arguments.
   template <typename... Args>
-  explicit Config(Args&&... args) : bindings_{std::forward<Args>(args)...} {}
+  explicit constexpr Config(Args&&... args) noexcept
+      : bindings_{std::forward<Args>(args)...} {}
 
   //! Finds first binding with matching From type.
   //
@@ -131,7 +132,7 @@ class Config {
   // otherwise. This distinction can be tested at compile-time to switch
   // between found and not found if constexpr branches.
   template <typename From>
-  auto find_binding() -> auto {
+  constexpr auto find_binding() noexcept -> auto {
     static constexpr auto index = detail::binding_index<From, BindingsTuple>;
 
     if constexpr (index != detail::npos) {
