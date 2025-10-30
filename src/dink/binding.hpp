@@ -316,6 +316,6 @@ inline constexpr auto is_binding = IsBinding<Binding>::value;
 }  // namespace traits
 
 template <typename Binding>
-concept IsBinding = traits::is_binding<Binding>;
+concept IsBinding = traits::is_binding<std::remove_cvref_t<Binding>>;
 
 }  // namespace dink
