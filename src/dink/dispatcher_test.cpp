@@ -36,5 +36,27 @@ struct DefaultsBindingLocatorTest {
 [[maybe_unused]] constexpr auto defaults_bindings_locator_test =
     DefaultsBindingLocatorTest{};
 
+// ----------------------------------------------------------------------------
+// defaults::BindingLocator
+// ----------------------------------------------------------------------------
+
+struct DefaultsFallbackBindingFactoryTest {
+  struct FromType {};
+
+  using Sut = defaults::FallbackBindingFactory;
+  static constexpr Sut sut{};
+
+  constexpr DefaultsFallbackBindingFactoryTest() {
+    static constexpr auto binding = sut.template create<FromType>();
+    using Binding = decltype(binding);
+    static_assert(std::same_as<FromType, Binding::FromType>);
+    static_assert(std::same_as<scope::Transient, Binding::ScopeType>);
+    static_assert(
+        std::same_as<provider::Ctor<FromType>, Binding::ProviderType>);
+  }
+};
+[[maybe_unused]] constexpr auto defaults_fallback_binding_factory_test =
+    DefaultsFallbackBindingFactoryTest{};
+
 }  // namespace
 }  // namespace dink
