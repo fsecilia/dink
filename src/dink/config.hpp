@@ -95,9 +95,9 @@ class Config {
       : bindings_{std::move(bindings)} {}
 
   //! Construct from individual binding arguments.
-  template <IsBinding... Args>
-  explicit constexpr Config(Args&&... args) noexcept
-      : Config{std::tuple{std::forward<Args>(args)...}} {}
+  template <IsBinding... ActualBindings>
+  explicit constexpr Config(ActualBindings&&... bindings) noexcept
+      : Config{std::tuple{std::forward<ActualBindings>(bindings)...}} {}
 
   //! Finds first binding with matching From type.
   //
@@ -124,5 +124,10 @@ class Config {
  private:
   [[dink_no_unique_address]] BindingsTuple bindings_;
 };
+
+//! Converts binding-likes to actual bindings.
+template <IsBinding... Bindings>
+Config(Bindings&&...) -> Config<
+    std::remove_cvref_t<decltype(Binding{std::declval<Bindings>()})>...>;
 
 }  // namespace dink
