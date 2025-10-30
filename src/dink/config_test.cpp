@@ -46,6 +46,17 @@ struct BindingIndexTest {
                 "should find first matching binding in middle");
 };
 
+// ----------------------------------------------------------------------------
+// IsConfig
+// ----------------------------------------------------------------------------
+
+static_assert(IsConfig<Config<>>, "should match a real, empty Config");
+static_assert(
+    IsConfig<Config<Binding<int, scope::Transient, provider::Ctor<int_t>>>>,
+    "should match a Config");
+static_assert(!IsConfig<int_t>, "should not match an int");
+static_assert(!IsConfig<std::tuple<>>, "should not match a tuple");
+
 }  // namespace
 }  // namespace detail
 }  // namespace dink
