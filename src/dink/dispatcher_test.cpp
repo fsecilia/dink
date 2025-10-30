@@ -153,8 +153,10 @@ struct DispatcherTestBindingFound : DispatcherTest {
   struct FallbackBindingFactory {};
 };
 
-TEST_F(DispatcherTestBindingFound,
-       ResolveExecutesStrategyWithReferenceBinding) {
+// Binding Found, Use Reference Binding
+// ----------------------------------------------------------------------------
+
+struct DispatcherTestBindingFoundReferenceBinding : DispatcherTestBindingFound {
   using Binding = ReferenceBinding;
   Binding binding{Binding::initialized_id};
   StrictMock<MockBindingLocator<Binding>> mock_binding_locator;
@@ -163,7 +165,9 @@ TEST_F(DispatcherTestBindingFound,
                          StrategyFactory>;
   Sut sut{BindingLocator{&mock_binding_locator}, FallbackBindingFactory{},
           StrategyFactory{&mock_strategy_factory}};
+};
 
+TEST_F(DispatcherTestBindingFoundReferenceBinding, ResolveExecutesStrategy) {
   EXPECT_CALL(mock_binding_locator, find(Ref(config)))
       .WillOnce(Return(&binding));
   EXPECT_CALL(mock_strategy_factory, create(true, true))
@@ -177,7 +181,10 @@ TEST_F(DispatcherTestBindingFound,
   ASSERT_EQ(&result, &requested);
 }
 
-TEST_F(DispatcherTestBindingFound, ResolveExecutesStrategyWithValueBinding) {
+// Binding Found, Use Value Binding
+// ----------------------------------------------------------------------------
+
+struct DispatcherTestBindingFoundValueBinding : DispatcherTestBindingFound {
   using Binding = ValueBinding;
   Binding binding{Binding::initialized_id};
   StrictMock<MockBindingLocator<Binding>> mock_binding_locator;
@@ -186,7 +193,9 @@ TEST_F(DispatcherTestBindingFound, ResolveExecutesStrategyWithValueBinding) {
                          StrategyFactory>;
   Sut sut{BindingLocator{&mock_binding_locator}, FallbackBindingFactory{},
           StrategyFactory{&mock_strategy_factory}};
+};
 
+TEST_F(DispatcherTestBindingFoundValueBinding, ResolveExecutesStrategy) {
   EXPECT_CALL(mock_binding_locator, find(Ref(config)))
       .WillOnce(Return(&binding));
   EXPECT_CALL(mock_strategy_factory, create(true, false))
