@@ -52,17 +52,6 @@ struct BindingIndexTest {
 namespace {
 
 // ----------------------------------------------------------------------------
-// IsConfig
-// ----------------------------------------------------------------------------
-
-static_assert(IsConfig<Config<>>, "should match a real, empty Config");
-static_assert(
-    IsConfig<Config<Binding<int_t, scope::Transient, provider::Ctor<int_t>>>>,
-    "should match a Config");
-static_assert(!IsConfig<int_t>, "should not match an int");
-static_assert(!IsConfig<std::tuple<>>, "should not match a tuple");
-
-// ----------------------------------------------------------------------------
 // Config
 // ----------------------------------------------------------------------------
 
@@ -121,6 +110,17 @@ struct ConfigTest {
                              decltype(sut.template find_binding<void*>())>,
                 "should not find binding");
 };
+
+// ----------------------------------------------------------------------------
+// IsConfig
+// ----------------------------------------------------------------------------
+
+static_assert(IsConfig<Config<>>, "should match a real, empty Config");
+static_assert(
+    IsConfig<Config<Binding<int_t, scope::Transient, provider::Ctor<int_t>>>>,
+    "should match a Config");
+static_assert(!IsConfig<int_t>, "should not match an int");
+static_assert(!IsConfig<std::tuple<>>, "should not match a tuple");
 
 }  // namespace
 }  // namespace dink
