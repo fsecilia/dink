@@ -46,6 +46,11 @@ struct BindingIndexTest {
                 "should find first matching binding in middle");
 };
 
+}  // namespace
+}  // namespace detail
+
+namespace {
+
 // ----------------------------------------------------------------------------
 // IsConfig
 // ----------------------------------------------------------------------------
@@ -118,5 +123,4 @@ struct ConfigTest {
 };
 
 }  // namespace
-}  // namespace detail
 }  // namespace dink
