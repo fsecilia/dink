@@ -30,34 +30,34 @@ inline static constexpr auto npos = std::size_t(-1);
 // \tparam index current search index
 // \tparam BindingsTuple tuple of binding types
 // \return index of binding, or npos if not found
-template <typename Resolved, std::size_t index, typename BindingsTuple>
+template <typename From, std::size_t index, typename BindingsTuple>
 struct BindingIndex;
 
 //! Base case: value was not found.
-template <typename Resolved, std::size_t index, typename BindingsTuple>
+template <typename From, std::size_t index, typename BindingsTuple>
 struct BindingIndex {
   static constexpr auto value = npos;
 };
 
 //! Recursive case: check if current binding matches, otherwise continue.
-template <typename Resolved, std::size_t index, typename BindingsTuple>
+template <typename From, std::size_t index, typename BindingsTuple>
   requires(index < std::tuple_size_v<BindingsTuple>)
-struct BindingIndex<Resolved, index, BindingsTuple> {
+struct BindingIndex<From, index, BindingsTuple> {
   using CurrentBinding = std::tuple_element_t<index, BindingsTuple>;
 
   static constexpr auto value =
-      std::same_as<Resolved, typename CurrentBinding::FromType>
+      std::same_as<From, typename CurrentBinding::FromType>
           ? index
-          : BindingIndex<Resolved, index + 1, BindingsTuple>::value;
+          : BindingIndex<From, index + 1, BindingsTuple>::value;
 };
 
 //! Variable template containing binding index.
-template <typename Resolved, typename BindingsTuple>
+template <typename From, typename BindingsTuple>
 inline static constexpr auto binding_index =
-    BindingIndex<Resolved, 0, BindingsTuple>::value;
+    BindingIndex<From, 0, BindingsTuple>::value;
 
 // ----------------------------------------------------------------------------
-// FindConfigFromTuple
+// ConfigFromTuple
 // ----------------------------------------------------------------------------
 
 //! Creates a config_t type from a tuple of bindings.
@@ -119,18 +119,20 @@ class Config {
   template <typename... Args>
   explicit Config(Args&&... args) : bindings_{std::forward<Args>(args)...} {}
 
-  //! Finds binding for a resolved type.
+  //! Finds first binding with matching From type.
   //
-  // \tparam Resolved canonical type to look up
+  // \tparam From FromType to search for in bindings
   // \return pointer to binding if found, otherwise nullptr
   //
-  // The type of the result is a pointer to a binding if found, but nullptr_t
+  // This method searches for the first binding that has a FromType matching
+  // From. The search is done at compile time.
+  //
+  // The type of the result is a pointer to a binding if found, nullptr_t
   // otherwise. This distinction can be tested at compile-time to switch
   // between found and not found if constexpr branches.
-  template <typename Resolved>
+  template <typename From>
   auto find_binding() -> auto {
-    static constexpr auto index =
-        detail::binding_index<Resolved, BindingsTuple>;
+    static constexpr auto index = detail::binding_index<From, BindingsTuple>;
 
     if constexpr (index != detail::npos) {
       return &std::get<index>(bindings_);
