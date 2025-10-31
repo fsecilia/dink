@@ -16,10 +16,11 @@ struct ScopeTest : Test {
     Container* container;
   };
 
-  // returns given container through requested
+  // Returns given container through member of Requested.
   template <typename Constructed>
-  struct Provider {
+  struct TransientProvider {
     using Provided = Constructed;
+
     template <typename Requested>
     auto create(Container& container) noexcept
         -> std::remove_reference_t<Requested> {
@@ -34,6 +35,19 @@ struct ScopeTest : Test {
       }
     }
   };
+
+  // Returns provided verbatim.
+  template <typename Instance>
+  struct ReferenceProvider {
+    using Provided = Instance;
+
+    Provided& provided;
+
+    template <typename>
+    auto create(Container&) noexcept -> Provided& {
+      return provided;
+    }
+  };
 };
 
 // ----------------------------------------------------------------------------
@@ -44,7 +58,7 @@ struct ScopeTestTransient : ScopeTest {
   using Sut = Transient;
   Sut sut{};
 
-  using Provider = Provider<Requested>;
+  using Provider = TransientProvider<Requested>;
   Provider provider;
 };
 
@@ -159,7 +173,7 @@ struct ScopeTestSingleton : ScopeTest {
 
 TEST_F(ScopeTestSingleton, resolves_reference) {
   struct UniqueRequested : Requested {};
-  using UniqueProvider = Provider<UniqueRequested>;
+  using UniqueProvider = TransientProvider<UniqueRequested>;
   auto provider = UniqueProvider{};
 
   const auto& result = sut.resolve<UniqueRequested&>(container, provider);
@@ -168,7 +182,7 @@ TEST_F(ScopeTestSingleton, resolves_reference) {
 
 TEST_F(ScopeTestSingleton, resolves_reference_to_const) {
   struct UniqueRequested : Requested {};
-  using UniqueProvider = Provider<UniqueRequested>;
+  using UniqueProvider = TransientProvider<UniqueRequested>;
   auto provider = UniqueProvider{};
 
   const auto& result = sut.resolve<const UniqueRequested&>(container, provider);
@@ -177,7 +191,7 @@ TEST_F(ScopeTestSingleton, resolves_reference_to_const) {
 
 TEST_F(ScopeTestSingleton, resolves_pointer) {
   struct UniqueRequested : Requested {};
-  using UniqueProvider = Provider<UniqueRequested>;
+  using UniqueProvider = TransientProvider<UniqueRequested>;
   auto provider = UniqueProvider{};
 
   const auto* result = sut.resolve<UniqueRequested*>(container, provider);
@@ -186,7 +200,7 @@ TEST_F(ScopeTestSingleton, resolves_pointer) {
 
 TEST_F(ScopeTestSingleton, resolves_pointer_to_const) {
   struct UniqueRequested : Requested {};
-  using UniqueProvider = Provider<UniqueRequested>;
+  using UniqueProvider = TransientProvider<UniqueRequested>;
   auto provider = UniqueProvider{};
 
   const auto* result = sut.resolve<const UniqueRequested*>(container, provider);
@@ -195,7 +209,7 @@ TEST_F(ScopeTestSingleton, resolves_pointer_to_const) {
 
 TEST_F(ScopeTestSingleton, resolves_same_reference_per_provider) {
   struct UniqueRequested : Requested {};
-  using UniqueProvider = Provider<UniqueRequested>;
+  using UniqueProvider = TransientProvider<UniqueRequested>;
   auto provider = UniqueProvider{};
 
   const auto& result1 = sut.resolve<UniqueRequested&>(container, provider);
@@ -205,7 +219,7 @@ TEST_F(ScopeTestSingleton, resolves_same_reference_per_provider) {
 
 TEST_F(ScopeTestSingleton, resolves_same_reference_to_const_per_provider) {
   struct UniqueRequested : Requested {};
-  using UniqueProvider = Provider<UniqueRequested>;
+  using UniqueProvider = TransientProvider<UniqueRequested>;
   auto provider = UniqueProvider{};
 
   const auto& result1 =
@@ -217,7 +231,7 @@ TEST_F(ScopeTestSingleton, resolves_same_reference_to_const_per_provider) {
 
 TEST_F(ScopeTestSingleton, resolves_same_pointer_per_provider) {
   struct UniqueRequested : Requested {};
-  using UniqueProvider = Provider<UniqueRequested>;
+  using UniqueProvider = TransientProvider<UniqueRequested>;
   auto provider = UniqueProvider{};
 
   const auto result1 = sut.resolve<UniqueRequested*>(container, provider);
@@ -227,7 +241,7 @@ TEST_F(ScopeTestSingleton, resolves_same_pointer_per_provider) {
 
 TEST_F(ScopeTestSingleton, resolves_same_pointer_to_const_per_provider) {
   struct UniqueRequested : Requested {};
-  using UniqueProvider = Provider<UniqueRequested>;
+  using UniqueProvider = TransientProvider<UniqueRequested>;
   auto provider = UniqueProvider{};
 
   const auto result1 = sut.resolve<const UniqueRequested*>(container, provider);
@@ -237,7 +251,7 @@ TEST_F(ScopeTestSingleton, resolves_same_pointer_to_const_per_provider) {
 
 TEST_F(ScopeTestSingleton, resolves_same_reference_to_const_and_non_const) {
   struct UniqueRequested : Requested {};
-  using UniqueProvider = Provider<UniqueRequested>;
+  using UniqueProvider = TransientProvider<UniqueRequested>;
   auto provider = UniqueProvider{};
 
   auto& reference = sut.resolve<UniqueRequested&>(container, provider);
@@ -250,12 +264,12 @@ TEST_F(ScopeTestSingleton, resolves_same_reference_to_const_and_non_const) {
 TEST_F(ScopeTestSingleton,
        resolves_different_references_for_different_providers) {
   struct UniqueRequested : Requested {};
-  using UniqueProvider = Provider<UniqueRequested>;
+  using UniqueProvider = TransientProvider<UniqueRequested>;
   auto provider = UniqueProvider{};
 
   const auto& result = sut.resolve<UniqueRequested&>(container, provider);
 
-  struct OtherProvider : Provider<UniqueRequested> {};
+  struct OtherProvider : TransientProvider<UniqueRequested> {};
   auto other_provider = OtherProvider{};
   auto other_sut = Singleton{};
   const auto& other_result =
@@ -267,14 +281,14 @@ TEST_F(ScopeTestSingleton,
 struct ScopeTestSingletonCounts : ScopeTest {
   struct UniqueRequested : Requested {};
 
-  struct CountingProvider : Provider<UniqueRequested> {
+  struct CountingProvider : TransientProvider<UniqueRequested> {
     int_t& call_count;
     using Provided = UniqueRequested;
 
     template <typename Requested>
     auto create(Container& container) noexcept -> Requested {
       ++call_count;
-      return Provider::template create<Requested>(container);
+      return TransientProvider::template create<Requested>(container);
     }
   };
 
@@ -305,26 +319,11 @@ struct ScopeTestInstance : ScopeTest {
 
   ExternalRequested external_instance{Requested{&container}};
 
-  template <typename Constructed>
-  struct ExternalProvider {
-    using Provided = Constructed;
-    Constructed* instance_ptr;
-
-    template <typename Requested>
-    auto create(Container& /*container*/) noexcept -> Requested {
-      if constexpr (std::is_lvalue_reference_v<Requested>) {
-        return *instance_ptr;
-      } else {
-        return *instance_ptr;  // Value - copy
-      }
-    }
-  };
-
   using Sut = Instance;
   Sut sut{};
 
-  using Provider = ExternalProvider<ExternalRequested>;
-  Provider provider{&external_instance};
+  using Provider = ReferenceProvider<ExternalRequested>;
+  Provider provider{external_instance};
 };
 
 TEST_F(ScopeTestInstance, resolves_value_copy) {
@@ -474,33 +473,18 @@ struct ScopeTestInstanceDifferentProviders : ScopeTest {
 
   External1 external1{Requested{&container}};
   External2 external2{Requested{&container}};
-
-  template <typename Constructed>
-  struct ExternalProvider {
-    using Provided = Constructed;
-    Constructed* instance_ptr;
-
-    template <typename Requested>
-    auto create(Container& /*container*/) noexcept -> Requested {
-      if constexpr (std::is_lvalue_reference_v<Requested>) {
-        return *instance_ptr;
-      } else {
-        return *instance_ptr;
-      }
-    }
-  };
 };
 
 TEST_F(ScopeTestInstanceDifferentProviders,
        different_scopes_for_different_types) {
   using Scope = Instance;
-  using Provider1 = ExternalProvider<External1>;
-  using Provider2 = ExternalProvider<External2>;
+  using Provider1 = ReferenceProvider<External1>;
+  using Provider2 = ReferenceProvider<External2>;
 
   auto scope1 = Scope{};
   auto scope2 = Scope{};
-  auto provider1 = Provider1{&external1};
-  auto provider2 = Provider2{&external2};
+  auto provider1 = Provider1{external1};
+  auto provider2 = Provider2{external2};
 
   auto& ref1 = scope1.resolve<External1&>(container, provider1);
   auto& ref2 = scope2.resolve<External2&>(container, provider2);
