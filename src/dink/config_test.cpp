@@ -75,7 +75,7 @@ struct ConfigTest {
                 "single-element tuple should produce single-element Config");
   static_assert(
       std::same_as<Config<Binding0>, decltype(Config{std::tuple{binding0}})>,
-      "single-element args should produce single-element Config");
+      "single arg should produce single-element Config");
 
   // Multiple-element ctors.
   static_assert(
@@ -85,7 +85,7 @@ struct ConfigTest {
   static_assert(
       std::same_as<Config<Binding0, Binding1, Binding2>,
                    decltype(Config{std::tuple{binding0, binding1, binding2}})>,
-      "multiple-element args should produce multiple-element Config");
+      "multiple args should produce multiple-element Config");
 
   [[maybe_unused]] static inline auto sut =
       Config{binding0, binding1, binding2};
