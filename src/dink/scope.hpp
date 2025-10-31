@@ -9,7 +9,6 @@
 #include <dink/remove_rvalue_ref.hpp>
 #include <dink/smart_pointer_traits.hpp>
 #include <concepts>
-#include <memory>
 #include <type_traits>
 
 namespace dink::scope {
