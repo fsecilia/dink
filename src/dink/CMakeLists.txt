@@ -46,7 +46,6 @@ list(APPEND dink_test_files
 )
 
 list(APPEND dink_integration_test_files
-  container_integration_test.cpp
   dink_integration_test.cpp
 )
 # -----------------------------------------------------------------------------
