@@ -47,7 +47,7 @@ struct DefaultsFallbackBindingFactoryTest {
   static constexpr Sut sut{};
 
   constexpr DefaultsFallbackBindingFactoryTest() {
-    static constexpr auto binding = sut.template create<FromType>();
+    constexpr auto binding = sut.template create<FromType>();
     using Binding = decltype(binding);
     static_assert(std::same_as<FromType, Binding::FromType>);
     static_assert(std::same_as<scope::Transient, Binding::ScopeType>);

@@ -100,7 +100,7 @@ class Config {
   // between `if constexpr` branches for found and not found.
   template <typename From>
   constexpr auto find_binding() noexcept -> auto {
-    static constexpr auto index = detail::binding_index<From, BindingsTuple>;
+    constexpr auto index = detail::binding_index<From, BindingsTuple>;
 
     if constexpr (index != detail::npos) {
       return &std::get<index>(bindings_);

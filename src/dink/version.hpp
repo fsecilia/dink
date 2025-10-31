@@ -19,7 +19,7 @@ class Version {
   constexpr auto patch() const noexcept -> int_t { return patch_; }
   constexpr auto patch(int_t patch) noexcept -> void { patch_ = patch; }
 
-  constexpr auto to_string() const noexcept -> std::string {
+  auto to_string() const noexcept -> std::string {
     return std::to_string(major_) + "." + std::to_string(minor_) + "." +
            std::to_string(patch_);
   }

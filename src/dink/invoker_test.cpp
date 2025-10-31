@@ -218,13 +218,14 @@ struct InvokerFactoryFixture {
   struct ResolverSequence {};
 
   struct Constructed0 {
-    Constructed0() = default;
   };
   struct Constructed1 {
-    Constructed1(int_t) {}
+    int_t value;
   };
   struct Constructed3 {
-    Constructed3(int_t, int_t, int_t) {}
+    int_t value0;
+    int_t value1;
+    int_t value2;
   };
 
   struct ConstructedFactory0 {
