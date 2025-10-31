@@ -229,7 +229,7 @@ Container(Tag, Parent& parent, Builders&&...)
 
 //! Macro to generate unique container types.
 //
-// This is a macro so unique_type<> is generated once at each call site. There
+// This is a macro so UniqueType<> is generated once at each call site. There
 // is no other way in the language to generate this once per instance. All
 // other methods generate it once per type.
 #define dink_unique_container(...) \
