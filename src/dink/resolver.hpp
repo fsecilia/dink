@@ -1,6 +1,8 @@
 // \file
 // Copyright (c) 2025 Frank Secilia
 // SPDX-License-Identifier: MIT
+//
+// \brief Match-any arguments backed by a container.
 
 #pragma once
 

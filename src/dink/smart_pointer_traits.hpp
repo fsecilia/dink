@@ -11,7 +11,7 @@
 namespace dink {
 
 // ----------------------------------------------------------------------------
-// shared_ptr
+// IsSharedPtr
 // ----------------------------------------------------------------------------
 
 namespace traits {
@@ -31,7 +31,7 @@ template <typename Type>
 concept IsSharedPtr = traits::is_shared_ptr<std::remove_cvref_t<Type>>;
 
 // ----------------------------------------------------------------------------
-// unique_ptr
+// IsUniquePtr
 // ----------------------------------------------------------------------------
 
 namespace traits {
@@ -51,7 +51,7 @@ template <typename Type>
 concept IsUniquePtr = traits::is_unique_ptr<std::remove_cvref_t<Type>>;
 
 // ----------------------------------------------------------------------------
-// weak_ptr
+// IsWeakPtr
 // ----------------------------------------------------------------------------
 
 namespace traits {

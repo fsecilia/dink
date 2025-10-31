@@ -1,6 +1,8 @@
 // \file
 // Copyright (c) 2025 Frank Secilia
 // SPDX-License-Identifier: MIT
+//
+// \brief Common header included by every test file to get gtest and gmock.
 
 #pragma once
 

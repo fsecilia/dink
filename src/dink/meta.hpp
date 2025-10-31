@@ -1,6 +1,8 @@
 // \file
 // Copyright (c) 2025 Frank Secilia
 // SPDX-License-Identifier: MIT
+//
+// \brief Metaprogramming support module.
 
 #pragma once
 

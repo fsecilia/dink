@@ -1,6 +1,8 @@
 // \file
 // Copyright (c) 2025 Frank Secilia
 // SPDX-License-Identifier: MIT
+//
+// \brief Defines how managed instances are constructed or located.
 
 #pragma once
 
@@ -11,7 +13,7 @@
 
 namespace dink::provider {
 
-//! provider that invokes Constructed's ctor directly
+//! Invokes Constructed's ctor directly.
 template <typename Constructed,
           typename InvokerFactory = InvokerFactory<Invoker>>
 class Ctor {
@@ -33,7 +35,7 @@ class Ctor {
   [[dink_no_unique_address]] InvokerFactory invoker_factory_{};
 };
 
-//! provider that invokes ConstructedFactory to produce a Constructed
+//! Invokes ConstructedFactory to produce a Constructed.
 template <typename Constructed, typename ConstructedFactory,
           typename InvokerFactory = InvokerFactory<Invoker>>
 class Factory {
@@ -59,7 +61,7 @@ class Factory {
   [[dink_no_unique_address]] InvokerFactory invoker_factory_{};
 };
 
-//! provider that wraps an external reference
+//! Wraps an external reference.
 template <typename InstanceType>
 class Instance {
  public:

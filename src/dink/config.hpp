@@ -1,6 +1,10 @@
 // \file
 // Copyright (c) 2025 Frank Secilia
 // SPDX-License-Identifier: MIT
+//
+// \brief Defines a compile-time collection of binding triples.
+//
+// \sa binding.hpp for the binding triples themselves.
 
 #pragma once
 

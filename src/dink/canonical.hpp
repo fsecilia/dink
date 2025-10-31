@@ -1,6 +1,8 @@
 // \file
 // Copyright (c) 2025 Frank Secilia
 // SPDX-License-Identifier: MIT
+//
+// \brief Defines a metafunction to reduce arbitrary types to a canonical form.
 
 #pragma once
 

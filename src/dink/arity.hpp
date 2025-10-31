@@ -1,6 +1,8 @@
 // \file
 // Copyright (c) 2025 Frank Secilia
 // SPDX-License-Identifier: MIT
+//
+// \brief Finds greediest arity of a factory or ctor producing a specific type.
 
 #pragma once
 
@@ -156,7 +158,7 @@ struct AssertedArity {
 }  // namespace detail::arity
 
 /*!
-    Finds largest arity that constructs or produces Constructed
+    Finds largest arity that constructs or produces Constructed.
 
     If Factory is callable, searches for largest arity call operator returning
     Constructed. If Factory is void, searches Constructed's constructors

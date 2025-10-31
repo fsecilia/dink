@@ -1,6 +1,8 @@
 // \file
 // Copyright (c) 2025 Frank Secilia
 // SPDX-License-Identifier: MIT
+//
+// \brief User-facing facade presenting the top level .resolve().
 
 #pragma once
 
@@ -43,7 +45,7 @@ concept IsTag = !IsBinding<Tag> && !IsConfig<Tag> && !IsContainer<Tag>;
 
 //! Identifies types valid for tag arguments.
 //
-// The actual argument cannot be instnatiated as void.
+// The actual argument cannot be instantiated as void.
 template <typename Tag>
 concept IsTagArg = IsTag<Tag> && !std::same_as<Tag, void>;
 
