@@ -148,20 +148,4 @@ using RemoveRvalueRef = typename traits::RemoveRvalueRef<Type>::type;
 template <typename Impl = decltype([] {})>
 struct UniqueType {};
 
-namespace traits {
-
-template <typename UniqueType>
-struct IsUniqueType : std::false_type {};
-
-template <typename Impl>
-struct IsUniqueType<UniqueType<Impl>> : std::true_type {};
-
-template <typename UniqueType>
-inline constexpr auto is_unique_type = IsUniqueType<UniqueType>::value;
-
-}  // namespace traits
-
-template <typename UniqueType>
-concept IsUniqueType = traits::is_unique_type<UniqueType>;
-
 }  // namespace dink::meta
