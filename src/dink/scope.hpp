@@ -69,7 +69,6 @@ class Singleton {
 };
 
 //! Resolves one externally-owned instance.
-template <typename Resolved>
 class Instance {
  public:
   static constexpr auto provides_references = true;
@@ -78,11 +77,12 @@ class Instance {
   template <typename Requested, typename Container, typename Provider>
   constexpr auto resolve(Container& container, Provider& provider) const
       -> Requested {
-    // Get reference to the external instance from provider
-    auto& instance =
-        provider.template create<typename Provider::Provided&>(container);
+    using Provided = typename Provider::Provided;
 
-    if constexpr (std::is_same_v<std::remove_cvref_t<Requested>, Resolved> ||
+    // Get reference to the external instance from provider
+    auto& instance = provider.template create<Provided&>(container);
+
+    if constexpr (std::is_same_v<std::remove_cvref_t<Requested>, Provided> ||
                   std::is_lvalue_reference_v<Requested>) {
       // Values and Lvalue reference (mutable or const)
       return instance;

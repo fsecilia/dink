@@ -320,7 +320,7 @@ struct ScopeTestInstance : ScopeTest {
     }
   };
 
-  using Sut = Instance<ExternalRequested>;
+  using Sut = Instance;
   Sut sut{};
 
   using Provider = ExternalProvider<ExternalRequested>;
@@ -493,13 +493,12 @@ struct ScopeTestInstanceDifferentProviders : ScopeTest {
 
 TEST_F(ScopeTestInstanceDifferentProviders,
        different_scopes_for_different_types) {
-  using Scope1 = Instance<External1>;
-  using Scope2 = Instance<External2>;
+  using Scope = Instance;
   using Provider1 = ExternalProvider<External1>;
   using Provider2 = ExternalProvider<External2>;
 
-  auto scope1 = Scope1{};
-  auto scope2 = Scope2{};
+  auto scope1 = Scope{};
+  auto scope2 = Scope{};
   auto provider1 = Provider1{&external1};
   auto provider2 = Provider2{&external2};
 

@@ -128,9 +128,9 @@ static_assert(
 // Note: This is a placeholder - needs proper provider type for external refs
 static_assert([]() constexpr {
   Instance inst;
-  return std::same_as<decltype(Binding{bind<Interface>().to(inst)}),
-                      Binding<Interface, scope::Instance<Instance>,
-                              provider::Instance<Instance>>>;
+  return std::same_as<
+      decltype(Binding{bind<Interface>().to(inst)}),
+      Binding<Interface, scope::Instance, provider::Instance<Instance>>>;
 }());
 
 // ----------------------------------------------------------------------------
@@ -213,9 +213,10 @@ static_assert([]() constexpr {
                              Binding<Interface, scope::Transient,
                                      provider::Ctor<Implementation>>>);
 
-  static_assert(std::same_as<std::tuple_element_t<6, Tuple>,
-                             Binding<Instance, scope::Instance<Instance>,
-                                     provider::Instance<Instance>>>);
+  static_assert(
+      std::same_as<
+          std::tuple_element_t<6, Tuple>,
+          Binding<Instance, scope::Instance, provider::Instance<Instance>>>);
 
   return true;
 }());
@@ -258,8 +259,8 @@ TEST_F(RuntimeTest, BindToInstanceReference) {
 
   [[maybe_unused]] auto binding = Binding{bind<Instance>().to(instance)};
 
-  using Expected = Binding<Instance, scope::Instance<Instance>,
-                           provider::Instance<Instance>>;
+  using Expected =
+      Binding<Instance, scope::Instance, provider::Instance<Instance>>;
   static_assert(std::same_as<decltype(binding), Expected>);
 }
 
