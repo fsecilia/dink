@@ -75,6 +75,20 @@ struct ContainerCtorTest {
                              decltype(Container{Tag{}, parent, binding0,
                                                 binding1, binding2})>,
                 "tag, parent, and args should produce multiple-element Config");
+
+  // Type uniqueness.
+  static_assert(!std::same_as<Container<Config<Binding0>, Dispatcher, void>,
+                              Container<Config<Binding1>, Dispatcher, void>>,
+                "different bindings should produce different containers");
+
+  static_assert(!std::same_as<Container<Config<Binding0>, Dispatcher, void>,
+                              Container<Config<Binding0>, Dispatcher, Parent>>,
+                "different nesting levels should produce different containers");
+
+  static_assert(
+      !std::same_as<Container<Config<Binding0>, Dispatcher, void, int_t>,
+                    Container<Config<Binding0>, Dispatcher, void, uint_t>>,
+      "different tags should produce different containers");
 };
 
 struct ContainerTest : Test {
