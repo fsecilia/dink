@@ -26,50 +26,62 @@ struct ContainerCtorTest {
   struct Tag {};
 
   // Empty ctors.
+
   static_assert(std::same_as<Container<Config<>, Dispatcher, void>,
                              decltype(Container{})>,
                 "empty args should produce empty Config");
+
   static_assert(std::same_as<Container<Config<>, Dispatcher, void, Tag>,
                              decltype(Container{Tag{}})>,
                 "tag should produce empty Config");
+
   static_assert(std::same_as<Container<Config<>, Dispatcher, Parent, void>,
                              decltype(Container{parent})>,
                 "parent should produce empty Config");
+
   static_assert(std::same_as<Container<Config<>, Dispatcher, Parent, Tag>,
                              decltype(Container{Tag{}, parent})>,
                 "tag and parent should produce empty Config");
 
   // Single-element ctors.
+
   static_assert(std::same_as<Container<Config<Binding0>, Dispatcher, void>,
                              decltype(Container{binding0})>,
                 "single arg should produce single-element Config");
+
   static_assert(std::same_as<Container<Config<Binding0>, Dispatcher, void, Tag>,
                              decltype(Container{Tag{}, binding0})>,
                 "tag and single arg should produce single-element Config");
+
   static_assert(
       std::same_as<Container<Config<Binding0>, Dispatcher, Parent, void>,
                    decltype(Container{parent, binding0})>,
       "parent and arg should produce single-element Config");
+
   static_assert(
       std::same_as<Container<Config<Binding0>, Dispatcher, Parent, Tag>,
                    decltype(Container{Tag{}, parent, binding0})>,
       "tag, parent, and arg should produce single-element Config");
 
   // Multiple-element ctors.
+
   static_assert(std::same_as<Container<Config<Binding0, Binding1, Binding2>,
                                        Dispatcher, void>,
                              decltype(Container{binding0, binding1, binding2})>,
                 "multiple args should produce multiple-element Config");
+
   static_assert(
       std::same_as<Container<Config<Binding0, Binding1, Binding2>, Dispatcher,
                              void, Tag>,
                    decltype(Container{Tag{}, binding0, binding1, binding2})>,
       "tag and args should produce multiple-element Config");
+
   static_assert(
       std::same_as<Container<Config<Binding0, Binding1, Binding2>, Dispatcher,
                              Parent, void>,
                    decltype(Container{parent, binding0, binding1, binding2})>,
       "parent and args should produce multiple-element Config");
+
   static_assert(std::same_as<Container<Config<Binding0, Binding1, Binding2>,
                                        Dispatcher, Parent, Tag>,
                              decltype(Container{Tag{}, parent, binding0,
@@ -77,6 +89,7 @@ struct ContainerCtorTest {
                 "tag, parent, and args should produce multiple-element Config");
 
   // Type uniqueness.
+
   static_assert(!std::same_as<Container<Config<Binding0>, Dispatcher, void>,
                               Container<Config<Binding1>, Dispatcher, void>>,
                 "different bindings should produce different containers");
@@ -89,6 +102,25 @@ struct ContainerCtorTest {
       !std::same_as<Container<Config<Binding0>, Dispatcher, void, int_t>,
                     Container<Config<Binding0>, Dispatcher, void, uint_t>>,
       "different tags should produce different containers");
+
+  // Instance uniqueness.
+
+  static_assert(!std::same_as<decltype(dink_unique_container()),
+                              decltype(dink_unique_container())>,
+                "instances should be unique");
+
+  static_assert(!std::same_as<decltype(dink_unique_container(parent)),
+                              decltype(dink_unique_container(parent))>,
+                "instances should be unique");
+
+  static_assert(!std::same_as<decltype(dink_unique_container(binding0)),
+                              decltype(dink_unique_container(binding0))>,
+                "instances should be unique");
+
+  static_assert(
+      !std::same_as<decltype(dink_unique_container(parent, binding0)),
+                    decltype(dink_unique_container(parent, binding0))>,
+      "instances should be unique");
 };
 
 struct ContainerTest : Test {
