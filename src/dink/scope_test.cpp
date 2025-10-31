@@ -12,7 +12,7 @@ struct ScopeTest : Test {
   struct Container {};
   Container container;
 
-  struct Requested {
+  struct Resolved {
     Container* container;
   };
 
@@ -58,107 +58,107 @@ struct ScopeTestTransient : ScopeTest {
   using Sut = Transient;
   Sut sut{};
 
-  using Provider = TransientProvider<Requested>;
+  using Provider = TransientProvider<Resolved>;
   Provider provider;
 };
 
 TEST_F(ScopeTestTransient, resolves_value) {
-  const auto result = sut.resolve<Requested>(container, provider);
+  const auto result = sut.resolve<Resolved>(container, provider);
   ASSERT_EQ(&container, result.container);
 }
 
 TEST_F(ScopeTestTransient, resolves_const_value) {
-  const auto result = sut.resolve<const Requested>(container, provider);
+  const auto result = sut.resolve<const Resolved>(container, provider);
   ASSERT_EQ(&container, result.container);
 }
 
 TEST_F(ScopeTestTransient, resolves_rvalue_reference) {
-  const auto&& result = sut.resolve<Requested&&>(container, provider);
+  const auto&& result = sut.resolve<Resolved&&>(container, provider);
   ASSERT_EQ(&container, result.container);
 }
 
 TEST_F(ScopeTestTransient, resolves_rvalue_reference_to_const_value) {
-  const auto&& result = sut.resolve<const Requested&&>(container, provider);
+  const auto&& result = sut.resolve<const Resolved&&>(container, provider);
   ASSERT_EQ(&container, result.container);
 }
 
 TEST_F(ScopeTestTransient, resolves_shared_ptr) {
   const auto result =
-      sut.resolve<std::shared_ptr<Requested>>(container, provider);
+      sut.resolve<std::shared_ptr<Resolved>>(container, provider);
   ASSERT_EQ(&container, result->container);
 }
 
 TEST_F(ScopeTestTransient, resolves_shared_ptr_to_const) {
   const auto result =
-      sut.resolve<std::shared_ptr<const Requested>>(container, provider);
+      sut.resolve<std::shared_ptr<const Resolved>>(container, provider);
   ASSERT_EQ(&container, result->container);
 }
 
 TEST_F(ScopeTestTransient, resolves_unique_ptr) {
   const auto result =
-      sut.resolve<std::unique_ptr<Requested>>(container, provider);
+      sut.resolve<std::unique_ptr<Resolved>>(container, provider);
   ASSERT_EQ(&container, result->container);
 }
 
 TEST_F(ScopeTestTransient, resolves_unique_ptr_to_const) {
   const auto result =
-      sut.resolve<std::unique_ptr<const Requested>>(container, provider);
+      sut.resolve<std::unique_ptr<const Resolved>>(container, provider);
   ASSERT_EQ(&container, result->container);
 }
 
 TEST_F(ScopeTestTransient, resolves_value_per_request) {
-  const auto& result1 = sut.resolve<Requested>(container, provider);
-  const auto& result2 = sut.resolve<Requested>(container, provider);
+  const auto& result1 = sut.resolve<Resolved>(container, provider);
+  const auto& result2 = sut.resolve<Resolved>(container, provider);
   ASSERT_NE(&result1, &result2);
 }
 
 TEST_F(ScopeTestTransient, resolves_const_value_per_request) {
-  const auto& result1 = sut.resolve<const Requested>(container, provider);
-  const auto& result2 = sut.resolve<const Requested>(container, provider);
+  const auto& result1 = sut.resolve<const Resolved>(container, provider);
+  const auto& result2 = sut.resolve<const Resolved>(container, provider);
   ASSERT_NE(&result1, &result2);
 }
 
 TEST_F(ScopeTestTransient, resolves_rvalue_reference_per_request) {
-  const auto& result1 = sut.resolve<Requested&&>(container, provider);
-  const auto& result2 = sut.resolve<Requested&&>(container, provider);
+  const auto& result1 = sut.resolve<Resolved&&>(container, provider);
+  const auto& result2 = sut.resolve<Resolved&&>(container, provider);
   ASSERT_NE(&result1, &result2);
 }
 
 TEST_F(ScopeTestTransient, resolves_rvalue_reference_to_const_per_request) {
-  const auto& result1 = sut.resolve<const Requested&&>(container, provider);
-  const auto& result2 = sut.resolve<const Requested&&>(container, provider);
+  const auto& result1 = sut.resolve<const Resolved&&>(container, provider);
+  const auto& result2 = sut.resolve<const Resolved&&>(container, provider);
   ASSERT_NE(&result1, &result2);
 }
 
 TEST_F(ScopeTestTransient, resolves_shared_ptr_per_request) {
   const auto result1 =
-      sut.resolve<std::shared_ptr<Requested>>(container, provider);
+      sut.resolve<std::shared_ptr<Resolved>>(container, provider);
   const auto result2 =
-      sut.resolve<std::shared_ptr<Requested>>(container, provider);
+      sut.resolve<std::shared_ptr<Resolved>>(container, provider);
   ASSERT_NE(result1, result2);
 }
 
 TEST_F(ScopeTestTransient, resolves_shared_ptr_to_const_per_request) {
   const auto result1 =
-      sut.resolve<std::shared_ptr<const Requested>>(container, provider);
+      sut.resolve<std::shared_ptr<const Resolved>>(container, provider);
   const auto result2 =
-      sut.resolve<std::shared_ptr<const Requested>>(container, provider);
+      sut.resolve<std::shared_ptr<const Resolved>>(container, provider);
   ASSERT_NE(result1, result2);
 }
 
 TEST_F(ScopeTestTransient, resolves_unique_ptr_per_request) {
   const auto result1 =
-      sut.resolve<std::unique_ptr<Requested>>(container, provider);
+      sut.resolve<std::unique_ptr<Resolved>>(container, provider);
   const auto result2 =
-      sut.resolve<std::unique_ptr<Requested>>(container, provider);
+      sut.resolve<std::unique_ptr<Resolved>>(container, provider);
   ASSERT_NE(result1, result2);
 }
 
 TEST_F(ScopeTestTransient, resolves_unique_ptr_to_const_per_request) {
   const auto result1 =
-      sut.resolve<std::unique_ptr<const Requested>>(container, provider);
+      sut.resolve<std::unique_ptr<const Resolved>>(container, provider);
   const auto result2 =
-      sut.resolve<std::unique_ptr<const Requested>>(container, provider);
+      sut.resolve<std::unique_ptr<const Resolved>>(container, provider);
   ASSERT_NE(result1, result2);
 }
 
@@ -166,124 +166,115 @@ TEST_F(ScopeTestTransient, resolves_unique_ptr_to_const_per_request) {
 // Singleton
 // ----------------------------------------------------------------------------
 
+// Each test case needs its own local, unique provider to prevent leaking
+// cached instances between cases.
 struct ScopeTestSingleton : ScopeTest {
+  struct Requested : Resolved {};
   using Sut = Singleton;
   Sut sut{};
 };
 
 TEST_F(ScopeTestSingleton, resolves_reference) {
-  struct UniqueRequested : Requested {};
-  using UniqueProvider = TransientProvider<UniqueRequested>;
+  struct UniqueProvider : TransientProvider<Requested> {};
   auto provider = UniqueProvider{};
 
-  const auto& result = sut.resolve<UniqueRequested&>(container, provider);
+  const auto& result = sut.resolve<Requested&>(container, provider);
   ASSERT_EQ(&container, result.container);
 }
 
 TEST_F(ScopeTestSingleton, resolves_reference_to_const) {
-  struct UniqueRequested : Requested {};
-  using UniqueProvider = TransientProvider<UniqueRequested>;
+  struct UniqueProvider : TransientProvider<Requested> {};
   auto provider = UniqueProvider{};
 
-  const auto& result = sut.resolve<const UniqueRequested&>(container, provider);
+  const auto& result = sut.resolve<const Requested&>(container, provider);
   ASSERT_EQ(&container, result.container);
 }
 
 TEST_F(ScopeTestSingleton, resolves_pointer) {
-  struct UniqueRequested : Requested {};
-  using UniqueProvider = TransientProvider<UniqueRequested>;
+  struct UniqueProvider : TransientProvider<Requested> {};
   auto provider = UniqueProvider{};
 
-  const auto* result = sut.resolve<UniqueRequested*>(container, provider);
+  const auto* result = sut.resolve<Requested*>(container, provider);
   ASSERT_EQ(&container, result->container);
 }
 
 TEST_F(ScopeTestSingleton, resolves_pointer_to_const) {
-  struct UniqueRequested : Requested {};
-  using UniqueProvider = TransientProvider<UniqueRequested>;
+  struct UniqueProvider : TransientProvider<Requested> {};
   auto provider = UniqueProvider{};
 
-  const auto* result = sut.resolve<const UniqueRequested*>(container, provider);
+  const auto* result = sut.resolve<const Requested*>(container, provider);
   ASSERT_EQ(&container, result->container);
 }
 
 TEST_F(ScopeTestSingleton, resolves_same_reference_per_provider) {
-  struct UniqueRequested : Requested {};
-  using UniqueProvider = TransientProvider<UniqueRequested>;
+  struct UniqueProvider : TransientProvider<Requested> {};
   auto provider = UniqueProvider{};
 
-  const auto& result1 = sut.resolve<UniqueRequested&>(container, provider);
-  const auto& result2 = sut.resolve<UniqueRequested&>(container, provider);
+  const auto& result1 = sut.resolve<Requested&>(container, provider);
+  const auto& result2 = sut.resolve<Requested&>(container, provider);
   ASSERT_EQ(&result1, &result2);
 }
 
 TEST_F(ScopeTestSingleton, resolves_same_reference_to_const_per_provider) {
-  struct UniqueRequested : Requested {};
-  using UniqueProvider = TransientProvider<UniqueRequested>;
+  struct UniqueProvider : TransientProvider<Requested> {};
   auto provider = UniqueProvider{};
 
-  const auto& result1 =
-      sut.resolve<const UniqueRequested&>(container, provider);
-  const auto& result2 =
-      sut.resolve<const UniqueRequested&>(container, provider);
+  const auto& result1 = sut.resolve<const Requested&>(container, provider);
+  const auto& result2 = sut.resolve<const Requested&>(container, provider);
   ASSERT_EQ(&result1, &result2);
 }
 
 TEST_F(ScopeTestSingleton, resolves_same_pointer_per_provider) {
-  struct UniqueRequested : Requested {};
-  using UniqueProvider = TransientProvider<UniqueRequested>;
+  struct UniqueProvider : TransientProvider<Requested> {};
   auto provider = UniqueProvider{};
 
-  const auto result1 = sut.resolve<UniqueRequested*>(container, provider);
-  const auto result2 = sut.resolve<UniqueRequested*>(container, provider);
+  const auto result1 = sut.resolve<Requested*>(container, provider);
+  const auto result2 = sut.resolve<Requested*>(container, provider);
   ASSERT_EQ(result1, result2);
 }
 
 TEST_F(ScopeTestSingleton, resolves_same_pointer_to_const_per_provider) {
-  struct UniqueRequested : Requested {};
-  using UniqueProvider = TransientProvider<UniqueRequested>;
+  struct UniqueProvider : TransientProvider<Requested> {};
   auto provider = UniqueProvider{};
 
-  const auto result1 = sut.resolve<const UniqueRequested*>(container, provider);
-  const auto result2 = sut.resolve<const UniqueRequested*>(container, provider);
+  const auto result1 = sut.resolve<const Requested*>(container, provider);
+  const auto result2 = sut.resolve<const Requested*>(container, provider);
   ASSERT_EQ(result1, result2);
 }
 
 TEST_F(ScopeTestSingleton, resolves_same_reference_to_const_and_non_const) {
-  struct UniqueRequested : Requested {};
-  using UniqueProvider = TransientProvider<UniqueRequested>;
+  struct UniqueProvider : TransientProvider<Requested> {};
   auto provider = UniqueProvider{};
 
-  auto& reference = sut.resolve<UniqueRequested&>(container, provider);
+  auto& reference = sut.resolve<Requested&>(container, provider);
   const auto& reference_to_const =
-      sut.resolve<const UniqueRequested&>(container, provider);
+      sut.resolve<const Requested&>(container, provider);
 
   EXPECT_EQ(&reference, &reference_to_const);
 }
 
 TEST_F(ScopeTestSingleton,
        resolves_different_references_for_different_providers) {
-  struct UniqueRequested : Requested {};
-  using UniqueProvider = TransientProvider<UniqueRequested>;
+  struct UniqueProvider : TransientProvider<Requested> {};
   auto provider = UniqueProvider{};
 
-  const auto& result = sut.resolve<UniqueRequested&>(container, provider);
+  const auto& result = sut.resolve<Requested&>(container, provider);
 
-  struct OtherProvider : TransientProvider<UniqueRequested> {};
+  struct OtherProvider : TransientProvider<Requested> {};
   auto other_provider = OtherProvider{};
   auto other_sut = Singleton{};
   const auto& other_result =
-      other_sut.resolve<UniqueRequested&>(container, other_provider);
+      other_sut.resolve<Requested&>(container, other_provider);
 
   ASSERT_NE(&result, &other_result);
 }
 
 struct ScopeTestSingletonCounts : ScopeTest {
-  struct UniqueRequested : Requested {};
+  struct Requested : Resolved {};
 
-  struct CountingProvider : TransientProvider<UniqueRequested> {
+  struct CountingProvider : TransientProvider<Requested> {
     int_t& call_count;
-    using Provided = UniqueRequested;
+    using Provided = Requested;
 
     template <typename Requested>
     auto create(Container& container) noexcept -> Requested {
@@ -301,9 +292,9 @@ struct ScopeTestSingletonCounts : ScopeTest {
 };
 
 TEST_F(ScopeTestSingletonCounts, calls_provider_only_once) {
-  sut.resolve<Requested&>(container, counting_provider);
-  sut.resolve<Requested&>(container, counting_provider);
-  sut.resolve<Requested*>(container, counting_provider);
+  sut.resolve<Resolved&>(container, counting_provider);
+  sut.resolve<Resolved&>(container, counting_provider);
+  sut.resolve<Resolved*>(container, counting_provider);
 
   EXPECT_EQ(1, call_count);
 }
@@ -313,179 +304,165 @@ TEST_F(ScopeTestSingletonCounts, calls_provider_only_once) {
 // ----------------------------------------------------------------------------
 
 struct ScopeTestInstance : ScopeTest {
-  struct ExternalRequested : Requested {
+  struct Requested : Resolved {
     int value = 42;
   };
 
-  ExternalRequested external_instance{Requested{&container}};
+  Requested instance{Resolved{&container}};
+  ReferenceProvider<Requested> provider{instance};
 
   using Sut = Instance;
   Sut sut{};
-
-  using Provider = ReferenceProvider<ExternalRequested>;
-  Provider provider{external_instance};
 };
 
 TEST_F(ScopeTestInstance, resolves_value_copy) {
-  const auto result = sut.resolve<ExternalRequested>(container, provider);
+  const auto result = sut.resolve<Requested>(container, provider);
 
   ASSERT_EQ(&container, result.container);
   ASSERT_EQ(42, result.value);
-  ASSERT_NE(&external_instance, &result);  // Different address - it's a copy
+  ASSERT_NE(&instance, &result);
 }
 
 TEST_F(ScopeTestInstance, resolves_const_value_copy) {
-  const auto result = sut.resolve<const ExternalRequested>(container, provider);
+  const auto result = sut.resolve<const Requested>(container, provider);
 
   ASSERT_EQ(&container, result.container);
   ASSERT_EQ(42, result.value);
 }
 
 TEST_F(ScopeTestInstance, resolves_mutable_reference) {
-  auto& result = sut.resolve<ExternalRequested&>(container, provider);
+  auto& result = sut.resolve<Requested&>(container, provider);
 
   ASSERT_EQ(&container, result.container);
-  ASSERT_EQ(&external_instance, &result);
+  ASSERT_EQ(&instance, &result);
 
   // Verify it's truly the external instance by mutating
   result.value = 99;
-  ASSERT_EQ(99, external_instance.value);
+  ASSERT_EQ(99, instance.value);
 }
 
 TEST_F(ScopeTestInstance, resolves_const_reference) {
-  const auto& result =
-      sut.resolve<const ExternalRequested&>(container, provider);
+  const auto& result = sut.resolve<const Requested&>(container, provider);
 
   ASSERT_EQ(&container, result.container);
-  ASSERT_EQ(&external_instance, &result);
+  ASSERT_EQ(&instance, &result);
 }
 
 TEST_F(ScopeTestInstance, resolves_mutable_pointer) {
-  auto* result = sut.resolve<ExternalRequested*>(container, provider);
+  auto* result = sut.resolve<Requested*>(container, provider);
 
   ASSERT_EQ(&container, result->container);
-  ASSERT_EQ(&external_instance, result);
+  ASSERT_EQ(&instance, result);
 
   // Verify it's truly the external instance by mutating
   result->value = 88;
-  ASSERT_EQ(88, external_instance.value);
+  ASSERT_EQ(88, instance.value);
 }
 
 TEST_F(ScopeTestInstance, resolves_const_pointer) {
-  const auto* result =
-      sut.resolve<const ExternalRequested*>(container, provider);
+  const auto* result = sut.resolve<const Requested*>(container, provider);
 
   ASSERT_EQ(&container, result->container);
-  ASSERT_EQ(&external_instance, result);
+  ASSERT_EQ(&instance, result);
 }
 
 TEST_F(ScopeTestInstance, same_reference_across_multiple_resolves) {
-  auto& result1 = sut.resolve<ExternalRequested&>(container, provider);
-  auto& result2 = sut.resolve<ExternalRequested&>(container, provider);
+  auto& result1 = sut.resolve<Requested&>(container, provider);
+  auto& result2 = sut.resolve<Requested&>(container, provider);
 
   ASSERT_EQ(&result1, &result2);
-  ASSERT_EQ(&external_instance, &result1);
+  ASSERT_EQ(&instance, &result1);
 }
 
 TEST_F(ScopeTestInstance, same_pointer_across_multiple_resolves) {
-  auto* result1 = sut.resolve<ExternalRequested*>(container, provider);
-  auto* result2 = sut.resolve<ExternalRequested*>(container, provider);
+  auto* result1 = sut.resolve<Requested*>(container, provider);
+  auto* result2 = sut.resolve<Requested*>(container, provider);
 
   ASSERT_EQ(result1, result2);
-  ASSERT_EQ(&external_instance, result1);
+  ASSERT_EQ(&instance, result1);
 }
 
 TEST_F(ScopeTestInstance, reference_and_pointer_point_to_same_external) {
-  auto& ref = sut.resolve<ExternalRequested&>(container, provider);
-  auto* ptr = sut.resolve<ExternalRequested*>(container, provider);
+  auto& ref = sut.resolve<Requested&>(container, provider);
+  auto* ptr = sut.resolve<Requested*>(container, provider);
 
   ASSERT_EQ(&ref, ptr);
-  ASSERT_EQ(&external_instance, &ref);
+  ASSERT_EQ(&instance, &ref);
 }
 
 TEST_F(ScopeTestInstance,
        const_and_non_const_references_point_to_same_external) {
-  auto& mutable_ref = sut.resolve<ExternalRequested&>(container, provider);
-  const auto& const_ref =
-      sut.resolve<const ExternalRequested&>(container, provider);
+  auto& mutable_ref = sut.resolve<Requested&>(container, provider);
+  const auto& const_ref = sut.resolve<const Requested&>(container, provider);
 
   ASSERT_EQ(&mutable_ref, &const_ref);
-  ASSERT_EQ(&external_instance, &mutable_ref);
+  ASSERT_EQ(&instance, &mutable_ref);
 }
 
 TEST_F(ScopeTestInstance, const_and_non_const_pointers_point_to_same_external) {
-  auto* mutable_ptr = sut.resolve<ExternalRequested*>(container, provider);
-  const auto* const_ptr =
-      sut.resolve<const ExternalRequested*>(container, provider);
+  auto* mutable_ptr = sut.resolve<Requested*>(container, provider);
+  const auto* const_ptr = sut.resolve<const Requested*>(container, provider);
 
   ASSERT_EQ(mutable_ptr, const_ptr);
-  ASSERT_EQ(&external_instance, mutable_ptr);
+  ASSERT_EQ(&instance, mutable_ptr);
 }
 
 TEST_F(ScopeTestInstance, value_copy_is_independent) {
-  auto value_copy = sut.resolve<ExternalRequested>(container, provider);
+  auto value_copy = sut.resolve<Requested>(container, provider);
 
   // Mutate the copy
   value_copy.value = 111;
 
   // External instance should be unchanged
-  ASSERT_EQ(42, external_instance.value);
+  ASSERT_EQ(42, instance.value);
   ASSERT_EQ(111, value_copy.value);
 }
 
 TEST_F(ScopeTestInstance, mutations_through_reference_affect_external) {
-  auto& ref = sut.resolve<ExternalRequested&>(container, provider);
+  auto& ref = sut.resolve<Requested&>(container, provider);
 
   ref.value = 77;
 
-  ASSERT_EQ(77, external_instance.value);
+  ASSERT_EQ(77, instance.value);
 }
 
 TEST_F(ScopeTestInstance, mutations_through_pointer_affect_external) {
-  auto* ptr = sut.resolve<ExternalRequested*>(container, provider);
+  auto* ptr = sut.resolve<Requested*>(container, provider);
 
   ptr->value = 66;
 
-  ASSERT_EQ(66, external_instance.value);
+  ASSERT_EQ(66, instance.value);
 }
 
 TEST_F(ScopeTestInstance, multiple_value_copies_are_independent) {
-  auto copy1 = sut.resolve<ExternalRequested>(container, provider);
-  auto copy2 = sut.resolve<ExternalRequested>(container, provider);
+  auto copy1 = sut.resolve<Requested>(container, provider);
+  auto copy2 = sut.resolve<Requested>(container, provider);
 
   copy1.value = 100;
   copy2.value = 200;
 
   ASSERT_EQ(100, copy1.value);
   ASSERT_EQ(200, copy2.value);
-  ASSERT_EQ(42, external_instance.value);  // Original unchanged
+  ASSERT_EQ(42, instance.value);  // Original unchanged
 }
 
-// Test with different external instance types
+// Test with different scopes and providers
 struct ScopeTestInstanceDifferentProviders : ScopeTest {
-  struct External1 : Requested {
-    int id = 1;
-  };
+  using Scope = Instance;
 
-  struct External2 : Requested {
-    int id = 2;
-  };
+  struct External1 : Resolved {};
+  External1 external1{&container};
+  ReferenceProvider<External1> provider1{external1};
+  Scope scope1{};
 
-  External1 external1{Requested{&container}};
-  External2 external2{Requested{&container}};
+  struct External2 : Resolved {};
+  External2 external2{&container};
+  ReferenceProvider<External2> provider2{external2};
+  Scope scope2{};
 };
 
 TEST_F(ScopeTestInstanceDifferentProviders,
-       different_scopes_for_different_types) {
-  using Scope = Instance;
-  using Provider1 = ReferenceProvider<External1>;
-  using Provider2 = ReferenceProvider<External2>;
-
-  auto scope1 = Scope{};
-  auto scope2 = Scope{};
-  auto provider1 = Provider1{external1};
-  auto provider2 = Provider2{external2};
-
+       values_from_different_scopes_are_independent) {
   auto& ref1 = scope1.resolve<External1&>(container, provider1);
   auto& ref2 = scope2.resolve<External2&>(container, provider2);
 
