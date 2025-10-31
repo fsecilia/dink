@@ -8,8 +8,8 @@
 
 #include <dink/lib.hpp>
 #include <dink/arity.hpp>
+#include <dink/meta.hpp>
 #include <dink/resolver.hpp>
-#include <dink/smart_pointer_traits.hpp>
 #include <memory>
 #include <utility>
 
@@ -58,9 +58,9 @@ class Invoker<Constructed, void, ResolverSequence,
 
   template <typename Requested, typename Container>
   constexpr auto create(Container& container) const -> auto {
-    if constexpr (IsSharedPtr<Requested>) {
+    if constexpr (meta::IsSharedPtr<Requested>) {
       return create_shared(container);
-    } else if constexpr (IsUniquePtr<Requested>) {
+    } else if constexpr (meta::IsUniquePtr<Requested>) {
       return create_unique(container);
     } else {
       return create_value(container);
@@ -116,9 +116,9 @@ class Invoker<Constructed, ConstructedFactory, ResolverSequence,
   constexpr auto create(Container& container,
                         ConstructedFactory& constructed_factory) const
       -> Requested {
-    if constexpr (IsSharedPtr<Requested>) {
+    if constexpr (meta::IsSharedPtr<Requested>) {
       return create_shared(container, constructed_factory);
-    } else if constexpr (IsUniquePtr<Requested>) {
+    } else if constexpr (meta::IsUniquePtr<Requested>) {
       return create_unique(container, constructed_factory);
     } else {
       return create_value(container, constructed_factory);

@@ -10,7 +10,6 @@
 #include <dink/canonical.hpp>
 #include <dink/meta.hpp>
 #include <dink/scope.hpp>
-#include <dink/smart_pointer_traits.hpp>
 #include <memory>
 
 namespace dink {
@@ -65,7 +64,7 @@ struct Provider {
   // deleter.
   template <typename Requested, typename Container>
   auto create(Container& container) -> std::shared_ptr<Constructed> {
-    static_assert(IsSharedPtr<Requested> || IsWeakPtr<Requested>);
+    static_assert(meta::IsSharedPtr<Requested> || meta::IsWeakPtr<Requested>);
 
     // Resolve reference naturally using the container.
     auto& ref = container.template resolve<Constructed&>();
@@ -138,12 +137,13 @@ struct StrategyFactory {
   template <typename Requested, bool has_binding,
             bool scope_provides_references>
   constexpr auto create() const noexcept -> auto {
-    if constexpr (IsUniquePtr<Requested>) {
+    if constexpr (meta::IsUniquePtr<Requested>) {
       // unique_ptr; always transient. Relegate if necessary.
       return strategies::RelegateToTransient{};
-    } else if constexpr (IsSharedPtr<Requested> || IsWeakPtr<Requested>) {
+    } else if constexpr (meta::IsSharedPtr<Requested> ||
+                         meta::IsWeakPtr<Requested>) {
       // shared_ptr or weak_ptr.
-      if constexpr (IsSharedPtr<Requested> && has_binding &&
+      if constexpr (meta::IsSharedPtr<Requested> && has_binding &&
                     !scope_provides_references) {
         // shared_ptr bound transient; use the binding.
         return strategies::UseBinding{};

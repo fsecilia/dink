@@ -31,10 +31,10 @@ struct Fixture {
       // Verify we're constructing the expected type.
       static_assert(std::same_as<Canonical<Requested>, ExpectedConstructed>);
 
-      if constexpr (IsSharedPtr<Requested>) {
+      if constexpr (meta::IsSharedPtr<Requested>) {
         return std::make_shared<ExpectedConstructed>(
             ctor_specialization_return_value);
-      } else if constexpr (IsUniquePtr<Requested>) {
+      } else if constexpr (meta::IsUniquePtr<Requested>) {
         return std::make_unique<ExpectedConstructed>(
             ctor_specialization_return_value);
       } else {
@@ -47,9 +47,9 @@ struct Fixture {
       // Verify we're constructing the expected type.
       static_assert(std::same_as<Canonical<Requested>, ExpectedConstructed>);
 
-      if constexpr (IsSharedPtr<Requested>) {
+      if constexpr (meta::IsSharedPtr<Requested>) {
         return std::make_shared<ExpectedConstructed>(factory());
-      } else if constexpr (IsUniquePtr<Requested>) {
+      } else if constexpr (meta::IsUniquePtr<Requested>) {
         return std::make_unique<ExpectedConstructed>(factory());
       } else {
         return ExpectedConstructed{factory()};

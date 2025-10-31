@@ -19,7 +19,6 @@ list(APPEND dink_library_files
   provider.hpp
   resolver.hpp
   scope.hpp
-  smart_pointer_traits.hpp
   strategy.hpp
   type_list.hpp
   version.hpp
@@ -37,7 +36,6 @@ list(APPEND dink_test_files
   provider_test.cpp
   resolver_test.cpp
   scope_test.cpp
-  smart_pointer_traits_test.cpp
   strategy_test.cpp
   test.hpp
   type_list_test.cpp

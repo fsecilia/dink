@@ -9,7 +9,6 @@
 #include <dink/lib.hpp>
 #include <dink/invoker.hpp>
 #include <dink/meta.hpp>
-#include <dink/smart_pointer_traits.hpp>
 
 namespace dink::provider {
 

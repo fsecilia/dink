@@ -12,7 +12,6 @@
 #include <dink/config.hpp>
 #include <dink/meta.hpp>
 #include <dink/provider.hpp>
-#include <dink/smart_pointer_traits.hpp>
 #include <dink/strategy.hpp>
 
 namespace dink {
