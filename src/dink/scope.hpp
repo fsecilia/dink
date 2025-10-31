@@ -13,19 +13,6 @@
 
 namespace dink::scope {
 
-namespace detail {
-
-//! Gets or creates cached instance.
-template <typename Container, typename Provider>
-auto cached_instance(Container& container, Provider& provider) ->
-    typename Provider::Provided& {
-  using Provided = typename Provider::Provided;
-  static auto instance = provider.template create<Provided>(container);
-  return instance;
-}
-
-}  // namespace detail
-
 //! Resolves one instance per request.
 class Transient {
  public:
@@ -59,14 +46,24 @@ class Singleton {
     if constexpr (IsSharedPtr<Requested> || IsWeakPtr<Requested> ||
                   std::is_lvalue_reference_v<Requested>) {
       // shared/weak pointers and lvalue references
-      return detail::cached_instance(container, provider);
+      return cached_instance(container, provider);
     } else if constexpr (std::is_pointer_v<Requested>) {
       // Pointers
-      return &detail::cached_instance(container, provider);
+      return &cached_instance(container, provider);
     } else {
       static_assert(meta::kDependentFalse<Requested>,
                     "Singleton scope: unsupported type conversion.");
     }
+  }
+
+ private:
+  //! Gets or creates cached instance.
+  template <typename Container, typename Provider>
+  static auto cached_instance(Container& container, Provider& provider) ->
+      typename Provider::Provided& {
+    using Provided = typename Provider::Provided;
+    static auto instance = provider.template create<Provided>(container);
+    return instance;
   }
 };
 
