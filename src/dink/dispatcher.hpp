@@ -54,8 +54,8 @@ class Dispatcher {
 
   //! Resolves with found binding, delegates to parent, or uses fallback.
   template <typename Requested, typename Container, typename Config,
-            typename Parent>
-  auto resolve(Container& container, Config& config, Parent parent)
+            typename ParentPtr>
+  auto resolve(Container& container, Config& config, ParentPtr parent)
       -> remove_rvalue_ref_t<Requested> {
     using Canonical = Canonical<Requested>;
 
@@ -72,7 +72,7 @@ class Dispatcher {
 
       return execute_strategy<Requested, has_binding,
                               scope_provides_references>(container, *binding);
-    } else if constexpr (std::same_as<Parent, std::nullptr_t>) {
+    } else if constexpr (std::same_as<ParentPtr, std::nullptr_t>) {
       // no binding, no parent, use fallback bindings
       auto fallback_binding =
           fallback_binding_factory_.template create<Canonical>();
