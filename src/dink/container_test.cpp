@@ -96,18 +96,35 @@ struct ContainerTest : Test {
   using ChildBinding =
       Binding<uint_t, scope::Transient, provider::Ctor<uint_t>>;
 
-  struct Requested {};
+  struct Requested {
+    using Id = int_t;
+    Id id{};
+
+    static constexpr auto expected_id = Id{3};
+  };
   Requested requested;
 
   struct MockDispatcher;
   struct Dispatcher {
     MockDispatcher* mock = nullptr;
 
-    template <typename Requested, typename Container, typename Config,
+    template <typename ActualRequested, typename Container, typename Config,
               typename ParentPtr>
     auto resolve(Container& container, Config& config, ParentPtr parent)
-        -> remove_rvalue_ref_t<Requested> {
-      return mock->resolve(container, config, parent);
+        -> remove_rvalue_ref_t<ActualRequested> {
+      if constexpr (std::same_as<ActualRequested, Requested>) {
+        return mock->resolve_value(container, config, parent);
+      } else if constexpr (std::same_as<ActualRequested, Requested&&>) {
+        return mock->resolve_value(container, config, parent);
+      } else if constexpr (std::same_as<ActualRequested, Requested&>) {
+        if constexpr (std::same_as<ParentPtr, std::nullptr_t>) {
+          return mock->resolve_reference(container, config, parent);
+        } else {
+          return mock->resolve_child(container, config, parent);
+        }
+      } else if constexpr (std::same_as<ActualRequested, Requested*>) {
+        return &mock->resolve_reference(container, config, parent);
+      }
     }
   };
 
@@ -117,10 +134,13 @@ struct ContainerTest : Test {
   using Child = Container<ChildConfig, Dispatcher, Parent>;
 
   struct MockDispatcher {
-    MOCK_METHOD(Requested&, resolve,
+    MOCK_METHOD(Requested, resolve_value,
                 (Parent & container, ParentConfig& config,
                  std::nullptr_t parent));
-    MOCK_METHOD(Requested&, resolve,
+    MOCK_METHOD(Requested&, resolve_reference,
+                (Parent & container, ParentConfig& config,
+                 std::nullptr_t parent));
+    MOCK_METHOD(Requested&, resolve_child,
                 (Child & container, ChildConfig& config, Parent* parent));
 
     virtual ~MockDispatcher() = default;
@@ -132,9 +152,29 @@ struct ContainerTest : Test {
               Dispatcher{&mock_dispatcher}};
 };
 
-TEST_F(ContainerTest, resolve_parent) {
+TEST_F(ContainerTest, resolve_value) {
   EXPECT_CALL(mock_dispatcher,
-              resolve(Ref(parent), A<ParentConfig&>(), nullptr))
+              resolve_value(Ref(parent), A<ParentConfig&>(), nullptr))
+      .WillOnce(Return(Requested{Requested::expected_id}));
+
+  const auto result = parent.template resolve<Requested>();
+
+  ASSERT_EQ(Requested::expected_id, result.id);
+}
+
+TEST_F(ContainerTest, resolve_rvalue_reference) {
+  EXPECT_CALL(mock_dispatcher,
+              resolve_value(Ref(parent), A<ParentConfig&>(), nullptr))
+      .WillOnce(Return(Requested{Requested::expected_id}));
+
+  const auto result = parent.template resolve<Requested&&>();
+
+  ASSERT_EQ(Requested::expected_id, result.id);
+}
+
+TEST_F(ContainerTest, resolve_reference) {
+  EXPECT_CALL(mock_dispatcher,
+              resolve_reference(Ref(parent), A<ParentConfig&>(), nullptr))
       .WillOnce(ReturnRef(requested));
 
   auto& result = parent.template resolve<Requested&>();
@@ -142,8 +182,19 @@ TEST_F(ContainerTest, resolve_parent) {
   ASSERT_EQ(&result, &requested);
 }
 
+TEST_F(ContainerTest, resolve_pointer) {
+  EXPECT_CALL(mock_dispatcher,
+              resolve_reference(Ref(parent), A<ParentConfig&>(), nullptr))
+      .WillOnce(ReturnRef(requested));
+
+  auto* const result = parent.template resolve<Requested*>();
+
+  ASSERT_EQ(result, &requested);
+}
+
 TEST_F(ContainerTest, resolve_child) {
-  EXPECT_CALL(mock_dispatcher, resolve(Ref(child), A<ChildConfig&>(), &parent))
+  EXPECT_CALL(mock_dispatcher,
+              resolve_child(Ref(child), A<ChildConfig&>(), &parent))
       .WillOnce(ReturnRef(requested));
 
   auto& result = child.template resolve<Requested&>();
