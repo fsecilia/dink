@@ -8,6 +8,29 @@
 namespace dink::meta {
 
 // ----------------------------------------------------------------------------
+// RemoveRvalueRef
+// ----------------------------------------------------------------------------
+
+// Basic types pass through.
+static_assert(std::is_same_v<RemoveRvalueRef<int>, int>);
+static_assert(std::is_same_v<RemoveRvalueRef<void>, void>);
+
+// Lvalue references should not be removed.
+static_assert(std::is_same_v<RemoveRvalueRef<int&>, int&>);
+static_assert(std::is_same_v<RemoveRvalueRef<const int&>, const int&>);
+
+// Rvalue references should be removed.
+static_assert(std::is_same_v<RemoveRvalueRef<int&&>, int>);
+static_assert(std::is_same_v<RemoveRvalueRef<const int&&>, const int>);
+static_assert(std::is_same_v<RemoveRvalueRef<volatile int&&>, volatile int>);
+
+// Pointers pass through.
+static_assert(std::is_same_v<RemoveRvalueRef<int*>, int*>);
+static_assert(std::is_same_v<RemoveRvalueRef<int*&>, int*&>);
+static_assert(std::is_same_v<RemoveRvalueRef<int*&&>, int*>);
+static_assert(std::is_same_v<RemoveRvalueRef<const int*&&>, const int*>);
+
+// ----------------------------------------------------------------------------
 // UniqueType
 // ----------------------------------------------------------------------------
 

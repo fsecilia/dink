@@ -17,7 +17,6 @@ list(APPEND dink_library_files
   lib.hpp
   meta.hpp
   provider.hpp
-  remove_rvalue_ref.hpp
   resolver.hpp
   scope.hpp
   smart_pointer_traits.hpp

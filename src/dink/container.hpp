@@ -9,7 +9,6 @@
 #include <dink/config.hpp>
 #include <dink/dispatcher.hpp>
 #include <dink/meta.hpp>
-#include <dink/remove_rvalue_ref.hpp>
 
 namespace dink {
 
@@ -117,7 +116,7 @@ class Container<Config, Dispatcher, void, Tag> {
 
   //! Resolve a dependency.
   template <typename Requested>
-  auto resolve() -> remove_rvalue_ref_t<Requested> {
+  auto resolve() -> meta::RemoveRvalueRef<Requested> {
     return dispatcher_.template resolve<Requested>(*this, config_, nullptr);
   }
 
@@ -166,7 +165,7 @@ class Container {
 
   //! Resolve a dependency.
   template <typename Requested>
-  auto resolve() -> remove_rvalue_ref_t<Requested> {
+  auto resolve() -> meta::RemoveRvalueRef<Requested> {
     return dispatcher_.template resolve<Requested>(*this, config_, parent_);
   }
 

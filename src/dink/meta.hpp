@@ -50,6 +50,30 @@ concept DifferentUnqualifiedType =
 struct ConceptProbe {};
 
 // ----------------------------------------------------------------------------
+// RemoveRvalueRef
+// ----------------------------------------------------------------------------
+
+namespace traits {
+
+template <typename Type>
+struct RemoveRvalueRef;
+
+template <typename Type>
+struct RemoveRvalueRef {
+  using type = Type;
+};
+
+template <typename Type>
+struct RemoveRvalueRef<Type&&> {
+  using type = Type;
+};
+
+}  // namespace traits
+
+template <typename Type>
+using RemoveRvalueRef = typename traits::RemoveRvalueRef<Type>::type;
+
+// ----------------------------------------------------------------------------
 // UniqueType
 // ----------------------------------------------------------------------------
 

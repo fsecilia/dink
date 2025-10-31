@@ -6,7 +6,7 @@
 
 #include <dink/lib.hpp>
 #include <dink/canonical.hpp>
-#include <dink/remove_rvalue_ref.hpp>
+#include <dink/meta.hpp>
 #include <dink/scope.hpp>
 #include <dink/smart_pointer_traits.hpp>
 #include <memory>
@@ -22,7 +22,7 @@ struct UseLocalScope {
   //! Resolves local scope using provider from given binding.
   template <typename Requested, typename Container, typename Binding>
   auto execute(Container& container, Binding& binding) const
-      -> remove_rvalue_ref_t<Requested> {
+      -> meta::RemoveRvalueRef<Requested> {
     return scope.template resolve<Requested>(container, binding.provider);
   }
 };
@@ -36,7 +36,7 @@ struct UseLocalScopeAndProvider {
   //! Resolves local scope using provider from local factory.
   template <typename Requested, typename Container, typename Binding>
   auto execute(Container& container, Binding&) const
-      -> remove_rvalue_ref_t<Requested> {
+      -> meta::RemoveRvalueRef<Requested> {
     using Canonical = Canonical<Requested>;
     auto provider = provider_factory.template create<Canonical>();
     return scope.template resolve<Requested>(container, provider);
@@ -94,7 +94,7 @@ namespace strategies {
 struct UseBinding {
   template <typename Requested, typename Container, typename Binding>
   auto execute(Container& container, Binding& binding) const
-      -> remove_rvalue_ref_t<Requested> {
+      -> meta::RemoveRvalueRef<Requested> {
     return binding.scope.template resolve<Requested>(container,
                                                      binding.provider);
   }

@@ -10,7 +10,6 @@
 #include <dink/config.hpp>
 #include <dink/meta.hpp>
 #include <dink/provider.hpp>
-#include <dink/remove_rvalue_ref.hpp>
 #include <dink/smart_pointer_traits.hpp>
 #include <dink/strategy.hpp>
 
@@ -56,7 +55,7 @@ class Dispatcher {
   template <typename Requested, typename Container, typename Config,
             typename ParentPtr>
   auto resolve(Container& container, Config& config, ParentPtr parent)
-      -> remove_rvalue_ref_t<Requested> {
+      -> meta::RemoveRvalueRef<Requested> {
     using Canonical = Canonical<Requested>;
 
     // Look up binding.
@@ -90,7 +89,7 @@ class Dispatcher {
             bool scope_provides_references, typename Container,
             typename Binding>
   auto execute_strategy(Container& container, Binding& binding)
-      -> remove_rvalue_ref_t<Requested> {
+      -> meta::RemoveRvalueRef<Requested> {
     auto strategy =
         strategy_factory_.template create<Requested, has_binding,
                                           scope_provides_references>();

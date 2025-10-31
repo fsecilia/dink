@@ -143,7 +143,7 @@ struct ContainerTest : Test {
     template <typename ActualRequested, typename Container, typename Config,
               typename ParentPtr>
     auto resolve(Container& container, Config& config, ParentPtr parent)
-        -> remove_rvalue_ref_t<ActualRequested> {
+        -> meta::RemoveRvalueRef<ActualRequested> {
       if constexpr (std::same_as<ActualRequested, Requested>) {
         return mock->resolve_value(container, config, parent);
       } else if constexpr (std::same_as<ActualRequested, Requested&&>) {

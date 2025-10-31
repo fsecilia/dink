@@ -6,7 +6,6 @@
 
 #include <dink/lib.hpp>
 #include <dink/meta.hpp>
-#include <dink/remove_rvalue_ref.hpp>
 #include <dink/smart_pointer_traits.hpp>
 #include <concepts>
 #include <type_traits>
@@ -21,7 +20,7 @@ class Transient {
   //! Resolves instance in requested form.
   template <typename Requested, typename Container, typename Provider>
   auto resolve(Container& container, Provider& provider) const
-      -> remove_rvalue_ref_t<Requested> {
+      -> meta::RemoveRvalueRef<Requested> {
     using Provided = typename Provider::Provided;
 
     if constexpr (IsSharedPtr<Requested> || IsUniquePtr<Requested> ||
