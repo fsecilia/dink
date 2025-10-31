@@ -9,7 +9,8 @@
 namespace dink {
 namespace {
 
-struct ContainerTest {
+//! Tests ctors and deduction guides.
+struct ContainerCtorTest {
   using Binding0 = Binding<int_t, scope::Transient, provider::Ctor<int_t>>;
   using Binding1 = Binding<uint_t, scope::Transient, provider::Ctor<uint_t>>;
   using Binding2 = Binding<char, scope::Transient, provider::Ctor<char>>;
@@ -75,6 +76,66 @@ struct ContainerTest {
                                                 binding1, binding2})>,
                 "tag, parent, and args should produce multiple-element Config");
 };
+
+struct ContainerTest : Test {
+  using ParentBinding = Binding<int_t, scope::Transient, provider::Ctor<int_t>>;
+  using ChildBinding =
+      Binding<uint_t, scope::Transient, provider::Ctor<uint_t>>;
+
+  struct Requested {};
+  Requested requested;
+
+  struct MockDispatcher;
+  struct Dispatcher {
+    MockDispatcher* mock = nullptr;
+
+    template <typename Requested, typename Container, typename Config,
+              typename ParentPtr>
+    auto resolve(Container& container, Config& config, ParentPtr parent)
+        -> remove_rvalue_ref_t<Requested> {
+      return mock->resolve(container, config, parent);
+    }
+  };
+
+  using ParentConfig = Config<ParentBinding>;
+  using ChildConfig = Config<ChildBinding>;
+  using Parent = Container<ParentConfig, Dispatcher>;
+  using Child = Container<ChildConfig, Dispatcher, Parent>;
+
+  struct MockDispatcher {
+    MOCK_METHOD(Requested&, resolve,
+                (Parent & container, ParentConfig& config,
+                 std::nullptr_t parent));
+    MOCK_METHOD(Requested&, resolve,
+                (Child & container, ChildConfig& config, Parent* parent));
+
+    virtual ~MockDispatcher() = default;
+  };
+  StrictMock<MockDispatcher> mock_dispatcher;
+
+  Parent parent{ParentConfig{ParentBinding{}}, Dispatcher{&mock_dispatcher}};
+  Child child{parent, ChildConfig{ChildBinding{}},
+              Dispatcher{&mock_dispatcher}};
+};
+
+TEST_F(ContainerTest, resolve_parent) {
+  EXPECT_CALL(mock_dispatcher,
+              resolve(Ref(parent), A<ParentConfig&>(), nullptr))
+      .WillOnce(ReturnRef(requested));
+
+  auto& result = parent.template resolve<Requested&>();
+
+  ASSERT_EQ(&result, &requested);
+}
+
+TEST_F(ContainerTest, resolve_child) {
+  EXPECT_CALL(mock_dispatcher, resolve(Ref(child), A<ChildConfig&>(), &parent))
+      .WillOnce(ReturnRef(requested));
+
+  auto& result = child.template resolve<Requested&>();
+
+  ASSERT_EQ(&result, &requested);
+}
 
 }  // namespace
 }  // namespace dink
