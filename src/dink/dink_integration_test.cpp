@@ -831,6 +831,30 @@ TEST_F(ContainerDependencyInjectionTest,
   EXPECT_EQ(1, Counted::instance_count);  // Only one created
 }
 
+TEST_F(ContainerDependencyInjectionTest,
+       mixed_value_categories_in_constructor) {
+  struct Singleton {
+    int value = 1;
+    Singleton() = default;
+  };
+  struct Transient {
+    int value = 2;
+    Transient() = default;
+  };
+
+  struct Service {
+    int sum;
+    Service(Singleton& s, Transient t) : sum{s.value + t.value} {}
+  };
+
+  auto sut =
+      Container{bind<Singleton>().in<scope::Singleton>(),
+                bind<Transient>().in<scope::Transient>(), bind<Service>()};
+
+  auto service = sut.template resolve<Service>();
+  EXPECT_EQ(3, service.sum);
+}
+
 // ----------------------------------------------------------------------------
 // Canonical Type Resolution Tests
 // ----------------------------------------------------------------------------
