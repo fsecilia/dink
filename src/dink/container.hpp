@@ -81,13 +81,13 @@ concept IsTagArg = IsTag<Tag> && !std::same_as<Tag, void>;
 // Generally, if you need a tag, the specific tag type is unimportant as long
 // as it is unique. In this case, you can use meta::UniqueType<>.
 // dink_unique_container() simplifies this definition.
-template <IsTag Tag, IsConfig Config, typename Dispatcher,
-          IsParentContainer Parent = void>
+template <IsConfig Config, typename Dispatcher, IsParentContainer Parent = void,
+          IsTag Tag = void>
 class Container;
 
 //! Partial specialization where Parent = void produces a root container.
-template <IsTag Tag, IsConfig Config, typename Dispatcher>
-class Container<Tag, Config, Dispatcher, void> {
+template <IsConfig Config, typename Dispatcher, IsTag Tag>
+class Container<Config, Dispatcher, void, Tag> {
  public:
   Container() noexcept = default;
 
@@ -127,8 +127,8 @@ class Container<Tag, Config, Dispatcher, void> {
 };
 
 //! No specialization produces a child container.
-template <IsTag Tag, IsConfig Config, typename Dispatcher,
-          IsParentContainer Parent>
+template <IsConfig Config, typename Dispatcher, IsParentContainer Parent,
+          IsTag Tag>
 class Container {
  public:
   //! Construct from parent only.
@@ -183,45 +183,45 @@ class Container {
 //! Intercepted copy constructor.
 //
 // Containers are move-only. Trying to copy a container creates a child.
-template <IsTag Tag, IsConfig Config, typename Dispatcher,
-          IsParentContainer Parent>
-Container(Container<Tag, Config, Dispatcher, Parent>&)
-    -> Container<Tag, dink::Config<>, dink::Dispatcher<>,
-                 Container<Tag, Config, Dispatcher, Parent>>;
+template <IsConfig Config, typename Dispatcher, IsParentContainer Parent,
+          IsTag Tag>
+Container(Container<Config, Dispatcher, Parent, Tag>&)
+    -> Container<dink::Config<>, dink::Dispatcher<>,
+                 Container<Config, Dispatcher, Parent, Tag>, Tag>;
 
 //! Root container from builders.
 template <IsBinding... Builders>
 Container(Builders&&...)
-    -> Container<void, decltype(Config{std::declval<Builders>()...}),
-                 Dispatcher<>, void>;
+    -> Container<decltype(Config{std::declval<Builders>()...}), Dispatcher<>,
+                 void, void>;
 
 //! Root container from builders with tag.
 template <IsTagArg Tag, IsBinding... Builders>
 Container(Tag, Builders&&...)
-    -> Container<Tag, decltype(Config{std::declval<Builders>()...}),
-                 Dispatcher<>, void>;
+    -> Container<decltype(Config{std::declval<Builders>()...}), Dispatcher<>,
+                 void, Tag>;
 
 //! Child container from parent.
 template <IsParentContainer Parent>
 Container(Parent& parent)
-    -> Container<void, Config<>, Dispatcher<>, std::remove_cvref_t<Parent>>;
+    -> Container<Config<>, Dispatcher<>, std::remove_cvref_t<Parent>, void>;
 
 //! Child container from parent with tag.
 template <IsTagArg Tag, IsParentContainer Parent>
 Container(Tag, Parent& parent)
-    -> Container<Tag, Config<>, Dispatcher<>, std::remove_cvref_t<Parent>>;
+    -> Container<Config<>, Dispatcher<>, std::remove_cvref_t<Parent>, Tag>;
 
 //! Child container from parent and bindings.
 template <IsParentContainer Parent, IsBinding... Builders>
 Container(Parent& parent, Builders&&...)
-    -> Container<void, decltype(Config{std::declval<Builders>()...}),
-                 Dispatcher<>, std::remove_cvref_t<Parent>>;
+    -> Container<decltype(Config{std::declval<Builders>()...}), Dispatcher<>,
+                 std::remove_cvref_t<Parent>, void>;
 
 //! Child container from parent and bindings with tag.
 template <IsTagArg Tag, IsParentContainer Parent, IsBinding... Builders>
 Container(Tag, Parent& parent, Builders&&...)
-    -> Container<Tag, decltype(Config{std::declval<Builders>()...}),
-                 Dispatcher<>, std::remove_cvref_t<Parent>>;
+    -> Container<decltype(Config{std::declval<Builders>()...}), Dispatcher<>,
+                 std::remove_cvref_t<Parent>, Tag>;
 
 // ----------------------------------------------------------------------------
 // Factory Functions
