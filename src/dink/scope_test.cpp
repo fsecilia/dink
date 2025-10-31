@@ -296,6 +296,9 @@ TEST_F(ScopeTestSingleton,
   ASSERT_NE(result, other_result);
 }
 
+// Singleton Counts
+// ----------------------------------------------------------------------------
+
 struct ScopeTestSingletonCounts : ScopeTest {
   struct Requested : Resolved {};
 
@@ -473,8 +476,10 @@ TEST_F(ScopeTestInstance, multiple_value_copies_are_independent) {
   ASSERT_EQ(42, instance.value);  // Original unchanged
 }
 
-// Test with different scopes and providers
-struct ScopeTestInstanceDifferentProviders : ScopeTest {
+// Instance with Different Scopes and Providers
+// ----------------------------------------------------------------------------
+
+struct ScopeTestInstanceDifferentSources : ScopeTest {
   using Scope = Instance;
 
   struct External1 : Resolved {};
@@ -488,7 +493,7 @@ struct ScopeTestInstanceDifferentProviders : ScopeTest {
   Scope scope2{};
 };
 
-TEST_F(ScopeTestInstanceDifferentProviders,
+TEST_F(ScopeTestInstanceDifferentSources,
        values_from_same_scope_are_independent) {
   auto& ref1 = scope1.resolve<External1&>(container, provider1);
   auto& ref2 = scope1.resolve<External2&>(container, provider2);
@@ -498,7 +503,7 @@ TEST_F(ScopeTestInstanceDifferentProviders,
   ASSERT_NE(static_cast<void*>(&ref1), static_cast<void*>(&ref2));
 }
 
-TEST_F(ScopeTestInstanceDifferentProviders,
+TEST_F(ScopeTestInstanceDifferentSources,
        values_from_different_scopes_are_independent) {
   auto& ref1 = scope1.resolve<External1&>(container, provider1);
   auto& ref2 = scope2.resolve<External2&>(container, provider2);
