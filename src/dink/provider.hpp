@@ -61,22 +61,22 @@ class Factory {
 };
 
 //! Wraps an external reference.
-template <typename InstanceType>
-class Instance {
+template <typename Instance>
+class External {
  public:
-  using Provided = InstanceType;
+  using Provided = Instance;
 
   template <typename Requested, typename Container>
-  constexpr auto create(Container& /*container*/) const -> InstanceType& {
+  constexpr auto create(Container& /*container*/) const -> Instance& {
     // Always return reference to the external instance
     return *instance_;
   }
 
-  explicit constexpr Instance(InstanceType& instance) noexcept
+  explicit constexpr External(Instance& instance) noexcept
       : instance_{&instance} {}
 
  private:
-  InstanceType* instance_;
+  Instance* instance_;
 };
 
 }  // namespace dink::provider

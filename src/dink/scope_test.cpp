@@ -16,7 +16,7 @@ struct ScopeTest : Test {
     Container* container;
   };
 
-  // returns given container
+  // returns given container through requested
   template <typename Constructed>
   struct Provider {
     using Provided = Constructed;

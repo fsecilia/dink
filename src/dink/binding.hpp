@@ -179,10 +179,10 @@ class ViaBuilder {
 template <typename From, typename InstanceType>
 class ToBuilder {
  public:
-  // Conversion using scope::Instance with provider::Instance
+  // Conversion using scope::External with provider::External
   constexpr operator Binding<From, scope::Instance,
-                             provider::Instance<InstanceType>>() && {
-    return {scope::Instance{}, provider::Instance<InstanceType>{instance_}};
+                             provider::External<InstanceType>>() && {
+    return {scope::Instance{}, provider::External<InstanceType>{instance_}};
   }
 
   explicit constexpr ToBuilder(InstanceType& instance) noexcept
@@ -232,7 +232,7 @@ Binding(ViaBuilder<From, To, Factory>&&)
 
 template <typename From, typename InstanceType>
 Binding(ToBuilder<From, InstanceType>&&)
-    -> Binding<From, scope::Instance, provider::Instance<InstanceType>>;
+    -> Binding<From, scope::Instance, provider::External<InstanceType>>;
 
 template <typename From, typename To, typename Provider, typename Scope>
 Binding(InBuilder<From, To, Provider, Scope>&&)
