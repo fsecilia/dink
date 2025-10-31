@@ -35,6 +35,19 @@ template <typename Container>
 concept IsParentContainer =
     IsContainer<Container> || std::same_as<Container, void>;
 
+//! Identifies types valid for tag parameters.
+//
+// Given the way deduction works, the tag type cannot be a binding, config,
+// or another container, or deducing a container type becomes ambiguous.
+template <typename Tag>
+concept IsTag = !IsBinding<Tag> && !IsConfig<Tag> && !IsContainer<Tag>;
+
+//! Identifies types valid for tag arguments.
+//
+// The actual argument cannot be instnatiated as void.
+template <typename Tag>
+concept IsTagArg = IsTag<Tag> && !std::same_as<Tag, void>;
+
 // ----------------------------------------------------------------------------
 // Container
 // ----------------------------------------------------------------------------
@@ -58,27 +71,44 @@ concept IsParentContainer =
 // In general, it should work intuitively. If you ask for a value, you get a
 // value. If you ask for a reference, you get a cached reference. The rest are
 // details.
-template <IsConfig Config, typename Dispatcher, IsParentContainer Parent = void,
-          typename Tag = meta::UniqueType<>>
+//
+// This type supports optional tagging. Two containers with the same config
+// have the same type. Because caches are keyed by <container, provider>, two
+// containers with the same config will share caches. A tag can be used to
+// distinguish between two otherwise identical container types. By specifying a
+// tag, the caches can be separated.
+//
+// Generally, if you need a tag, the specific tag type is unimportant as long
+// as it is unique. In this case, you can use meta::UniqueType<>.
+// dink_unique_container() simplifies this definition.
+template <IsTag Tag, IsConfig Config, typename Dispatcher,
+          IsParentContainer Parent = void>
 class Container;
 
-//! Root Specialization, Parent = void
-template <IsConfig Config, typename Dispatcher, typename Tag>
-class Container<Config, Dispatcher, void, Tag> {
+//! Partial specialization where Parent = void produces a root container.
+template <IsTag Tag, IsConfig Config, typename Dispatcher>
+class Container<Tag, Config, Dispatcher, void> {
  public:
-  //! Construct from bindings without tag.
+  Container() noexcept = default;
+
+  //! Construct from bindings.
   template <IsBinding... Bindings>
   explicit Container(Bindings&&... bindings) noexcept
-      : Container{Tag{}, std::forward<Bindings>(bindings)...} {}
+      : Container{Config{std::forward<Bindings>(bindings)...}, Dispatcher{}} {}
 
-  //! Construct from bindings with tag.
-  template <meta::IsUniqueType UniqueType, IsBinding... Bindings>
-  explicit Container(UniqueType, Bindings&&... bindings) noexcept
+  //! Construct from bindings.
+  template <IsTagArg ActualTag, IsBinding... Bindings>
+  explicit Container(ActualTag, Bindings&&... bindings) noexcept
       : Container{Config{std::forward<Bindings>(bindings)...}, Dispatcher{}} {}
 
   //! Construct from components.
   Container(Config config, Dispatcher dispatcher) noexcept
       : dispatcher_{std::move(dispatcher)}, config_{std::move(config)} {}
+
+  //! Construct from components with tag.
+  template <IsTagArg ActualTag>
+  Container(ActualTag, Config config, Dispatcher dispatcher) noexcept
+      : Container{std::move(config), std::move(dispatcher)} {}
 
   Container(const Container&) = delete;
   auto operator=(const Container&) const -> Container& = delete;
@@ -96,27 +126,38 @@ class Container<Config, Dispatcher, void, Tag> {
   Config config_{};
 };
 
-//! Child Specialization, Parent != void
-template <IsConfig Config, typename Dispatcher, IsParentContainer Parent,
-          typename Tag>
+//! No specialization produces a child container.
+template <IsTag Tag, IsConfig Config, typename Dispatcher,
+          IsParentContainer Parent>
 class Container {
  public:
-  //! Construct from parent and bindings without tag.
+  //! Construct from parent only.
+  explicit Container(Parent& parent) noexcept
+      : Container{parent, Config{}, Dispatcher{}} {}
+
+  //! Construct from parent and bindings.
   template <IsBinding... Bindings>
   explicit Container(Parent& parent, Bindings&&... bindings) noexcept
-      : Container{Tag{}, parent, std::forward<Bindings>(bindings)...} {}
-
-  //! Construct from parent and bindings with tag.
-  template <meta::IsUniqueType UniqueType, IsBinding... Bindings>
-  Container(UniqueType, Parent& parent, Bindings&&... bindings) noexcept
       : Container{parent, Config{std::forward<Bindings>(bindings)...},
                   Dispatcher{}} {}
 
-  //! Construct from components.
+  //! Construct from parent and bindings with tag.
+  template <IsTagArg ActualTag, IsBinding... Bindings>
+  explicit Container(ActualTag, Parent& parent, Bindings&&... bindings) noexcept
+      : Container{parent, Config{std::forward<Bindings>(bindings)...},
+                  Dispatcher{}} {}
+
+  //! Construct from parent and components.
   Container(Parent& parent, Config config, Dispatcher dispatcher) noexcept
       : dispatcher_{std::move(dispatcher)},
         config_{std::move(config)},
         parent_{&parent} {}
+
+  //! Construct from parent and components with tag.
+  template <IsTagArg ActualTag>
+  Container(ActualTag, Parent& parent, Config config,
+            Dispatcher dispatcher) noexcept
+      : Container{parent, std::move(config), std::move(dispatcher)} {}
 
   Container(const Container&) = delete;
   auto operator=(const Container&) const -> Container& = delete;
@@ -139,49 +180,54 @@ class Container {
 // Deduction Guides
 // ----------------------------------------------------------------------------
 
+//! Intercepted copy constructor.
+//
 // Containers are move-only. Trying to copy a container creates a child.
-template <IsConfig Config, typename Dispatcher, IsParentContainer Parent,
-          typename Tag>
-Container(Container<Config, Dispatcher, Parent, Tag>&)
-    -> Container<dink::Config<>, dink::Dispatcher<>,
-                 Container<Config, Dispatcher, Parent, Tag>, Tag>;
+template <IsTag Tag, IsConfig Config, typename Dispatcher,
+          IsParentContainer Parent>
+Container(Container<Tag, Config, Dispatcher, Parent>&)
+    -> Container<Tag, dink::Config<>, dink::Dispatcher<>,
+                 Container<Tag, Config, Dispatcher, Parent>>;
 
-// Root container from builders.
+//! Root container from builders.
 template <IsBinding... Builders>
 Container(Builders&&...)
-    -> Container<decltype(Config{make_bindings(std::declval<Builders>()...)}),
+    -> Container<void, decltype(Config{std::declval<Builders>()...}),
                  Dispatcher<>, void>;
 
-// Root container from builders with tag.
-template <meta::IsUniqueType UniqueType, IsBinding... Builders>
-Container(UniqueType, Builders&&...)
-    -> Container<decltype(Config{make_bindings(std::declval<Builders>()...)}),
-                 Dispatcher<>, void, UniqueType>;
+//! Root container from builders with tag.
+template <IsTagArg Tag, IsBinding... Builders>
+Container(Tag, Builders&&...)
+    -> Container<Tag, decltype(Config{std::declval<Builders>()...}),
+                 Dispatcher<>, void>;
 
-// Child container from parent and builders.
-template <IsParentContainer ParentContainer, IsBinding... Builders>
-Container(ParentContainer&, Builders&&...)
-    -> Container<decltype(Config{make_bindings(std::declval<Builders>()...)}),
-                 Dispatcher<>, ParentContainer>;
+//! Child container from parent.
+template <IsParentContainer Parent>
+Container(Parent& parent)
+    -> Container<void, Config<>, Dispatcher<>, std::remove_cvref_t<Parent>>;
 
-// Child container from parent and builders with tag.
-template <meta::IsUniqueType UniqueType, IsParentContainer ParentContainer,
-          IsBinding... Builders>
-Container(UniqueType, ParentContainer&, Builders&&...)
-    -> Container<decltype(Config{make_bindings(std::declval<Builders>()...)}),
-                 Dispatcher<>, ParentContainer, UniqueType>;
+//! Child container from parent with tag.
+template <IsTagArg Tag, IsParentContainer Parent>
+Container(Tag, Parent& parent)
+    -> Container<Tag, Config<>, Dispatcher<>, std::remove_cvref_t<Parent>>;
+
+//! Child container from parent and bindings.
+template <IsParentContainer Parent, IsBinding... Builders>
+Container(Parent& parent, Builders&&...)
+    -> Container<void, decltype(Config{std::declval<Builders>()...}),
+                 Dispatcher<>, std::remove_cvref_t<Parent>>;
+
+//! Child container from parent and bindings with tag.
+template <IsTagArg Tag, IsParentContainer Parent, IsBinding... Builders>
+Container(Tag, Parent& parent, Builders&&...)
+    -> Container<Tag, decltype(Config{std::declval<Builders>()...}),
+                 Dispatcher<>, std::remove_cvref_t<Parent>>;
 
 // ----------------------------------------------------------------------------
 // Factory Functions
 // ----------------------------------------------------------------------------
 
 //! Macro to generate unique container types.
-//
-// Two containers with the same config have the same type. Because singletons
-// are keyed by <container, provider>, two containers with the same config will
-// share singletons, which is quite astonishing. There is no internal
-// workaround - the container type must be made unique - dink_unique_container()
-// creates a container with a tag unique to the instance.
 //
 // This is a macro so unique_type<> is generated once at each call site. There
 // is no other way in the language to generate this once per instance. All
