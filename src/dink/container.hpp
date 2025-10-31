@@ -81,8 +81,8 @@ concept IsTagArg = IsTag<Tag> && !std::same_as<Tag, void>;
 // Generally, if you need a tag, the specific tag type is unimportant as long
 // as it is unique. In this case, you can use meta::UniqueType<>.
 // dink_unique_container() simplifies this definition.
-template <IsConfig Config, typename Dispatcher, IsParentContainer Parent = void,
-          IsTag Tag = void>
+template <IsConfig Config = Config<>, typename Dispatcher = Dispatcher<>,
+          IsParentContainer Parent = void, IsTag Tag = void>
 class Container;
 
 //! Partial specialization where Parent = void produces a root container.
