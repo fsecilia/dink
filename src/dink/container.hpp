@@ -80,6 +80,11 @@ class Container<Config, Dispatcher, void, Tag> {
   Container(Config config, Dispatcher dispatcher) noexcept
       : dispatcher_{std::move(dispatcher)}, config_{std::move(config)} {}
 
+  Container(const Container&) = delete;
+  auto operator=(const Container&) const -> Container& = delete;
+  Container(Container&&) = default;
+  auto operator=(Container&&) const -> Container& = default;
+
   //! Resolve a dependency.
   template <typename Requested>
   auto resolve() -> remove_rvalue_ref_t<Requested> {
@@ -113,6 +118,11 @@ class Container {
         config_{std::move(config)},
         parent_{&parent} {}
 
+  Container(const Container&) = delete;
+  auto operator=(const Container&) const -> Container& = delete;
+  Container(Container&&) = default;
+  auto operator=(Container&&) const -> Container& = default;
+
   //! Resolve a dependency.
   template <typename Requested>
   auto resolve() -> remove_rvalue_ref_t<Requested> {
@@ -128,6 +138,13 @@ class Container {
 // ----------------------------------------------------------------------------
 // Deduction Guides
 // ----------------------------------------------------------------------------
+
+// Containers are move-only. Trying to copy a container creates a child.
+template <IsConfig Config, typename Dispatcher, IsParentContainer Parent,
+          typename Tag>
+Container(Container<Config, Dispatcher, Parent, Tag>&)
+    -> Container<dink::Config<>, dink::Dispatcher<>,
+                 Container<Config, Dispatcher, Parent, Tag>, Tag>;
 
 // Root container from builders.
 template <IsBinding... Builders>
