@@ -252,7 +252,7 @@ Binding(InBuilder<From, To, Provider, Scope>&&)
 // Example usage:
 //   auto bindings = make_bindings(
 //     bind<Type>(),
-//     bind<Interfacee>().as<Implementation>().in<scope::Singleton>(),
+//     bind<Interface>().as<Implementation>().in<scope::Singleton>(),
 //     bind<Config>().to(config_instance)
 //   );
 template <typename... Builders>
