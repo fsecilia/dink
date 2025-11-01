@@ -349,7 +349,7 @@ struct ScopeTestInstance : ScopeTest {
   static constexpr auto initial_value = int_t{15132};
   static constexpr auto modified_value = int_t{7486};
   struct Requested : Resolved {
-    int value = initial_value;
+    int_t value = initial_value;
   };
 
   Requested instance{Resolved{&container}};
