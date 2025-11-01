@@ -492,9 +492,10 @@ TEST_F(ScopeTestInstance, multiple_value_copies_are_independent) {
   copy1.value = modified_value1;
   copy2.value = modified_value2;
 
+  // Copies are modified, but the original is unchanged.
   ASSERT_EQ(modified_value1, copy1.value);
   ASSERT_EQ(modified_value2, copy2.value);
-  ASSERT_EQ(initial_value, instance.value);  // Original unchanged
+  ASSERT_EQ(initial_value, instance.value);
 }
 
 // Instance with Different Scopes and Providers
