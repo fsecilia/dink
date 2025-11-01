@@ -36,7 +36,7 @@ class Transient {
   }
 };
 
-///! Resolves one instance per provider.
+//! Resolves one instance per provider.
 class Singleton {
  public:
   static constexpr auto provides_references = true;
