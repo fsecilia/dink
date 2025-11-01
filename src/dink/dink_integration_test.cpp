@@ -1189,13 +1189,13 @@ TEST_F(ContainerDefaultScopeTest, unbound_type_creates_values) {
 }
 
 // ----------------------------------------------------------------------------
-// Promotion Tests (Transient → Singleton-like behavior)
+// Promotion Tests (Transient -> Singleton-like behavior)
 // ----------------------------------------------------------------------------
 //
 // Promotion occurs when a type bound as Transient is requested in a way that
 // requires shared ownership or reference semantics:
 //
-// PROMOTED (Transient → Singleton-like):
+// PROMOTED (Transient -> Singleton-like):
 // - References (T&, const T&) - must be stable across calls
 // - Pointers (T*, const T*) - must point to same instance
 // - weak_ptr<T> - requires a cached shared_ptr to track
@@ -1205,10 +1205,10 @@ TEST_F(ContainerDefaultScopeTest, unbound_type_creates_values) {
 // - unique_ptr<T> - exclusive ownership, each call creates new instance
 // - shared_ptr<T> - can create new instances in each shared_ptr
 //
-// Note: shared_ptr<T> from Transient creates NEW instances each time, not
-// promoted! This is intentional - transient shared_ptr means "give me a new
-// instance in a shared_ptr". Only weak_ptr requires promotion because it needs
-// a cached backing shared_ptr to track.
+// Note: shared_ptr<T> from Transient creates new instances each time; it is
+// not promoted. This is intentional - transient shared_ptr means "give me a
+// new instance in a shared_ptr". Only weak_ptr requires promotion because it
+// needs a cached backing shared_ptr to track.
 //
 // ----------------------------------------------------------------------------
 
@@ -1319,7 +1319,7 @@ TEST_F(ContainerPromotionTest,
   auto sut = Container{bind<TransientBound>().in<scope::Transient>()};
 
   // All reference-like requests should share the same promoted instance
-  // (but NOT shared_ptr, which creates new instances)
+  // (but not shared_ptr, which creates new instances)
   auto& ref = sut.template resolve<TransientBound&>();
   auto* ptr = sut.template resolve<TransientBound*>();
   auto weak = sut.template resolve<std::weak_ptr<TransientBound>>();
@@ -1357,16 +1357,17 @@ TEST_F(ContainerPromotionTest, transient_promotion_with_dependencies) {
 }
 
 // ----------------------------------------------------------------------------
-// Relegation Tests (Singleton → Transient-like behavior)
+// Relegation Tests (Singleton -> Transient-like behavior)
 // ----------------------------------------------------------------------------
 //
 // Relegation occurs when a type bound as Singleton is requested in a way that
 // requires exclusive ownership or value semantics:
 //
-// RELEGATED (Singleton → Transient-like):
-// - Values (T) - creates new instances from provider
-// - rvalue references (T&&) - creates new instances from provider
-// - unique_ptr<T> - exclusive ownership, creates new instances
+// RELEGATED (Singleton -> Transient-like):
+// - Values (T) - creates copies of singleton value
+// - rvalue references (T&&) - creates copies of singleton value
+// - unique_ptr<T> - exclusive ownership, creates new instances initialized
+// with singleton value
 //
 // NOT RELEGATED (remains Singleton):
 // - References (T&, const T&) - returns reference to singleton
@@ -1374,9 +1375,9 @@ TEST_F(ContainerPromotionTest, transient_promotion_with_dependencies) {
 // - shared_ptr<T> - wraps singleton via canonical shared_ptr
 // - weak_ptr<T> - tracks the canonical shared_ptr of singleton
 //
-// Note: Relegated instances are NEW instances created by calling the provider
-// again, NOT copies of the singleton. The singleton instance remains unchanged
-// and can still be accessed via references/pointers.
+// Note: Relegated instances are initialized with the value in the singleton at
+// the time of creation; they make copies. The singleton instance remains
+// unchanged and can still be accessed via references/pointers.
 //
 // ----------------------------------------------------------------------------
 
@@ -1762,21 +1763,6 @@ TEST_F(ContainerHierarchyTransientTest,
 // ----------------------------------------------------------------------------
 // Hierarchical Container Tests - Promotion in Hierarchy
 // ----------------------------------------------------------------------------
-//
-// IMPORTANT: Promotion state lives with the Provider, not the Container.
-//
-// When a child container delegates to a parent's binding:
-// - Child and parent share the same Provider instance
-// - They share the same promoted instance (cached in Provider's static)
-//
-// To have separate promoted instances:
-// - Each container needs its own binding (separate Providers)
-// - Then each Provider has its own promotion state
-//
-// This is the correct behavior: promotion is a property of the
-// binding/provider, not the container requesting the instance.
-//
-// ----------------------------------------------------------------------------
 
 struct ContainerHierarchyPromotionTest : ContainerTest {};
 
@@ -1837,7 +1823,7 @@ TEST_F(ContainerHierarchyPromotionTest,
   auto grandparent = Container{bind<TransientBound>().in<scope::Transient>()};
   auto parent = Container{grandparent};  // No binding, delegates to grandparent
   auto child =
-      Container{parent};  // No binding, delegates to parent → grandparent
+      Container{parent};  // No binding, delegates to parent -> grandparent
 
   auto& grandparent_ref = grandparent.template resolve<TransientBound&>();
   auto& parent_ref = parent.template resolve<TransientBound&>();
@@ -1925,7 +1911,7 @@ TEST_F(ContainerHierarchyRelegationTest,
   auto& child_ref = child.template resolve<SingletonBound&>();
   auto child_val = child.template resolve<SingletonBound>();
 
-  EXPECT_EQ(&grandparent_ref, &child_ref);  // References share
+  EXPECT_EQ(&grandparent_ref, &child_ref);  // References shared
   EXPECT_NE(&grandparent_ref, &child_val);  // Value is a copy
   EXPECT_EQ(0, grandparent_ref.id);         // Singleton
   EXPECT_EQ(0, child_val.id);               // Copy of same singleton
