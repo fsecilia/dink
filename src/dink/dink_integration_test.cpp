@@ -17,14 +17,14 @@ namespace {
 
 // Base class for types that need instance counting
 struct Counted {
-  static inline int instance_count = 0;
+  static inline int num_instances = 0;
   int id;
-  Counted() : id{instance_count++} {}
+  Counted() : id{num_instances++} {}
 };
 
 // Common base for all container tests - resets counters
 struct ContainerTest : Test {
-  ContainerTest() { Counted::instance_count = 0; }
+  ContainerTest() { Counted::num_instances = 0; }
 };
 
 // ----------------------------------------------------------------------------
@@ -458,7 +458,7 @@ TEST_F(ContainerFactoryTest, factory_with_singleton_scope) {
 
   EXPECT_EQ(&ref1, &ref2);
   EXPECT_EQ(0, ref1.id);
-  EXPECT_EQ(1, Counted::instance_count);  // Factory called once
+  EXPECT_EQ(1, Counted::num_instances);  // Factory called once
 }
 
 TEST_F(ContainerFactoryTest, factory_with_transient_scope) {
@@ -474,7 +474,7 @@ TEST_F(ContainerFactoryTest, factory_with_transient_scope) {
 
   EXPECT_EQ(0, value1.id);
   EXPECT_EQ(1, value2.id);
-  EXPECT_EQ(2, Counted::instance_count);  // Factory called twice
+  EXPECT_EQ(2, Counted::num_instances);  // Factory called twice
 }
 
 TEST_F(ContainerFactoryTest, factory_with_deduced_scope) {
@@ -830,7 +830,7 @@ TEST_F(ContainerDependencyInjectionTest,
 
   EXPECT_EQ(serviceA.dep, serviceB.dep);  // Same instance
   EXPECT_EQ(0, serviceA.dep->id);
-  EXPECT_EQ(1, Counted::instance_count);  // Only one created
+  EXPECT_EQ(1, Counted::num_instances);  // Only one created
 }
 
 TEST_F(ContainerDependencyInjectionTest,
@@ -1170,7 +1170,7 @@ TEST_F(ContainerDefaultScopeTest, unbound_type_caches_for_references) {
 
   EXPECT_EQ(&ref1, &ref2);
   EXPECT_EQ(0, ref1.id);
-  EXPECT_EQ(1, Counted::instance_count);
+  EXPECT_EQ(1, Counted::num_instances);
 }
 
 TEST_F(ContainerDefaultScopeTest, unbound_type_creates_values) {
@@ -1223,7 +1223,7 @@ TEST_F(ContainerPromotionTest, transient_promoted_to_singleton_for_reference) {
   // Should return same instance (promoted to singleton)
   EXPECT_EQ(&ref1, &ref2);
   EXPECT_EQ(0, ref1.id);
-  EXPECT_EQ(1, Counted::instance_count);  // Only one instance created
+  EXPECT_EQ(1, Counted::num_instances);  // Only one instance created
 }
 
 TEST_F(ContainerPromotionTest,
@@ -1236,7 +1236,7 @@ TEST_F(ContainerPromotionTest,
 
   EXPECT_EQ(&ref1, &ref2);
   EXPECT_EQ(0, ref1.id);
-  EXPECT_EQ(1, Counted::instance_count);
+  EXPECT_EQ(1, Counted::num_instances);
 }
 
 TEST_F(ContainerPromotionTest, transient_promoted_to_singleton_for_pointer) {
@@ -1248,7 +1248,7 @@ TEST_F(ContainerPromotionTest, transient_promoted_to_singleton_for_pointer) {
 
   EXPECT_EQ(ptr1, ptr2);
   EXPECT_EQ(0, ptr1->id);
-  EXPECT_EQ(1, Counted::instance_count);
+  EXPECT_EQ(1, Counted::num_instances);
 }
 
 TEST_F(ContainerPromotionTest,
@@ -1261,7 +1261,7 @@ TEST_F(ContainerPromotionTest,
 
   EXPECT_EQ(ptr1, ptr2);
   EXPECT_EQ(0, ptr1->id);
-  EXPECT_EQ(1, Counted::instance_count);
+  EXPECT_EQ(1, Counted::num_instances);
 }
 
 TEST_F(ContainerPromotionTest,
@@ -1276,7 +1276,7 @@ TEST_F(ContainerPromotionTest,
   EXPECT_NE(shared1.get(), shared2.get());
   EXPECT_EQ(0, shared1->id);
   EXPECT_EQ(1, shared2->id);
-  EXPECT_EQ(2, Counted::instance_count);
+  EXPECT_EQ(2, Counted::num_instances);
 }
 
 TEST_F(ContainerPromotionTest, transient_promoted_to_singleton_for_weak_ptr) {
@@ -1289,7 +1289,7 @@ TEST_F(ContainerPromotionTest, transient_promoted_to_singleton_for_weak_ptr) {
   EXPECT_FALSE(weak1.expired());
   EXPECT_EQ(weak1.lock(), weak2.lock());
   EXPECT_EQ(0, weak1.lock()->id);
-  EXPECT_EQ(1, Counted::instance_count);
+  EXPECT_EQ(1, Counted::num_instances);
 }
 
 TEST_F(ContainerPromotionTest, transient_not_promoted_for_value_or_unique_ptr) {
@@ -1308,7 +1308,7 @@ TEST_F(ContainerPromotionTest, transient_not_promoted_for_value_or_unique_ptr) {
   EXPECT_NE(unique1.get(), unique2.get());
   EXPECT_EQ(2, unique1->id);
   EXPECT_EQ(3, unique2->id);
-  EXPECT_EQ(4, Counted::instance_count);
+  EXPECT_EQ(4, Counted::num_instances);
 }
 
 TEST_F(ContainerPromotionTest,
@@ -1325,7 +1325,7 @@ TEST_F(ContainerPromotionTest,
   EXPECT_EQ(&ref, ptr);
   EXPECT_EQ(ptr, weak.lock().get());
   EXPECT_EQ(0, ref.id);
-  EXPECT_EQ(1, Counted::instance_count);
+  EXPECT_EQ(1, Counted::num_instances);
 }
 
 TEST_F(ContainerPromotionTest, transient_promotion_with_dependencies) {
@@ -1351,7 +1351,7 @@ TEST_F(ContainerPromotionTest, transient_promotion_with_dependencies) {
   EXPECT_EQ(&service, &service2);
   EXPECT_EQ(service.dep, service2.dep);
 
-  EXPECT_EQ(2, Counted::instance_count);  // 1 Service + 1 Dependency
+  EXPECT_EQ(2, Counted::num_instances);  // 1 Service + 1 Dependency
 }
 
 // ----------------------------------------------------------------------------
@@ -1391,7 +1391,7 @@ TEST_F(ContainerRelegationTest, singleton_relegated_to_transient_for_value) {
   EXPECT_NE(&val1, &val2);
   EXPECT_EQ(0, val1.id);
   EXPECT_EQ(1, val2.id);
-  EXPECT_EQ(2, Counted::instance_count);
+  EXPECT_EQ(2, Counted::num_instances);
 }
 
 TEST_F(ContainerRelegationTest,
@@ -1405,7 +1405,7 @@ TEST_F(ContainerRelegationTest,
   EXPECT_NE(&rval1, &rval2);
   EXPECT_EQ(0, rval1.id);
   EXPECT_EQ(1, rval2.id);
-  EXPECT_EQ(2, Counted::instance_count);
+  EXPECT_EQ(2, Counted::num_instances);
 }
 
 TEST_F(ContainerRelegationTest,
@@ -1419,7 +1419,7 @@ TEST_F(ContainerRelegationTest,
   EXPECT_NE(unique1.get(), unique2.get());
   EXPECT_EQ(0, unique1->id);
   EXPECT_EQ(1, unique2->id);
-  EXPECT_EQ(2, Counted::instance_count);
+  EXPECT_EQ(2, Counted::num_instances);
 }
 
 TEST_F(ContainerRelegationTest,
@@ -1445,7 +1445,7 @@ TEST_F(ContainerRelegationTest,
   EXPECT_EQ(shared1.get(), shared2.get());
   EXPECT_EQ(&ref1, shared1.get());
 
-  EXPECT_EQ(1, Counted::instance_count);  // Only one instance total
+  EXPECT_EQ(1, Counted::num_instances);  // Only one instance total
 }
 
 TEST_F(ContainerRelegationTest,
@@ -1470,7 +1470,7 @@ TEST_F(ContainerRelegationTest,
   EXPECT_EQ(42, val.value);
   EXPECT_NE(&singleton, &val);
 
-  EXPECT_EQ(2, Counted::instance_count);  // 1 singleton + 1 relegated value
+  EXPECT_EQ(2, Counted::num_instances);  // 1 singleton + 1 relegated value
 }
 
 TEST_F(ContainerRelegationTest,
@@ -1529,7 +1529,7 @@ TEST_F(ContainerRelegationTest, singleton_relegation_with_dependencies) {
   EXPECT_EQ(2, service2.dep.id);
   EXPECT_EQ(3, service2.id);
 
-  EXPECT_EQ(4, Counted::instance_count);  // 2 Service + 2 Dependency
+  EXPECT_EQ(4, Counted::num_instances);  // 2 Service + 2 Dependency
 }
 
 // ----------------------------------------------------------------------------
@@ -1655,7 +1655,7 @@ TEST_F(ContainerHierarchySingletonTest, singleton_in_parent_shared_with_child) {
 
   EXPECT_EQ(&parent_ref, &child_ref);
   EXPECT_EQ(0, parent_ref.id);
-  EXPECT_EQ(1, Counted::instance_count);
+  EXPECT_EQ(1, Counted::num_instances);
 }
 
 TEST_F(ContainerHierarchySingletonTest,
@@ -1673,7 +1673,7 @@ TEST_F(ContainerHierarchySingletonTest,
   EXPECT_EQ(&grandparent_ref, &parent_ref);
   EXPECT_EQ(&parent_ref, &child_ref);
   EXPECT_EQ(0, grandparent_ref.id);
-  EXPECT_EQ(1, Counted::instance_count);
+  EXPECT_EQ(1, Counted::num_instances);
 }
 
 TEST_F(ContainerHierarchySingletonTest,
@@ -1690,7 +1690,7 @@ TEST_F(ContainerHierarchySingletonTest,
   EXPECT_NE(&child_ref, &parent_ref);
   EXPECT_EQ(0, child_ref.id);
   EXPECT_EQ(1, parent_ref.id);
-  EXPECT_EQ(2, Counted::instance_count);
+  EXPECT_EQ(2, Counted::num_instances);
 }
 
 TEST_F(ContainerHierarchySingletonTest,
@@ -1707,7 +1707,7 @@ TEST_F(ContainerHierarchySingletonTest,
   EXPECT_NE(&parent_ref, &child_ref);
   EXPECT_EQ(0, parent_ref.id);
   EXPECT_EQ(1, child_ref.id);
-  EXPECT_EQ(2, Counted::instance_count);
+  EXPECT_EQ(2, Counted::num_instances);
 }
 
 // ----------------------------------------------------------------------------
@@ -1730,7 +1730,7 @@ TEST_F(ContainerHierarchyTransientTest,
   EXPECT_EQ(0, parent_val1.id);
   EXPECT_EQ(1, child_val1.id);
   EXPECT_EQ(2, child_val2.id);
-  EXPECT_EQ(3, Counted::instance_count);
+  EXPECT_EQ(3, Counted::num_instances);
 }
 
 TEST_F(ContainerHierarchyTransientTest,
@@ -1748,7 +1748,7 @@ TEST_F(ContainerHierarchyTransientTest,
   EXPECT_EQ(0, grandparent_val.id);
   EXPECT_EQ(1, parent_val.id);
   EXPECT_EQ(2, child_val.id);
-  EXPECT_EQ(3, Counted::instance_count);
+  EXPECT_EQ(3, Counted::num_instances);
 }
 
 // ----------------------------------------------------------------------------
@@ -1784,7 +1784,7 @@ TEST_F(ContainerHierarchyPromotionTest, child_promotes_transient_from_parent) {
 
   EXPECT_EQ(&child_ref1, &child_ref2);
   EXPECT_EQ(0, child_ref1.id);
-  EXPECT_EQ(1, Counted::instance_count);
+  EXPECT_EQ(1, Counted::num_instances);
 }
 
 TEST_F(ContainerHierarchyPromotionTest,
@@ -1802,7 +1802,7 @@ TEST_F(ContainerHierarchyPromotionTest,
 
   EXPECT_EQ(&parent_ref, &child_ref);  // Same instance!
   EXPECT_EQ(0, parent_ref.id);
-  EXPECT_EQ(1, Counted::instance_count);  // Only one instance created
+  EXPECT_EQ(1, Counted::num_instances);  // Only one instance created
 }
 
 TEST_F(ContainerHierarchyPromotionTest,
@@ -1819,7 +1819,7 @@ TEST_F(ContainerHierarchyPromotionTest,
   EXPECT_NE(&parent_ref, &child_ref);  // Different instances!
   EXPECT_EQ(0, parent_ref.id);
   EXPECT_EQ(1, child_ref.id);
-  EXPECT_EQ(2, Counted::instance_count);
+  EXPECT_EQ(2, Counted::num_instances);
 }
 
 TEST_F(ContainerHierarchyPromotionTest,
@@ -1839,7 +1839,7 @@ TEST_F(ContainerHierarchyPromotionTest,
   EXPECT_EQ(&grandparent_ref, &parent_ref);
   EXPECT_EQ(&parent_ref, &child_ref);
   EXPECT_EQ(0, grandparent_ref.id);
-  EXPECT_EQ(1, Counted::instance_count);
+  EXPECT_EQ(1, Counted::num_instances);
 }
 
 // Ancestry is part of a container's type, so ancestors can all have the same
@@ -1863,7 +1863,7 @@ TEST_F(ContainerHierarchyPromotionTest,
   EXPECT_EQ(0, grandparent_ref.id);
   EXPECT_EQ(1, parent_ref.id);
   EXPECT_EQ(2, child_ref.id);
-  EXPECT_EQ(3, Counted::instance_count);
+  EXPECT_EQ(3, Counted::num_instances);
 }
 
 // ----------------------------------------------------------------------------
@@ -1886,7 +1886,7 @@ TEST_F(ContainerHierarchyRelegationTest,
   EXPECT_NE(&child_val1, &child_val2);
   EXPECT_EQ(0, child_val1.id);
   EXPECT_EQ(1, child_val2.id);
-  EXPECT_EQ(2, Counted::instance_count);
+  EXPECT_EQ(2, Counted::num_instances);
 }
 
 TEST_F(ContainerHierarchyRelegationTest,
@@ -1902,7 +1902,7 @@ TEST_F(ContainerHierarchyRelegationTest,
   EXPECT_NE(&parent_ref, &child_val);
   EXPECT_EQ(0, parent_ref.id);
   EXPECT_EQ(1, child_val.id);
-  EXPECT_EQ(2, Counted::instance_count);
+  EXPECT_EQ(2, Counted::num_instances);
 }
 
 TEST_F(ContainerHierarchyRelegationTest,
@@ -1921,7 +1921,7 @@ TEST_F(ContainerHierarchyRelegationTest,
   EXPECT_NE(&grandparent_ref, &child_val);  // Value is relegated
   EXPECT_EQ(0, grandparent_ref.id);
   EXPECT_EQ(1, child_val.id);
-  EXPECT_EQ(2, Counted::instance_count);
+  EXPECT_EQ(2, Counted::num_instances);
 }
 
 // ----------------------------------------------------------------------------
@@ -1961,7 +1961,7 @@ TEST_F(ContainerHierarchyComplexTest, mixed_scopes_across_hierarchy) {
   EXPECT_EQ(&sc1, &sc2);
   EXPECT_EQ(3, sc1.id);
 
-  EXPECT_EQ(4, Counted::instance_count);
+  EXPECT_EQ(4, Counted::num_instances);
 }
 
 TEST_F(ContainerHierarchyComplexTest, dependency_chain_across_hierarchy) {
@@ -1984,7 +1984,7 @@ TEST_F(ContainerHierarchyComplexTest, dependency_chain_across_hierarchy) {
   EXPECT_EQ(0, service.dep->dep->id);  // GrandparentDep
   EXPECT_EQ(1, service.dep->id);       // ParentDep
   EXPECT_EQ(2, service.id);            // ChildService
-  EXPECT_EQ(3, Counted::instance_count);
+  EXPECT_EQ(3, Counted::num_instances);
 }
 
 TEST_F(ContainerHierarchyComplexTest,
@@ -2011,7 +2011,7 @@ TEST_F(ContainerHierarchyComplexTest,
   EXPECT_EQ(2, child_val1.id);
   EXPECT_EQ(3, child_val2.id);
 
-  EXPECT_EQ(4, Counted::instance_count);
+  EXPECT_EQ(4, Counted::num_instances);
 }
 
 TEST_F(ContainerHierarchyComplexTest,
@@ -2028,7 +2028,7 @@ TEST_F(ContainerHierarchyComplexTest,
 
   EXPECT_EQ(&child1_ref, &child2_ref);  // Same instance!
   EXPECT_EQ(0, child1_ref.id);
-  EXPECT_EQ(1, Counted::instance_count);
+  EXPECT_EQ(1, Counted::num_instances);
 }
 
 // This test shows a surprising result that can't be avoided.
@@ -2057,7 +2057,7 @@ TEST_F(ContainerHierarchyComplexTest,
   EXPECT_EQ(&child1_ref, &child2_ref);
   EXPECT_EQ(0, child1_ref.id);
   EXPECT_EQ(0, child2_ref.id);
-  EXPECT_EQ(1, Counted::instance_count);
+  EXPECT_EQ(1, Counted::num_instances);
 }
 
 // Promoted instances are real singletons.
@@ -2079,7 +2079,7 @@ TEST_F(ContainerHierarchyComplexTest,
   EXPECT_EQ(&child1_ref, &child2_ref);
   EXPECT_EQ(0, child1_ref.id);
   EXPECT_EQ(0, child2_ref.id);
-  EXPECT_EQ(1, Counted::instance_count);
+  EXPECT_EQ(1, Counted::num_instances);
 }
 
 TEST_F(ContainerHierarchyComplexTest,
@@ -2102,7 +2102,7 @@ TEST_F(ContainerHierarchyComplexTest,
   EXPECT_NE(&child1_ref, &child2_ref);
   EXPECT_EQ(0, child1_ref.id);
   EXPECT_EQ(1, child2_ref.id);
-  EXPECT_EQ(2, Counted::instance_count);
+  EXPECT_EQ(2, Counted::num_instances);
 }
 
 TEST_F(ContainerHierarchyComplexTest,
@@ -2129,7 +2129,7 @@ TEST_F(ContainerHierarchyComplexTest,
   EXPECT_EQ(&parent_ref, &child_ref);
   EXPECT_EQ(0, parent_ref.id);
   EXPECT_EQ(0, child_ref.id);
-  EXPECT_EQ(1, Counted::instance_count);
+  EXPECT_EQ(1, Counted::num_instances);
 }
 
 TEST_F(ContainerHierarchyComplexTest, deep_hierarchy_with_multiple_overrides) {
