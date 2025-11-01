@@ -255,11 +255,11 @@ constexpr auto bind() -> BindBuilder<From> {
 // ----------------------------------------------------------------------------
 // Concepts
 // ----------------------------------------------------------------------------
+// The concept IsConvertibleToBinding is implemented using trait
+// specializations. Here, we specialize the trait for each of the DSL states
+// that can convert directly to the final binding type.
 
 namespace traits {
-
-template <typename>
-struct IsConvertibleToBinding : std::false_type {};
 
 template <typename From>
 struct IsConvertibleToBinding<BindBuilder<From>> : std::true_type {};
@@ -279,18 +279,6 @@ template <typename From, typename To, typename Provider, typename Scope>
 struct IsConvertibleToBinding<InBuilder<From, To, Provider, Scope>>
     : std::true_type {};
 
-template <typename From, typename Scope, typename Provider>
-struct IsConvertibleToBinding<Binding<From, Scope, Provider>> : std::true_type {
-};
-
-template <typename Binding>
-inline constexpr auto is_convertible_to_binding =
-    IsConvertibleToBinding<Binding>::value;
-
 }  // namespace traits
-
-template <typename Binding>
-concept IsConvertibleToBinding =
-    traits::is_convertible_to_binding<std::remove_cvref_t<Binding>>;
 
 }  // namespace dink

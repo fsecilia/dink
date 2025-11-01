@@ -39,4 +39,32 @@ struct Binding {
   constexpr Binding() = default;
 };
 
+// ----------------------------------------------------------------------------
+// Concepts
+// ----------------------------------------------------------------------------
+
+namespace traits {
+
+template <typename>
+struct IsConvertibleToBinding : std::false_type {};
+
+//! Binding is itself always convertible to Binding.
+template <typename From, typename Scope, typename Provider>
+struct IsConvertibleToBinding<Binding<From, Scope, Provider>> : std::true_type {
+};
+
+template <typename Binding>
+inline constexpr auto is_convertible_to_binding =
+    IsConvertibleToBinding<Binding>::value;
+
+}  // namespace traits
+
+//! Matches types that are or can convert to Binding.
+//
+// This concept uses an extensible template that can be specialized for
+// arbitrary types.
+template <typename Binding>
+concept IsConvertibleToBinding =
+    traits::is_convertible_to_binding<std::remove_cvref_t<Binding>>;
+
 }  // namespace dink
