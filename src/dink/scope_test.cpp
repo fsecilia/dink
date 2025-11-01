@@ -18,7 +18,7 @@ struct ScopeTest : Test {
 
   // Returns given container through member of Requested.
   template <typename Constructed>
-  struct TransientProvider {
+  struct EchoProvider {
     using Provided = Constructed;
 
     template <typename Requested>
@@ -45,7 +45,7 @@ struct ScopeTestTransient : ScopeTest {
   using Sut = Transient;
   Sut sut{};
 
-  using Provider = TransientProvider<Resolved>;
+  using Provider = EchoProvider<Resolved>;
   Provider provider;
 };
 
@@ -159,7 +159,7 @@ struct ScopeTestSingleton : ScopeTest {
   using Sut = Singleton;
   Sut sut{};
 
-  using Provider = TransientProvider<Resolved>;
+  using Provider = EchoProvider<Resolved>;
 };
 
 TEST_F(ScopeTestSingleton, resolves_reference) {
@@ -259,7 +259,7 @@ TEST_F(ScopeTestSingleton,
 
   const auto& result = sut.resolve<Resolved&>(container, provider);
 
-  struct OtherProvider : TransientProvider<Resolved> {};
+  struct OtherProvider : Provider {};
   auto other_provider = OtherProvider{};
   auto other_sut = Singleton{};
   const auto& other_result =
@@ -275,7 +275,7 @@ TEST_F(ScopeTestSingleton,
 
   const auto result = sut.resolve<Resolved*>(container, provider);
 
-  struct OtherProvider : TransientProvider<Resolved> {};
+  struct OtherProvider : Provider {};
   auto other_provider = OtherProvider{};
   auto other_sut = Singleton{};
   const auto other_result =
@@ -290,14 +290,14 @@ TEST_F(ScopeTestSingleton,
 struct ScopeTestSingletonConstructionCounts : ScopeTest {
   struct Requested : Resolved {};
 
-  struct CountingProvider : TransientProvider<Requested> {
+  struct CountingProvider : EchoProvider<Requested> {
     int_t& num_calls;
     using Provided = Requested;
 
     template <typename Requested>
     auto create(Container& container) noexcept -> Requested {
       ++num_calls;
-      return TransientProvider::template create<Requested>(container);
+      return EchoProvider::template create<Requested>(container);
     }
   };
 
