@@ -10,23 +10,25 @@
 
 // State Graph Mermaid Chart
 // ----------------------------------------------------------------------------
-// stateDiagram-v2
-//     [*] --> BindBuilder : bind<From>()
-//
-//     BindBuilder --> AsBuilder : .as<To>()
-//     BindBuilder --> InBuilder : .in<Scope>()
-//     BindBuilder --> ToBuilder : .to(instance)
-//     BindBuilder --> [*] : (implicit conversion to Binding)
-//
-//     AsBuilder --> [*] : (implicit conversion to Binding)
-//     AsBuilder --> ViaBuilder : .via(factory)
-//     AsBuilder --> InBuilder : .in<Scope>()
-//
-//     ViaBuilder --> [*] : (implicit conversion to Binding)
-//     ViaBuilder --> InBuilder : .in<Scope>()
-//
-//     ToBuilder --> [*] : (implicit conversion to Binding)
-//     InBuilder --> [*] : (implicit conversion to Binding)
+/*
+stateDiagram-v2
+    [*] --> BindBuilder : bind<From>()
+
+    BindBuilder --> AsBuilder : .as<To>()
+    BindBuilder --> InBuilder : .in<Scope>()
+    BindBuilder --> ToBuilder : .to(instance)
+    BindBuilder --> [*] : (implicit conversion to Binding)
+
+    AsBuilder --> [*] : (implicit conversion to Binding)
+    AsBuilder --> ViaBuilder : .via(factory)
+    AsBuilder --> InBuilder : .in<Scope>()
+
+    ViaBuilder --> [*] : (implicit conversion to Binding)
+    ViaBuilder --> InBuilder : .in<Scope>()
+
+    ToBuilder --> [*] : (implicit conversion to Binding)
+    InBuilder --> [*] : (implicit conversion to Binding)
+*/
 
 #pragma once
 
