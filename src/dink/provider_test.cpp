@@ -21,38 +21,37 @@ struct Fixture {
 
   struct Container {};
 
-  // Stub invoker that returns canned values.
-  template <typename ExpectedConstructed>
+  // Stub invoker; returns canned ctor calls, passes factories through.
+  template <typename Expected>
   struct Invoker {
-    int_t ctor_specialization_return_value;
+    int_t ctor_param;
 
+    // Returns Expected, passing ctor_param to the ctor.
     template <typename Requested, typename Container>
     constexpr auto create(Container&) const -> Requested {
       // Verify we're constructing the expected type.
-      static_assert(std::same_as<Canonical<Requested>, ExpectedConstructed>);
+      static_assert(std::same_as<Canonical<Requested>, Expected>);
 
       if constexpr (meta::IsSharedPtr<Requested>) {
-        return std::make_shared<ExpectedConstructed>(
-            ctor_specialization_return_value);
+        return std::make_shared<Expected>(ctor_param);
       } else if constexpr (meta::IsUniquePtr<Requested>) {
-        return std::make_unique<ExpectedConstructed>(
-            ctor_specialization_return_value);
+        return std::make_unique<Expected>(ctor_param);
       } else {
-        return ExpectedConstructed{ctor_specialization_return_value};
+        return Expected{ctor_param};
       }
     }
 
     template <typename Requested, typename Container, typename Factory>
     constexpr auto create(Container&, Factory& factory) const -> Requested {
       // Verify we're constructing the expected type.
-      static_assert(std::same_as<Canonical<Requested>, ExpectedConstructed>);
+      static_assert(std::same_as<Canonical<Requested>, Expected>);
 
       if constexpr (meta::IsSharedPtr<Requested>) {
-        return std::make_shared<ExpectedConstructed>(factory());
+        return std::make_shared<Expected>(factory());
       } else if constexpr (meta::IsUniquePtr<Requested>) {
-        return std::make_unique<ExpectedConstructed>(factory());
+        return std::make_unique<Expected>(factory());
       } else {
-        return ExpectedConstructed{factory()};
+        return Expected{factory()};
       }
     }
   };
