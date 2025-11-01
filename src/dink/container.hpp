@@ -7,7 +7,7 @@
 #pragma once
 
 #include <dink/lib.hpp>
-#include <dink/binding.hpp>
+#include <dink/bind.hpp>
 #include <dink/config.hpp>
 #include <dink/dispatcher.hpp>
 #include <dink/meta.hpp>

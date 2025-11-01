@@ -2,7 +2,7 @@
 // Copyright (c) 2025 Frank Secilia
 // SPDX-License-Identifier: MIT
 
-#include "binding.hpp"
+#include "bind.hpp"
 #include <dink/test.hpp>
 
 namespace dink {

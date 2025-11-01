@@ -9,7 +9,7 @@
 #pragma once
 
 #include <dink/lib.hpp>
-#include <dink/binding.hpp>
+#include <dink/bind.hpp>
 #include <dink/meta.hpp>
 #include <dink/scope.hpp>
 #include <tuple>

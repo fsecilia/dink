@@ -4,7 +4,7 @@
 
 #include "container.hpp"
 #include <dink/test.hpp>
-#include <dink/binding.hpp>
+#include <dink/bind.hpp>
 
 namespace dink {
 namespace {
