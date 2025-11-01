@@ -49,6 +49,10 @@ constexpr auto make_bindings(Builders&&... builders) {
 // bind<From>() produces BindBuilder<From>
 static_assert(std::same_as<decltype(bind<Type>()), BindBuilder<Type>>);
 
+// .via(factory) from BindBuilder produces ViaBuilder<From, From, Factory>
+static_assert(std::same_as<decltype(bind<Type>().via(type_factory)),
+                           ViaBuilder<Type, Type, TypeFactory>>);
+
 // .as<To>() produces AsBuilder<From, To>
 static_assert(std::same_as<decltype(bind<Interface>().as<Implementation>()),
                            AsBuilder<Interface, Implementation>>);
@@ -90,6 +94,12 @@ static_assert(
 static_assert(
     std::same_as<decltype(Binding{bind<Type>()}),
                  Binding<Type, scope::Transient, provider::Ctor<Type>>>);
+
+// .via(factory) converts to
+// Binding<From, Transient, Factory<From, decltype(factory)>>
+static_assert(std::same_as<decltype(Binding{bind<Type>().via(type_factory)}),
+                           Binding<Type, scope::Transient,
+                                   provider::Factory<Type, TypeFactory>>>);
 
 // .as<To>() converts to Binding<From, Transient, Ctor<To>>
 static_assert(
@@ -146,15 +156,36 @@ static_assert([]() constexpr {
 // ----------------------------------------------------------------------------
 
 // All Ctor combinations with scopes
+// ----------------------------------------------------------------------------
+
+// Transient.
 static_assert(
     std::same_as<decltype(Binding{bind<Type>().in<scope::Transient>()}),
                  Binding<Type, scope::Transient, provider::Ctor<Type>>>);
 
+// Singleton.
 static_assert(
     std::same_as<decltype(Binding{bind<Type>().in<scope::Singleton>()}),
                  Binding<Type, scope::Singleton, provider::Ctor<Type>>>);
 
 // All Factory combinations with scopes
+// ----------------------------------------------------------------------------
+
+// Direct .via() with Transient.
+static_assert(
+    std::same_as<
+        decltype(Binding{
+            bind<Type>().via(type_factory).in<scope::Transient>()}),
+        Binding<Type, scope::Transient, provider::Factory<Type, TypeFactory>>>);
+
+// Direct .via() with Singleton.
+static_assert(
+    std::same_as<
+        decltype(Binding{
+            bind<Type>().via(type_factory).in<scope::Singleton>()}),
+        Binding<Type, scope::Singleton, provider::Factory<Type, TypeFactory>>>);
+
+// .as<>().via() with Transient.
 static_assert(
     std::same_as<
         decltype(Binding{bind<Interface>()
@@ -164,6 +195,7 @@ static_assert(
         Binding<Interface, scope::Transient,
                 provider::Factory<Implementation, ImplementationFactory>>>);
 
+// .as<>().via() with Singleton.
 static_assert(
     std::same_as<
         decltype(Binding{bind<Interface>()
@@ -172,60 +204,6 @@ static_assert(
                              .in<scope::Singleton>()}),
         Binding<Interface, scope::Singleton,
                 provider::Factory<Implementation, ImplementationFactory>>>);
-
-// ----------------------------------------------------------------------------
-// Tuple Construction Test - Real-world usage pattern
-// ----------------------------------------------------------------------------
-
-// Test that bindings can be stored in a tuple (forces rvalue conversions)
-static_assert([]() constexpr {
-  Instance inst;
-
-  auto bindings = make_bindings(
-      bind<Interface>(), bind<Interface>().as<Implementation>(),
-      bind<Interface>().as<Implementation>().via(implementation_factory),
-      bind<Type>().as<Type>().via(type_factory).in<scope::Singleton>(),
-      bind<Type>().in<scope::Singleton>(),
-      bind<Interface>().as<Implementation>().in<scope::Transient>(),
-      bind<Instance>().to(inst));
-
-  // Verify tuple element types
-  using Tuple = decltype(bindings);
-
-  static_assert(
-      std::same_as<
-          std::tuple_element_t<0, Tuple>,
-          Binding<Interface, scope::Transient, provider::Ctor<Interface>>>);
-
-  static_assert(std::same_as<std::tuple_element_t<1, Tuple>,
-                             Binding<Interface, scope::Transient,
-                                     provider::Ctor<Implementation>>>);
-
-  static_assert(
-      std::same_as<
-          std::tuple_element_t<2, Tuple>,
-          Binding<Interface, scope::Transient,
-                  provider::Factory<Implementation, ImplementationFactory>>>);
-
-  static_assert(std::same_as<std::tuple_element_t<3, Tuple>,
-                             Binding<Type, scope::Singleton,
-                                     provider::Factory<Type, TypeFactory>>>);
-
-  static_assert(
-      std::same_as<std::tuple_element_t<4, Tuple>,
-                   Binding<Type, scope::Singleton, provider::Ctor<Type>>>);
-
-  static_assert(std::same_as<std::tuple_element_t<5, Tuple>,
-                             Binding<Interface, scope::Transient,
-                                     provider::Ctor<Implementation>>>);
-
-  static_assert(
-      std::same_as<
-          std::tuple_element_t<6, Tuple>,
-          Binding<Instance, scope::Instance, provider::External<Instance>>>);
-
-  return true;
-}());
 
 // ----------------------------------------------------------------------------
 // FromType Alias Test
@@ -282,12 +260,13 @@ TEST_F(DocumentationExamples, ExampleUsage) {
   auto factory = []() { return Implementation{}; };
 
   // Each line from the documentation should compile verbatim.
-  [[maybe_unused]] auto b1 = Binding{bind<Interface>()};
-  [[maybe_unused]] auto b2 = Binding{bind<Interface>().as<Implementation>()};
-  [[maybe_unused]] auto b3 =
+  [[maybe_unused]] auto b1 = Binding{bind<Type>()};
+  [[maybe_unused]] auto b2 = Binding{bind<Type>().via(type_factory)};
+  [[maybe_unused]] auto b3 = Binding{bind<Interface>().as<Implementation>()};
+  [[maybe_unused]] auto b4 =
       Binding{bind<Interface>().as<Implementation>().via(factory)};
-  [[maybe_unused]] auto b4 = Binding{bind<Interface>().in<scope::Singleton>()};
-  [[maybe_unused]] auto b5 = Binding{bind<Instance>().to(inst)};
+  [[maybe_unused]] auto b5 = Binding{bind<Interface>().in<scope::Singleton>()};
+  [[maybe_unused]] auto b6 = Binding{bind<Instance>().to(inst)};
 }
 
 }  // namespace

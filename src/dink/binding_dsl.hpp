@@ -15,16 +15,17 @@ stateDiagram-v2
     [*] --> BindBuilder : bind<From>()
 
     BindBuilder --> AsBuilder : .as<To>()
+    BindBuilder --> ViaBuilder : .via(factory)
     BindBuilder --> InBuilder : .in<Scope>()
     BindBuilder --> ToBuilder : .to(instance)
     BindBuilder --> [*] : (implicit conversion to Binding)
 
-    AsBuilder --> [*] : (implicit conversion to Binding)
-    AsBuilder --> ViaBuilder : .via(factory)
-    AsBuilder --> InBuilder : .in<Scope>()
-
-    ViaBuilder --> [*] : (implicit conversion to Binding)
     ViaBuilder --> InBuilder : .in<Scope>()
+    ViaBuilder --> [*] : (implicit conversion to Binding)
+
+    AsBuilder --> [*] : (implicit conversion to Binding)
+    AsBuilder --> InBuilder : .in<Scope>()
+    AsBuilder --> ViaBuilder : .via(factory)
 
     ToBuilder --> [*] : (implicit conversion to Binding)
     InBuilder --> [*] : (implicit conversion to Binding)
@@ -83,6 +84,12 @@ class BindBuilder {
     return {};
   }
 
+  // Specify factory callable
+  template <typename Factory>
+  constexpr auto via(Factory factory) && -> ViaBuilder<From, From, Factory> {
+    return ViaBuilder<From, From, Factory>{std::move(factory)};
+  }
+
   // Default conversion: Transient<Ctor<From>>
   constexpr
   operator Binding<From, scope::Transient, provider::Ctor<From>>() && {
@@ -120,7 +127,7 @@ class AsBuilder {
 // ViaBuilder
 // ----------------------------------------------------------------------------
 
-//! State after .as<To>().via(factory).
+//! State after .via(factory) or .as<To>().via(factory).
 template <typename From, typename To, typename Factory>
 class ViaBuilder {
  public:
@@ -223,6 +230,7 @@ Binding(InBuilder<From, To, Provider, Scope>&&)
 //
 // Example usage:
 //   bind<Type>() -> Transient<Ctor<Type>>
+//   bind<Type>().via(factory) -> Transient<Factory<Type, decltype(factory)>>
 //   bind<Interface>().as<Implementation>() -> Transient<Ctor<Implementation>>
 //   bind<Interface>().as<Implementation>().via(factory)
 //     -> Transient<Factory<Implementation, decltype(factory)>>
