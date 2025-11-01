@@ -152,6 +152,7 @@ function(dink_configure_test_target_warnings target)
   if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     target_compile_options(${target} PUBLIC
       -Wno-changes-meaning
+      -Wno-missing-field-initializers
       -Wno-unused-local-typedefs
     )
   endif()
