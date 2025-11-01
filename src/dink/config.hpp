@@ -87,9 +87,11 @@ class Config {
       : bindings_{std::move(bindings)} {}
 
   //! Construct from individual binding arguments.
-  template <IsConvertibleToBinding... ActualBindings>
-  explicit constexpr Config(ActualBindings&&... bindings) noexcept
-      : Config{std::tuple{std::forward<ActualBindings>(bindings)...}} {}
+  //
+  // This constructor accepts types convertible to a binding and converts each.
+  template <IsConvertibleToBinding... Args>
+  explicit constexpr Config(Args&&... args) noexcept
+      : Config{std::tuple{Binding{std::forward<Args>(args)}...}} {}
 
   //! Finds first binding with matching From type.
   //
@@ -121,10 +123,10 @@ class Config {
 // Deduction Guides
 // ----------------------------------------------------------------------------
 
-//! Converts binding-likes to actual bindings.
-template <IsConvertibleToBinding... Bindings>
-Config(Bindings&&...) -> Config<
-    std::remove_cvref_t<decltype(Binding{std::declval<Bindings>()})>...>;
+//! Converts args to actual bindings.
+template <IsConvertibleToBinding... Args>
+Config(Args&&...)
+    -> Config<std::remove_cvref_t<decltype(Binding{std::declval<Args>()})>...>;
 
 // ----------------------------------------------------------------------------
 // Concepts
