@@ -93,15 +93,15 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
   add_compile_options(-fstrict-aliasing -fsized-deallocation)
 endif()
 
-if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
   add_compile_options(-fsafe-buffer-usage-suggestions)
 endif()
 
-if (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   add_compile_options(-fconcepts-diagnostics-depth=10)
 endif()
 
-if (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
+if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
   add_compile_options(/utf-8 "$<$<CONFIG:RELEASE>:/GS;/Gy;/Zc:inline>")
   add_link_options("$<$<CONFIG:RELEASE>:/LTCG;/OPT:ICF;/OPT:REF>")
 endif()
