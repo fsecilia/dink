@@ -87,7 +87,7 @@ struct CtorFixture : Fixture {
 // ----------------------------------------------------------------------------
 
 struct CtorCompileTimeTest : CtorFixture {
-  static constexpr auto creates_value() -> bool {
+  static constexpr auto creates_expected_value() -> bool {
     Container container{};
     Sut sut{InvokerFactory{}};
 
@@ -96,7 +96,7 @@ struct CtorCompileTimeTest : CtorFixture {
     return constructed.value == Constructed::expected_value;
   }
 
-  constexpr CtorCompileTimeTest() { static_assert(creates_value()); }
+  constexpr CtorCompileTimeTest() { static_assert(creates_expected_value()); }
 };
 [[maybe_unused]] constexpr auto ctor_provider_compile_time_test =
     CtorCompileTimeTest{};
@@ -136,7 +136,7 @@ struct FactoryFixture : Fixture {
 // ----------------------------------------------------------------------------
 
 struct FactoryCompileTimeTest : FactoryFixture {
-  static constexpr auto creates_value() -> bool {
+  static constexpr auto creates_expected_value() -> bool {
     Container container{};
     InvokerFactory invoker_factory{};
     Sut sut{ConstructedFactory{}, invoker_factory};
@@ -146,7 +146,9 @@ struct FactoryCompileTimeTest : FactoryFixture {
     return constructed.value == Constructed::expected_value;
   }
 
-  constexpr FactoryCompileTimeTest() { static_assert(creates_value()); }
+  constexpr FactoryCompileTimeTest() {
+    static_assert(creates_expected_value());
+  }
 };
 [[maybe_unused]] constexpr auto factory_provider_compile_time_test =
     FactoryCompileTimeTest{};
