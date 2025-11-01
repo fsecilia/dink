@@ -11,9 +11,9 @@ namespace dink::provider {
 namespace {
 
 struct Fixture {
+  static inline const auto initial_value = int_t{2322};   // arbitrary
+  static inline const auto modified_value = int_t{5412};  // arbitrary
   struct Constructed {
-    static inline const auto expected_value = int_t{2322};  // arbitrary
-
     int_t value;
   };
 
@@ -63,12 +63,12 @@ struct Fixture {
       static_assert(std::same_as<Constructed, Constructed>);
       static_assert(std::same_as<Factory, ExpectedFactory>);
 
-      return Invoker<Constructed>{Constructed::expected_value};
+      return Invoker<Constructed>{initial_value};
     }
   };
 
   auto test_result(const Constructed& result) -> void {
-    EXPECT_EQ(result.value, Constructed::expected_value);
+    EXPECT_EQ(result.value, initial_value);
   }
 };
 
@@ -91,7 +91,7 @@ struct CtorCompileTimeTest : CtorFixture {
 
     auto constructed = sut.create<Constructed>(container);
 
-    return constructed.value == Constructed::expected_value;
+    return constructed.value == initial_value;
   }
 
   constexpr CtorCompileTimeTest() { static_assert(creates_expected_value()); }
@@ -122,7 +122,7 @@ TEST_F(ProviderCtorRunTimeTest, CreatesUniquePtr) {
 struct FactoryFixture : Fixture {
   struct ConstructedFactory {
     constexpr auto operator()() noexcept -> Constructed {
-      return Constructed{Constructed::expected_value};
+      return Constructed{initial_value};
     }
   };
   using InvokerFactory = InvokerFactory<ConstructedFactory>;
@@ -141,7 +141,7 @@ struct FactoryCompileTimeTest : FactoryFixture {
 
     auto constructed = sut.create<Constructed>(container);
 
-    return constructed.value == Constructed::expected_value;
+    return constructed.value == initial_value;
   }
 
   constexpr FactoryCompileTimeTest() {
@@ -172,8 +172,6 @@ TEST_F(ProviderFactoryRunTimeTest, CreatesUniquePtr) {
 // ----------------------------------------------------------------------------
 
 struct InstanceFixture : Fixture {
-  Constructed external_instance{Constructed::expected_value};
-
   using Sut = provider::External<Constructed>;
 };
 
@@ -182,24 +180,24 @@ struct InstanceFixture : Fixture {
 
 struct InstanceCompileTimeTest : InstanceFixture {
   static constexpr auto returns_expected_reference() -> bool {
-    Constructed ext{Constructed::expected_value};
+    Constructed ext{initial_value};
     Container container{};
     Sut sut{ext};
 
     auto& ref = sut.create<Constructed&>(container);
 
-    return &ref == &ext && ref.value == Constructed::expected_value;
+    return &ref == &ext && ref.value == initial_value;
   }
 
   static constexpr auto returns_value_copy() -> bool {
-    Constructed ext{Constructed::expected_value};
+    Constructed ext{initial_value};
     Container container{};
     Sut sut{ext};
 
     auto value = sut.create<Constructed>(container);
 
     // Value should match but be different address
-    return value.value == Constructed::expected_value;
+    return value.value == initial_value;
   }
 
   constexpr InstanceCompileTimeTest() {
@@ -216,6 +214,7 @@ struct InstanceCompileTimeTest : InstanceFixture {
 
 struct ProviderInstanceRunTimeTest : InstanceFixture, Test {
   Container container{};
+  Constructed external_instance{initial_value};
   Sut sut{external_instance};
 };
 
@@ -223,31 +222,31 @@ TEST_F(ProviderInstanceRunTimeTest, ReturnsReferenceToExternal) {
   auto& ref = sut.create<Constructed&>(container);
 
   EXPECT_EQ(&external_instance, &ref);
-  EXPECT_EQ(Constructed::expected_value, ref.value);
+  EXPECT_EQ(initial_value, ref.value);
 }
 
 TEST_F(ProviderInstanceRunTimeTest, ReturnsConstReferenceToExternal) {
   const auto& ref = sut.create<const Constructed&>(container);
 
   EXPECT_EQ(&external_instance, &ref);
-  EXPECT_EQ(Constructed::expected_value, ref.value);
+  EXPECT_EQ(initial_value, ref.value);
 }
 
 TEST_F(ProviderInstanceRunTimeTest, ReturnsValueCopy) {
   auto value = sut.create<Constructed>(container);
 
-  EXPECT_EQ(Constructed::expected_value, value.value);
+  EXPECT_EQ(initial_value, value.value);
   EXPECT_NE(&external_instance, &value);  // Different addresses
 
   // Verify it's a true copy
-  value.value = 123;
-  EXPECT_EQ(Constructed::expected_value, external_instance.value);
+  value.value = modified_value;
+  EXPECT_EQ(initial_value, external_instance.value);
 }
 
 TEST_F(ProviderInstanceRunTimeTest, ReturnsConstValueCopy) {
   const auto value = sut.create<const Constructed>(container);
 
-  EXPECT_EQ(Constructed::expected_value, value.value);
+  EXPECT_EQ(initial_value, value.value);
 }
 
 TEST_F(ProviderInstanceRunTimeTest, MultipleCallsReturnSameReference) {
@@ -270,27 +269,30 @@ TEST_F(ProviderInstanceRunTimeTest,
 TEST_F(ProviderInstanceRunTimeTest, MutationsThroughReferenceAffectExternal) {
   auto& ref = sut.create<Constructed&>(container);
 
-  ref.value = 77;
+  ref.value = modified_value;
 
-  EXPECT_EQ(77, external_instance.value);
+  EXPECT_EQ(modified_value, external_instance.value);
 }
 
 TEST_F(ProviderInstanceRunTimeTest, ValueCopiesAreIndependent) {
   auto copy1 = sut.create<Constructed>(container);
   auto copy2 = sut.create<Constructed>(container);
 
-  copy1.value = 100;
-  copy2.value = 200;
+  // Mutate both copies.
+  const auto modified_value1 = modified_value;
+  const auto modified_value2 = modified_value * 2;
+  copy1.value = modified_value1;
+  copy2.value = modified_value2;
 
-  EXPECT_EQ(100, copy1.value);
-  EXPECT_EQ(200, copy2.value);
-  EXPECT_EQ(Constructed::expected_value, external_instance.value);
+  ASSERT_EQ(modified_value1, copy1.value);
+  ASSERT_EQ(modified_value2, copy2.value);
+  EXPECT_EQ(initial_value, external_instance.value);
 }
 
 // Test with non-copyable type (can only get references/pointers)
-struct ProviderInstanceNonCopyableTest : Test {
+struct ProviderInstanceNonCopyableTest : InstanceFixture, Test {
   struct NoCopy {
-    int_t value = 42;
+    int_t value = initial_value;
     NoCopy() = default;
     NoCopy(const NoCopy&) = delete;
     NoCopy(NoCopy&&) = default;
@@ -305,18 +307,18 @@ TEST_F(ProviderInstanceNonCopyableTest, ReturnsReferenceToNonCopyable) {
   auto& ref = sut.create<NoCopy&>(container);
 
   EXPECT_EQ(&external_instance, &ref);
-  EXPECT_EQ(42, ref.value);
+  EXPECT_EQ(initial_value, ref.value);
 }
 
 // Test with abstract base class (can only get references/pointers)
-struct ProviderInstanceAbstractTest : Test {
+struct ProviderInstanceAbstractTest : InstanceFixture, Test {
   struct IAbstract {
     virtual ~IAbstract() = default;
     virtual int_t get_value() const = 0;
   };
 
   struct Concrete : IAbstract {
-    int_t value = 55;
+    int_t value = initial_value;
     int_t get_value() const override { return value; }
   };
 
@@ -329,14 +331,14 @@ TEST_F(ProviderInstanceAbstractTest, ReturnsReferenceToAbstract) {
   auto& ref = sut.create<IAbstract&>(container);
 
   EXPECT_EQ(&concrete_instance, &ref);
-  EXPECT_EQ(55, ref.get_value());
+  EXPECT_EQ(initial_value, ref.get_value());
 }
 
 TEST_F(ProviderInstanceAbstractTest, ReturnsConstReferenceToAbstract) {
   const auto& ref = sut.create<const IAbstract&>(container);
 
   EXPECT_EQ(&concrete_instance, &ref);
-  EXPECT_EQ(55, ref.get_value());
+  EXPECT_EQ(initial_value, ref.get_value());
 }
 
 // Test Provided alias
@@ -353,7 +355,7 @@ TEST_F(ProviderInstanceProvidedTest, ProvidedAliasIsCorrect) {
 }
 
 // Test with different containers (ensure container parameter works)
-struct ProviderInstanceMultipleContainersTest : Test {
+struct ProviderInstanceMultipleContainersTest : InstanceFixture, Test {
   struct Instance {
     int_t value;
     explicit Instance(int_t v) : value{v} {}
@@ -365,7 +367,7 @@ struct ProviderInstanceMultipleContainersTest : Test {
   struct Container2 {
   };
 
-  Instance external_instance{99};
+  Instance external_instance{initial_value};
   provider::External<Instance> sut{external_instance};
 
   Container1 container1;
@@ -380,7 +382,7 @@ TEST_F(ProviderInstanceMultipleContainersTest,
 
   EXPECT_EQ(&ref1, &ref2);
   EXPECT_EQ(&external_instance, &ref1);
-  EXPECT_EQ(99, ref1.value);
+  EXPECT_EQ(initial_value, ref1.value);
 }
 
 }  // namespace
