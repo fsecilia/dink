@@ -12,11 +12,8 @@ namespace {
 
 struct Fixture {
   struct Constructed {
-    static inline const int_t default_value = 3;
-    static inline const int_t expected_value = 5;
+    static inline const auto expected_value = int_t{2322};  // arbitrary
     int_t value;
-    explicit constexpr Constructed(int_t value = default_value)
-        : value{value} {}
   };
 
   struct Container {};
@@ -175,11 +172,8 @@ TEST_F(ProviderFactoryRunTimeTest, CreatesUniquePtr) {
 
 struct InstanceFixture : Fixture {
   struct TestExternal {
-    static inline const int_t default_value = 42;
-    static inline const int_t expected_value = 99;
+    static inline const auto expected_value = int_t{5117};  // arbitrary
     int_t value;
-    explicit constexpr TestExternal(int_t value = default_value)
-        : value{value} {}
   };
 
   TestExternal external_instance{TestExternal::expected_value};
