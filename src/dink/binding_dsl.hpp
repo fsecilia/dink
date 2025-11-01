@@ -34,6 +34,7 @@
 #include <dink/binding.hpp>
 #include <dink/provider.hpp>
 #include <dink/scope.hpp>
+#include <type_traits>
 #include <utility>
 
 namespace dink {
