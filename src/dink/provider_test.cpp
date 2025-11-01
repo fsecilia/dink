@@ -299,7 +299,7 @@ TEST_F(ProviderInstanceRunTimeTest, ValueCopiesAreIndependent) {
 // Test with non-copyable type (can only get references/pointers)
 struct ProviderInstanceNonCopyableTest : Test {
   struct NoCopy {
-    int value = 42;
+    int_t value = 42;
     NoCopy() = default;
     NoCopy(const NoCopy&) = delete;
     NoCopy(NoCopy&&) = default;
@@ -321,12 +321,12 @@ TEST_F(ProviderInstanceNonCopyableTest, ReturnsReferenceToNonCopyable) {
 struct ProviderInstanceAbstractTest : Test {
   struct IAbstract {
     virtual ~IAbstract() = default;
-    virtual int get_value() const = 0;
+    virtual int_t get_value() const = 0;
   };
 
   struct Concrete : IAbstract {
-    int value = 55;
-    int get_value() const override { return value; }
+    int_t value = 55;
+    int_t get_value() const override { return value; }
   };
 
   Concrete concrete_instance{};
@@ -356,7 +356,7 @@ struct ProviderInstanceProvidedTest : Test {
 };
 
 TEST_F(ProviderInstanceProvidedTest, ProvidedAliasIsCorrect) {
-  static_assert(std::same_as<provider::External<int>::Provided, int>);
+  static_assert(std::same_as<provider::External<int_t>::Provided, int_t>);
   static_assert(std::same_as<decltype(sut)::Provided,
                              ProviderInstanceProvidedTest::SomeType>);
 }
@@ -364,8 +364,8 @@ TEST_F(ProviderInstanceProvidedTest, ProvidedAliasIsCorrect) {
 // Test with different containers (ensure container parameter works)
 struct ProviderInstanceMultipleContainersTest : Test {
   struct Instance {
-    int value;
-    explicit Instance(int v) : value{v} {}
+    int_t value;
+    explicit Instance(int_t v) : value{v} {}
   };
 
   struct Container1 {
