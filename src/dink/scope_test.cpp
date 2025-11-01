@@ -158,10 +158,12 @@ TEST_F(ScopeTestTransient, resolves_unique_ptr_to_const_per_request) {
 struct ScopeTestSingleton : ScopeTest {
   using Sut = Singleton;
   Sut sut{};
+
+  using Provider = TransientProvider<Resolved>;
 };
 
 TEST_F(ScopeTestSingleton, resolves_reference) {
-  struct UniqueProvider : TransientProvider<Resolved> {};
+  struct UniqueProvider : Provider {};
   auto provider = UniqueProvider{};
 
   const auto& result = sut.resolve<Resolved&>(container, provider);
@@ -169,7 +171,7 @@ TEST_F(ScopeTestSingleton, resolves_reference) {
 }
 
 TEST_F(ScopeTestSingleton, resolves_pointer) {
-  struct UniqueProvider : TransientProvider<Resolved> {};
+  struct UniqueProvider : Provider {};
   auto provider = UniqueProvider{};
 
   const auto* result = sut.resolve<Resolved*>(container, provider);
@@ -177,7 +179,7 @@ TEST_F(ScopeTestSingleton, resolves_pointer) {
 }
 
 TEST_F(ScopeTestSingleton, resolves_reference_to_const) {
-  struct UniqueProvider : TransientProvider<Resolved> {};
+  struct UniqueProvider : Provider {};
   auto provider = UniqueProvider{};
 
   const auto& result = sut.resolve<const Resolved&>(container, provider);
@@ -185,7 +187,7 @@ TEST_F(ScopeTestSingleton, resolves_reference_to_const) {
 }
 
 TEST_F(ScopeTestSingleton, resolves_pointer_to_const) {
-  struct UniqueProvider : TransientProvider<Resolved> {};
+  struct UniqueProvider : Provider {};
   auto provider = UniqueProvider{};
 
   const auto* result = sut.resolve<const Resolved*>(container, provider);
@@ -193,7 +195,7 @@ TEST_F(ScopeTestSingleton, resolves_pointer_to_const) {
 }
 
 TEST_F(ScopeTestSingleton, resolves_same_reference_per_provider) {
-  struct UniqueProvider : TransientProvider<Resolved> {};
+  struct UniqueProvider : Provider {};
   auto provider = UniqueProvider{};
 
   const auto& result1 = sut.resolve<Resolved&>(container, provider);
@@ -202,7 +204,7 @@ TEST_F(ScopeTestSingleton, resolves_same_reference_per_provider) {
 }
 
 TEST_F(ScopeTestSingleton, resolves_same_pointer_per_provider) {
-  struct UniqueProvider : TransientProvider<Resolved> {};
+  struct UniqueProvider : Provider {};
   auto provider = UniqueProvider{};
 
   const auto result1 = sut.resolve<Resolved*>(container, provider);
@@ -211,7 +213,7 @@ TEST_F(ScopeTestSingleton, resolves_same_pointer_per_provider) {
 }
 
 TEST_F(ScopeTestSingleton, resolves_same_reference_to_const_per_provider) {
-  struct UniqueProvider : TransientProvider<Resolved> {};
+  struct UniqueProvider : Provider {};
   auto provider = UniqueProvider{};
 
   const auto& result1 = sut.resolve<const Resolved&>(container, provider);
@@ -220,7 +222,7 @@ TEST_F(ScopeTestSingleton, resolves_same_reference_to_const_per_provider) {
 }
 
 TEST_F(ScopeTestSingleton, resolves_same_pointer_to_const_per_provider) {
-  struct UniqueProvider : TransientProvider<Resolved> {};
+  struct UniqueProvider : Provider {};
   auto provider = UniqueProvider{};
 
   const auto result1 = sut.resolve<const Resolved*>(container, provider);
@@ -229,7 +231,7 @@ TEST_F(ScopeTestSingleton, resolves_same_pointer_to_const_per_provider) {
 }
 
 TEST_F(ScopeTestSingleton, resolves_same_reference_to_const_and_non_const) {
-  struct UniqueProvider : TransientProvider<Resolved> {};
+  struct UniqueProvider : Provider {};
   auto provider = UniqueProvider{};
 
   auto& reference = sut.resolve<Resolved&>(container, provider);
@@ -240,7 +242,7 @@ TEST_F(ScopeTestSingleton, resolves_same_reference_to_const_and_non_const) {
 }
 
 TEST_F(ScopeTestSingleton, resolves_same_pointer_to_const_and_non_const) {
-  struct UniqueProvider : TransientProvider<Resolved> {};
+  struct UniqueProvider : Provider {};
   auto provider = UniqueProvider{};
 
   const auto pointer = sut.resolve<Resolved*>(container, provider);
@@ -252,7 +254,7 @@ TEST_F(ScopeTestSingleton, resolves_same_pointer_to_const_and_non_const) {
 
 TEST_F(ScopeTestSingleton,
        resolves_different_references_for_different_providers) {
-  struct UniqueProvider : TransientProvider<Resolved> {};
+  struct UniqueProvider : Provider {};
   auto provider = UniqueProvider{};
 
   const auto& result = sut.resolve<Resolved&>(container, provider);
@@ -268,7 +270,7 @@ TEST_F(ScopeTestSingleton,
 
 TEST_F(ScopeTestSingleton,
        resolves_different_pointers_for_different_providers) {
-  struct UniqueProvider : TransientProvider<Resolved> {};
+  struct UniqueProvider : Provider {};
   auto provider = UniqueProvider{};
 
   const auto result = sut.resolve<Resolved*>(container, provider);
