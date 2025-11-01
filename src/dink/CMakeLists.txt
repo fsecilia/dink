@@ -9,6 +9,7 @@
 list(APPEND dink_library_files
   arity.hpp
   bind.hpp
+  binding.hpp
   canonical.hpp
   config.hpp
   container.hpp
