@@ -17,8 +17,8 @@ namespace {
 
 // Base class for types that need instance counting
 struct Counted {
-  static inline int num_instances = 0;
-  int id;
+  static inline int_t num_instances = 0;
+  int_t id;
   Counted() : id{num_instances++} {}
 };
 
@@ -134,7 +134,7 @@ TEST_F(ContainerSingletonTest, multiple_singleton_types) {
 
 TEST_F(ContainerSingletonTest, resolves_mutable_reference) {
   struct SingletonBound {
-    int value = 42;
+    int_t value = 42;
     SingletonBound() = default;
   };
   auto sut = Container{bind<SingletonBound>().in<scope::Singleton>()};
@@ -151,7 +151,7 @@ TEST_F(ContainerSingletonTest, resolves_mutable_reference) {
 
 TEST_F(ContainerSingletonTest, resolves_const_reference) {
   struct SingletonBound {
-    int value = 42;
+    int_t value = 42;
     SingletonBound() = default;
   };
   auto sut = Container{bind<SingletonBound>().in<scope::Singleton>()};
@@ -165,7 +165,7 @@ TEST_F(ContainerSingletonTest, resolves_const_reference) {
 
 TEST_F(ContainerSingletonTest, resolves_mutable_pointer) {
   struct SingletonBound {
-    int value = 42;
+    int_t value = 42;
     SingletonBound() = default;
   };
   auto sut = Container{bind<SingletonBound>().in<scope::Singleton>()};
@@ -182,7 +182,7 @@ TEST_F(ContainerSingletonTest, resolves_mutable_pointer) {
 
 TEST_F(ContainerSingletonTest, resolves_const_pointer) {
   struct SingletonBound {
-    int value = 42;
+    int_t value = 42;
     SingletonBound() = default;
   };
   auto sut = Container{bind<SingletonBound>().in<scope::Singleton>()};
@@ -234,7 +234,7 @@ TEST_F(ContainerTransientTest, creates_new_value_per_resolve) {
 
 TEST_F(ContainerTransientTest, creates_new_unique_ptr_per_resolve) {
   struct TransientBound {
-    int value = 42;
+    int_t value = 42;
     TransientBound() = default;
   };
   auto sut = Container{bind<TransientBound>().in<scope::Transient>()};
@@ -249,7 +249,7 @@ TEST_F(ContainerTransientTest, creates_new_unique_ptr_per_resolve) {
 
 TEST_F(ContainerTransientTest, resolves_const_value) {
   struct TransientBound {
-    int value = 42;
+    int_t value = 42;
     TransientBound() = default;
   };
   auto sut = Container{bind<TransientBound>().in<scope::Transient>()};
@@ -260,7 +260,7 @@ TEST_F(ContainerTransientTest, resolves_const_value) {
 
 TEST_F(ContainerTransientTest, resolves_rvalue_reference) {
   struct TransientBound {
-    int value = 42;
+    int_t value = 42;
     TransientBound() = default;
   };
   auto sut = Container{bind<TransientBound>().in<scope::Transient>()};
@@ -277,7 +277,7 @@ struct ContainerInstanceTest : ContainerTest {};
 
 TEST_F(ContainerInstanceTest, shared_ptr_wraps_external_instance) {
   struct External {
-    int value = 42;
+    int_t value = 42;
   };
 
   External external_obj;
@@ -358,7 +358,7 @@ TEST_F(ContainerInstanceTest, weak_ptr_expires_with_canonical_shared_ptr) {
 
 TEST_F(ContainerInstanceTest, resolves_value_copy_of_external) {
   struct External {
-    int value = 42;
+    int_t value = 42;
   };
   External external_obj{99};
 
@@ -374,7 +374,7 @@ TEST_F(ContainerInstanceTest, resolves_value_copy_of_external) {
 
 TEST_F(ContainerInstanceTest, resolves_mutable_reference) {
   struct External {
-    int value = 42;
+    int_t value = 42;
   };
   External external_obj;
 
@@ -389,7 +389,7 @@ TEST_F(ContainerInstanceTest, resolves_mutable_reference) {
 
 TEST_F(ContainerInstanceTest, resolves_const_reference) {
   struct External {
-    int value = 42;
+    int_t value = 42;
   };
   External external_obj;
 
@@ -401,7 +401,7 @@ TEST_F(ContainerInstanceTest, resolves_const_reference) {
 
 TEST_F(ContainerInstanceTest, resolves_mutable_pointer) {
   struct External {
-    int value = 42;
+    int_t value = 42;
   };
   External external_obj;
 
@@ -416,7 +416,7 @@ TEST_F(ContainerInstanceTest, resolves_mutable_pointer) {
 
 TEST_F(ContainerInstanceTest, resolves_const_pointer) {
   struct External {
-    int value = 42;
+    int_t value = 42;
   };
   External external_obj;
 
@@ -434,7 +434,7 @@ struct ContainerFactoryTest : ContainerTest {};
 
 TEST_F(ContainerFactoryTest, resolves_with_factory) {
   struct Product {
-    int value;
+    int_t value;
   };
 
   auto factory = []() { return Product{99}; };
@@ -479,7 +479,7 @@ TEST_F(ContainerFactoryTest, factory_with_transient_scope) {
 
 TEST_F(ContainerFactoryTest, factory_with_deduced_scope) {
   struct Product {
-    int value;
+    int_t value;
   };
 
   auto factory = []() { return Product{42}; };
@@ -495,12 +495,12 @@ TEST_F(ContainerFactoryTest, factory_with_deduced_scope) {
 
 TEST_F(ContainerFactoryTest, factory_with_parameters_from_container) {
   struct Dependency {
-    int value = 10;
+    int_t value = 10;
     Dependency() = default;
   };
 
   struct Product {
-    int combined_value;
+    int_t combined_value;
     explicit Product(Dependency dep) : combined_value{dep.value * 2} {}
   };
 
@@ -522,11 +522,11 @@ struct ContainerInterfaceTest : ContainerTest {};
 TEST_F(ContainerInterfaceTest, binds_interface_to_implementation) {
   struct IService {
     virtual ~IService() = default;
-    virtual int get_value() const = 0;
+    virtual int_t get_value() const = 0;
   };
 
   struct ServiceImpl : IService {
-    int get_value() const override { return 42; }
+    int_t get_value() const override { return 42; }
   };
 
   auto sut = Container{bind<IService>().as<ServiceImpl>()};
@@ -538,11 +538,11 @@ TEST_F(ContainerInterfaceTest, binds_interface_to_implementation) {
 TEST_F(ContainerInterfaceTest, interface_binding_with_singleton_scope) {
   struct IService {
     virtual ~IService() = default;
-    virtual int get_id() const = 0;
+    virtual int_t get_id() const = 0;
   };
 
   struct ServiceImpl : IService, Counted {
-    int get_id() const override { return id; }
+    int_t get_id() const override { return id; }
   };
 
   auto sut =
@@ -558,13 +558,13 @@ TEST_F(ContainerInterfaceTest, interface_binding_with_singleton_scope) {
 TEST_F(ContainerInterfaceTest, interface_binding_with_factory) {
   struct IService {
     virtual ~IService() = default;
-    virtual int get_value() const = 0;
+    virtual int_t get_value() const = 0;
   };
 
   struct ServiceImpl : IService {
-    int value;
-    explicit ServiceImpl(int v) : value{v} {}
-    int get_value() const override { return value; }
+    int_t value;
+    explicit ServiceImpl(int_t v) : value{v} {}
+    int_t get_value() const override { return value; }
   };
 
   auto factory = []() { return ServiceImpl{99}; };
@@ -578,11 +578,11 @@ TEST_F(ContainerInterfaceTest, interface_binding_with_factory) {
 TEST_F(ContainerInterfaceTest, resolves_implementation_directly) {
   struct IService {
     virtual ~IService() = default;
-    virtual int get_value() const = 0;
+    virtual int_t get_value() const = 0;
   };
 
   struct ServiceImpl : IService {
-    int get_value() const override { return 42; }
+    int_t get_value() const override { return 42; }
   };
 
   auto sut = Container{bind<IService>().as<ServiceImpl>()};
@@ -595,18 +595,18 @@ TEST_F(ContainerInterfaceTest, resolves_implementation_directly) {
 TEST_F(ContainerInterfaceTest, multiple_interfaces_to_implementations) {
   struct IFoo {
     virtual ~IFoo() = default;
-    virtual int foo() const = 0;
+    virtual int_t foo() const = 0;
   };
   struct IBar {
     virtual ~IBar() = default;
-    virtual int bar() const = 0;
+    virtual int_t bar() const = 0;
   };
 
   struct FooImpl : IFoo {
-    int foo() const override { return 1; }
+    int_t foo() const override { return 1; }
   };
   struct BarImpl : IBar {
-    int bar() const override { return 2; }
+    int_t bar() const override { return 2; }
   };
 
   auto sut = Container{bind<IFoo>().as<FooImpl>(), bind<IBar>().as<BarImpl>()};
@@ -626,12 +626,12 @@ struct ContainerDependencyInjectionTest : ContainerTest {};
 
 TEST_F(ContainerDependencyInjectionTest, resolves_single_dependency) {
   struct Dependency {
-    int value = 10;
+    int_t value = 10;
     Dependency() = default;
   };
 
   struct Service {
-    int result;
+    int_t result;
     explicit Service(Dependency dep) : result{dep.value * 2} {}
   };
 
@@ -643,16 +643,16 @@ TEST_F(ContainerDependencyInjectionTest, resolves_single_dependency) {
 
 TEST_F(ContainerDependencyInjectionTest, resolves_multiple_dependencies) {
   struct DepA {
-    int value = 10;
+    int_t value = 10;
     DepA() = default;
   };
   struct DepB {
-    int value = 5;
+    int_t value = 5;
     DepB() = default;
   };
 
   struct Service {
-    int sum;
+    int_t sum;
     Service(DepA a, DepB b) : sum{a.value + b.value} {}
   };
 
@@ -664,17 +664,17 @@ TEST_F(ContainerDependencyInjectionTest, resolves_multiple_dependencies) {
 
 TEST_F(ContainerDependencyInjectionTest, resolves_dependency_chain) {
   struct DepA {
-    int value = 1;
+    int_t value = 1;
     DepA() = default;
   };
 
   struct DepB {
-    int value;
+    int_t value;
     explicit DepB(DepA a) : value{a.value * 2} {}
   };
 
   struct Service {
-    int value;
+    int_t value;
     explicit Service(DepB b) : value{b.value * 2} {}
   };
 
@@ -686,7 +686,7 @@ TEST_F(ContainerDependencyInjectionTest, resolves_dependency_chain) {
 
 TEST_F(ContainerDependencyInjectionTest, resolves_dependency_as_reference) {
   struct Dependency {
-    int value = 42;
+    int_t value = 42;
     Dependency() = default;
   };
 
@@ -708,12 +708,12 @@ TEST_F(ContainerDependencyInjectionTest, resolves_dependency_as_reference) {
 TEST_F(ContainerDependencyInjectionTest,
        resolves_dependency_as_const_reference) {
   struct Dependency {
-    int value = 42;
+    int_t value = 42;
     Dependency() = default;
   };
 
   struct Service {
-    int copied_value;
+    int_t copied_value;
     explicit Service(const Dependency& dep) : copied_value{dep.value} {}
   };
 
@@ -725,7 +725,7 @@ TEST_F(ContainerDependencyInjectionTest,
 
 TEST_F(ContainerDependencyInjectionTest, resolves_dependency_as_shared_ptr) {
   struct Dependency {
-    int value = 42;
+    int_t value = 42;
     Dependency() = default;
   };
 
@@ -744,7 +744,7 @@ TEST_F(ContainerDependencyInjectionTest, resolves_dependency_as_shared_ptr) {
 
 TEST_F(ContainerDependencyInjectionTest, resolves_dependency_as_unique_ptr) {
   struct Dependency {
-    int value = 42;
+    int_t value = 42;
     Dependency() = default;
   };
 
@@ -762,7 +762,7 @@ TEST_F(ContainerDependencyInjectionTest, resolves_dependency_as_unique_ptr) {
 
 TEST_F(ContainerDependencyInjectionTest, resolves_dependency_as_pointer) {
   struct Dependency {
-    int value = 42;
+    int_t value = 42;
     Dependency() = default;
   };
 
@@ -783,20 +783,20 @@ TEST_F(ContainerDependencyInjectionTest, resolves_dependency_as_pointer) {
 
 TEST_F(ContainerDependencyInjectionTest, mixed_dependency_types) {
   struct DepA {
-    int value = 1;
+    int_t value = 1;
     DepA() = default;
   };
   struct DepB {
-    int value = 2;
+    int_t value = 2;
     DepB() = default;
   };
   struct DepC {
-    int value = 3;
+    int_t value = 3;
     DepC() = default;
   };
 
   struct Service {
-    int sum;
+    int_t sum;
     Service(DepA a, const DepB& b, DepC* c)
         : sum{a.value + b.value + c->value} {}
   };
@@ -836,16 +836,16 @@ TEST_F(ContainerDependencyInjectionTest,
 TEST_F(ContainerDependencyInjectionTest,
        mixed_value_categories_in_constructor) {
   struct Singleton {
-    int value = 1;
+    int_t value = 1;
     Singleton() = default;
   };
   struct Transient {
-    int value = 2;
+    int_t value = 2;
     Transient() = default;
   };
 
   struct Service {
-    int sum;
+    int_t sum;
     Service(Singleton& s, Transient t) : sum{s.value + t.value} {}
   };
 
@@ -865,7 +865,7 @@ struct ContainerCanonicalTest : ContainerTest {};
 
 TEST_F(ContainerCanonicalTest, const_and_non_const_resolve_same_binding) {
   struct Bound {
-    int value = 42;
+    int_t value = 42;
     Bound() = default;
   };
 
@@ -889,7 +889,7 @@ TEST_F(ContainerCanonicalTest, reference_and_value_resolve_same_binding) {
 
 TEST_F(ContainerCanonicalTest, pointer_and_reference_resolve_same_binding) {
   struct Bound {
-    int value = 42;
+    int_t value = 42;
     Bound() = default;
   };
 
@@ -903,7 +903,7 @@ TEST_F(ContainerCanonicalTest, pointer_and_reference_resolve_same_binding) {
 
 TEST_F(ContainerCanonicalTest, const_pointer_and_pointer_resolve_same_binding) {
   struct Bound {
-    int value = 42;
+    int_t value = 42;
     Bound() = default;
   };
 
@@ -917,7 +917,7 @@ TEST_F(ContainerCanonicalTest, const_pointer_and_pointer_resolve_same_binding) {
 
 TEST_F(ContainerCanonicalTest, shared_ptr_variations_resolve_same_binding) {
   struct Bound {
-    int value = 42;
+    int_t value = 42;
     Bound() = default;
   };
 
@@ -938,7 +938,7 @@ struct ContainerEdgeCasesTest : ContainerTest {};
 
 TEST_F(ContainerEdgeCasesTest, empty_container_resolves_unbound_types) {
   struct Unbound {
-    int value = 42;
+    int_t value = 42;
     Unbound() = default;
   };
 
@@ -950,7 +950,7 @@ TEST_F(ContainerEdgeCasesTest, empty_container_resolves_unbound_types) {
 
 TEST_F(ContainerEdgeCasesTest, zero_argument_constructor) {
   struct ZeroArgs {
-    int value = 99;
+    int_t value = 99;
     ZeroArgs() = default;
   };
 
@@ -962,20 +962,20 @@ TEST_F(ContainerEdgeCasesTest, zero_argument_constructor) {
 
 TEST_F(ContainerEdgeCasesTest, multi_argument_constructor) {
   struct A {
-    int value = 1;
+    int_t value = 1;
     A() = default;
   };
   struct B {
-    int value = 2;
+    int_t value = 2;
     B() = default;
   };
   struct C {
-    int value = 3;
+    int_t value = 3;
     C() = default;
   };
 
   struct MultiArg {
-    int sum;
+    int_t sum;
     MultiArg(A a, B b, C c) : sum{a.value + b.value + c.value} {}
   };
 
@@ -987,7 +987,7 @@ TEST_F(ContainerEdgeCasesTest, multi_argument_constructor) {
 
 TEST_F(ContainerEdgeCasesTest, resolve_same_type_multiple_ways) {
   struct Type {
-    int value = 42;
+    int_t value = 42;
     Type() = default;
   };
 
@@ -1006,23 +1006,23 @@ TEST_F(ContainerEdgeCasesTest, resolve_same_type_multiple_ways) {
 
 TEST_F(ContainerEdgeCasesTest, deeply_nested_dependencies) {
   struct Level0 {
-    int value = 1;
+    int_t value = 1;
     Level0() = default;
   };
   struct Level1 {
-    int value;
+    int_t value;
     explicit Level1(Level0 l0) : value{l0.value * 2} {}
   };
   struct Level2 {
-    int value;
+    int_t value;
     explicit Level2(Level1 l1) : value{l1.value * 2} {}
   };
   struct Level3 {
-    int value;
+    int_t value;
     explicit Level3(Level2 l2) : value{l2.value * 2} {}
   };
   struct Level4 {
-    int value;
+    int_t value;
     explicit Level4(Level3 l3) : value{l3.value * 2} {}
   };
 
@@ -1035,7 +1035,7 @@ TEST_F(ContainerEdgeCasesTest, deeply_nested_dependencies) {
 
 TEST_F(ContainerEdgeCasesTest, type_with_deleted_copy_constructor) {
   struct NoCopy {
-    int value = 42;
+    int_t value = 42;
     NoCopy() = default;
     NoCopy(const NoCopy&) = delete;
     NoCopy(NoCopy&&) = default;
@@ -1054,8 +1054,8 @@ TEST_F(ContainerEdgeCasesTest, type_with_deleted_copy_constructor) {
 
 TEST_F(ContainerEdgeCasesTest, resolve_from_multiple_containers) {
   struct Type {
-    int value;
-    explicit Type(int v = 0) : value{v} {}
+    int_t value;
+    explicit Type(int_t v = 0) : value{v} {}
   };
 
   Type external1{1};
@@ -1099,7 +1099,7 @@ TEST_F(ContainerMixedScopesTest, all_scopes_coexist) {
   struct Single {};
   struct Deduced {};
   struct External {
-    int value = 99;
+    int_t value = 99;
   };
 
   External ext;
@@ -1145,12 +1145,12 @@ TEST_F(ContainerDefaultScopeTest, unbound_type_uses_default_scope) {
 
 TEST_F(ContainerDefaultScopeTest, unbound_type_with_dependencies) {
   struct Dep {
-    int value = 10;
+    int_t value = 10;
     Dep() = default;
   };
 
   struct Unbound {
-    int result;
+    int_t result;
     explicit Unbound(Dep d) : result{d.value * 2} {}
   };
 
@@ -1451,7 +1451,7 @@ TEST_F(ContainerRelegationTest,
 TEST_F(ContainerRelegationTest,
        singleton_shared_ptr_wraps_singleton_not_relegated) {
   struct SingletonBound : Counted {
-    int value = 42;
+    int_t value = 42;
     SingletonBound() = default;
   };
   auto sut = Container{bind<SingletonBound>().in<scope::Singleton>()};
@@ -1476,7 +1476,7 @@ TEST_F(ContainerRelegationTest,
 TEST_F(ContainerRelegationTest,
        singleton_relegation_creates_new_instances_not_copies) {
   struct SingletonBound : Counted {
-    int value = 42;
+    int_t value = 42;
     SingletonBound() = default;
   };
   auto sut = Container{bind<SingletonBound>().in<scope::Singleton>()};
@@ -1502,7 +1502,7 @@ TEST_F(ContainerRelegationTest,
 
 TEST_F(ContainerRelegationTest, singleton_relegation_with_dependencies) {
   struct Dependency : Counted {
-    int value = 42;
+    int_t value = 42;
     Dependency() = default;
   };
   struct Service : Counted {
@@ -1540,7 +1540,7 @@ struct ContainerHierarchyTest : ContainerTest {};
 
 TEST_F(ContainerHierarchyTest, child_finds_binding_in_parent) {
   struct ParentBound {
-    int value = 42;
+    int_t value = 42;
     ParentBound() = default;
   };
 
@@ -1553,8 +1553,8 @@ TEST_F(ContainerHierarchyTest, child_finds_binding_in_parent) {
 
 TEST_F(ContainerHierarchyTest, child_overrides_parent_binding) {
   struct Bound {
-    int value;
-    explicit Bound(int v = 0) : value{v} {}
+    int_t value;
+    explicit Bound(int_t v = 0) : value{v} {}
   };
 
   auto parent_factory = []() { return Bound{42}; };
@@ -1572,15 +1572,15 @@ TEST_F(ContainerHierarchyTest, child_overrides_parent_binding) {
 
 TEST_F(ContainerHierarchyTest, multi_level_hierarchy) {
   struct GrandparentBound {
-    int value = 1;
+    int_t value = 1;
     GrandparentBound() = default;
   };
   struct ParentBound {
-    int value = 2;
+    int_t value = 2;
     ParentBound() = default;
   };
   struct ChildBound {
-    int value = 3;
+    int_t value = 3;
     ChildBound() = default;
   };
 
@@ -1601,8 +1601,8 @@ TEST_F(ContainerHierarchyTest, multi_level_hierarchy) {
 TEST_F(ContainerHierarchyTest,
        child_overrides_parent_in_multi_level_hierarchy) {
   struct Bound {
-    int value;
-    explicit Bound(int v = 0) : value{v} {}
+    int_t value;
+    explicit Bound(int_t v = 0) : value{v} {}
   };
 
   auto grandparent_factory = []() { return Bound{1}; };
@@ -1626,7 +1626,7 @@ TEST_F(ContainerHierarchyTest,
 
 TEST_F(ContainerHierarchyTest, unbound_type_uses_fallback_in_hierarchy) {
   struct Unbound {
-    int value = 42;
+    int_t value = 42;
     Unbound() = default;
   };
 
@@ -2134,8 +2134,8 @@ TEST_F(ContainerHierarchyComplexTest,
 
 TEST_F(ContainerHierarchyComplexTest, deep_hierarchy_with_multiple_overrides) {
   struct Bound {
-    int value;
-    explicit Bound(int v = 0) : value{v} {}
+    int_t value;
+    explicit Bound(int_t v = 0) : value{v} {}
   };
 
   auto level0_factory = []() { return Bound{0}; };
