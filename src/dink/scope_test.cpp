@@ -35,19 +35,6 @@ struct ScopeTest : Test {
       }
     }
   };
-
-  // Returns provided verbatim.
-  template <typename Instance>
-  struct ReferenceProvider {
-    using Provided = Instance;
-
-    Provided& provided;
-
-    template <typename>
-    auto create(Container&) noexcept -> Provided& {
-      return provided;
-    }
-  };
 };
 
 // ----------------------------------------------------------------------------
@@ -340,6 +327,19 @@ struct ScopeTestInstance : ScopeTest {
   };
 
   Requested instance{Resolved{&container}};
+
+  // Returns provided verbatim.
+  template <typename Instance>
+  struct ReferenceProvider {
+    using Provided = Instance;
+
+    Provided& provided;
+
+    template <typename>
+    auto create(Container&) noexcept -> Provided& {
+      return provided;
+    }
+  };
   ReferenceProvider<Requested> provider{instance};
 
   using Sut = Instance;
@@ -498,18 +498,16 @@ TEST_F(ScopeTestInstance, multiple_value_copies_are_independent) {
 // Instance with Different Scopes and Providers
 // ----------------------------------------------------------------------------
 
-struct ScopeTestInstanceDifferentSources : ScopeTest {
-  using Scope = Instance;
-
+struct ScopeTestInstanceDifferentSources : ScopeTestInstance {
   struct External1 : Resolved {};
   External1 external1{&container};
   ReferenceProvider<External1> provider1{external1};
-  Scope scope1{};
+  Sut scope1{};
 
   struct External2 : Resolved {};
   External2 external2{&container};
   ReferenceProvider<External2> provider2{external2};
-  Scope scope2{};
+  Sut scope2{};
 };
 
 TEST_F(ScopeTestInstanceDifferentSources,
