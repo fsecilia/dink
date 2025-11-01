@@ -231,7 +231,7 @@ Binding(InBuilder<From, To, Provider, Scope>&&)
 //   );
 template <typename... Builders>
 constexpr auto make_bindings(Builders&&... builders) {
-  return std::make_tuple(Binding{std::forward<Builders>(builders)}...);
+  return std::tuple{Binding{std::forward<Builders>(builders)}...};
 }
 
 // ----------------------------------------------------------------------------

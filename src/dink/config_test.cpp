@@ -20,7 +20,7 @@ struct BindingIndexTest {
 
   template <typename From, typename... Types>
   static constexpr auto test_case =
-      binding_index<From, decltype(make_bindings(bind<Types>()...))>;
+      binding_index<From, std::tuple<decltype(Binding{bind<Types>()})...>>;
 
   // 0
   static_assert(npos == test_case<Found>, "should find npos for empty binding");
