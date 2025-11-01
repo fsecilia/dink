@@ -2031,12 +2031,12 @@ TEST_F(ContainerHierarchyComplexTest,
 }
 
 // This test shows a surprising result that can't be avoided.
-// Two containers with the same type cache the same singletons.
-// This is because they are cached in Meyers singletons keyed on container and
-// provider. When they are the same, the same singletons are found.
-// The solution is found in
-// sibling_containers_using_macro_are_independent_with_own_bindings:
-// use dink_unique_container to distinguish between containers with the same
+//
+// Two containers with the same type cache the same singletons. This is because
+// they are cached in Meyers singletons keyed on container and provider. When
+// they are the same, the same singletons are found. The solution is found in
+// sibling_containers_using_macro_are_independent_with_own_bindings: use
+// dink_unique_container to distinguish between containers with the same
 // bindings.
 TEST_F(ContainerHierarchyComplexTest,
        sibling_containers_with_same_type_share_singletons) {
