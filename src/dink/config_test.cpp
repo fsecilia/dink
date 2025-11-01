@@ -4,6 +4,7 @@
 
 #include "config.hpp"
 #include <dink/test.hpp>
+#include <dink/binding_dsl.hpp>
 
 namespace dink {
 namespace detail {

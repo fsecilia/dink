@@ -4,6 +4,8 @@
 
 #include "dink/container.hpp"
 #include <dink/test.hpp>
+#include <dink/binding.hpp>
+#include <dink/binding_dsl.hpp>
 #include <dink/scope.hpp>
 
 namespace dink {
