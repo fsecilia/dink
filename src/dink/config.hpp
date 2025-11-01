@@ -87,7 +87,7 @@ class Config {
       : bindings_{std::move(bindings)} {}
 
   //! Construct from individual binding arguments.
-  template <IsBinding... ActualBindings>
+  template <IsConvertibleToBinding... ActualBindings>
   explicit constexpr Config(ActualBindings&&... bindings) noexcept
       : Config{std::tuple{std::forward<ActualBindings>(bindings)...}} {}
 
@@ -122,7 +122,7 @@ class Config {
 // ----------------------------------------------------------------------------
 
 //! Converts binding-likes to actual bindings.
-template <IsBinding... Bindings>
+template <IsConvertibleToBinding... Bindings>
 Config(Bindings&&...) -> Config<
     std::remove_cvref_t<decltype(Binding{std::declval<Bindings>()})>...>;
 

@@ -41,7 +41,8 @@ concept IsParentContainer =
 // Given the way deduction works, the tag type cannot be a binding, config,
 // or another container, or deducing a container type becomes ambiguous.
 template <typename Tag>
-concept IsTag = !IsBinding<Tag> && !IsConfig<Tag> && !IsContainer<Tag>;
+concept IsTag =
+    !IsConvertibleToBinding<Tag> && !IsConfig<Tag> && !IsContainer<Tag>;
 
 //! Identifies types valid for tag arguments.
 //
@@ -93,12 +94,12 @@ class Container<Config, Dispatcher, void, Tag> {
   Container() noexcept = default;
 
   //! Construct from bindings.
-  template <IsBinding... Bindings>
+  template <IsConvertibleToBinding... Bindings>
   explicit Container(Bindings&&... bindings) noexcept
       : Container{Config{std::forward<Bindings>(bindings)...}, Dispatcher{}} {}
 
   //! Construct from bindings.
-  template <IsTagArg ActualTag, IsBinding... Bindings>
+  template <IsTagArg ActualTag, IsConvertibleToBinding... Bindings>
   explicit Container(ActualTag, Bindings&&... bindings) noexcept
       : Container{Config{std::forward<Bindings>(bindings)...}, Dispatcher{}} {}
 
@@ -137,13 +138,13 @@ class Container {
       : Container{parent, Config{}, Dispatcher{}} {}
 
   //! Construct from parent and bindings.
-  template <IsBinding... Bindings>
+  template <IsConvertibleToBinding... Bindings>
   explicit Container(Parent& parent, Bindings&&... bindings) noexcept
       : Container{parent, Config{std::forward<Bindings>(bindings)...},
                   Dispatcher{}} {}
 
   //! Construct from parent and bindings with tag.
-  template <IsTagArg ActualTag, IsBinding... Bindings>
+  template <IsTagArg ActualTag, IsConvertibleToBinding... Bindings>
   explicit Container(ActualTag, Parent& parent, Bindings&&... bindings) noexcept
       : Container{parent, Config{std::forward<Bindings>(bindings)...},
                   Dispatcher{}} {}
@@ -191,13 +192,13 @@ Container(Container<Config, Dispatcher, Parent, Tag>&)
                  Container<Config, Dispatcher, Parent, Tag>, Tag>;
 
 //! Root container from builders.
-template <IsBinding... Builders>
+template <IsConvertibleToBinding... Builders>
 Container(Builders&&...)
     -> Container<decltype(Config{std::declval<Builders>()...}), Dispatcher<>,
                  void, void>;
 
 //! Root container from builders with tag.
-template <IsTagArg Tag, IsBinding... Builders>
+template <IsTagArg Tag, IsConvertibleToBinding... Builders>
 Container(Tag, Builders&&...)
     -> Container<decltype(Config{std::declval<Builders>()...}), Dispatcher<>,
                  void, Tag>;
@@ -213,13 +214,14 @@ Container(Tag, Parent& parent)
     -> Container<Config<>, Dispatcher<>, std::remove_cvref_t<Parent>, Tag>;
 
 //! Child container from parent and bindings.
-template <IsParentContainer Parent, IsBinding... Builders>
+template <IsParentContainer Parent, IsConvertibleToBinding... Builders>
 Container(Parent& parent, Builders&&...)
     -> Container<decltype(Config{std::declval<Builders>()...}), Dispatcher<>,
                  std::remove_cvref_t<Parent>, void>;
 
 //! Child container from parent and bindings with tag.
-template <IsTagArg Tag, IsParentContainer Parent, IsBinding... Builders>
+template <IsTagArg Tag, IsParentContainer Parent,
+          IsConvertibleToBinding... Builders>
 Container(Tag, Parent& parent, Builders&&...)
     -> Container<decltype(Config{std::declval<Builders>()...}), Dispatcher<>,
                  std::remove_cvref_t<Parent>, Tag>;

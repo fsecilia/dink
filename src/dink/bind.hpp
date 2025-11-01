@@ -259,32 +259,38 @@ constexpr auto bind() -> BindBuilder<From> {
 namespace traits {
 
 template <typename>
-struct IsBinding : std::false_type {};
+struct IsConvertibleToBinding : std::false_type {};
 
 template <typename From>
-struct IsBinding<BindBuilder<From>> : std::true_type {};
+struct IsConvertibleToBinding<BindBuilder<From>> : std::true_type {};
 
 template <typename From, typename To>
-struct IsBinding<AsBuilder<From, To>> : std::true_type {};
+struct IsConvertibleToBinding<AsBuilder<From, To>> : std::true_type {};
 
 template <typename From, typename To, typename Factory>
-struct IsBinding<ViaBuilder<From, To, Factory>> : std::true_type {};
+struct IsConvertibleToBinding<ViaBuilder<From, To, Factory>> : std::true_type {
+};
 
 template <typename From, typename InstanceType>
-struct IsBinding<ToBuilder<From, InstanceType>> : std::true_type {};
+struct IsConvertibleToBinding<ToBuilder<From, InstanceType>> : std::true_type {
+};
 
 template <typename From, typename To, typename Provider, typename Scope>
-struct IsBinding<InBuilder<From, To, Provider, Scope>> : std::true_type {};
+struct IsConvertibleToBinding<InBuilder<From, To, Provider, Scope>>
+    : std::true_type {};
 
 template <typename From, typename Scope, typename Provider>
-struct IsBinding<Binding<From, Scope, Provider>> : std::true_type {};
+struct IsConvertibleToBinding<Binding<From, Scope, Provider>> : std::true_type {
+};
 
 template <typename Binding>
-inline constexpr auto is_binding = IsBinding<Binding>::value;
+inline constexpr auto is_convertible_to_binding =
+    IsConvertibleToBinding<Binding>::value;
 
 }  // namespace traits
 
 template <typename Binding>
-concept IsBinding = traits::is_binding<std::remove_cvref_t<Binding>>;
+concept IsConvertibleToBinding =
+    traits::is_convertible_to_binding<std::remove_cvref_t<Binding>>;
 
 }  // namespace dink
