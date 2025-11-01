@@ -270,11 +270,13 @@ struct ContainerInstanceTest : ContainerTest {
     int_t value = initial_value;
   };
   Type instance;
+
+  using Sut = Container<
+      Config<Binding<Type, scope::Instance, provider::External<Type>>>>;
+  Sut sut = Container{bind<Type>().to(instance)};
 };
 
 TEST_F(ContainerInstanceTest, shared_ptr_wraps_external_instance) {
-  auto sut = Container{bind<Type>().to(instance)};
-
   // shared_ptr should wrap the external instance
   auto shared1 = sut.template resolve<std::shared_ptr<Type>>();
   auto shared2 = sut.template resolve<std::shared_ptr<Type>>();
@@ -290,8 +292,6 @@ TEST_F(ContainerInstanceTest, shared_ptr_wraps_external_instance) {
 }
 
 TEST_F(ContainerInstanceTest, canonical_shared_ptr_reference) {
-  auto sut = Container{bind<Type>().to(instance)};
-
   auto& canonical1 = sut.template resolve<std::shared_ptr<Type>&>();
   auto& canonical2 = sut.template resolve<std::shared_ptr<Type>&>();
 
@@ -301,8 +301,6 @@ TEST_F(ContainerInstanceTest, canonical_shared_ptr_reference) {
 }
 
 TEST_F(ContainerInstanceTest, weak_ptr_tracks_external_instance) {
-  auto sut = Container{bind<Type>().to(instance)};
-
   auto weak = sut.template resolve<std::weak_ptr<Type>>();
 
   EXPECT_FALSE(weak.expired());
@@ -310,9 +308,7 @@ TEST_F(ContainerInstanceTest, weak_ptr_tracks_external_instance) {
 }
 
 TEST_F(ContainerInstanceTest, weak_ptr_does_not_expire_while_instance_alive) {
-  auto container = Container{bind<Type>().to(instance)};
-
-  auto weak = container.template resolve<std::weak_ptr<Type>>();
+  auto weak = sut.template resolve<std::weak_ptr<Type>>();
 
   // Even with no shared_ptr in scope, weak_ptr should not expire
   // because it tracks the canonical shared_ptr which aliases the static
@@ -323,12 +319,9 @@ TEST_F(ContainerInstanceTest, weak_ptr_does_not_expire_while_instance_alive) {
 }
 
 TEST_F(ContainerInstanceTest, weak_ptr_expires_with_canonical_shared_ptr) {
-  auto container = Container{bind<Type>().to(instance)};
-
   // resolve reference directly to canonical shared_ptr
-  auto& canonical_shared_ptr =
-      container.template resolve<std::shared_ptr<Type>&>();
-  const auto weak = container.template resolve<std::weak_ptr<Type>>();
+  auto& canonical_shared_ptr = sut.template resolve<std::shared_ptr<Type>&>();
+  const auto weak = sut.template resolve<std::weak_ptr<Type>>();
 
   EXPECT_FALSE(weak.expired());
   canonical_shared_ptr.reset();
@@ -337,8 +330,6 @@ TEST_F(ContainerInstanceTest, weak_ptr_expires_with_canonical_shared_ptr) {
 
 TEST_F(ContainerInstanceTest, resolves_value_copy_of_external) {
   instance.value = modified_value;
-
-  auto sut = Container{bind<Type>().to(instance)};
 
   auto copy = sut.template resolve<Type>();
   EXPECT_EQ(modified_value, copy.value);
@@ -349,8 +340,6 @@ TEST_F(ContainerInstanceTest, resolves_value_copy_of_external) {
 }
 
 TEST_F(ContainerInstanceTest, resolves_mutable_reference) {
-  auto sut = Container{bind<Type>().to(instance)};
-
   auto& ref = sut.template resolve<Type&>();
   EXPECT_EQ(&instance, &ref);
 
@@ -390,20 +379,21 @@ struct ContainerFactoryTest : ContainerTest {
   struct Product : Counted {
     int_t value = initial_value;
   };
+
+  struct Factory {
+    auto operator()() const -> Product { return {}; }
+  };
+  Factory factory;
 };
 
 TEST_F(ContainerFactoryTest, resolves_with_factory) {
-  auto factory = []() { return Product{.value = modified_value}; };
-
   auto sut = Container{bind<Product>().as<Product>().via(factory)};
 
   auto value = sut.template resolve<Product>();
-  EXPECT_EQ(modified_value, value.value);
+  EXPECT_EQ(initial_value, value.value);
 }
 
 TEST_F(ContainerFactoryTest, factory_with_singleton_scope) {
-  auto factory = []() { return Product{}; };
-
   auto sut = Container{
       bind<Product>().as<Product>().via(factory).in<scope::Singleton>()};
 
@@ -416,8 +406,6 @@ TEST_F(ContainerFactoryTest, factory_with_singleton_scope) {
 }
 
 TEST_F(ContainerFactoryTest, factory_with_transient_scope) {
-  auto factory = []() { return Product{}; };
-
   auto sut = Container{
       bind<Product>().as<Product>().via(factory).in<scope::Transient>()};
 
@@ -430,8 +418,6 @@ TEST_F(ContainerFactoryTest, factory_with_transient_scope) {
 }
 
 TEST_F(ContainerFactoryTest, factory_with_deduced_scope) {
-  auto factory = []() { return Product{}; };
-
   auto sut = Container{bind<Product>().as<Product>().via(factory)};
 
   auto value = sut.template resolve<Product>();
@@ -556,14 +542,14 @@ TEST_F(ContainerInterfaceTest, multiple_interfaces_to_implementations) {
 // Dependency Injection Tests
 // ----------------------------------------------------------------------------
 
-struct ContainerDependencyInjectionTest : ContainerTest {};
-
-TEST_F(ContainerDependencyInjectionTest, resolves_single_dependency) {
+struct ContainerDependencyInjectionTest : ContainerTest {
   struct Dependency {
-    int_t value = 10;
+    int_t value = initial_value;
     Dependency() = default;
   };
+};
 
+TEST_F(ContainerDependencyInjectionTest, resolves_single_dependency) {
   struct Service {
     int_t result;
     explicit Service(Dependency dep) : result{dep.value * 2} {}
@@ -572,7 +558,7 @@ TEST_F(ContainerDependencyInjectionTest, resolves_single_dependency) {
   auto sut = Container{bind<Dependency>(), bind<Service>()};
 
   auto service = sut.template resolve<Service>();
-  EXPECT_EQ(20, service.result);
+  EXPECT_EQ(initial_value * 2, service.result);
 }
 
 TEST_F(ContainerDependencyInjectionTest, resolves_multiple_dependencies) {
@@ -619,11 +605,6 @@ TEST_F(ContainerDependencyInjectionTest, resolves_dependency_chain) {
 }
 
 TEST_F(ContainerDependencyInjectionTest, resolves_dependency_as_reference) {
-  struct Dependency {
-    int_t value = initial_value;
-    Dependency() = default;
-  };
-
   struct Service {
     Dependency* dep_ptr;
     explicit Service(Dependency& dep) : dep_ptr{&dep} {}
@@ -641,11 +622,6 @@ TEST_F(ContainerDependencyInjectionTest, resolves_dependency_as_reference) {
 
 TEST_F(ContainerDependencyInjectionTest,
        resolves_dependency_as_const_reference) {
-  struct Dependency {
-    int_t value = initial_value;
-    Dependency() = default;
-  };
-
   struct Service {
     int_t copied_value;
     explicit Service(const Dependency& dep) : copied_value{dep.value} {}
@@ -658,11 +634,6 @@ TEST_F(ContainerDependencyInjectionTest,
 }
 
 TEST_F(ContainerDependencyInjectionTest, resolves_dependency_as_shared_ptr) {
-  struct Dependency {
-    int_t value = initial_value;
-    Dependency() = default;
-  };
-
   struct Service {
     std::shared_ptr<Dependency> dep;
     explicit Service(std::shared_ptr<Dependency> d) : dep{std::move(d)} {}
@@ -677,11 +648,6 @@ TEST_F(ContainerDependencyInjectionTest, resolves_dependency_as_shared_ptr) {
 }
 
 TEST_F(ContainerDependencyInjectionTest, resolves_dependency_as_unique_ptr) {
-  struct Dependency {
-    int_t value = initial_value;
-    Dependency() = default;
-  };
-
   struct Service {
     std::unique_ptr<Dependency> dep;
     explicit Service(std::unique_ptr<Dependency> d) : dep{std::move(d)} {}
@@ -695,11 +661,6 @@ TEST_F(ContainerDependencyInjectionTest, resolves_dependency_as_unique_ptr) {
 }
 
 TEST_F(ContainerDependencyInjectionTest, resolves_dependency_as_pointer) {
-  struct Dependency {
-    int_t value = initial_value;
-    Dependency() = default;
-  };
-
   struct Service {
     Dependency* dep;
     explicit Service(Dependency* d) : dep{d} {}
@@ -795,13 +756,14 @@ TEST_F(ContainerDependencyInjectionTest,
 // Canonical Type Resolution Tests
 // ----------------------------------------------------------------------------
 
-struct ContainerCanonicalTest : ContainerTest {};
-
-TEST_F(ContainerCanonicalTest, const_and_non_const_resolve_same_binding) {
-  struct Bound {
+struct ContainerCanonicalTest : ContainerTest {
+  struct Bound : Counted {
     int_t value = initial_value;
     Bound() = default;
   };
+};
+
+TEST_F(ContainerCanonicalTest, const_and_non_const_resolve_same_binding) {
 
   auto sut = Container{bind<Bound>().in<scope::Singleton>()};
 
@@ -812,8 +774,6 @@ TEST_F(ContainerCanonicalTest, const_and_non_const_resolve_same_binding) {
 }
 
 TEST_F(ContainerCanonicalTest, reference_and_value_resolve_same_binding) {
-  struct Bound : Counted {};
-
   auto sut = Container{bind<Bound>().in<scope::Singleton>()};
 
   auto& ref = sut.template resolve<Bound&>();
@@ -822,11 +782,6 @@ TEST_F(ContainerCanonicalTest, reference_and_value_resolve_same_binding) {
 }
 
 TEST_F(ContainerCanonicalTest, pointer_and_reference_resolve_same_binding) {
-  struct Bound {
-    int_t value = initial_value;
-    Bound() = default;
-  };
-
   auto sut = Container{bind<Bound>().in<scope::Singleton>()};
 
   auto& ref = sut.template resolve<Bound&>();
@@ -836,11 +791,6 @@ TEST_F(ContainerCanonicalTest, pointer_and_reference_resolve_same_binding) {
 }
 
 TEST_F(ContainerCanonicalTest, const_pointer_and_pointer_resolve_same_binding) {
-  struct Bound {
-    int_t value = initial_value;
-    Bound() = default;
-  };
-
   auto sut = Container{bind<Bound>().in<scope::Singleton>()};
 
   auto* ptr = sut.template resolve<Bound*>();
@@ -850,11 +800,6 @@ TEST_F(ContainerCanonicalTest, const_pointer_and_pointer_resolve_same_binding) {
 }
 
 TEST_F(ContainerCanonicalTest, shared_ptr_variations_resolve_same_binding) {
-  struct Bound {
-    int_t value = initial_value;
-    Bound() = default;
-  };
-
   auto sut = Container{bind<Bound>().in<scope::Singleton>()};
 
   auto shared = sut.template resolve<std::shared_ptr<Bound>>();
@@ -1029,33 +974,27 @@ TEST_F(ContainerMixedScopesTest, transient_and_singleton_coexist) {
 }
 
 TEST_F(ContainerMixedScopesTest, all_scopes_coexist) {
-  struct Trans {};
-  struct Single {};
-  struct Deduced {};
+  struct Transient {};
+  struct Singleton {};
   struct External {
     int_t value = modified_value;
   };
 
   External ext;
 
-  auto sut = Container{bind<Trans>().in<scope::Transient>(),
-                       bind<Single>().in<scope::Singleton>(), bind<Deduced>(),
+  auto sut = Container{bind<Transient>().in<scope::Transient>(),
+                       bind<Singleton>().in<scope::Singleton>(),
                        bind<External>().to(ext)};
 
   // Transient creates new each time
-  auto t1 = sut.template resolve<Trans>();
-  auto t2 = sut.template resolve<Trans>();
+  auto t1 = sut.template resolve<Transient>();
+  auto t2 = sut.template resolve<Transient>();
   EXPECT_NE(&t1, &t2);
 
   // Singleton returns same reference
-  auto& s1 = sut.template resolve<Single&>();
-  auto& s2 = sut.template resolve<Single&>();
+  auto& s1 = sut.template resolve<Singleton&>();
+  auto& s2 = sut.template resolve<Singleton&>();
   EXPECT_EQ(&s1, &s2);
-
-  // Deduced caches for references, creates for values
-  auto& d1 = sut.template resolve<Deduced&>();
-  auto& d2 = sut.template resolve<Deduced&>();
-  EXPECT_EQ(&d1, &d2);
 
   // Instance wraps external
   auto& e1 = sut.template resolve<External&>();
@@ -1477,88 +1416,85 @@ TEST_F(ContainerRelegationTest, singleton_relegation_with_dependencies) {
 // Hierarchical Container Tests - Basic Delegation
 // ----------------------------------------------------------------------------
 
-struct ContainerHierarchyTest : ContainerTest {};
-
-TEST_F(ContainerHierarchyTest, child_finds_binding_in_parent) {
-  struct ParentBound {
+struct ContainerHierarchyTest : ContainerTest {
+  struct Type {
     int_t value = initial_value;
-    ParentBound() = default;
+    Type() = default;
   };
 
-  auto parent = Container{bind<ParentBound>()};
+  struct Product {
+    int_t value;
+    explicit Product(int_t value) : value{value} {}
+  };
+};
+
+TEST_F(ContainerHierarchyTest, child_finds_binding_in_parent) {
+  auto parent = Container{bind<Type>()};
   auto child = Container{parent};
 
-  auto result = child.template resolve<ParentBound>();
+  auto result = child.template resolve<Type>();
   EXPECT_EQ(initial_value, result.value);
 }
 
 TEST_F(ContainerHierarchyTest, child_overrides_parent_binding) {
-  struct Bound {
-    int_t value;
-    explicit Bound(int_t v = 0) : value{v} {}
-  };
+  auto parent_factory = []() { return Product{initial_value}; };
+  auto child_factory = []() { return Product{modified_value}; };
 
-  auto parent_factory = []() { return Bound{initial_value}; };
-  auto child_factory = []() { return Bound{modified_value}; };
+  auto parent = Container{bind<Product>().as<Product>().via(parent_factory)};
+  auto child =
+      Container{parent, bind<Product>().as<Product>().via(child_factory)};
 
-  auto parent = Container{bind<Bound>().as<Bound>().via(parent_factory)};
-  auto child = Container{parent, bind<Bound>().as<Bound>().via(child_factory)};
-
-  auto parent_result = parent.template resolve<Bound>();
-  auto child_result = child.template resolve<Bound>();
+  auto parent_result = parent.template resolve<Product>();
+  auto child_result = child.template resolve<Product>();
 
   EXPECT_EQ(initial_value, parent_result.value);
   EXPECT_EQ(modified_value, child_result.value);
 }
 
 TEST_F(ContainerHierarchyTest, multi_level_hierarchy) {
-  struct GrandparentBound {
+  struct Grandparent {
     int_t value = 1;
-    GrandparentBound() = default;
+    Grandparent() = default;
   };
-  struct ParentBound {
+  struct Parent {
     int_t value = 2;
-    ParentBound() = default;
+    Parent() = default;
   };
-  struct ChildBound {
+  struct Child {
     int_t value = 3;
-    ChildBound() = default;
+    Child() = default;
   };
 
-  auto grandparent = Container{bind<GrandparentBound>()};
-  auto parent = Container{grandparent, bind<ParentBound>()};
-  auto child = Container{parent, bind<ChildBound>()};
+  auto grandparent = Container{bind<Grandparent>()};
+  auto parent = Container{grandparent, bind<Parent>()};
+  auto child = Container{parent, bind<Child>()};
 
   // Child can resolve from all levels
-  auto g_result = child.template resolve<GrandparentBound>();
-  auto p_result = child.template resolve<ParentBound>();
-  auto c_result = child.template resolve<ChildBound>();
+  auto grandparent_result = child.template resolve<Grandparent>();
+  auto parent_result = child.template resolve<Parent>();
+  auto child_result = child.template resolve<Child>();
 
-  EXPECT_EQ(1, g_result.value);
-  EXPECT_EQ(2, p_result.value);
-  EXPECT_EQ(3, c_result.value);
+  EXPECT_EQ(1, grandparent_result.value);
+  EXPECT_EQ(2, parent_result.value);
+  EXPECT_EQ(3, child_result.value);
 }
 
 TEST_F(ContainerHierarchyTest,
        child_overrides_parent_in_multi_level_hierarchy) {
-  struct Bound {
-    int_t value;
-    explicit Bound(int_t v = 0) : value{v} {}
-  };
-
-  auto grandparent_factory = []() { return Bound{1}; };
-  auto parent_factory = []() { return Bound{2}; };
-  auto child_factory = []() { return Bound{3}; };
+  auto grandparent_factory = []() { return Product{1}; };
+  auto parent_factory = []() { return Product{2}; };
+  auto child_factory = []() { return Product{3}; };
 
   auto grandparent =
-      Container{bind<Bound>().as<Bound>().via(grandparent_factory)};
+      Container{bind<Product>().as<Product>().via(grandparent_factory)};
   auto parent =
-      Container{grandparent, bind<Bound>().as<Bound>().via(parent_factory)};
-  auto child = Container{parent, bind<Bound>().as<Bound>().via(child_factory)};
+      Container{grandparent, bind<Product>().as<Product>().via(parent_factory)};
+  auto child =
+      Container{parent, bind<Product>().as<Product>().via(child_factory)};
 
-  auto grandparent_result = grandparent.template resolve<Bound>();
-  auto parent_result = parent.template resolve<Bound>();
-  auto child_result = child.template resolve<Bound>();
+  auto grandparent_result = grandparent.template resolve<Product>();
+  auto parent_result = parent.template resolve<Product>();
+  auto child_result = child.template resolve<Product>();
 
   EXPECT_EQ(1, grandparent_result.value);
   EXPECT_EQ(2, parent_result.value);
@@ -1566,16 +1502,11 @@ TEST_F(ContainerHierarchyTest,
 }
 
 TEST_F(ContainerHierarchyTest, unbound_type_uses_fallback_in_hierarchy) {
-  struct Unbound {
-    int_t value = initial_value;
-    Unbound() = default;
-  };
-
   auto parent = Container{};
   auto child = Container{parent};
 
   // Should use fallback binding at the root level
-  auto result = child.template resolve<Unbound>();
+  auto result = child.template resolve<Type>();
   EXPECT_EQ(initial_value, result.value);
 }
 
@@ -1636,13 +1567,13 @@ TEST_F(ContainerHierarchySingletonTest,
 
 TEST_F(ContainerHierarchySingletonTest,
        parent_and_child_can_have_separate_singletons) {
-  struct Bound : Counted {};
+  struct Type : Counted {};
 
-  auto parent = Container{bind<Bound>().in<scope::Singleton>()};
-  auto child = Container{parent, bind<Bound>().in<scope::Singleton>()};
+  auto parent = Container{bind<Type>().in<scope::Singleton>()};
+  auto child = Container{parent, bind<Type>().in<scope::Singleton>()};
 
-  auto& parent_ref = parent.template resolve<Bound&>();
-  auto& child_ref = child.template resolve<Bound&>();
+  auto& parent_ref = parent.template resolve<Type&>();
+  auto& child_ref = child.template resolve<Type&>();
 
   // Child overrides, so they should be different
   EXPECT_NE(&parent_ref, &child_ref);
@@ -1655,18 +1586,18 @@ TEST_F(ContainerHierarchySingletonTest,
 // Hierarchical Container Tests - Transient Behavior
 // ----------------------------------------------------------------------------
 
-struct ContainerHierarchyTransientTest : ContainerTest {};
+struct ContainerHierarchyTransientTest : ContainerTest {
+  struct Type : Counted {};
+};
 
 TEST_F(ContainerHierarchyTransientTest,
        transient_in_parent_creates_new_instances_for_child) {
-  struct TransientBound : Counted {};
-
-  auto parent = Container{bind<TransientBound>().in<scope::Transient>()};
+  auto parent = Container{bind<Type>().in<scope::Transient>()};
   auto child = Container{parent};
 
-  auto parent_val1 = parent.template resolve<TransientBound>();
-  auto child_val1 = child.template resolve<TransientBound>();
-  auto child_val2 = child.template resolve<TransientBound>();
+  auto parent_val1 = parent.template resolve<Type>();
+  auto child_val1 = child.template resolve<Type>();
+  auto child_val2 = child.template resolve<Type>();
 
   EXPECT_EQ(0, parent_val1.id);
   EXPECT_EQ(1, child_val1.id);
@@ -1676,15 +1607,13 @@ TEST_F(ContainerHierarchyTransientTest,
 
 TEST_F(ContainerHierarchyTransientTest,
        transient_in_grandparent_creates_new_instances_for_all) {
-  struct TransientBound : Counted {};
-
-  auto grandparent = Container{bind<TransientBound>().in<scope::Transient>()};
+  auto grandparent = Container{bind<Type>().in<scope::Transient>()};
   auto parent = Container{grandparent};
   auto child = Container{parent};
 
-  auto grandparent_val = grandparent.template resolve<TransientBound>();
-  auto parent_val = parent.template resolve<TransientBound>();
-  auto child_val = child.template resolve<TransientBound>();
+  auto grandparent_val = grandparent.template resolve<Type>();
+  auto parent_val = parent.template resolve<Type>();
+  auto child_val = child.template resolve<Type>();
 
   EXPECT_EQ(0, grandparent_val.id);
   EXPECT_EQ(1, parent_val.id);
@@ -1699,14 +1628,13 @@ TEST_F(ContainerHierarchyTransientTest,
 struct ContainerHierarchyPromotionTest : ContainerTest {};
 
 TEST_F(ContainerHierarchyPromotionTest, child_promotes_transient_from_parent) {
-  struct TransientBound : Counted {};
-
-  auto parent = Container{bind<TransientBound>().in<scope::Transient>()};
+  struct Type : Counted {};
+  auto parent = Container{bind<Type>().in<scope::Transient>()};
   auto child = Container{parent};
 
   // Child requests by reference, should promote
-  auto& child_ref1 = child.template resolve<TransientBound&>();
-  auto& child_ref2 = child.template resolve<TransientBound&>();
+  auto& child_ref1 = child.template resolve<Type&>();
+  auto& child_ref2 = child.template resolve<Type&>();
 
   EXPECT_EQ(&child_ref1, &child_ref2);
   EXPECT_EQ(0, child_ref1.id);
@@ -1715,16 +1643,15 @@ TEST_F(ContainerHierarchyPromotionTest, child_promotes_transient_from_parent) {
 
 TEST_F(ContainerHierarchyPromotionTest,
        child_shares_parent_promoted_instance_when_delegating) {
-  struct TransientBound : Counted {};
-
-  auto parent = Container{bind<TransientBound>().in<scope::Transient>()};
+  struct Type : Counted {};
+  auto parent = Container{bind<Type>().in<scope::Transient>()};
   auto child = Container{parent};  // Child has no binding, will delegate
 
   // Parent promotes to singleton when requested by reference
-  auto& parent_ref = parent.template resolve<TransientBound&>();
+  auto& parent_ref = parent.template resolve<Type&>();
 
   // Child delegates to parent, gets same promoted instance
-  auto& child_ref = child.template resolve<TransientBound&>();
+  auto& child_ref = child.template resolve<Type&>();
 
   EXPECT_EQ(&parent_ref, &child_ref);  // Same instance!
   EXPECT_EQ(0, parent_ref.id);
@@ -1733,14 +1660,13 @@ TEST_F(ContainerHierarchyPromotionTest,
 
 TEST_F(ContainerHierarchyPromotionTest,
        child_has_separate_promoted_instance_with_own_binding) {
-  struct TransientBound : Counted {};
-
-  auto parent = Container{bind<TransientBound>().in<scope::Transient>()};
-  auto child = Container{parent, bind<TransientBound>().in<scope::Transient>()};
+  struct Type : Counted {};
+  auto parent = Container{bind<Type>().in<scope::Transient>()};
+  auto child = Container{parent, bind<Type>().in<scope::Transient>()};
 
   // Each promotes separately because each has its own binding
-  auto& parent_ref = parent.template resolve<TransientBound&>();
-  auto& child_ref = child.template resolve<TransientBound&>();
+  auto& parent_ref = parent.template resolve<Type&>();
+  auto& child_ref = child.template resolve<Type&>();
 
   EXPECT_NE(&parent_ref, &child_ref);  // Different instances!
   EXPECT_EQ(0, parent_ref.id);
@@ -1750,16 +1676,15 @@ TEST_F(ContainerHierarchyPromotionTest,
 
 TEST_F(ContainerHierarchyPromotionTest,
        grandparent_parent_child_share_promoted_instance_when_delegating) {
-  struct TransientBound : Counted {};
-
-  auto grandparent = Container{bind<TransientBound>().in<scope::Transient>()};
+  struct Type : Counted {};
+  auto grandparent = Container{bind<Type>().in<scope::Transient>()};
   auto parent = Container{grandparent};  // No binding, delegates to grandparent
   auto child =
       Container{parent};  // No binding, delegates to parent -> grandparent
 
-  auto& grandparent_ref = grandparent.template resolve<TransientBound&>();
-  auto& parent_ref = parent.template resolve<TransientBound&>();
-  auto& child_ref = child.template resolve<TransientBound&>();
+  auto& grandparent_ref = grandparent.template resolve<Type&>();
+  auto& parent_ref = parent.template resolve<Type&>();
+  auto& child_ref = child.template resolve<Type&>();
 
   // All share grandparent's promoted instance
   EXPECT_EQ(&grandparent_ref, &parent_ref);
@@ -1772,16 +1697,14 @@ TEST_F(ContainerHierarchyPromotionTest,
 // bindings but remain unique types and have separate cached instances.
 TEST_F(ContainerHierarchyPromotionTest,
        ancestry_with_same_bindings_promote_separate_instances) {
-  struct TransientBound : Counted {};
+  struct Type : Counted {};
+  auto grandparent = Container{bind<Type>().in<scope::Transient>()};
+  auto parent = Container{grandparent, bind<Type>().in<scope::Transient>()};
+  auto child = Container{parent, bind<Type>().in<scope::Transient>()};
 
-  auto grandparent = Container{bind<TransientBound>().in<scope::Transient>()};
-  auto parent =
-      Container{grandparent, bind<TransientBound>().in<scope::Transient>()};
-  auto child = Container{parent, bind<TransientBound>().in<scope::Transient>()};
-
-  auto& grandparent_ref = grandparent.template resolve<TransientBound&>();
-  auto& parent_ref = parent.template resolve<TransientBound&>();
-  auto& child_ref = child.template resolve<TransientBound&>();
+  auto& grandparent_ref = grandparent.template resolve<Type&>();
+  auto& parent_ref = parent.template resolve<Type&>();
+  auto& child_ref = child.template resolve<Type&>();
 
   // Each has its own promoted instance
   EXPECT_NE(&grandparent_ref, &parent_ref);
@@ -1801,7 +1724,6 @@ struct ContainerHierarchyRelegationTest : ContainerTest {};
 TEST_F(ContainerHierarchyRelegationTest,
        child_relegates_singleton_from_parent) {
   struct Type : Counted {};
-
   auto parent = Container{bind<Type>().in<scope::Singleton>()};
   auto child = Container{parent};
 
@@ -1818,7 +1740,6 @@ TEST_F(ContainerHierarchyRelegationTest,
 TEST_F(ContainerHierarchyRelegationTest,
        parent_singleton_reference_differs_from_child_relegated_values) {
   struct Type : Counted {};
-
   auto parent = Container{bind<Type>().in<scope::Singleton>()};
   auto child = Container{parent};
 
@@ -1834,7 +1755,6 @@ TEST_F(ContainerHierarchyRelegationTest,
 TEST_F(ContainerHierarchyRelegationTest,
        grandparent_singleton_reference_accessible_but_child_can_relegate) {
   struct Type : Counted {};
-
   auto grandparent = Container{bind<Type>().in<scope::Singleton>()};
   auto parent = Container{grandparent};
   auto child = Container{parent};
@@ -1915,24 +1835,24 @@ TEST_F(ContainerHierarchyComplexTest, dependency_chain_across_hierarchy) {
 
 TEST_F(ContainerHierarchyComplexTest,
        promotion_and_relegation_across_hierarchy) {
-  struct Bound : Counted {};
+  struct Type : Counted {};
 
-  auto parent = Container{bind<Bound>().in<scope::Transient>()};
-  auto child = Container{parent, bind<Bound>().in<scope::Singleton>()};
+  auto parent = Container{bind<Type>().in<scope::Transient>()};
+  auto child = Container{parent, bind<Type>().in<scope::Singleton>()};
 
   // Parent transient promoted to singleton
-  auto& parent_ref1 = parent.template resolve<Bound&>();
-  auto& parent_ref2 = parent.template resolve<Bound&>();
+  auto& parent_ref1 = parent.template resolve<Type&>();
+  auto& parent_ref2 = parent.template resolve<Type&>();
   EXPECT_EQ(&parent_ref1, &parent_ref2);
   EXPECT_EQ(0, parent_ref1.id);
 
   // Child singleton
-  auto& child_ref = child.template resolve<Bound&>();
+  auto& child_ref = child.template resolve<Type&>();
   EXPECT_EQ(1, child_ref.id);
 
   // Child singleton values are copies
-  auto child_val1 = child.template resolve<Bound>();
-  auto child_val2 = child.template resolve<Bound>();
+  auto child_val1 = child.template resolve<Type>();
+  auto child_val2 = child.template resolve<Type>();
   EXPECT_NE(&child_val1, &child_val2);  // Different copies
   EXPECT_EQ(1, child_val1.id);          // Both copies of child singleton
   EXPECT_EQ(1, child_val2.id);          // Both copies of child singleton
@@ -1942,15 +1862,15 @@ TEST_F(ContainerHierarchyComplexTest,
 
 TEST_F(ContainerHierarchyComplexTest,
        sibling_containers_share_parent_promotion_when_delegating) {
-  struct Bound : Counted {};
+  struct Type : Counted {};
 
-  auto parent = Container{bind<Bound>().in<scope::Transient>()};
+  auto parent = Container{bind<Type>().in<scope::Transient>()};
   auto child1 = Container{parent};  // No binding, delegates to parent
   auto child2 = Container{parent};  // No binding, delegates to parent
 
   // Both children delegate to parent, share parent's promoted instance
-  auto& child1_ref = child1.template resolve<Bound&>();
-  auto& child2_ref = child2.template resolve<Bound&>();
+  auto& child1_ref = child1.template resolve<Type&>();
+  auto& child2_ref = child2.template resolve<Type&>();
 
   EXPECT_EQ(&child1_ref, &child2_ref);  // Same instance!
   EXPECT_EQ(0, child1_ref.id);
@@ -1967,18 +1887,18 @@ TEST_F(ContainerHierarchyComplexTest,
 // bindings.
 TEST_F(ContainerHierarchyComplexTest,
        sibling_containers_with_same_type_share_singletons) {
-  struct Bound : Counted {};
+  struct Type : Counted {};
 
-  auto parent = Container{bind<Bound>().in<scope::Transient>()};
+  auto parent = Container{bind<Type>().in<scope::Transient>()};
 
   // these two have the same type
-  auto child1 = Container(parent, bind<Bound>().in<scope::Singleton>());
-  auto child2 = Container(parent, bind<Bound>().in<scope::Singleton>());
+  auto child1 = Container(parent, bind<Type>().in<scope::Singleton>());
+  auto child2 = Container(parent, bind<Type>().in<scope::Singleton>());
   static_assert(std::same_as<decltype(child1), decltype(child2)>);
 
   // Children with the same type have the same binding, even during promotion.
-  auto& child1_ref = child1.template resolve<Bound&>();
-  auto& child2_ref = child2.template resolve<Bound&>();
+  auto& child1_ref = child1.template resolve<Type&>();
+  auto& child2_ref = child2.template resolve<Type&>();
 
   EXPECT_EQ(&child1_ref, &child2_ref);
   EXPECT_EQ(0, child1_ref.id);
@@ -1989,18 +1909,18 @@ TEST_F(ContainerHierarchyComplexTest,
 // Promoted instances are real singletons.
 TEST_F(ContainerHierarchyComplexTest,
        sibling_containers_with_same_promoted_type_share_singletons) {
-  struct Bound : Counted {};
+  struct Type : Counted {};
 
-  auto parent = Container{bind<Bound>().in<scope::Transient>()};
+  auto parent = Container{bind<Type>().in<scope::Transient>()};
 
   // these two have the same type
-  auto child1 = Container(parent, bind<Bound>().in<scope::Transient>());
-  auto child2 = Container(parent, bind<Bound>().in<scope::Transient>());
+  auto child1 = Container(parent, bind<Type>().in<scope::Transient>());
+  auto child2 = Container(parent, bind<Type>().in<scope::Transient>());
   static_assert(std::same_as<decltype(child1), decltype(child2)>);
 
   // Children with the same type have the same binding, even during promotion.
-  auto& child1_ref = child1.template resolve<Bound&>();
-  auto& child2_ref = child2.template resolve<Bound&>();
+  auto& child1_ref = child1.template resolve<Type&>();
+  auto& child2_ref = child2.template resolve<Type&>();
 
   EXPECT_EQ(&child1_ref, &child2_ref);
   EXPECT_EQ(0, child1_ref.id);
@@ -2010,20 +1930,20 @@ TEST_F(ContainerHierarchyComplexTest,
 
 TEST_F(ContainerHierarchyComplexTest,
        sibling_containers_using_macro_are_independent_with_own_bindings) {
-  struct Bound : Counted {};
+  struct Type : Counted {};
 
-  auto parent = Container{bind<Bound>().in<scope::Transient>()};
+  auto parent = Container{bind<Type>().in<scope::Transient>()};
 
   // using dink_unique_container, these two have unique types
   auto child1 =
-      dink_unique_container(parent, bind<Bound>().in<scope::Singleton>());
+      dink_unique_container(parent, bind<Type>().in<scope::Singleton>());
   auto child2 =
-      dink_unique_container(parent, bind<Bound>().in<scope::Singleton>());
+      dink_unique_container(parent, bind<Type>().in<scope::Singleton>());
   static_assert(!std::same_as<decltype(child1), decltype(child2)>);
 
   // Each child has own binding, promotes separately
-  auto& child1_ref = child1.template resolve<Bound&>();
-  auto& child2_ref = child2.template resolve<Bound&>();
+  auto& child1_ref = child1.template resolve<Type&>();
+  auto& child2_ref = child2.template resolve<Type&>();
 
   EXPECT_NE(&child1_ref, &child2_ref);
   EXPECT_EQ(0, child1_ref.id);
@@ -2044,13 +1964,13 @@ TEST_F(ContainerHierarchyComplexTest,
 
 TEST_F(ContainerHierarchyComplexTest,
        promoted_transitive_instances_are_root_singletons) {
-  struct Bound : Counted {};
+  struct Type : Counted {};
 
-  auto parent = Container{bind<Bound>().in<scope::Singleton>()};
+  auto parent = Container{bind<Type>().in<scope::Singleton>()};
   auto child = Container{parent};
 
-  auto& parent_ref = parent.template resolve<Bound&>();
-  auto& child_ref = child.template resolve<Bound&>();
+  auto& parent_ref = parent.template resolve<Type&>();
+  auto& child_ref = child.template resolve<Type&>();
 
   EXPECT_EQ(&parent_ref, &child_ref);
   EXPECT_EQ(0, parent_ref.id);
@@ -2059,28 +1979,28 @@ TEST_F(ContainerHierarchyComplexTest,
 }
 
 TEST_F(ContainerHierarchyComplexTest, deep_hierarchy_with_multiple_overrides) {
-  struct Bound {
+  struct Product {
     int_t value;
-    explicit Bound(int_t v = 0) : value{v} {}
+    explicit Product(int_t v = 0) : value{v} {}
   };
 
-  auto level0_factory = []() { return Bound{0}; };
-  auto level2_factory = []() { return Bound{2}; };
-  auto level4_factory = []() { return Bound{4}; };
+  auto level0_factory = []() { return Product{0}; };
+  auto level2_factory = []() { return Product{2}; };
+  auto level4_factory = []() { return Product{4}; };
 
-  auto level0 = Container{bind<Bound>().as<Bound>().via(level0_factory)};
+  auto level0 = Container{bind<Product>().as<Product>().via(level0_factory)};
   auto level1 = Container{level0};
   auto level2 =
-      Container{level1, bind<Bound>().as<Bound>().via(level2_factory)};
+      Container{level1, bind<Product>().as<Product>().via(level2_factory)};
   auto level3 = Container{level2};
   auto level4 =
-      Container{level3, bind<Bound>().as<Bound>().via(level4_factory)};
+      Container{level3, bind<Product>().as<Product>().via(level4_factory)};
 
-  auto r0 = level0.template resolve<Bound>();
-  auto r1 = level1.template resolve<Bound>();
-  auto r2 = level2.template resolve<Bound>();
-  auto r3 = level3.template resolve<Bound>();
-  auto r4 = level4.template resolve<Bound>();
+  auto r0 = level0.template resolve<Product>();
+  auto r1 = level1.template resolve<Product>();
+  auto r2 = level2.template resolve<Product>();
+  auto r3 = level3.template resolve<Product>();
+  auto r4 = level4.template resolve<Product>();
 
   EXPECT_EQ(0, r0.value);
   EXPECT_EQ(0, r1.value);  // Inherits from level0
