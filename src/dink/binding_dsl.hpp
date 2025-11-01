@@ -213,28 +213,6 @@ Binding(InBuilder<From, To, Provider, Scope>&&)
     -> Binding<From, Scope, Provider>;
 
 // ----------------------------------------------------------------------------
-// Factory Functions
-// ----------------------------------------------------------------------------
-
-//! Creates a tuple of bindings by forcing conversion of each builder.
-//
-// This explicitly constructs Binding objects from builders, which enables
-// storing heterogeneous bindings in a tuple. Without this, std::make_tuple
-// would store the builder types themselves rather than converting them to
-// Binding types.
-//
-// Example usage:
-//   auto bindings = make_bindings(
-//     bind<Type>(),
-//     bind<Interface>().as<Implementation>().in<scope::Singleton>(),
-//     bind<Config>().to(config_instance)
-//   );
-template <typename... Builders>
-constexpr auto make_bindings(Builders&&... builders) {
-  return std::tuple{Binding{std::forward<Builders>(builders)}...};
-}
-
-// ----------------------------------------------------------------------------
 // Entry Point
 // ----------------------------------------------------------------------------
 

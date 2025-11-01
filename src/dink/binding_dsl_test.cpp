@@ -36,6 +36,12 @@ constexpr auto concrete_factory = []() constexpr { return Concrete{}; };
 using TestFactory = std::remove_const_t<decltype(test_factory)>;
 using ConcreteFactory = std::remove_const_t<decltype(concrete_factory)>;
 
+//! cooks builder outputs into real bindings
+template <IsConvertibleToBinding... Builders>
+constexpr auto make_bindings(Builders&&... builders) {
+  return std::tuple{Binding{std::forward<Builders>(builders)}...};
+}
+
 // ----------------------------------------------------------------------------
 // Type Transition Tests - Verify builder state transitions
 // ----------------------------------------------------------------------------
