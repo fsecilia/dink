@@ -13,6 +13,7 @@ namespace {
 struct Fixture {
   struct Constructed {
     static inline const auto expected_value = int_t{2322};  // arbitrary
+
     int_t value;
   };
 
@@ -180,7 +181,7 @@ struct InstanceFixture : Fixture {
 // ----------------------------------------------------------------------------
 
 struct InstanceCompileTimeTest : InstanceFixture {
-  static constexpr auto returns_reference() -> bool {
+  static constexpr auto returns_expected_reference() -> bool {
     Constructed ext{Constructed::expected_value};
     Container container{};
     Sut sut{ext};
@@ -202,7 +203,7 @@ struct InstanceCompileTimeTest : InstanceFixture {
   }
 
   constexpr InstanceCompileTimeTest() {
-    static_assert(returns_reference(),
+    static_assert(returns_expected_reference(),
                   "Instance provider reference test failed");
     static_assert(returns_value_copy(), "Instance provider value test failed");
   }
