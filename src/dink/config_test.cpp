@@ -22,10 +22,10 @@ struct BindingIndexTest {
   static constexpr auto test_case =
       binding_index<From, std::tuple<decltype(Binding{bind<Types>()})...>>;
 
-  // 0
+  // Zero
   static_assert(npos == test_case<Found>, "should find npos for empty binding");
 
-  // 1
+  // One
   static_assert(0 == test_case<Found, Found>, "should find single binding");
   static_assert(npos == test_case<Found, NotFound>,
                 "should not find single binding");
