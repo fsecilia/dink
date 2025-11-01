@@ -43,13 +43,17 @@ class Singleton {
 
   //! Resolves instance in requested form.
   template <typename Requested, typename Container, typename Provider>
-  auto resolve(Container& container, Provider& provider) const -> Requested {
-    if constexpr (meta::IsSharedPtr<Requested> || meta::IsWeakPtr<Requested> ||
-                  std::is_lvalue_reference_v<Requested>) {
-      // shared/weak pointers and lvalue references
+  auto resolve(Container& container, Provider& provider) const
+      -> meta::RemoveRvalueRef<Requested> {
+    using Provided = typename Provider::Provided;
+
+    if constexpr (std::is_same_v<std::remove_cvref_t<Requested>, Provided> ||
+                  std::is_lvalue_reference_v<Requested> ||
+                  meta::IsSharedPtr<Requested> || meta::IsWeakPtr<Requested>) {
+      // Values, lvalue references (mutable or const), and shared/weak pointers.
       return cached_instance(container, provider);
     } else if constexpr (std::is_pointer_v<Requested>) {
-      // Pointers
+      // Pointers (mutable or const).
       return &cached_instance(container, provider);
     } else {
       static_assert(meta::kDependentFalse<Requested>,
@@ -84,10 +88,10 @@ class Instance {
 
     if constexpr (std::is_same_v<std::remove_cvref_t<Requested>, Provided> ||
                   std::is_lvalue_reference_v<Requested>) {
-      // Values and Lvalue reference (mutable or const)
+      // Values and Lvalue reference (mutable or const).
       return instance;
     } else if constexpr (std::is_pointer_v<Requested>) {
-      // Pointer (mutable or const)
+      // Pointers (mutable or const).
       return &instance;
     } else {
       static_assert(meta::kDependentFalse<Requested>,

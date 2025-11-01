@@ -188,14 +188,14 @@ struct StrategyFactoryTest : StrategyTest {
   static_assert(test<strategies::RelegateToTransient, Requested, false, false>);
   static_assert(test<strategies::RelegateToTransient, Requested, false, true>);
   static_assert(test<strategies::UseBinding, Requested, true, false>);
-  static_assert(test<strategies::RelegateToTransient, Requested, true, true>);
+  static_assert(test<strategies::UseBinding, Requested, true, true>);
 
   static_assert(
       test<strategies::RelegateToTransient, Requested&&, false, false>);
   static_assert(
       test<strategies::RelegateToTransient, Requested&&, false, true>);
   static_assert(test<strategies::UseBinding, Requested&&, true, false>);
-  static_assert(test<strategies::RelegateToTransient, Requested&&, true, true>);
+  static_assert(test<strategies::UseBinding, Requested&&, true, true>);
 };
 
 }  // namespace dink

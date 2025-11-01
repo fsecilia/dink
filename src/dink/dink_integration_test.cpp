@@ -1386,14 +1386,14 @@ TEST_F(ContainerRelegationTest, singleton_relegated_to_transient_for_value) {
   struct SingletonBound : Counted {};
   auto sut = Container{bind<SingletonBound>().in<scope::Singleton>()};
 
-  // Values should create new instances (relegated to transient)
+  // Values return copies of the singleton.
   auto val1 = sut.template resolve<SingletonBound>();
   auto val2 = sut.template resolve<SingletonBound>();
 
   EXPECT_NE(&val1, &val2);
   EXPECT_EQ(0, val1.id);
-  EXPECT_EQ(1, val2.id);
-  EXPECT_EQ(2, Counted::num_instances);
+  EXPECT_EQ(0, val2.id);
+  EXPECT_EQ(1, Counted::num_instances);
 }
 
 TEST_F(ContainerRelegationTest,
@@ -1406,8 +1406,8 @@ TEST_F(ContainerRelegationTest,
 
   EXPECT_NE(&rval1, &rval2);
   EXPECT_EQ(0, rval1.id);
-  EXPECT_EQ(1, rval2.id);
-  EXPECT_EQ(2, Counted::num_instances);
+  EXPECT_EQ(0, rval2.id);
+  EXPECT_EQ(1, Counted::num_instances);
 }
 
 TEST_F(ContainerRelegationTest,
@@ -1467,36 +1467,36 @@ TEST_F(ContainerRelegationTest,
   EXPECT_EQ(modified_value, shared->value);
   EXPECT_EQ(&singleton, shared.get());
 
-  // But values are relegated and create new instances with default value
+  // Values are copies of the singleton with the modified value
   auto val = sut.template resolve<SingletonBound>();
-  EXPECT_EQ(initial_value, val.value);
-  EXPECT_NE(&singleton, &val);
+  EXPECT_EQ(modified_value, val.value);  // Copy of modified singleton
+  EXPECT_NE(&singleton, &val);           // But different address
 
-  EXPECT_EQ(2, Counted::num_instances);  // 1 singleton + 1 relegated value
+  EXPECT_EQ(1, Counted::num_instances);  // Only 1 singleton instance
 }
 
 TEST_F(ContainerRelegationTest,
-       singleton_relegation_creates_new_instances_not_copies) {
+       singleton_relegation_creates_copies_not_fresh_instances) {
   struct SingletonBound : Counted {
     int_t value = initial_value;
     SingletonBound() = default;
   };
   auto sut = Container{bind<SingletonBound>().in<scope::Singleton>()};
 
-  // Get singleton reference and modify it.
+  // Get singleton reference and modify it
   auto& singleton = sut.template resolve<SingletonBound&>();
   singleton.value = modified_value;
 
-  // Values are relegated to transient. This creates new instances from the
-  // provider, not copies of the modified singleton.
+  // Values are copies of the singleton. This creates copies of the
+  // modified singleton, not fresh instances from the provider.
   auto val1 = sut.template resolve<SingletonBound>();
   auto val2 = sut.template resolve<SingletonBound>();
 
-  // Default values from provider, not modified value
-  EXPECT_EQ(initial_value, val1.value);
-  EXPECT_EQ(initial_value, val2.value);
+  // Copies of modified singleton, not default values from provider
+  EXPECT_EQ(modified_value, val1.value);
+  EXPECT_EQ(modified_value, val2.value);
 
-  // modified singleton values are still different than the provided values.
+  // Copies are independent from each other and from singleton
   EXPECT_NE(&singleton, &val1);
   EXPECT_NE(&singleton, &val2);
   EXPECT_NE(&val1, &val2);
@@ -1518,23 +1518,26 @@ TEST_F(ContainerRelegationTest, singleton_relegation_with_dependencies) {
   auto sut = Container{bind<Dependency>().in<scope::Singleton>(),
                        bind<Service>().in<scope::Singleton>()};
 
-  // Service value will relegate, which will relegate Dependency
-  // Each Service creates its own new Dependency instance
+  // Service value is a copy of the Service singleton
+  // The Service singleton contains a copy of the Dependency singleton
+  // Each value resolution creates independent copies
   auto service1 = sut.template resolve<Service>();
   auto service2 = sut.template resolve<Service>();
 
-  EXPECT_NE(&service1, &service2);
-  EXPECT_NE(&service1.dep, &service2.dep);
+  EXPECT_NE(&service1, &service2);          // Independent copies
+  EXPECT_NE(&service1.dep, &service2.dep);  // Each copy has its own dep copy
 
-  // First resolution: Dependency (id=0) then Service (id=1)
-  EXPECT_EQ(0, service1.dep.id);
-  EXPECT_EQ(1, service1.id);
+  // Singletons created: Dependency (id=0) then Service (id=1)
+  EXPECT_EQ(0, service1.dep.id);  // Copy of Dependency singleton
+  EXPECT_EQ(1, service1.id);      // Copy of Service singleton
 
-  // Second resolution: Dependency (id=2) then Service (id=3)
-  EXPECT_EQ(2, service2.dep.id);
-  EXPECT_EQ(3, service2.id);
+  // Both values are copies of the same singletons
+  EXPECT_EQ(0, service2.dep.id);  // Copy of same Dependency singleton
+  EXPECT_EQ(1, service2.id);      // Copy of same Service singleton
 
-  EXPECT_EQ(4, Counted::num_instances);  // 2 Service + 2 Dependency
+  EXPECT_EQ(
+      2,
+      Counted::num_instances);  // 1 Service singleton + 1 Dependency singleton
 }
 
 // ----------------------------------------------------------------------------
@@ -1884,14 +1887,14 @@ TEST_F(ContainerHierarchyRelegationTest,
   auto parent = Container{bind<SingletonBound>().in<scope::Singleton>()};
   auto child = Container{parent};
 
-  // Child requests by value, should relegate
+  // Child requests by value, gets copies of parent's singleton
   auto child_val1 = child.template resolve<SingletonBound>();
   auto child_val2 = child.template resolve<SingletonBound>();
 
-  EXPECT_NE(&child_val1, &child_val2);
-  EXPECT_EQ(0, child_val1.id);
-  EXPECT_EQ(1, child_val2.id);
-  EXPECT_EQ(2, Counted::num_instances);
+  EXPECT_NE(&child_val1, &child_val2);   // Different copies
+  EXPECT_EQ(0, child_val1.id);           // Both copies of same singleton
+  EXPECT_EQ(0, child_val2.id);           // Both copies of same singleton
+  EXPECT_EQ(1, Counted::num_instances);  // Only parent's singleton
 }
 
 TEST_F(ContainerHierarchyRelegationTest,
@@ -1904,10 +1907,10 @@ TEST_F(ContainerHierarchyRelegationTest,
   auto& parent_ref = parent.template resolve<SingletonBound&>();
   auto child_val = child.template resolve<SingletonBound>();
 
-  EXPECT_NE(&parent_ref, &child_val);
-  EXPECT_EQ(0, parent_ref.id);
-  EXPECT_EQ(1, child_val.id);
-  EXPECT_EQ(2, Counted::num_instances);
+  EXPECT_NE(&parent_ref, &child_val);    // Value is a copy
+  EXPECT_EQ(0, parent_ref.id);           // Singleton
+  EXPECT_EQ(0, child_val.id);            // Copy of same singleton
+  EXPECT_EQ(1, Counted::num_instances);  // Only 1 singleton
 }
 
 TEST_F(ContainerHierarchyRelegationTest,
@@ -1923,10 +1926,10 @@ TEST_F(ContainerHierarchyRelegationTest,
   auto child_val = child.template resolve<SingletonBound>();
 
   EXPECT_EQ(&grandparent_ref, &child_ref);  // References share
-  EXPECT_NE(&grandparent_ref, &child_val);  // Value is relegated
-  EXPECT_EQ(0, grandparent_ref.id);
-  EXPECT_EQ(1, child_val.id);
-  EXPECT_EQ(2, Counted::num_instances);
+  EXPECT_NE(&grandparent_ref, &child_val);  // Value is a copy
+  EXPECT_EQ(0, grandparent_ref.id);         // Singleton
+  EXPECT_EQ(0, child_val.id);               // Copy of same singleton
+  EXPECT_EQ(1, Counted::num_instances);     // Only 1 singleton
 }
 
 // ----------------------------------------------------------------------------
@@ -2009,14 +2012,14 @@ TEST_F(ContainerHierarchyComplexTest,
   auto& child_ref = child.template resolve<Bound&>();
   EXPECT_EQ(1, child_ref.id);
 
-  // Child singleton relegated to transient
+  // Child singleton values are copies
   auto child_val1 = child.template resolve<Bound>();
   auto child_val2 = child.template resolve<Bound>();
-  EXPECT_NE(&child_val1, &child_val2);
-  EXPECT_EQ(2, child_val1.id);
-  EXPECT_EQ(3, child_val2.id);
+  EXPECT_NE(&child_val1, &child_val2);  // Different copies
+  EXPECT_EQ(1, child_val1.id);          // Both copies of child singleton
+  EXPECT_EQ(1, child_val2.id);          // Both copies of child singleton
 
-  EXPECT_EQ(4, Counted::num_instances);
+  EXPECT_EQ(2, Counted::num_instances);  // 1 parent + 1 child singleton
 }
 
 TEST_F(ContainerHierarchyComplexTest,

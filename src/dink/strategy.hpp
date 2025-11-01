@@ -163,11 +163,11 @@ struct StrategyFactory {
       }
     } else {
       // Value or rvalue ref.
-      if constexpr (has_binding && !scope_provides_references) {
-        // Already bound to transient scope; use the binding.
+      if constexpr (has_binding) {
+        // Use binding; will copy singleton or use transient.
         return strategies::UseBinding{};
       } else {
-        // No binding or a reference scope; must relegate.
+        // No binding; must relegate.
         return strategies::RelegateToTransient{};
       }
     }

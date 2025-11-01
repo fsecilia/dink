@@ -308,6 +308,22 @@ TEST_F(ScopeTestSingleton,
   ASSERT_NE(result, other_result);
 }
 
+TEST_F(ScopeTestSingleton, resolves_value_copy_of_singleton) {
+  struct UniqueProvider : Provider {};
+  auto provider = UniqueProvider{};
+
+  const auto val1 = sut.resolve<Resolved>(container, provider);
+  const auto val2 = sut.resolve<Resolved>(container, provider);
+
+  // Different value copies
+  ASSERT_NE(&val1, &val2);
+
+  // Both copies of the same singleton
+  const auto& ref = sut.resolve<Resolved&>(container, provider);
+  ASSERT_EQ(val1.container, ref.container);
+  ASSERT_EQ(val2.container, ref.container);
+}
+
 // Construction Counts
 // ----------------------------------------------------------------------------
 
