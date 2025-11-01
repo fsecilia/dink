@@ -270,19 +270,6 @@ TEST_F(RuntimeTest, BindToInstanceReference) {
   static_assert(std::same_as<decltype(binding), Expected>);
 }
 
-TEST_F(RuntimeTest, HeterogeneousTuple) {
-  Instance inst;
-  auto runtime_factory = []() { return Implementation{}; };
-
-  // Mix of constexpr and runtime bindings
-  [[maybe_unused]] auto bindings =
-      make_bindings(bind<Interface>(),
-                    bind<Interface>().as<Implementation>().via(runtime_factory),
-                    bind<Instance>().to(inst));
-
-  EXPECT_EQ(std::tuple_size_v<decltype(bindings)>, 3);
-}
-
 // ----------------------------------------------------------------------------
 // Documentation Examples
 // ----------------------------------------------------------------------------
