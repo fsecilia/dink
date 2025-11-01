@@ -23,15 +23,15 @@ struct Counted {
 };
 
 // Common base for all container tests - resets counters
-struct ContainerTestBase : Test {
-  ContainerTestBase() { Counted::instance_count = 0; }
+struct ContainerTest : Test {
+  ContainerTest() { Counted::instance_count = 0; }
 };
 
 // ----------------------------------------------------------------------------
 // Singleton Scope Tests
 // ----------------------------------------------------------------------------
 
-struct ContainerSingletonTest : ContainerTestBase {};
+struct ContainerSingletonTest : ContainerTest {};
 
 TEST_F(ContainerSingletonTest, canonical_shared_wraps_instance) {
   struct SingletonBound {};
@@ -208,7 +208,7 @@ TEST_F(ContainerSingletonTest, reference_and_pointer_point_to_same_instance) {
 // Transient Scope Tests
 // ----------------------------------------------------------------------------
 
-struct ContainerTransientTest : ContainerTestBase {};
+struct ContainerTransientTest : ContainerTest {};
 
 TEST_F(ContainerTransientTest, creates_new_shared_ptr_per_resolve) {
   struct TransientBound {};
@@ -273,7 +273,7 @@ TEST_F(ContainerTransientTest, resolves_rvalue_reference) {
 // Instance Scope Tests
 // ----------------------------------------------------------------------------
 
-struct ContainerInstanceTest : ContainerTestBase {};
+struct ContainerInstanceTest : ContainerTest {};
 
 TEST_F(ContainerInstanceTest, shared_ptr_wraps_external_instance) {
   struct External {
@@ -430,7 +430,7 @@ TEST_F(ContainerInstanceTest, resolves_const_pointer) {
 // Factory Binding Tests
 // ----------------------------------------------------------------------------
 
-struct ContainerFactoryTest : ContainerTestBase {};
+struct ContainerFactoryTest : ContainerTest {};
 
 TEST_F(ContainerFactoryTest, resolves_with_factory) {
   struct Product {
@@ -517,7 +517,7 @@ TEST_F(ContainerFactoryTest, factory_with_parameters_from_container) {
 // Interface/Implementation Binding Tests
 // ----------------------------------------------------------------------------
 
-struct ContainerInterfaceTest : ContainerTestBase {};
+struct ContainerInterfaceTest : ContainerTest {};
 
 TEST_F(ContainerInterfaceTest, binds_interface_to_implementation) {
   struct IService {
@@ -622,7 +622,7 @@ TEST_F(ContainerInterfaceTest, multiple_interfaces_to_implementations) {
 // Dependency Injection Tests
 // ----------------------------------------------------------------------------
 
-struct ContainerDependencyInjectionTest : ContainerTestBase {};
+struct ContainerDependencyInjectionTest : ContainerTest {};
 
 TEST_F(ContainerDependencyInjectionTest, resolves_single_dependency) {
   struct Dependency {
@@ -861,7 +861,7 @@ TEST_F(ContainerDependencyInjectionTest,
 // Canonical Type Resolution Tests
 // ----------------------------------------------------------------------------
 
-struct ContainerCanonicalTest : ContainerTestBase {};
+struct ContainerCanonicalTest : ContainerTest {};
 
 TEST_F(ContainerCanonicalTest, const_and_non_const_resolve_same_binding) {
   struct Bound {
@@ -934,7 +934,7 @@ TEST_F(ContainerCanonicalTest, shared_ptr_variations_resolve_same_binding) {
 // Edge Cases and Error Conditions
 // ----------------------------------------------------------------------------
 
-struct ContainerEdgeCasesTest : ContainerTestBase {};
+struct ContainerEdgeCasesTest : ContainerTest {};
 
 TEST_F(ContainerEdgeCasesTest, empty_container_resolves_unbound_types) {
   struct Unbound {
@@ -1076,7 +1076,7 @@ TEST_F(ContainerEdgeCasesTest, resolve_from_multiple_containers) {
 // Mixed Scopes Tests
 // ----------------------------------------------------------------------------
 
-struct ContainerMixedScopesTest : ContainerTestBase {};
+struct ContainerMixedScopesTest : ContainerTest {};
 
 TEST_F(ContainerMixedScopesTest, transient_and_singleton_coexist) {
   struct Transient {};
@@ -1132,7 +1132,7 @@ TEST_F(ContainerMixedScopesTest, all_scopes_coexist) {
 // Default Scope Tests
 // ----------------------------------------------------------------------------
 
-struct ContainerDefaultScopeTest : ContainerTestBase {};
+struct ContainerDefaultScopeTest : ContainerTest {};
 
 TEST_F(ContainerDefaultScopeTest, unbound_type_uses_default_scope) {
   struct SingletonBound {};
@@ -1210,7 +1210,7 @@ TEST_F(ContainerDefaultScopeTest, unbound_type_creates_values) {
 //
 // ----------------------------------------------------------------------------
 
-struct ContainerPromotionTest : ContainerTestBase {};
+struct ContainerPromotionTest : ContainerTest {};
 
 TEST_F(ContainerPromotionTest, transient_promoted_to_singleton_for_reference) {
   struct TransientBound : Counted {};
@@ -1378,7 +1378,7 @@ TEST_F(ContainerPromotionTest, transient_promotion_with_dependencies) {
 //
 // ----------------------------------------------------------------------------
 
-struct ContainerRelegationTest : ContainerTestBase {};
+struct ContainerRelegationTest : ContainerTest {};
 
 TEST_F(ContainerRelegationTest, singleton_relegated_to_transient_for_value) {
   struct SingletonBound : Counted {};
@@ -1536,7 +1536,7 @@ TEST_F(ContainerRelegationTest, singleton_relegation_with_dependencies) {
 // Hierarchical Container Tests - Basic Delegation
 // ----------------------------------------------------------------------------
 
-struct ContainerHierarchyTest : ContainerTestBase {};
+struct ContainerHierarchyTest : ContainerTest {};
 
 TEST_F(ContainerHierarchyTest, child_finds_binding_in_parent) {
   struct ParentBound {
@@ -1642,7 +1642,7 @@ TEST_F(ContainerHierarchyTest, unbound_type_uses_fallback_in_hierarchy) {
 // Hierarchical Container Tests - Singleton Sharing
 // ----------------------------------------------------------------------------
 
-struct ContainerHierarchySingletonTest : ContainerTestBase {};
+struct ContainerHierarchySingletonTest : ContainerTest {};
 
 TEST_F(ContainerHierarchySingletonTest, singleton_in_parent_shared_with_child) {
   struct SingletonBound : Counted {};
@@ -1714,7 +1714,7 @@ TEST_F(ContainerHierarchySingletonTest,
 // Hierarchical Container Tests - Transient Behavior
 // ----------------------------------------------------------------------------
 
-struct ContainerHierarchyTransientTest : ContainerTestBase {};
+struct ContainerHierarchyTransientTest : ContainerTest {};
 
 TEST_F(ContainerHierarchyTransientTest,
        transient_in_parent_creates_new_instances_for_child) {
@@ -1770,7 +1770,7 @@ TEST_F(ContainerHierarchyTransientTest,
 //
 // ----------------------------------------------------------------------------
 
-struct ContainerHierarchyPromotionTest : ContainerTestBase {};
+struct ContainerHierarchyPromotionTest : ContainerTest {};
 
 TEST_F(ContainerHierarchyPromotionTest, child_promotes_transient_from_parent) {
   struct TransientBound : Counted {};
@@ -1870,7 +1870,7 @@ TEST_F(ContainerHierarchyPromotionTest,
 // Hierarchical Container Tests - Relegation in Hierarchy
 // ----------------------------------------------------------------------------
 
-struct ContainerHierarchyRelegationTest : ContainerTestBase {};
+struct ContainerHierarchyRelegationTest : ContainerTest {};
 
 TEST_F(ContainerHierarchyRelegationTest,
        child_relegates_singleton_from_parent) {
@@ -1928,7 +1928,7 @@ TEST_F(ContainerHierarchyRelegationTest,
 // Complex Hierarchical Scenarios
 // ----------------------------------------------------------------------------
 
-struct ContainerHierarchyComplexTest : ContainerTestBase {};
+struct ContainerHierarchyComplexTest : ContainerTest {};
 
 TEST_F(ContainerHierarchyComplexTest, mixed_scopes_across_hierarchy) {
   struct SingletonInGrandparent : Counted {};
