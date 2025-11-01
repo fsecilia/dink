@@ -222,11 +222,11 @@ Binding(InBuilder<From, To, Provider, Scope>&&)
 // that can be configured through method chaining.
 //
 // Example usage:
-//   bind<Interface>() -> Transient<Ctor<Interface>>
+//   bind<Type>() -> Transient<Ctor<Type>>
 //   bind<Interface>().as<Implementation>() -> Transient<Ctor<Implementation>>
 //   bind<Interface>().as<Implementation>().via(factory)
 //     -> Transient<Factory<Implementation, decltype(factory)>>
-//   bind<Interface>().in<scope::Singleton>() -> Singleton<Ctor<Interface>>
+//   bind<Type>().in<scope::Singleton>() -> Singleton<Ctor<Type>>
 //   bind<Interface>().to(instance) -> Instance<decltype(instance)>
 template <typename From>
 constexpr auto bind() -> BindBuilder<From> {
