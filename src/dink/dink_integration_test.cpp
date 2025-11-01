@@ -24,6 +24,9 @@ struct Counted {
 
 // Common base for all container tests - resets counters
 struct ContainerTest : Test {
+  static inline const auto initial_value = int_t{7793};   // arbitrary
+  static inline const auto modified_value = int_t{2145};  // arbitrary
+
   ContainerTest() { Counted::num_instances = 0; }
 };
 
@@ -87,7 +90,7 @@ TEST_F(ContainerSingletonTest, weak_ptr_does_not_expire_while_singleton_alive) {
   const auto& weak = sut.template resolve<std::weak_ptr<SingletonBound>>();
 
   // Even with no shared_ptr in scope, weak_ptr should not expire
-  // because it tracks the canonical shared_ptr which aliases the static
+  // because it tracks the canonical shared_ptr which aliases the instance.
   EXPECT_FALSE(weak.expired());
 
   auto shared = weak.lock();
@@ -134,7 +137,7 @@ TEST_F(ContainerSingletonTest, multiple_singleton_types) {
 
 TEST_F(ContainerSingletonTest, resolves_mutable_reference) {
   struct SingletonBound {
-    int_t value = 42;
+    int_t value = initial_value;
     SingletonBound() = default;
   };
   auto sut = Container{bind<SingletonBound>().in<scope::Singleton>()};
@@ -143,15 +146,15 @@ TEST_F(ContainerSingletonTest, resolves_mutable_reference) {
   auto& ref2 = sut.template resolve<SingletonBound&>();
 
   EXPECT_EQ(&ref1, &ref2);
-  EXPECT_EQ(42, ref1.value);
+  EXPECT_EQ(initial_value, ref1.value);
 
-  ref1.value = 99;
-  EXPECT_EQ(99, ref2.value);
+  ref1.value = modified_value;
+  EXPECT_EQ(modified_value, ref2.value);
 }
 
 TEST_F(ContainerSingletonTest, resolves_const_reference) {
   struct SingletonBound {
-    int_t value = 42;
+    int_t value = initial_value;
     SingletonBound() = default;
   };
   auto sut = Container{bind<SingletonBound>().in<scope::Singleton>()};
@@ -160,12 +163,12 @@ TEST_F(ContainerSingletonTest, resolves_const_reference) {
   const auto& ref2 = sut.template resolve<const SingletonBound&>();
 
   EXPECT_EQ(&ref1, &ref2);
-  EXPECT_EQ(42, ref1.value);
+  EXPECT_EQ(initial_value, ref1.value);
 }
 
 TEST_F(ContainerSingletonTest, resolves_mutable_pointer) {
   struct SingletonBound {
-    int_t value = 42;
+    int_t value = initial_value;
     SingletonBound() = default;
   };
   auto sut = Container{bind<SingletonBound>().in<scope::Singleton>()};
@@ -174,15 +177,15 @@ TEST_F(ContainerSingletonTest, resolves_mutable_pointer) {
   auto* ptr2 = sut.template resolve<SingletonBound*>();
 
   EXPECT_EQ(ptr1, ptr2);
-  EXPECT_EQ(42, ptr1->value);
+  EXPECT_EQ(initial_value, ptr1->value);
 
-  ptr1->value = 99;
-  EXPECT_EQ(99, ptr2->value);
+  ptr1->value = modified_value;
+  EXPECT_EQ(modified_value, ptr2->value);
 }
 
 TEST_F(ContainerSingletonTest, resolves_const_pointer) {
   struct SingletonBound {
-    int_t value = 42;
+    int_t value = initial_value;
     SingletonBound() = default;
   };
   auto sut = Container{bind<SingletonBound>().in<scope::Singleton>()};
@@ -191,7 +194,7 @@ TEST_F(ContainerSingletonTest, resolves_const_pointer) {
   const auto* ptr2 = sut.template resolve<const SingletonBound*>();
 
   EXPECT_EQ(ptr1, ptr2);
-  EXPECT_EQ(42, ptr1->value);
+  EXPECT_EQ(initial_value, ptr1->value);
 }
 
 TEST_F(ContainerSingletonTest, reference_and_pointer_point_to_same_instance) {
@@ -234,7 +237,7 @@ TEST_F(ContainerTransientTest, creates_new_value_per_resolve) {
 
 TEST_F(ContainerTransientTest, creates_new_unique_ptr_per_resolve) {
   struct TransientBound {
-    int_t value = 42;
+    int_t value = initial_value;
     TransientBound() = default;
   };
   auto sut = Container{bind<TransientBound>().in<scope::Transient>()};
@@ -243,30 +246,30 @@ TEST_F(ContainerTransientTest, creates_new_unique_ptr_per_resolve) {
   auto unique2 = sut.template resolve<std::unique_ptr<TransientBound>>();
 
   EXPECT_NE(unique1.get(), unique2.get());
-  EXPECT_EQ(42, unique1->value);
-  EXPECT_EQ(42, unique2->value);
+  EXPECT_EQ(initial_value, unique1->value);
+  EXPECT_EQ(initial_value, unique2->value);
 }
 
 TEST_F(ContainerTransientTest, resolves_const_value) {
   struct TransientBound {
-    int_t value = 42;
+    int_t value = initial_value;
     TransientBound() = default;
   };
   auto sut = Container{bind<TransientBound>().in<scope::Transient>()};
 
   const auto value = sut.template resolve<const TransientBound>();
-  EXPECT_EQ(42, value.value);
+  EXPECT_EQ(initial_value, value.value);
 }
 
 TEST_F(ContainerTransientTest, resolves_rvalue_reference) {
   struct TransientBound {
-    int_t value = 42;
+    int_t value = initial_value;
     TransientBound() = default;
   };
   auto sut = Container{bind<TransientBound>().in<scope::Transient>()};
 
   auto&& value = sut.template resolve<TransientBound&&>();
-  EXPECT_EQ(42, value.value);
+  EXPECT_EQ(initial_value, value.value);
 }
 
 // ----------------------------------------------------------------------------
@@ -277,7 +280,6 @@ struct ContainerInstanceTest : ContainerTest {};
 
 TEST_F(ContainerInstanceTest, shared_ptr_wraps_external_instance) {
   struct External {
-    int_t value = 42;
   };
 
   External external_obj;
@@ -358,23 +360,23 @@ TEST_F(ContainerInstanceTest, weak_ptr_expires_with_canonical_shared_ptr) {
 
 TEST_F(ContainerInstanceTest, resolves_value_copy_of_external) {
   struct External {
-    int_t value = 42;
+    int_t value = initial_value;
   };
-  External external_obj{99};
+  External external_obj{modified_value};
 
   auto sut = Container{bind<External>().to(external_obj)};
 
   auto copy = sut.template resolve<External>();
-  EXPECT_EQ(99, copy.value);
+  EXPECT_EQ(modified_value, copy.value);
 
   // Verify it's a copy, not the original
-  copy.value = 123;
-  EXPECT_EQ(99, external_obj.value);
+  copy.value *= 2;
+  EXPECT_EQ(modified_value, external_obj.value);
 }
 
 TEST_F(ContainerInstanceTest, resolves_mutable_reference) {
   struct External {
-    int_t value = 42;
+    int_t value = initial_value;
   };
   External external_obj;
 
@@ -383,13 +385,13 @@ TEST_F(ContainerInstanceTest, resolves_mutable_reference) {
   auto& ref = sut.template resolve<External&>();
   EXPECT_EQ(&external_obj, &ref);
 
-  ref.value = 99;
-  EXPECT_EQ(99, external_obj.value);
+  ref.value = modified_value;
+  EXPECT_EQ(modified_value, external_obj.value);
 }
 
 TEST_F(ContainerInstanceTest, resolves_const_reference) {
   struct External {
-    int_t value = 42;
+    int_t value = initial_value;
   };
   External external_obj;
 
@@ -401,7 +403,7 @@ TEST_F(ContainerInstanceTest, resolves_const_reference) {
 
 TEST_F(ContainerInstanceTest, resolves_mutable_pointer) {
   struct External {
-    int_t value = 42;
+    int_t value = initial_value;
   };
   External external_obj;
 
@@ -410,13 +412,13 @@ TEST_F(ContainerInstanceTest, resolves_mutable_pointer) {
   auto* ptr = sut.template resolve<External*>();
   EXPECT_EQ(&external_obj, ptr);
 
-  ptr->value = 99;
-  EXPECT_EQ(99, external_obj.value);
+  ptr->value = modified_value;
+  EXPECT_EQ(modified_value, external_obj.value);
 }
 
 TEST_F(ContainerInstanceTest, resolves_const_pointer) {
   struct External {
-    int_t value = 42;
+    int_t value = initial_value;
   };
   External external_obj;
 
@@ -437,12 +439,12 @@ TEST_F(ContainerFactoryTest, resolves_with_factory) {
     int_t value;
   };
 
-  auto factory = []() { return Product{99}; };
+  auto factory = []() { return Product{modified_value}; };
 
   auto sut = Container{bind<Product>().as<Product>().via(factory)};
 
   auto value = sut.template resolve<Product>();
-  EXPECT_EQ(99, value.value);
+  EXPECT_EQ(modified_value, value.value);
 }
 
 TEST_F(ContainerFactoryTest, factory_with_singleton_scope) {
@@ -482,15 +484,15 @@ TEST_F(ContainerFactoryTest, factory_with_deduced_scope) {
     int_t value;
   };
 
-  auto factory = []() { return Product{42}; };
+  auto factory = []() { return Product{initial_value}; };
 
   auto sut = Container{bind<Product>().as<Product>().via(factory)};
 
   auto value = sut.template resolve<Product>();
   auto& ref = sut.template resolve<Product&>();
 
-  EXPECT_EQ(42, value.value);
-  EXPECT_EQ(42, ref.value);
+  EXPECT_EQ(initial_value, value.value);
+  EXPECT_EQ(initial_value, ref.value);
 }
 
 TEST_F(ContainerFactoryTest, factory_with_parameters_from_container) {
@@ -526,13 +528,13 @@ TEST_F(ContainerInterfaceTest, binds_interface_to_implementation) {
   };
 
   struct ServiceImpl : IService {
-    int_t get_value() const override { return 42; }
+    int_t get_value() const override { return initial_value; }
   };
 
   auto sut = Container{bind<IService>().as<ServiceImpl>()};
 
   auto& service = sut.template resolve<IService&>();
-  EXPECT_EQ(42, service.get_value());
+  EXPECT_EQ(initial_value, service.get_value());
 }
 
 TEST_F(ContainerInterfaceTest, interface_binding_with_singleton_scope) {
@@ -567,12 +569,12 @@ TEST_F(ContainerInterfaceTest, interface_binding_with_factory) {
     int_t get_value() const override { return value; }
   };
 
-  auto factory = []() { return ServiceImpl{99}; };
+  auto factory = []() { return ServiceImpl{modified_value}; };
 
   auto sut = Container{bind<IService>().as<ServiceImpl>().via(factory)};
 
   auto& service = sut.template resolve<IService&>();
-  EXPECT_EQ(99, service.get_value());
+  EXPECT_EQ(modified_value, service.get_value());
 }
 
 TEST_F(ContainerInterfaceTest, resolves_implementation_directly) {
@@ -582,14 +584,14 @@ TEST_F(ContainerInterfaceTest, resolves_implementation_directly) {
   };
 
   struct ServiceImpl : IService {
-    int_t get_value() const override { return 42; }
+    int_t get_value() const override { return initial_value; }
   };
 
   auto sut = Container{bind<IService>().as<ServiceImpl>()};
 
   // Can still resolve ServiceImpl directly (not bound)
   auto& impl = sut.template resolve<ServiceImpl&>();
-  EXPECT_EQ(42, impl.get_value());
+  EXPECT_EQ(initial_value, impl.get_value());
 }
 
 TEST_F(ContainerInterfaceTest, multiple_interfaces_to_implementations) {
@@ -686,7 +688,7 @@ TEST_F(ContainerDependencyInjectionTest, resolves_dependency_chain) {
 
 TEST_F(ContainerDependencyInjectionTest, resolves_dependency_as_reference) {
   struct Dependency {
-    int_t value = 42;
+    int_t value = initial_value;
     Dependency() = default;
   };
 
@@ -702,13 +704,13 @@ TEST_F(ContainerDependencyInjectionTest, resolves_dependency_as_reference) {
   auto& dep = sut.template resolve<Dependency&>();
 
   EXPECT_EQ(&dep, service.dep_ptr);
-  EXPECT_EQ(42, service.dep_ptr->value);
+  EXPECT_EQ(initial_value, service.dep_ptr->value);
 }
 
 TEST_F(ContainerDependencyInjectionTest,
        resolves_dependency_as_const_reference) {
   struct Dependency {
-    int_t value = 42;
+    int_t value = initial_value;
     Dependency() = default;
   };
 
@@ -720,12 +722,12 @@ TEST_F(ContainerDependencyInjectionTest,
   auto sut = Container{bind<Dependency>(), bind<Service>()};
 
   auto service = sut.template resolve<Service>();
-  EXPECT_EQ(42, service.copied_value);
+  EXPECT_EQ(initial_value, service.copied_value);
 }
 
 TEST_F(ContainerDependencyInjectionTest, resolves_dependency_as_shared_ptr) {
   struct Dependency {
-    int_t value = 42;
+    int_t value = initial_value;
     Dependency() = default;
   };
 
@@ -738,13 +740,13 @@ TEST_F(ContainerDependencyInjectionTest, resolves_dependency_as_shared_ptr) {
       Container{bind<Dependency>().in<scope::Singleton>(), bind<Service>()};
 
   auto service = sut.template resolve<Service>();
-  EXPECT_EQ(42, service.dep->value);
+  EXPECT_EQ(initial_value, service.dep->value);
   EXPECT_EQ(2, service.dep.use_count());  // canonical + service.dep
 }
 
 TEST_F(ContainerDependencyInjectionTest, resolves_dependency_as_unique_ptr) {
   struct Dependency {
-    int_t value = 42;
+    int_t value = initial_value;
     Dependency() = default;
   };
 
@@ -757,12 +759,12 @@ TEST_F(ContainerDependencyInjectionTest, resolves_dependency_as_unique_ptr) {
       Container{bind<Dependency>().in<scope::Transient>(), bind<Service>()};
 
   auto service = sut.template resolve<Service>();
-  EXPECT_EQ(42, service.dep->value);
+  EXPECT_EQ(initial_value, service.dep->value);
 }
 
 TEST_F(ContainerDependencyInjectionTest, resolves_dependency_as_pointer) {
   struct Dependency {
-    int_t value = 42;
+    int_t value = initial_value;
     Dependency() = default;
   };
 
@@ -778,7 +780,7 @@ TEST_F(ContainerDependencyInjectionTest, resolves_dependency_as_pointer) {
   auto* dep = sut.template resolve<Dependency*>();
 
   EXPECT_EQ(dep, service.dep);
-  EXPECT_EQ(42, service.dep->value);
+  EXPECT_EQ(initial_value, service.dep->value);
 }
 
 TEST_F(ContainerDependencyInjectionTest, mixed_dependency_types) {
@@ -865,7 +867,7 @@ struct ContainerCanonicalTest : ContainerTest {};
 
 TEST_F(ContainerCanonicalTest, const_and_non_const_resolve_same_binding) {
   struct Bound {
-    int_t value = 42;
+    int_t value = initial_value;
     Bound() = default;
   };
 
@@ -889,7 +891,7 @@ TEST_F(ContainerCanonicalTest, reference_and_value_resolve_same_binding) {
 
 TEST_F(ContainerCanonicalTest, pointer_and_reference_resolve_same_binding) {
   struct Bound {
-    int_t value = 42;
+    int_t value = initial_value;
     Bound() = default;
   };
 
@@ -903,7 +905,7 @@ TEST_F(ContainerCanonicalTest, pointer_and_reference_resolve_same_binding) {
 
 TEST_F(ContainerCanonicalTest, const_pointer_and_pointer_resolve_same_binding) {
   struct Bound {
-    int_t value = 42;
+    int_t value = initial_value;
     Bound() = default;
   };
 
@@ -917,7 +919,7 @@ TEST_F(ContainerCanonicalTest, const_pointer_and_pointer_resolve_same_binding) {
 
 TEST_F(ContainerCanonicalTest, shared_ptr_variations_resolve_same_binding) {
   struct Bound {
-    int_t value = 42;
+    int_t value = initial_value;
     Bound() = default;
   };
 
@@ -938,26 +940,26 @@ struct ContainerEdgeCasesTest : ContainerTest {};
 
 TEST_F(ContainerEdgeCasesTest, empty_container_resolves_unbound_types) {
   struct Unbound {
-    int_t value = 42;
+    int_t value = initial_value;
     Unbound() = default;
   };
 
   auto sut = Container{};
 
   auto value = sut.template resolve<Unbound>();
-  EXPECT_EQ(42, value.value);
+  EXPECT_EQ(initial_value, value.value);
 }
 
 TEST_F(ContainerEdgeCasesTest, zero_argument_constructor) {
   struct ZeroArgs {
-    int_t value = 99;
+    int_t value = modified_value;
     ZeroArgs() = default;
   };
 
   auto sut = Container{bind<ZeroArgs>()};
 
   auto value = sut.template resolve<ZeroArgs>();
-  EXPECT_EQ(99, value.value);
+  EXPECT_EQ(modified_value, value.value);
 }
 
 TEST_F(ContainerEdgeCasesTest, multi_argument_constructor) {
@@ -987,7 +989,7 @@ TEST_F(ContainerEdgeCasesTest, multi_argument_constructor) {
 
 TEST_F(ContainerEdgeCasesTest, resolve_same_type_multiple_ways) {
   struct Type {
-    int_t value = 42;
+    int_t value = initial_value;
     Type() = default;
   };
 
@@ -1001,7 +1003,7 @@ TEST_F(ContainerEdgeCasesTest, resolve_same_type_multiple_ways) {
   EXPECT_EQ(&ref, ptr);
   EXPECT_EQ(ptr, shared.get());
   EXPECT_EQ(value.value, ref.value);
-  EXPECT_EQ(42, value.value);
+  EXPECT_EQ(initial_value, value.value);
 }
 
 TEST_F(ContainerEdgeCasesTest, deeply_nested_dependencies) {
@@ -1035,7 +1037,7 @@ TEST_F(ContainerEdgeCasesTest, deeply_nested_dependencies) {
 
 TEST_F(ContainerEdgeCasesTest, type_with_deleted_copy_constructor) {
   struct NoCopy {
-    int_t value = 42;
+    int_t value = initial_value;
     NoCopy() = default;
     NoCopy(const NoCopy&) = delete;
     NoCopy(NoCopy&&) = default;
@@ -1045,11 +1047,11 @@ TEST_F(ContainerEdgeCasesTest, type_with_deleted_copy_constructor) {
 
   // Can't resolve by value, but can resolve by reference
   auto& ref = sut.template resolve<NoCopy&>();
-  EXPECT_EQ(42, ref.value);
+  EXPECT_EQ(initial_value, ref.value);
 
   // Can resolve as pointer
   auto* ptr = sut.template resolve<NoCopy*>();
-  EXPECT_EQ(42, ptr->value);
+  EXPECT_EQ(initial_value, ptr->value);
 }
 
 TEST_F(ContainerEdgeCasesTest, resolve_from_multiple_containers) {
@@ -1099,7 +1101,7 @@ TEST_F(ContainerMixedScopesTest, all_scopes_coexist) {
   struct Single {};
   struct Deduced {};
   struct External {
-    int_t value = 99;
+    int_t value = modified_value;
   };
 
   External ext;
@@ -1451,23 +1453,23 @@ TEST_F(ContainerRelegationTest,
 TEST_F(ContainerRelegationTest,
        singleton_shared_ptr_wraps_singleton_not_relegated) {
   struct SingletonBound : Counted {
-    int_t value = 42;
+    int_t value = initial_value;
     SingletonBound() = default;
   };
   auto sut = Container{bind<SingletonBound>().in<scope::Singleton>()};
 
   // Modify the singleton
   auto& singleton = sut.template resolve<SingletonBound&>();
-  singleton.value = 99;
+  singleton.value = modified_value;
 
   // shared_ptr should wrap the singleton, showing the modified value
   auto shared = sut.template resolve<std::shared_ptr<SingletonBound>>();
-  EXPECT_EQ(99, shared->value);
+  EXPECT_EQ(modified_value, shared->value);
   EXPECT_EQ(&singleton, shared.get());
 
   // But values are relegated and create new instances with default value
   auto val = sut.template resolve<SingletonBound>();
-  EXPECT_EQ(42, val.value);
+  EXPECT_EQ(initial_value, val.value);
   EXPECT_NE(&singleton, &val);
 
   EXPECT_EQ(2, Counted::num_instances);  // 1 singleton + 1 relegated value
@@ -1476,33 +1478,36 @@ TEST_F(ContainerRelegationTest,
 TEST_F(ContainerRelegationTest,
        singleton_relegation_creates_new_instances_not_copies) {
   struct SingletonBound : Counted {
-    int_t value = 42;
+    int_t value = initial_value;
     SingletonBound() = default;
   };
   auto sut = Container{bind<SingletonBound>().in<scope::Singleton>()};
 
-  // Get singleton reference and modify it
+  // Get singleton reference and modify it.
   auto& singleton = sut.template resolve<SingletonBound&>();
-  singleton.value = 99;
+  singleton.value = modified_value;
 
-  // Values are relegated to transient - creates NEW instances from provider
-  // NOT copies of the singleton
+  // Values are relegated to transient. This creates new instances from the
+  // provider, not copies of the modified singleton.
   auto val1 = sut.template resolve<SingletonBound>();
   auto val2 = sut.template resolve<SingletonBound>();
 
-  EXPECT_EQ(42, val1.value);  // Default value from provider, not modified value
-  EXPECT_EQ(42, val2.value);  // Default value from provider, not modified value
+  // Default values from provider, not modified value
+  EXPECT_EQ(initial_value, val1.value);
+  EXPECT_EQ(initial_value, val2.value);
+
+  // modified singleton values are still different than the provided values.
   EXPECT_NE(&singleton, &val1);
   EXPECT_NE(&singleton, &val2);
   EXPECT_NE(&val1, &val2);
 
   // Singleton itself is unchanged
-  EXPECT_EQ(99, singleton.value);
+  EXPECT_EQ(modified_value, singleton.value);
 }
 
 TEST_F(ContainerRelegationTest, singleton_relegation_with_dependencies) {
   struct Dependency : Counted {
-    int_t value = 42;
+    int_t value = initial_value;
     Dependency() = default;
   };
   struct Service : Counted {
@@ -1540,7 +1545,7 @@ struct ContainerHierarchyTest : ContainerTest {};
 
 TEST_F(ContainerHierarchyTest, child_finds_binding_in_parent) {
   struct ParentBound {
-    int_t value = 42;
+    int_t value = initial_value;
     ParentBound() = default;
   };
 
@@ -1548,7 +1553,7 @@ TEST_F(ContainerHierarchyTest, child_finds_binding_in_parent) {
   auto child = Container{parent};
 
   auto result = child.template resolve<ParentBound>();
-  EXPECT_EQ(42, result.value);
+  EXPECT_EQ(initial_value, result.value);
 }
 
 TEST_F(ContainerHierarchyTest, child_overrides_parent_binding) {
@@ -1557,8 +1562,8 @@ TEST_F(ContainerHierarchyTest, child_overrides_parent_binding) {
     explicit Bound(int_t v = 0) : value{v} {}
   };
 
-  auto parent_factory = []() { return Bound{42}; };
-  auto child_factory = []() { return Bound{99}; };
+  auto parent_factory = []() { return Bound{initial_value}; };
+  auto child_factory = []() { return Bound{modified_value}; };
 
   auto parent = Container{bind<Bound>().as<Bound>().via(parent_factory)};
   auto child = Container{parent, bind<Bound>().as<Bound>().via(child_factory)};
@@ -1566,8 +1571,8 @@ TEST_F(ContainerHierarchyTest, child_overrides_parent_binding) {
   auto parent_result = parent.template resolve<Bound>();
   auto child_result = child.template resolve<Bound>();
 
-  EXPECT_EQ(42, parent_result.value);
-  EXPECT_EQ(99, child_result.value);
+  EXPECT_EQ(initial_value, parent_result.value);
+  EXPECT_EQ(modified_value, child_result.value);
 }
 
 TEST_F(ContainerHierarchyTest, multi_level_hierarchy) {
@@ -1626,7 +1631,7 @@ TEST_F(ContainerHierarchyTest,
 
 TEST_F(ContainerHierarchyTest, unbound_type_uses_fallback_in_hierarchy) {
   struct Unbound {
-    int_t value = 42;
+    int_t value = initial_value;
     Unbound() = default;
   };
 
@@ -1635,7 +1640,7 @@ TEST_F(ContainerHierarchyTest, unbound_type_uses_fallback_in_hierarchy) {
 
   // Should use fallback binding at the root level
   auto result = child.template resolve<Unbound>();
-  EXPECT_EQ(42, result.value);
+  EXPECT_EQ(initial_value, result.value);
 }
 
 // ----------------------------------------------------------------------------
