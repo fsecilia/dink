@@ -171,14 +171,9 @@ TEST_F(ProviderFactoryRunTimeTest, CreatesUniquePtr) {
 // ----------------------------------------------------------------------------
 
 struct InstanceFixture : Fixture {
-  struct TestExternal {
-    static inline const auto expected_value = int_t{5117};  // arbitrary
-    int_t value;
-  };
+  Constructed external_instance{Constructed::expected_value};
 
-  TestExternal external_instance{TestExternal::expected_value};
-
-  using Sut = provider::External<TestExternal>;
+  using Sut = provider::External<Constructed>;
 };
 
 // Compile-Time Tests
@@ -186,24 +181,24 @@ struct InstanceFixture : Fixture {
 
 struct InstanceCompileTimeTest : InstanceFixture {
   static constexpr auto returns_reference() -> bool {
-    TestExternal ext{TestExternal::expected_value};
+    Constructed ext{Constructed::expected_value};
     Container container{};
     Sut sut{ext};
 
-    auto& ref = sut.create<TestExternal&>(container);
+    auto& ref = sut.create<Constructed&>(container);
 
-    return &ref == &ext && ref.value == TestExternal::expected_value;
+    return &ref == &ext && ref.value == Constructed::expected_value;
   }
 
   static constexpr auto returns_value_copy() -> bool {
-    TestExternal ext{TestExternal::expected_value};
+    Constructed ext{Constructed::expected_value};
     Container container{};
     Sut sut{ext};
 
-    auto value = sut.create<TestExternal>(container);
+    auto value = sut.create<Constructed>(container);
 
     // Value should match but be different address
-    return value.value == TestExternal::expected_value;
+    return value.value == Constructed::expected_value;
   }
 
   constexpr InstanceCompileTimeTest() {
@@ -224,39 +219,39 @@ struct ProviderInstanceRunTimeTest : InstanceFixture, Test {
 };
 
 TEST_F(ProviderInstanceRunTimeTest, ReturnsReferenceToExternal) {
-  auto& ref = sut.create<TestExternal&>(container);
+  auto& ref = sut.create<Constructed&>(container);
 
   EXPECT_EQ(&external_instance, &ref);
-  EXPECT_EQ(TestExternal::expected_value, ref.value);
+  EXPECT_EQ(Constructed::expected_value, ref.value);
 }
 
 TEST_F(ProviderInstanceRunTimeTest, ReturnsConstReferenceToExternal) {
-  const auto& ref = sut.create<const TestExternal&>(container);
+  const auto& ref = sut.create<const Constructed&>(container);
 
   EXPECT_EQ(&external_instance, &ref);
-  EXPECT_EQ(TestExternal::expected_value, ref.value);
+  EXPECT_EQ(Constructed::expected_value, ref.value);
 }
 
 TEST_F(ProviderInstanceRunTimeTest, ReturnsValueCopy) {
-  auto value = sut.create<TestExternal>(container);
+  auto value = sut.create<Constructed>(container);
 
-  EXPECT_EQ(TestExternal::expected_value, value.value);
+  EXPECT_EQ(Constructed::expected_value, value.value);
   EXPECT_NE(&external_instance, &value);  // Different addresses
 
   // Verify it's a true copy
   value.value = 123;
-  EXPECT_EQ(TestExternal::expected_value, external_instance.value);
+  EXPECT_EQ(Constructed::expected_value, external_instance.value);
 }
 
 TEST_F(ProviderInstanceRunTimeTest, ReturnsConstValueCopy) {
-  const auto value = sut.create<const TestExternal>(container);
+  const auto value = sut.create<const Constructed>(container);
 
-  EXPECT_EQ(TestExternal::expected_value, value.value);
+  EXPECT_EQ(Constructed::expected_value, value.value);
 }
 
 TEST_F(ProviderInstanceRunTimeTest, MultipleCallsReturnSameReference) {
-  auto& ref1 = sut.create<TestExternal&>(container);
-  auto& ref2 = sut.create<TestExternal&>(container);
+  auto& ref1 = sut.create<Constructed&>(container);
+  auto& ref2 = sut.create<Constructed&>(container);
 
   EXPECT_EQ(&ref1, &ref2);
   EXPECT_EQ(&external_instance, &ref1);
@@ -264,15 +259,15 @@ TEST_F(ProviderInstanceRunTimeTest, MultipleCallsReturnSameReference) {
 
 TEST_F(ProviderInstanceRunTimeTest,
        ConstAndNonConstReferencesPointToSameExternal) {
-  auto& mutable_ref = sut.create<TestExternal&>(container);
-  const auto& const_ref = sut.create<const TestExternal&>(container);
+  auto& mutable_ref = sut.create<Constructed&>(container);
+  const auto& const_ref = sut.create<const Constructed&>(container);
 
   EXPECT_EQ(&mutable_ref, &const_ref);
   EXPECT_EQ(&external_instance, &mutable_ref);
 }
 
 TEST_F(ProviderInstanceRunTimeTest, MutationsThroughReferenceAffectExternal) {
-  auto& ref = sut.create<TestExternal&>(container);
+  auto& ref = sut.create<Constructed&>(container);
 
   ref.value = 77;
 
@@ -280,15 +275,15 @@ TEST_F(ProviderInstanceRunTimeTest, MutationsThroughReferenceAffectExternal) {
 }
 
 TEST_F(ProviderInstanceRunTimeTest, ValueCopiesAreIndependent) {
-  auto copy1 = sut.create<TestExternal>(container);
-  auto copy2 = sut.create<TestExternal>(container);
+  auto copy1 = sut.create<Constructed>(container);
+  auto copy2 = sut.create<Constructed>(container);
 
   copy1.value = 100;
   copy2.value = 200;
 
   EXPECT_EQ(100, copy1.value);
   EXPECT_EQ(200, copy2.value);
-  EXPECT_EQ(TestExternal::expected_value, external_instance.value);
+  EXPECT_EQ(Constructed::expected_value, external_instance.value);
 }
 
 // Test with non-copyable type (can only get references/pointers)
