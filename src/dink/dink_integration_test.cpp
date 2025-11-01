@@ -666,24 +666,24 @@ TEST_F(ContainerDependencyInjectionTest, resolves_multiple_dependencies) {
 
 TEST_F(ContainerDependencyInjectionTest, resolves_dependency_chain) {
   struct DepA {
-    int_t value = 1;
+    int_t value = 3;
     DepA() = default;
   };
 
   struct DepB {
     int_t value;
-    explicit DepB(DepA a) : value{a.value * 2} {}
+    explicit DepB(DepA a) : value{a.value * 5} {}
   };
 
   struct Service {
     int_t value;
-    explicit Service(DepB b) : value{b.value * 2} {}
+    explicit Service(DepB b) : value{b.value * 7} {}
   };
 
   auto sut = Container{bind<DepA>(), bind<DepB>(), bind<Service>()};
 
   auto service = sut.template resolve<Service>();
-  EXPECT_EQ(4, service.value);  // 1 * 2 * 2
+  EXPECT_EQ(105, service.value);  // 3 * 5 * 7
 }
 
 TEST_F(ContainerDependencyInjectionTest, resolves_dependency_as_reference) {
@@ -1008,7 +1008,7 @@ TEST_F(ContainerEdgeCasesTest, resolve_same_type_multiple_ways) {
 
 TEST_F(ContainerEdgeCasesTest, deeply_nested_dependencies) {
   struct Level0 {
-    int_t value = 1;
+    int_t value = 3;
     Level0() = default;
   };
   struct Level1 {
@@ -1032,7 +1032,7 @@ TEST_F(ContainerEdgeCasesTest, deeply_nested_dependencies) {
                        bind<Level3>(), bind<Level4>()};
 
   auto result = sut.template resolve<Level4>();
-  EXPECT_EQ(16, result.value);  // 1 * 2 * 2 * 2 * 2
+  EXPECT_EQ(48, result.value);  // 3 * 2 * 2 * 2 * 2
 }
 
 TEST_F(ContainerEdgeCasesTest, type_with_deleted_copy_constructor) {
