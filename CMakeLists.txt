@@ -150,7 +150,7 @@ function(dink_configure_test_target_warnings target)
   endif()
 
   if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    target_compile_options(dink_test PUBLIC
+    target_compile_options(${target} PUBLIC
       -Wno-changes-meaning
       -Wno-unused-local-typedefs
     )
