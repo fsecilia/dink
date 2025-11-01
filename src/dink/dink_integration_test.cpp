@@ -1842,9 +1842,10 @@ TEST_F(ContainerHierarchyPromotionTest,
   EXPECT_EQ(1, Counted::instance_count);
 }
 
-TEST_F(
-    ContainerHierarchyPromotionTest,
-    grandparent_parent_child_have_separate_promoted_instances_with_own_bindings) {
+// Ancestry is part of a container's type, so ancestors can all have the same
+// bindings but remain unique types and have separate cached instances.
+TEST_F(ContainerHierarchyPromotionTest,
+       ancestry_with_same_bindings_promote_separate_instances) {
   struct TransientBound : Counted {};
 
   auto grandparent = Container{bind<TransientBound>().in<scope::Transient>()};
