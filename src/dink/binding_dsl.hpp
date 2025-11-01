@@ -2,7 +2,7 @@
 // Copyright (c) 2025 Frank Secilia
 // SPDX-License-Identifier: MIT
 //
-// \brief Defines binding triples and a fluent api to produce them.
+// \brief Defines a fluent api to produce binding triples.
 //
 // This module uses a type-state DSL to encode rules for generating valid
 // bindings; not all {scope, provider} pairs are useful, so the DSL guides
