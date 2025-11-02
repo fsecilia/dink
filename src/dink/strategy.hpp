@@ -15,9 +15,19 @@
 namespace dink {
 namespace strategy_impls {
 
-//! Overrides scope but uses bound provider.
+//! Uses scope and provider from binding directly.
+struct BoundScopeWithBoundProvider {
+  template <typename Requested, typename Container, typename Binding>
+  auto execute(Container& container, Binding& binding) const
+      -> meta::RemoveRvalueRef<Requested> {
+    return binding.scope.template resolve<Requested>(container,
+                                                     binding.provider);
+  }
+};
+
+//! Uses provider from binding, but overrides scope.
 template <typename Scope>
-struct UseLocalScope {
+struct LocalScopeWithBoundProvider {
   [[dink_no_unique_address]] Scope scope{};
 
   //! Resolves local scope using provider from given binding.
@@ -30,7 +40,7 @@ struct UseLocalScope {
 
 //! Overrides scope and provider.
 template <typename Scope, typename ProviderFactory>
-struct UseLocalScopeAndProvider {
+struct LocalScopeWithLocalProvider {
   [[dink_no_unique_address]] Scope scope{};
   [[dink_no_unique_address]] ProviderFactory provider_factory{};
 
@@ -92,27 +102,21 @@ struct ProviderFactory {
 namespace strategies {
 
 //! Resolves using binding directly, with no overrides.
-struct UseBinding {
-  template <typename Requested, typename Container, typename Binding>
-  auto execute(Container& container, Binding& binding) const
-      -> meta::RemoveRvalueRef<Requested> {
-    return binding.scope.template resolve<Requested>(container,
-                                                     binding.provider);
-  }
-};
+using UseBinding = strategy_impls::BoundScopeWithBoundProvider;
 
 //! Overrides scope with transient.
-using RelegateToTransient = strategy_impls::UseLocalScope<scope::Transient>;
+using RelegateToTransient = strategy_impls::BoundScopeWithBoundProvider;
 
 //! Overrides scope with singleton.
-using PromoteToSingleton = strategy_impls::UseLocalScope<scope::Singleton>;
+using PromoteToSingleton =
+    strategy_impls::LocalScopeWithBoundProvider<scope::Singleton>;
 
 //! Wraps cached reference in a aliased shared_ptr.
 //
 // When resolving a shared_ptr to a reference, the bound scope and provider are
 // used indirectly by recursing into the container. Recursing is performed by
 // overriding both the scope and provider.
-using CacheSharedPtr = strategy_impls::UseLocalScopeAndProvider<
+using CacheSharedPtr = strategy_impls::LocalScopeWithLocalProvider<
     scope::Singleton, aliasing_shared_ptr::ProviderFactory<>>;
 
 }  // namespace strategies

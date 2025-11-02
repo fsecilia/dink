@@ -1309,8 +1309,8 @@ TEST_F(ContainerRelegationTest, unique_ptrs_are_relegated) {
 
   EXPECT_NE(unique1.get(), unique2.get());
   EXPECT_EQ(0, unique1->id);
-  EXPECT_EQ(1, unique2->id);
-  EXPECT_EQ(2, Counted::num_instances);
+  EXPECT_EQ(0, unique2->id);
+  EXPECT_EQ(1, Counted::num_instances);
 }
 
 TEST_F(ContainerRelegationTest, references_not_relegated) {

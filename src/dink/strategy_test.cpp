@@ -63,8 +63,21 @@ struct StrategyTest : Test {
 
 struct StrategyImplsTest : StrategyTest {};
 
-TEST_F(StrategyImplsTest, UseLocalScopeUsesMemberScopeAndBoundProvider) {
-  using Sut = strategy_impls::UseLocalScope<Scope>;
+TEST_F(StrategyImplsTest, BoundScopeWithBoundProvider) {
+  using Sut = strategy_impls::BoundScopeWithBoundProvider;
+  auto sut = Sut{};
+  auto container = Container{};
+  auto binding = Binding{};
+
+  auto actual = sut.template execute<Requested>(container, binding);
+
+  ASSERT_EQ(&container, actual.container);
+  ASSERT_EQ(&binding.provider, actual.provider);
+  ASSERT_EQ(&binding.scope, actual.scope);
+}
+
+TEST_F(StrategyImplsTest, LocalScopeWithBoundProvider) {
+  using Sut = strategy_impls::LocalScopeWithBoundProvider<Scope>;
   auto sut = Sut{Scope{}};
   auto container = Container{};
   auto binding = Binding{};
@@ -76,8 +89,9 @@ TEST_F(StrategyImplsTest, UseLocalScopeUsesMemberScopeAndBoundProvider) {
   ASSERT_EQ(&sut.scope, actual.scope);
 }
 
-TEST_F(StrategyImplsTest, UseLocalScopeAndProviderUsesMembers) {
-  using Sut = strategy_impls::UseLocalScopeAndProvider<Scope, ProviderFactory>;
+TEST_F(StrategyImplsTest, LocalScopeWithLocalProvider) {
+  using Sut =
+      strategy_impls::LocalScopeWithLocalProvider<Scope, ProviderFactory>;
   auto sut = Sut{Scope{}, ProviderFactory{}};
   auto container = Container{};
   auto binding = Binding{};
@@ -112,25 +126,6 @@ TEST_F(AliasingSharedPtrTest, ProviderCreateAliasesReferenced) {
   auto actual = sut.template create<std::shared_ptr<Requested>>(container);
 
   ASSERT_EQ(&container.referenced, actual.get());
-}
-
-// ----------------------------------------------------------------------------
-// Strategies
-// ----------------------------------------------------------------------------
-
-struct StrategiesTest : StrategyTest {};
-
-TEST_F(StrategiesTest, UseBindingUsesProvidedBinding) {
-  using Sut = strategies::UseBinding;
-  auto sut = Sut{};
-  auto container = Container{};
-  auto binding = Binding{};
-
-  auto actual = sut.template execute<Requested>(container, binding);
-
-  ASSERT_EQ(&container, actual.container);
-  ASSERT_EQ(&binding.provider, actual.provider);
-  ASSERT_EQ(&binding.scope, actual.scope);
 }
 
 // ----------------------------------------------------------------------------

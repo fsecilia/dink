@@ -55,6 +55,10 @@ class Singleton {
     } else if constexpr (std::is_pointer_v<Requested>) {
       // Pointers (mutable or const).
       return &cached_instance(container, provider);
+    } else if constexpr (meta::IsUniquePtr<Requested>) {
+      // unique_ptr
+      return std::unique_ptr<Provided>{
+          new Provided{cached_instance(container, provider)}};
     } else {
       static_assert(meta::kDependentFalse<Requested>,
                     "Singleton scope: unsupported type conversion.");
@@ -80,7 +84,7 @@ class Instance {
   //! Resolves instance in requested form.
   template <typename Requested, typename Container, typename Provider>
   constexpr auto resolve(Container& container, Provider& provider) const
-      -> Requested {
+      -> meta::RemoveRvalueRef<Requested> {
     using Provided = typename Provider::Provided;
 
     // Get reference to the external instance from provider
@@ -93,6 +97,9 @@ class Instance {
     } else if constexpr (std::is_pointer_v<Requested>) {
       // Pointers (mutable or const).
       return &instance;
+    } else if constexpr (meta::IsUniquePtr<Requested>) {
+      // unique_ptr
+      return std::unique_ptr<Provided>{new Provided{instance}};
     } else {
       static_assert(meta::kDependentFalse<Requested>,
                     "Instance scope: unsupported type conversion.");
