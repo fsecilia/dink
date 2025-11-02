@@ -40,7 +40,7 @@ struct StrategyTest : Test {
   };
 
   struct Scope {
-    static constexpr auto provides_references = false;
+    [[maybe_unused]] static constexpr auto provides_references = false;
 
     template <typename Requested>
     auto resolve(Container& container, Provider& provider) const -> Requested {

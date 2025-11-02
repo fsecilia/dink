@@ -74,13 +74,13 @@ struct DispatcherTest : Test {
 
   struct ReferenceBinding : UntypedBinding {
     struct ScopeType {
-      static constexpr auto provides_references = true;
+      [[maybe_unused]] static constexpr auto provides_references = true;
     };
   };
 
   struct ValueBinding : UntypedBinding {
     struct ScopeType {
-      static constexpr auto provides_references = false;
+      [[maybe_unused]] static constexpr auto provides_references = false;
     };
   };
 
