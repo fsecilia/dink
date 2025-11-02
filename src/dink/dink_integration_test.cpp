@@ -11,11 +11,6 @@
 namespace dink {
 namespace {
 
-// ----------------------------------------------------------------------------
-// Common Test Infrastructure
-// ----------------------------------------------------------------------------
-
-// Common base for all container tests.
 struct ContainerTest : Test {
   static inline const auto initial_value = int_t{7793};   // arbitrary
   static inline const auto modified_value = int_t{2145};  // arbitrary
@@ -82,17 +77,17 @@ struct ContainerTest : Test {
 // ----------------------------------------------------------------------------
 // Singleton Scope Tests
 // ----------------------------------------------------------------------------
-// These tests require unique types per test, or cached instances will leak
-// between them.
 
 struct ContainerSingletonTest : ContainerTest {};
 
+// A type's canonical shared pointer points at the reference.
 TEST_F(ContainerSingletonTest, canonical_shared_wraps_instance) {
   struct Type : Singleton {};
   auto sut = Container{bind<Type>().in<scope::Singleton>()};
 
   const auto shared = sut.template resolve<std::shared_ptr<Type>>();
   auto& instance = sut.template resolve<Type&>();
+
   ASSERT_EQ(&instance, shared.get());
 }
 
@@ -102,11 +97,11 @@ TEST_F(ContainerSingletonTest, canonical_shared_ptr_value) {
 
   const auto result1 = sut.template resolve<std::shared_ptr<Type>>();
   const auto result2 = sut.template resolve<std::shared_ptr<Type>>();
+  auto& instance = sut.template resolve<Type&>();
+
   ASSERT_EQ(result1, result2);
   ASSERT_EQ(result1.use_count(), result2.use_count());
   ASSERT_EQ(result1.use_count(), 3);  // result1 + result2 + canonical
-
-  auto& instance = sut.template resolve<Type&>();
   ASSERT_EQ(&instance, result1.get());
 }
 
@@ -116,12 +111,13 @@ TEST_F(ContainerSingletonTest, canonical_shared_ptr_identity) {
 
   const auto& result1 = sut.template resolve<std::shared_ptr<Type>&>();
   const auto& result2 = sut.template resolve<std::shared_ptr<Type>&>();
+
   ASSERT_EQ(&result1, &result2);
   ASSERT_EQ(result1.use_count(), result2.use_count());
   ASSERT_EQ(result1.use_count(), 1);
 }
 
-TEST_F(ContainerSingletonTest, weak_ptr_from_singleton) {
+TEST_F(ContainerSingletonTest, weak_pointers_lock_to_same_value) {
   struct Type : Singleton {};
   auto sut = Container{bind<Type>().in<scope::Singleton>()};
 
@@ -132,7 +128,7 @@ TEST_F(ContainerSingletonTest, weak_ptr_from_singleton) {
   EXPECT_EQ(weak1.lock(), weak2.lock());
 }
 
-TEST_F(ContainerSingletonTest, weak_ptr_does_not_expire_while_singleton_alive) {
+TEST_F(ContainerSingletonTest, weak_pointer_survives_without_shared) {
   struct Type : Singleton {};
   auto sut = Container{bind<Type>().in<scope::Singleton>()};
 
