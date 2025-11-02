@@ -406,15 +406,14 @@ struct ContainerFactoryTest : ContainerTest {
 };
 
 TEST_F(ContainerFactoryTest, resolves_with_factory) {
-  auto sut = Container{bind<Product>().as<Product>().via(factory)};
+  auto sut = Container{bind<Product>().via(factory)};
 
   auto value = sut.template resolve<Product>();
   EXPECT_EQ(initial_value, value.value);
 }
 
 TEST_F(ContainerFactoryTest, factory_with_singleton_scope) {
-  auto sut = Container{
-      bind<Product>().as<Product>().via(factory).in<scope::Singleton>()};
+  auto sut = Container{bind<Product>().via(factory).in<scope::Singleton>()};
 
   auto& ref1 = sut.template resolve<Product&>();
   auto& ref2 = sut.template resolve<Product&>();
@@ -425,8 +424,7 @@ TEST_F(ContainerFactoryTest, factory_with_singleton_scope) {
 }
 
 TEST_F(ContainerFactoryTest, factory_with_transient_scope) {
-  auto sut = Container{
-      bind<Product>().as<Product>().via(factory).in<scope::Transient>()};
+  auto sut = Container{bind<Product>().via(factory).in<scope::Transient>()};
 
   auto value1 = sut.template resolve<Product>();
   auto value2 = sut.template resolve<Product>();
@@ -437,7 +435,7 @@ TEST_F(ContainerFactoryTest, factory_with_transient_scope) {
 }
 
 TEST_F(ContainerFactoryTest, factory_with_deduced_scope) {
-  auto sut = Container{bind<Product>().as<Product>().via(factory)};
+  auto sut = Container{bind<Product>().via(factory)};
 
   auto value = sut.template resolve<Product>();
   auto& ref = sut.template resolve<Product&>();
@@ -459,9 +457,7 @@ TEST_F(ContainerFactoryTest, factory_with_parameters_from_container) {
 
   auto factory = [](Dependency dep) { return ProductWithDep{dep}; };
 
-  auto sut =
-      Container{bind<Dependency>(),
-                bind<ProductWithDep>().as<ProductWithDep>().via(factory)};
+  auto sut = Container{bind<Dependency>(), bind<ProductWithDep>().via(factory)};
 
   auto product = sut.template resolve<ProductWithDep>();
   EXPECT_EQ(20, product.combined_value);
@@ -1426,9 +1422,8 @@ TEST_F(ContainerHierarchyTest, child_overrides_parent_binding) {
   auto parent_factory = []() { return Product{initial_value}; };
   auto child_factory = []() { return Product{modified_value}; };
 
-  auto parent = Container{bind<Product>().as<Product>().via(parent_factory)};
-  auto child =
-      Container{parent, bind<Product>().as<Product>().via(child_factory)};
+  auto parent = Container{bind<Product>().via(parent_factory)};
+  auto child = Container{parent, bind<Product>().via(child_factory)};
 
   auto parent_result = parent.template resolve<Product>();
   auto child_result = child.template resolve<Product>();
@@ -1471,12 +1466,9 @@ TEST_F(ContainerHierarchyTest,
   auto parent_factory = []() { return Product{2}; };
   auto child_factory = []() { return Product{3}; };
 
-  auto grandparent =
-      Container{bind<Product>().as<Product>().via(grandparent_factory)};
-  auto parent =
-      Container{grandparent, bind<Product>().as<Product>().via(parent_factory)};
-  auto child =
-      Container{parent, bind<Product>().as<Product>().via(child_factory)};
+  auto grandparent = Container{bind<Product>().via(grandparent_factory)};
+  auto parent = Container{grandparent, bind<Product>().via(parent_factory)};
+  auto child = Container{parent, bind<Product>().via(child_factory)};
 
   auto grandparent_result = grandparent.template resolve<Product>();
   auto parent_result = parent.template resolve<Product>();
@@ -1969,13 +1961,11 @@ TEST_F(ContainerHierarchyComplexTest, deep_hierarchy_with_multiple_overrides) {
   auto level2_factory = []() { return Product{2}; };
   auto level4_factory = []() { return Product{4}; };
 
-  auto level0 = Container{bind<Product>().as<Product>().via(level0_factory)};
+  auto level0 = Container{bind<Product>().via(level0_factory)};
   auto level1 = Container{level0};
-  auto level2 =
-      Container{level1, bind<Product>().as<Product>().via(level2_factory)};
+  auto level2 = Container{level1, bind<Product>().via(level2_factory)};
   auto level3 = Container{level2};
-  auto level4 =
-      Container{level3, bind<Product>().as<Product>().via(level4_factory)};
+  auto level4 = Container{level3, bind<Product>().via(level4_factory)};
 
   auto r0 = level0.template resolve<Product>();
   auto r1 = level1.template resolve<Product>();
