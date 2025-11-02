@@ -13,21 +13,17 @@
 #include <memory>
 
 namespace dink {
-namespace strategy_impls {
 
-//! Uses scope and provider from binding directly.
-struct BoundScopeWithBoundProvider {
-  template <typename Requested, typename Container, typename Binding>
-  auto execute(Container& container, Binding& binding) const
-      -> meta::RemoveRvalueRef<Requested> {
-    return binding.scope.template resolve<Requested>(container,
-                                                     binding.provider);
-  }
-};
+// ----------------------------------------------------------------------------
+// Strategies
+// ----------------------------------------------------------------------------
+
+namespace strategies {
+namespace implementations {
 
 //! Uses provider from binding, but overrides scope.
 template <typename Scope>
-struct LocalScopeWithBoundProvider {
+struct OverrideScope {
   [[dink_no_unique_address]] Scope scope{};
 
   //! Resolves local scope using provider from given binding.
@@ -40,7 +36,7 @@ struct LocalScopeWithBoundProvider {
 
 //! Overrides scope and provider.
 template <typename Scope, typename ProviderFactory>
-struct LocalScopeWithLocalProvider {
+struct OverrideBinding {
   [[dink_no_unique_address]] Scope scope{};
   [[dink_no_unique_address]] ProviderFactory provider_factory{};
 
@@ -54,15 +50,9 @@ struct LocalScopeWithLocalProvider {
   }
 };
 
-}  // namespace strategy_impls
+namespace non_owning_shared_ptr {
 
-namespace aliasing_shared_ptr {
-
-//! \brief Creates a shared_ptr aliased to a container-managed object.
-//
-// The shared_ptr does not alias another shared_ptr, but a reference that the
-// container owns. It doesn't use the aliasing constructor; it uses a no-op
-// deleter.
+//! \brief Creates a shared_ptr to a container-managed object.
 template <typename Constructed>
 struct Provider {
   using Provided = std::shared_ptr<Constructed>;
@@ -93,31 +83,31 @@ struct ProviderFactory {
   }
 };
 
-}  // namespace aliasing_shared_ptr
-
-// ----------------------------------------------------------------------------
-// Strategies
-// ----------------------------------------------------------------------------
-
-namespace strategies {
+}  // namespace non_owning_shared_ptr
+}  // namespace implementations
 
 //! Resolves using binding directly, with no overrides.
-using UseBinding = strategy_impls::BoundScopeWithBoundProvider;
-
-//! Overrides scope with transient.
-using RelegateToTransient = strategy_impls::BoundScopeWithBoundProvider;
+struct UseBinding {
+  template <typename Requested, typename Container, typename Binding>
+  auto execute(Container& container, Binding& binding) const
+      -> meta::RemoveRvalueRef<Requested> {
+    return binding.scope.template resolve<Requested>(container,
+                                                     binding.provider);
+  }
+};
 
 //! Overrides scope with singleton.
-using PromoteToSingleton =
-    strategy_impls::LocalScopeWithBoundProvider<scope::Singleton>;
+using PromoteToSingleton = implementations::OverrideScope<scope::Singleton>;
 
-//! Wraps cached reference in a aliased shared_ptr.
+//! Wraps cached reference in a non-owning shared_ptr.
 //
 // When resolving a shared_ptr to a reference, the bound scope and provider are
-// used indirectly by recursing into the container. Recursing is performed by
-// overriding both the scope and provider.
-using CacheSharedPtr = strategy_impls::LocalScopeWithLocalProvider<
-    scope::Singleton, aliasing_shared_ptr::ProviderFactory<>>;
+// used indirectly by recursing into the container to get the reference first.
+// Then the shared_ptr is set up to point at the reference with a no-op
+// deleter. Recursing is performed by overriding both the scope and provider.
+using CacheSharedPtr = implementations::OverrideBinding<
+    scope::Singleton,
+    implementations::non_owning_shared_ptr::ProviderFactory<>>;
 
 }  // namespace strategies
 
@@ -129,51 +119,39 @@ using CacheSharedPtr = strategy_impls::LocalScopeWithLocalProvider<
 struct StrategyFactory {
   //! Instantiates strategy chosen by dispatch logic.
   //
-  // This function is one big decision tree based on the requested type,
-  // whether a binding was found or not, and whether the scope provides
-  // references or transient values.
+  // This function is a decision tree based on the requested type, whether a
+  // binding was found or not, and whether the scope provides references or
+  // transient values.
   //
-  // This is where promotion and relegation are decided.
-  //
-  // \returns strategy of varying types
-  // The return type varies with the strategy chosen. The strategy types
+  // \returns strategies of varying type
+  // The return type varies with the strategy chosen. The strategies types
   // themselves are unrelated.
-  template <typename Requested, bool has_binding,
+  template <typename Requested, bool found_binding,
             bool scope_provides_references>
   constexpr auto create() const noexcept -> auto {
-    if constexpr (meta::IsUniquePtr<Requested>) {
-      // unique_ptr; always transient. Relegate if necessary.
-      return strategies::RelegateToTransient{};
-    } else if constexpr (meta::IsSharedPtr<Requested> ||
-                         meta::IsWeakPtr<Requested>) {
+    if constexpr (meta::IsSharedPtr<Requested> || meta::IsWeakPtr<Requested>) {
       // shared_ptr or weak_ptr.
-      if constexpr (meta::IsSharedPtr<Requested> && has_binding &&
+      if constexpr (meta::IsSharedPtr<Requested> && found_binding &&
                     !scope_provides_references) {
         // shared_ptr bound transient; use the binding.
         return strategies::UseBinding{};
       } else {
-        // weak_ptr, reference scope, or no binding; cache shared_ptr.
+        // weak_ptr, reference scope, or binding not found; cache shared_ptr.
         return strategies::CacheSharedPtr{};
       }
     } else if constexpr (std::is_lvalue_reference_v<Requested> ||
                          std::is_pointer_v<Requested>) {
       // Lvalue ref or pointer.
-      if constexpr (has_binding && scope_provides_references) {
+      if constexpr (found_binding && scope_provides_references) {
         // Already bound to reference scope; use the binding.
         return strategies::UseBinding{};
       } else {
-        // No binding or a value-providing scope; must promote.
+        // Binding not found or a value-providing scope; must promote.
         return strategies::PromoteToSingleton{};
       }
     } else {
-      // Value or rvalue ref.
-      if constexpr (has_binding) {
-        // Use binding; will copy singleton or use transient.
-        return strategies::UseBinding{};
-      } else {
-        // No binding; must relegate.
-        return strategies::RelegateToTransient{};
-      }
+      // Value, rvalue ref, or unique_ptr.
+      return strategies::UseBinding{};
     }
   }
 };

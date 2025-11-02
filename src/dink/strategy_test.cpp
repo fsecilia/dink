@@ -6,6 +6,7 @@
 #include <dink/test.hpp>
 
 namespace dink {
+namespace {
 
 struct StrategyTest : Test {
   struct Container {};
@@ -57,27 +58,14 @@ struct StrategyTest : Test {
   };
 };
 
-// ----------------------------------------------------------------------------
-// StrategyImpls
-// ----------------------------------------------------------------------------
+}  // namespace
 
-struct StrategyImplsTest : StrategyTest {};
+namespace strategies {
+namespace implementations {
+namespace {
 
-TEST_F(StrategyImplsTest, BoundScopeWithBoundProvider) {
-  using Sut = strategy_impls::BoundScopeWithBoundProvider;
-  auto sut = Sut{};
-  auto container = Container{};
-  auto binding = Binding{};
-
-  auto actual = sut.template execute<Requested>(container, binding);
-
-  ASSERT_EQ(&container, actual.container);
-  ASSERT_EQ(&binding.provider, actual.provider);
-  ASSERT_EQ(&binding.scope, actual.scope);
-}
-
-TEST_F(StrategyImplsTest, LocalScopeWithBoundProvider) {
-  using Sut = strategy_impls::LocalScopeWithBoundProvider<Scope>;
+TEST_F(StrategyTest, OverrideScope) {
+  using Sut = implementations::OverrideScope<Scope>;
   auto sut = Sut{Scope{}};
   auto container = Container{};
   auto binding = Binding{};
@@ -89,9 +77,8 @@ TEST_F(StrategyImplsTest, LocalScopeWithBoundProvider) {
   ASSERT_EQ(&sut.scope, actual.scope);
 }
 
-TEST_F(StrategyImplsTest, LocalScopeWithLocalProvider) {
-  using Sut =
-      strategy_impls::LocalScopeWithLocalProvider<Scope, ProviderFactory>;
+TEST_F(StrategyTest, OverrideBinding) {
+  using Sut = implementations::OverrideBinding<Scope, ProviderFactory>;
   auto sut = Sut{Scope{}, ProviderFactory{}};
   auto container = Container{};
   auto binding = Binding{};
@@ -104,10 +91,10 @@ TEST_F(StrategyImplsTest, LocalScopeWithLocalProvider) {
 }
 
 // ----------------------------------------------------------------------------
-// AliasingSharedPtr
+// NonOwningSharedPtr
 // ----------------------------------------------------------------------------
 
-struct AliasingSharedPtrTest : StrategyTest {
+struct NonOwningSharedPtrTest : StrategyTest {
   struct ReferenceResolvingContainer : Container {
     mutable Requested referenced{};
 
@@ -118,8 +105,8 @@ struct AliasingSharedPtrTest : StrategyTest {
   };
 };
 
-TEST_F(AliasingSharedPtrTest, ProviderCreateAliasesReferenced) {
-  using Sut = aliasing_shared_ptr::Provider<Requested>;
+TEST_F(NonOwningSharedPtrTest, ProviderCreateAliasesReferenced) {
+  using Sut = implementations::non_owning_shared_ptr::Provider<Requested>;
   auto sut = Sut{};
   auto container = ReferenceResolvingContainer{};
 
@@ -128,69 +115,81 @@ TEST_F(AliasingSharedPtrTest, ProviderCreateAliasesReferenced) {
   ASSERT_EQ(&container.referenced, actual.get());
 }
 
+}  // namespace
+}  // namespace implementations
+
+namespace {
+
+TEST_F(StrategyTest, UseBinding) {
+  using Sut = UseBinding;
+  auto sut = Sut{};
+  auto container = Container{};
+  auto binding = Binding{};
+
+  auto actual = sut.template execute<Requested>(container, binding);
+
+  ASSERT_EQ(&container, actual.container);
+  ASSERT_EQ(&binding.provider, actual.provider);
+  ASSERT_EQ(&binding.scope, actual.scope);
+}
+
+}  // namespace
+}  // namespace strategies
+
 // ----------------------------------------------------------------------------
 // StrategyFactory
 // ----------------------------------------------------------------------------
+
+namespace {
+
+using namespace strategies;
 
 struct StrategyFactoryTest : StrategyTest {
   using Sut = StrategyFactory;
   Sut sut{};
 
-  template <typename Expected, typename Requested, bool has_binding,
+  template <typename Expected, typename Requested, bool found_binding,
             bool scope_provides_references>
   static constexpr auto test =
       std::same_as<Expected,
-                   decltype(sut.template create<Requested, has_binding,
+                   decltype(sut.template create<Requested, found_binding,
                                                 scope_provides_references>())>;
 
-  static_assert(test<strategies::RelegateToTransient,
-                     std::unique_ptr<Requested>, false, false>);
-  static_assert(test<strategies::RelegateToTransient,
-                     std::unique_ptr<Requested>, false, true>);
-  static_assert(test<strategies::RelegateToTransient,
-                     std::unique_ptr<Requested>, true, false>);
-  static_assert(test<strategies::RelegateToTransient,
-                     std::unique_ptr<Requested>, true, true>);
+  static_assert(test<UseBinding, std::unique_ptr<Requested>, false, false>);
+  static_assert(test<UseBinding, std::unique_ptr<Requested>, false, true>);
+  static_assert(test<UseBinding, std::unique_ptr<Requested>, true, false>);
+  static_assert(test<UseBinding, std::unique_ptr<Requested>, true, true>);
 
-  static_assert(test<strategies::CacheSharedPtr, std::shared_ptr<Requested>,
-                     false, false>);
-  static_assert(test<strategies::CacheSharedPtr, std::shared_ptr<Requested>,
-                     false, true>);
-  static_assert(
-      test<strategies::UseBinding, std::shared_ptr<Requested>, true, false>);
-  static_assert(
-      test<strategies::CacheSharedPtr, std::shared_ptr<Requested>, true, true>);
+  static_assert(test<CacheSharedPtr, std::shared_ptr<Requested>, false, false>);
+  static_assert(test<CacheSharedPtr, std::shared_ptr<Requested>, false, true>);
+  static_assert(test<UseBinding, std::shared_ptr<Requested>, true, false>);
+  static_assert(test<CacheSharedPtr, std::shared_ptr<Requested>, true, true>);
 
-  static_assert(
-      test<strategies::CacheSharedPtr, std::weak_ptr<Requested>, false, false>);
-  static_assert(
-      test<strategies::CacheSharedPtr, std::weak_ptr<Requested>, false, true>);
-  static_assert(
-      test<strategies::CacheSharedPtr, std::weak_ptr<Requested>, true, false>);
-  static_assert(
-      test<strategies::CacheSharedPtr, std::weak_ptr<Requested>, true, true>);
+  static_assert(test<CacheSharedPtr, std::weak_ptr<Requested>, false, false>);
+  static_assert(test<CacheSharedPtr, std::weak_ptr<Requested>, false, true>);
+  static_assert(test<CacheSharedPtr, std::weak_ptr<Requested>, true, false>);
+  static_assert(test<CacheSharedPtr, std::weak_ptr<Requested>, true, true>);
 
-  static_assert(test<strategies::PromoteToSingleton, Requested&, false, false>);
-  static_assert(test<strategies::PromoteToSingleton, Requested&, false, true>);
-  static_assert(test<strategies::PromoteToSingleton, Requested&, true, false>);
-  static_assert(test<strategies::UseBinding, Requested&, true, true>);
+  static_assert(test<PromoteToSingleton, Requested&, false, false>);
+  static_assert(test<PromoteToSingleton, Requested&, false, true>);
+  static_assert(test<PromoteToSingleton, Requested&, true, false>);
+  static_assert(test<UseBinding, Requested&, true, true>);
 
-  static_assert(test<strategies::PromoteToSingleton, Requested*, false, false>);
-  static_assert(test<strategies::PromoteToSingleton, Requested*, false, true>);
-  static_assert(test<strategies::PromoteToSingleton, Requested*, true, false>);
-  static_assert(test<strategies::UseBinding, Requested*, true, true>);
+  static_assert(test<PromoteToSingleton, Requested*, false, false>);
+  static_assert(test<PromoteToSingleton, Requested*, false, true>);
+  static_assert(test<PromoteToSingleton, Requested*, true, false>);
+  static_assert(test<UseBinding, Requested*, true, true>);
 
-  static_assert(test<strategies::RelegateToTransient, Requested, false, false>);
-  static_assert(test<strategies::RelegateToTransient, Requested, false, true>);
-  static_assert(test<strategies::UseBinding, Requested, true, false>);
-  static_assert(test<strategies::UseBinding, Requested, true, true>);
+  static_assert(test<UseBinding, Requested, false, false>);
+  static_assert(test<UseBinding, Requested, false, true>);
+  static_assert(test<UseBinding, Requested, true, false>);
+  static_assert(test<UseBinding, Requested, true, true>);
 
-  static_assert(
-      test<strategies::RelegateToTransient, Requested&&, false, false>);
-  static_assert(
-      test<strategies::RelegateToTransient, Requested&&, false, true>);
-  static_assert(test<strategies::UseBinding, Requested&&, true, false>);
-  static_assert(test<strategies::UseBinding, Requested&&, true, true>);
+  static_assert(test<UseBinding, Requested&&, false, false>);
+  static_assert(test<UseBinding, Requested&&, false, true>);
+  static_assert(test<UseBinding, Requested&&, true, false>);
+  static_assert(test<UseBinding, Requested&&, true, true>);
 };
 
+}  // namespace
 }  // namespace dink

@@ -134,8 +134,8 @@ TEST_F(ContainerSingletonTest, weak_pointer_survives_without_shared) {
 
   const auto& weak = sut.template resolve<std::weak_ptr<Type>>();
 
-  // Even with no shared_ptr in scope, weak_ptr should not expire
-  // because it tracks the canonical shared_ptr which aliases the instance.
+  // Even with no shared_ptr in scope, weak_ptr should not expire because it
+  // tracks the canonical shared_ptr to the instance.
   EXPECT_FALSE(weak.expired());
 
   auto shared = weak.lock();
@@ -337,7 +337,7 @@ TEST_F(ContainerInstanceTest, weak_ptr_does_not_expire_while_instance_alive) {
   auto weak = sut.template resolve<std::weak_ptr<Instance>>();
 
   // Even with no shared_ptr in scope, weak_ptr should not expire because it
-  // tracks the canonical shared_ptr, which aliases the static.
+  // tracks the canonical shared_ptr to the instance.
   EXPECT_FALSE(weak.expired());
 
   auto shared = weak.lock();
