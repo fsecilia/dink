@@ -33,16 +33,11 @@ struct ContainerTest : Test {
     Initialized() = default;
   };
 
-  //! Type used as transient.
-  //
-  // This type is meant for cases where it is always used transient. If a type
-  // is either bound singleton or promoted, it should use Singleton instead.
-  struct Transient : Initialized {};
-
   // Base type for unique, local types used as singleton.
   //
-  // This is a base class because types bound singleton must be unique, local
-  // to the test, or the cached values will leak between tests.
+  // This is a base class because types bound singleton and promoted requests
+  // must be unique, local to the test, or the cached values will leak between
+  // tests.
   struct Singleton : Initialized {};
 
   //! Type used as external reference.
@@ -60,8 +55,10 @@ struct ContainerTest : Test {
     explicit Product(int_t value = 0) : value{value} {}
   };
 
+  // Arbitrary dependency passed as a ctor param to other types.
   struct Dependency : Initialized {};
 
+  // Arbitrary common base class.
   struct IService {
     virtual ~IService() = default;
     virtual auto get_value() const -> int_t = 0;
@@ -239,7 +236,7 @@ TEST_F(ContainerSingletonTest, reference_and_pointer_point_to_same_instance) {
 // ----------------------------------------------------------------------------
 
 struct ContainerTransientTest : ContainerTest {
-  struct Type : Transient {};
+  struct Type : Initialized {};
 };  // namespace
 
 TEST_F(ContainerTransientTest, creates_new_shared_ptr_per_resolve) {
@@ -434,7 +431,7 @@ TEST_F(ContainerFactoryTest, factory_with_transient_scope) {
   EXPECT_EQ(2, Counted::num_instances);  // Factory called twice
 }
 
-TEST_F(ContainerFactoryTest, factory_with_deduced_scope) {
+TEST_F(ContainerFactoryTest, factory_with_default_transient_scope) {
   auto sut = Container{bind<Product>().via(factory)};
 
   auto value = sut.template resolve<Product>();
@@ -965,11 +962,11 @@ struct ContainerMixedScopesTest : ContainerTest {};
 TEST_F(ContainerMixedScopesTest, transient_and_singleton_coexist) {
   struct Singleton : ContainerTest::Singleton {};
 
-  auto sut = Container{bind<Transient>().in<scope::Transient>(),
+  auto sut = Container{bind<Initialized>().in<scope::Transient>(),
                        bind<Singleton>().in<scope::Singleton>()};
 
-  auto t1 = sut.template resolve<std::shared_ptr<Transient>>();
-  auto t2 = sut.template resolve<std::shared_ptr<Transient>>();
+  auto t1 = sut.template resolve<std::shared_ptr<Initialized>>();
+  auto t2 = sut.template resolve<std::shared_ptr<Initialized>>();
   EXPECT_NE(t1.get(), t2.get());
 
   auto s1 = sut.template resolve<std::shared_ptr<Singleton>>();
@@ -982,13 +979,13 @@ TEST_F(ContainerMixedScopesTest, all_scopes_coexist) {
 
   auto external = Instance{};
 
-  auto sut = Container{bind<Transient>().in<scope::Transient>(),
+  auto sut = Container{bind<Initialized>().in<scope::Transient>(),
                        bind<Singleton>().in<scope::Singleton>(),
                        bind<Instance>().to(external)};
 
-  // Transient creates new each time
-  auto t1 = sut.template resolve<Transient>();
-  auto t2 = sut.template resolve<Transient>();
+  // Initialized creates new each time
+  auto t1 = sut.template resolve<Initialized>();
+  auto t2 = sut.template resolve<Initialized>();
   EXPECT_NE(&t1, &t2);
 
   // Singleton returns same reference
@@ -1138,7 +1135,7 @@ TEST_F(ContainerPromotionTest,
 
 TEST_F(ContainerPromotionTest,
        transient_shared_ptr_creates_new_instances_not_promoted) {
-  struct Type : Transient {};
+  struct Type : Initialized {};
   auto sut = Container{bind<Type>().in<scope::Transient>()};
 
   auto shared1 = sut.template resolve<std::shared_ptr<Type>>();
@@ -1165,7 +1162,7 @@ TEST_F(ContainerPromotionTest, transient_promoted_to_singleton_for_weak_ptr) {
 }
 
 TEST_F(ContainerPromotionTest, transient_not_promoted_for_value_or_unique_ptr) {
-  struct Type : Transient {};
+  struct Type : Initialized {};
   auto sut = Container{bind<Type>().in<scope::Transient>()};
 
   // Values should still be transient
@@ -1185,7 +1182,7 @@ TEST_F(ContainerPromotionTest, transient_not_promoted_for_value_or_unique_ptr) {
 
 TEST_F(ContainerPromotionTest,
        transient_promotion_consistent_across_different_request_types) {
-  struct Type : Transient {};
+  struct Type : Initialized {};
   auto sut = Container{bind<Type>().in<scope::Transient>()};
 
   // All reference-like requests should share the same promoted instance
@@ -1407,7 +1404,7 @@ TEST_F(ContainerRelegationTest, singleton_relegation_with_dependencies) {
 // ----------------------------------------------------------------------------
 
 struct ContainerHierarchyTest : ContainerTest {
-  struct Type : Transient {};
+  struct Type : Initialized {};
 };
 
 TEST_F(ContainerHierarchyTest, child_finds_binding_in_parent) {
@@ -1565,7 +1562,7 @@ TEST_F(ContainerHierarchySingletonTest,
 // ----------------------------------------------------------------------------
 
 struct ContainerHierarchyTransientTest : ContainerTest {
-  struct Type : Transient {};
+  struct Type : Initialized {};
 };
 
 TEST_F(ContainerHierarchyTransientTest,
@@ -1756,7 +1753,7 @@ struct ContainerHierarchyComplexTest : ContainerTest {};
 
 TEST_F(ContainerHierarchyComplexTest, mixed_scopes_across_hierarchy) {
   struct SingletonInGrandparent : Singleton {};
-  struct TransientInParent : Transient {};
+  struct TransientInParent : Initialized {};
   struct SingletonInChild : Singleton {};
 
   auto grandparent =
@@ -1790,7 +1787,7 @@ TEST_F(ContainerHierarchyComplexTest, mixed_scopes_across_hierarchy) {
 
 TEST_F(ContainerHierarchyComplexTest, dependency_chain_across_hierarchy) {
   struct GrandparentDep : Singleton {};
-  struct ParentDep : Transient {
+  struct ParentDep : Initialized {
     GrandparentDep* dep;
     explicit ParentDep(GrandparentDep& d) : dep{&d} {}
   };
