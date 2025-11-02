@@ -111,7 +111,7 @@ struct DispatcherTest : Test {
 
   struct MockStrategyFactory {
     MOCK_METHOD(Strategy, create,
-                (bool has_binding, bool scope_provides_references));
+                (bool found_binding, bool scope_provides_references));
     virtual ~MockStrategyFactory() = default;
   };
   StrictMock<MockStrategyFactory> mock_strategy_factory;
@@ -119,11 +119,11 @@ struct DispatcherTest : Test {
   struct StrategyFactory {
     MockStrategyFactory* mock = nullptr;
 
-    template <typename Requested, bool has_binding,
+    template <typename Requested, bool found_binding,
               bool scope_provides_references>
     constexpr auto create() -> Strategy {
       static_assert(std::same_as<DispatcherTest::Requested&, Requested>);
-      return mock->create(has_binding, scope_provides_references);
+      return mock->create(found_binding, scope_provides_references);
     }
   };
 };

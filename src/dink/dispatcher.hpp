@@ -61,16 +61,16 @@ class Dispatcher {
 
     // Look up binding.
     auto binding = binding_locator_.template find<Canonical>(config);
-    constexpr bool has_binding =
+    constexpr bool found_binding =
         !std::is_same_v<decltype(binding), std::nullptr_t>;
 
-    if constexpr (has_binding) {
+    if constexpr (found_binding) {
       // Found binding - execute with it.
       using Binding = std::remove_cvref_t<decltype(*binding)>;
       constexpr auto scope_provides_references =
           Binding::ScopeType::provides_references;
 
-      return execute_strategy<Requested, has_binding,
+      return execute_strategy<Requested, found_binding,
                               scope_provides_references>(container, *binding);
     } else if constexpr (std::same_as<ParentPtr, std::nullptr_t>) {
       // no binding, no parent, use fallback bindings
@@ -86,13 +86,13 @@ class Dispatcher {
 
  private:
   //! Executes strategy with given binding.
-  template <typename Requested, bool has_binding,
+  template <typename Requested, bool found_binding,
             bool scope_provides_references, typename Container,
             typename Binding>
   auto execute_strategy(Container& container, Binding& binding)
       -> meta::RemoveRvalueRef<Requested> {
     auto strategy =
-        strategy_factory_.template create<Requested, has_binding,
+        strategy_factory_.template create<Requested, found_binding,
                                           scope_provides_references>();
     return strategy.template execute<Requested>(container, binding);
   }
