@@ -168,13 +168,13 @@ TEST_F(ScopeTestTransient, resolves_unique_ptr_to_const_per_request) {
 // ----------------------------------------------------------------------------
 // Singleton
 // ----------------------------------------------------------------------------
-// Each test case needs its own local, unique provider to prevent leaking
-// cached instances between cases.
 
 struct ScopeTestSingleton : ScopeTest {
   using Sut = Singleton;
   Sut sut{};
 
+  // Each test case needs its own local, unique provider to prevent leaking
+  // cached instances between cases.
   using Provider = EchoProvider<Resolved>;
 };
 
