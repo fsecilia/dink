@@ -91,7 +91,8 @@ class Instance {
     auto& instance = provider.template create<Provided&>(container);
 
     if constexpr (std::is_same_v<std::remove_cvref_t<Requested>, Provided> ||
-                  std::is_lvalue_reference_v<Requested>) {
+                  std::is_lvalue_reference_v<Requested> ||
+                  meta::IsSharedPtr<Requested> || meta::IsWeakPtr<Requested>) {
       // Values and Lvalue reference (mutable or const).
       return instance;
     } else if constexpr (std::is_pointer_v<Requested>) {
