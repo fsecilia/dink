@@ -8,12 +8,12 @@
 #include <dink/binding_dsl.hpp>
 #include <dink/scope.hpp>
 
-namespace dink {
+namespace dink::container {
 namespace {
 
 struct ContainerTest : Test {
-  static inline const auto initial_value = int_t{7793};   // arbitrary
-  static inline const auto modified_value = int_t{2145};  // arbitrary
+  static inline const auto kInitialValue = int_t{7793};   // arbitrary
+  static inline const auto kModifiedValue = int_t{2145};  // arbitrary
 
   // Base class for types that need instance counting.
   struct Counted {
@@ -24,7 +24,7 @@ struct ContainerTest : Test {
 
   // Arbitrary type with a known initial value.
   struct Initialized : Counted {
-    int_t value = initial_value;
+    int_t value = kInitialValue;
     Initialized() = default;
   };
 
@@ -75,12 +75,102 @@ struct ContainerTest : Test {
 };
 
 // ----------------------------------------------------------------------------
+// Transient Scope Tests
+// ----------------------------------------------------------------------------
+
+struct ContainerTransientTest : ContainerTest {};
+
+// Resolution
+// ----------------------------------------------------------------------------
+
+TEST_F(ContainerTransientTest, resolves_const_value) {
+  auto sut = Container{bind<Initialized>().in<scope::Transient>()};
+
+  const auto value = sut.template resolve<const Initialized>();
+  EXPECT_EQ(kInitialValue, value.value);
+}
+
+TEST_F(ContainerTransientTest, resolves_rvalue_reference) {
+  auto sut = Container{bind<Initialized>().in<scope::Transient>()};
+
+  auto&& value = sut.template resolve<Initialized&&>();
+  EXPECT_EQ(kInitialValue, value.value);
+}
+
+// Uniqueness (Per Request)
+// ----------------------------------------------------------------------------
+
+TEST_F(ContainerTransientTest, creates_new_shared_ptr_per_resolve) {
+  auto sut = Container{bind<Initialized>().in<scope::Transient>()};
+
+  auto shared1 = sut.template resolve<std::shared_ptr<Initialized>>();
+  auto shared2 = sut.template resolve<std::shared_ptr<Initialized>>();
+
+  EXPECT_NE(shared1.get(), shared2.get());  // Different instances
+}
+
+TEST_F(ContainerTransientTest, creates_new_value_per_resolve) {
+  auto sut = Container{bind<Initialized>().in<scope::Transient>()};
+
+  auto value1 = sut.template resolve<Initialized>();
+  auto value2 = sut.template resolve<Initialized>();
+
+  EXPECT_EQ(0, value1.id);
+  EXPECT_EQ(1, value2.id);
+}
+
+TEST_F(ContainerTransientTest, creates_new_unique_ptr_per_resolve) {
+  auto sut = Container{bind<Initialized>().in<scope::Transient>()};
+
+  auto unique1 = sut.template resolve<std::unique_ptr<Initialized>>();
+  auto unique2 = sut.template resolve<std::unique_ptr<Initialized>>();
+
+  EXPECT_NE(unique1.get(), unique2.get());
+  EXPECT_EQ(kInitialValue, unique1->value);
+  EXPECT_EQ(kInitialValue, unique2->value);
+}
+
+// ----------------------------------------------------------------------------
 // Singleton Scope Tests
 // ----------------------------------------------------------------------------
 
 struct ContainerSingletonTest : ContainerTest {};
 
-// A type's canonical shared pointer points at the reference.
+// Resolution
+// ----------------------------------------------------------------------------
+
+TEST_F(ContainerSingletonTest, resolves_mutable_reference) {
+  struct Type : Singleton {};
+  auto sut = Container{bind<Type>().in<scope::Singleton>()};
+
+  auto& ref = sut.template resolve<Type&>();
+  EXPECT_EQ(kInitialValue, ref.value);
+}
+
+TEST_F(ContainerSingletonTest, resolves_const_reference) {
+  struct Type : Singleton {};
+  auto sut = Container{bind<Type>().in<scope::Singleton>()};
+
+  const auto& ref = sut.template resolve<const Type&>();
+  EXPECT_EQ(kInitialValue, ref.value);
+}
+
+TEST_F(ContainerSingletonTest, resolves_mutable_pointer) {
+  struct Type : Singleton {};
+  auto sut = Container{bind<Type>().in<scope::Singleton>()};
+
+  auto* ptr = sut.template resolve<Type*>();
+  EXPECT_EQ(kInitialValue, ptr->value);
+}
+
+TEST_F(ContainerSingletonTest, resolves_const_pointer) {
+  struct Type : Singleton {};
+  auto sut = Container{bind<Type>().in<scope::Singleton>()};
+
+  const auto* ptr = sut.template resolve<const Type*>();
+  EXPECT_EQ(kInitialValue, ptr->value);
+}
+
 TEST_F(ContainerSingletonTest, canonical_shared_wraps_instance) {
   struct Type : Singleton {};
   auto sut = Container{bind<Type>().in<scope::Singleton>()};
@@ -89,6 +179,80 @@ TEST_F(ContainerSingletonTest, canonical_shared_wraps_instance) {
   auto& instance = sut.template resolve<Type&>();
 
   ASSERT_EQ(&instance, shared.get());
+}
+
+TEST_F(ContainerSingletonTest, const_shared_ptr) {
+  struct Type : Singleton {};
+  auto sut = Container{bind<Type>().in<scope::Singleton>()};
+
+  auto shared = sut.template resolve<std::shared_ptr<const Type>>();
+  auto& instance = sut.template resolve<Type&>();
+
+  EXPECT_EQ(&instance, shared.get());
+}
+
+TEST_F(ContainerSingletonTest, weak_pointers_lock_to_same_value) {
+  struct Type : Singleton {};
+  auto sut = Container{bind<Type>().in<scope::Singleton>()};
+
+  auto weak1 = sut.template resolve<std::weak_ptr<Type>>();
+  auto weak2 = sut.template resolve<std::weak_ptr<Type>>();
+
+  EXPECT_FALSE(weak1.expired());
+  EXPECT_EQ(weak1.lock(), weak2.lock());
+}
+
+// Uniqueness (Per Binding)
+// ----------------------------------------------------------------------------
+
+TEST_F(ContainerSingletonTest, resolves_same_mutable_reference) {
+  struct Type : Singleton {};
+  auto sut = Container{bind<Type>().in<scope::Singleton>()};
+
+  auto& ref1 = sut.template resolve<Type&>();
+  auto& ref2 = sut.template resolve<Type&>();
+
+  EXPECT_EQ(&ref1, &ref2);
+}
+
+TEST_F(ContainerSingletonTest, resolves_same_const_reference) {
+  struct Type : Singleton {};
+  auto sut = Container{bind<Type>().in<scope::Singleton>()};
+
+  const auto& ref1 = sut.template resolve<const Type&>();
+  const auto& ref2 = sut.template resolve<const Type&>();
+
+  EXPECT_EQ(&ref1, &ref2);
+}
+
+TEST_F(ContainerSingletonTest, resolves_same_mutable_pointer) {
+  struct Type : Singleton {};
+  auto sut = Container{bind<Type>().in<scope::Singleton>()};
+
+  auto* ptr1 = sut.template resolve<Type*>();
+  auto* ptr2 = sut.template resolve<Type*>();
+
+  EXPECT_EQ(ptr1, ptr2);
+}
+
+TEST_F(ContainerSingletonTest, resolves_same_const_pointer) {
+  struct Type : Singleton {};
+  auto sut = Container{bind<Type>().in<scope::Singleton>()};
+
+  const auto* ptr1 = sut.template resolve<const Type*>();
+  const auto* ptr2 = sut.template resolve<const Type*>();
+
+  EXPECT_EQ(ptr1, ptr2);
+}
+
+TEST_F(ContainerSingletonTest, reference_and_pointer_point_to_same_instance) {
+  struct Type : Singleton {};
+  auto sut = Container{bind<Type>().in<scope::Singleton>()};
+
+  auto& ref = sut.template resolve<Type&>();
+  auto* ptr = sut.template resolve<Type*>();
+
+  EXPECT_EQ(&ref, ptr);
 }
 
 TEST_F(ContainerSingletonTest, canonical_shared_ptr_value) {
@@ -115,17 +279,6 @@ TEST_F(ContainerSingletonTest, canonical_shared_ptr_identity) {
   ASSERT_EQ(&result1, &result2);
   ASSERT_EQ(result1.use_count(), result2.use_count());
   ASSERT_EQ(result1.use_count(), 1);
-}
-
-TEST_F(ContainerSingletonTest, weak_pointers_lock_to_same_value) {
-  struct Type : Singleton {};
-  auto sut = Container{bind<Type>().in<scope::Singleton>()};
-
-  auto weak1 = sut.template resolve<std::weak_ptr<Type>>();
-  auto weak2 = sut.template resolve<std::weak_ptr<Type>>();
-
-  EXPECT_FALSE(weak1.expired());
-  EXPECT_EQ(weak1.lock(), weak2.lock());
 }
 
 TEST_F(ContainerSingletonTest, weak_pointer_survives_without_shared) {
@@ -155,15 +308,100 @@ TEST_F(ContainerSingletonTest, weak_ptr_expires_with_canonical_shared_ptr) {
   EXPECT_TRUE(weak.expired());
 }
 
-TEST_F(ContainerSingletonTest, const_shared_ptr) {
+// Mutation & State
+// ----------------------------------------------------------------------------
+
+TEST_F(ContainerSingletonTest, mutations_through_reference_are_visible) {
   struct Type : Singleton {};
   auto sut = Container{bind<Type>().in<scope::Singleton>()};
 
-  auto shared = sut.template resolve<std::shared_ptr<const Type>>();
-  auto& instance = sut.template resolve<Type&>();
+  auto& ref1 = sut.template resolve<Type&>();
+  ASSERT_EQ(kInitialValue, ref1.value);
 
-  EXPECT_EQ(&instance, shared.get());
+  ref1.value = kModifiedValue;
+
+  auto& ref2 = sut.template resolve<Type&>();
+  EXPECT_EQ(kModifiedValue, ref2.value);
 }
+
+TEST_F(ContainerSingletonTest, mutations_through_pointer_are_visible) {
+  struct Type : Singleton {};
+  auto sut = Container{bind<Type>().in<scope::Singleton>()};
+
+  auto* ptr1 = sut.template resolve<Type*>();
+  ASSERT_EQ(kInitialValue, ptr1->value);
+
+  ptr1->value = kModifiedValue;
+
+  auto* ptr2 = sut.template resolve<Type*>();
+  EXPECT_EQ(kModifiedValue, ptr2->value);
+}
+
+// Value & Copy Independence
+// ----------------------------------------------------------------------------
+
+TEST_F(ContainerSingletonTest,
+       value_resolves_are_independent_copies_of_instance) {
+  struct Type : Singleton {};
+  auto sut = Container{bind<Type>().in<scope::Singleton>()};
+
+  auto val1 = sut.template resolve<Type>();
+  auto val2 = sut.template resolve<Type>();
+  ASSERT_NE(&val1, &val2);
+
+  // Mutate copies
+  val1.value = kModifiedValue;
+  val2.value = kModifiedValue + 1;
+
+  // Ensure original is unchanged
+  auto& ref = sut.template resolve<Type&>();
+  EXPECT_EQ(kInitialValue, ref.value);
+  EXPECT_EQ(kModifiedValue, val1.value);
+  EXPECT_EQ(kModifiedValue + 1, val2.value);
+}
+
+TEST_F(ContainerSingletonTest,
+       rvalue_reference_resolves_are_independent_copies_of_instance) {
+  struct Type : Singleton {};
+  auto sut = Container{bind<Type>().in<scope::Singleton>()};
+
+  auto&& val1 = sut.template resolve<Type&&>();
+  auto&& val2 = sut.template resolve<Type&&>();
+  ASSERT_NE(&val1, &val2);
+
+  // Mutate copies
+  val1.value = kModifiedValue;
+  val2.value = kModifiedValue + 1;
+
+  // Ensure original is unchanged
+  auto& ref = sut.template resolve<Type&>();
+  EXPECT_EQ(kInitialValue, ref.value);
+  EXPECT_EQ(kModifiedValue, val1.value);
+  EXPECT_EQ(kModifiedValue + 1, val2.value);
+}
+
+TEST_F(ContainerSingletonTest,
+       unique_ptr_resolves_are_independent_copies_of_instance) {
+  struct Type : Singleton {};
+  auto sut = Container{bind<Type>().in<scope::Singleton>()};
+
+  auto val1 = sut.template resolve<std::unique_ptr<Type>>();
+  auto val2 = sut.template resolve<std::unique_ptr<Type>>();
+  ASSERT_NE(val1.get(), val2.get());
+
+  // Mutate copies
+  val1->value = kModifiedValue;
+  val2->value = kModifiedValue + 1;
+
+  // Ensure original is unchanged
+  auto& ref = sut.template resolve<Type&>();
+  EXPECT_EQ(kInitialValue, ref.value);
+  EXPECT_EQ(kModifiedValue, val1->value);
+  EXPECT_EQ(kModifiedValue + 1, val2->value);
+}
+
+// Multiple Bindings
+// ----------------------------------------------------------------------------
 
 TEST_F(ContainerSingletonTest, multiple_singleton_types) {
   struct Type1 : Singleton {};
@@ -179,116 +417,6 @@ TEST_F(ContainerSingletonTest, multiple_singleton_types) {
   EXPECT_NE(shared_2.get(), nullptr);
 }
 
-TEST_F(ContainerSingletonTest, resolves_mutable_reference) {
-  struct Type : Singleton {};
-  auto sut = Container{bind<Type>().in<scope::Singleton>()};
-
-  auto& ref1 = sut.template resolve<Type&>();
-  auto& ref2 = sut.template resolve<Type&>();
-
-  EXPECT_EQ(&ref1, &ref2);
-  EXPECT_EQ(initial_value, ref1.value);
-
-  ref1.value = modified_value;
-  EXPECT_EQ(modified_value, ref2.value);
-}
-
-TEST_F(ContainerSingletonTest, resolves_const_reference) {
-  struct Type : Singleton {};
-  auto sut = Container{bind<Type>().in<scope::Singleton>()};
-
-  const auto& ref1 = sut.template resolve<const Type&>();
-  const auto& ref2 = sut.template resolve<const Type&>();
-
-  EXPECT_EQ(&ref1, &ref2);
-  EXPECT_EQ(initial_value, ref1.value);
-}
-
-TEST_F(ContainerSingletonTest, resolves_mutable_pointer) {
-  struct Type : Singleton {};
-  auto sut = Container{bind<Type>().in<scope::Singleton>()};
-
-  auto* ptr1 = sut.template resolve<Type*>();
-  auto* ptr2 = sut.template resolve<Type*>();
-
-  EXPECT_EQ(ptr1, ptr2);
-  EXPECT_EQ(initial_value, ptr1->value);
-
-  ptr1->value = modified_value;
-  EXPECT_EQ(modified_value, ptr2->value);
-}
-
-TEST_F(ContainerSingletonTest, resolves_const_pointer) {
-  struct Type : Singleton {};
-  auto sut = Container{bind<Type>().in<scope::Singleton>()};
-
-  const auto* ptr1 = sut.template resolve<const Type*>();
-  const auto* ptr2 = sut.template resolve<const Type*>();
-
-  EXPECT_EQ(ptr1, ptr2);
-  EXPECT_EQ(initial_value, ptr1->value);
-}
-
-TEST_F(ContainerSingletonTest, reference_and_pointer_point_to_same_instance) {
-  struct Type : Singleton {};
-  auto sut = Container{bind<Type>().in<scope::Singleton>()};
-
-  auto& ref = sut.template resolve<Type&>();
-  auto* ptr = sut.template resolve<Type*>();
-
-  EXPECT_EQ(&ref, ptr);
-}
-
-// ----------------------------------------------------------------------------
-// Transient Scope Tests
-// ----------------------------------------------------------------------------
-
-struct ContainerTransientTest : ContainerTest {};
-
-TEST_F(ContainerTransientTest, creates_new_shared_ptr_per_resolve) {
-  auto sut = Container{bind<Initialized>().in<scope::Transient>()};
-
-  auto shared1 = sut.template resolve<std::shared_ptr<Initialized>>();
-  auto shared2 = sut.template resolve<std::shared_ptr<Initialized>>();
-
-  EXPECT_NE(shared1.get(), shared2.get());  // Different instances
-}
-
-TEST_F(ContainerTransientTest, creates_new_value_per_resolve) {
-  auto sut = Container{bind<Initialized>().in<scope::Transient>()};
-
-  auto value1 = sut.template resolve<Initialized>();
-  auto value2 = sut.template resolve<Initialized>();
-
-  EXPECT_EQ(0, value1.id);
-  EXPECT_EQ(1, value2.id);
-}
-
-TEST_F(ContainerTransientTest, creates_new_unique_ptr_per_resolve) {
-  auto sut = Container{bind<Initialized>().in<scope::Transient>()};
-
-  auto unique1 = sut.template resolve<std::unique_ptr<Initialized>>();
-  auto unique2 = sut.template resolve<std::unique_ptr<Initialized>>();
-
-  EXPECT_NE(unique1.get(), unique2.get());
-  EXPECT_EQ(initial_value, unique1->value);
-  EXPECT_EQ(initial_value, unique2->value);
-}
-
-TEST_F(ContainerTransientTest, resolves_const_value) {
-  auto sut = Container{bind<Initialized>().in<scope::Transient>()};
-
-  const auto value = sut.template resolve<const Initialized>();
-  EXPECT_EQ(initial_value, value.value);
-}
-
-TEST_F(ContainerTransientTest, resolves_rvalue_reference) {
-  auto sut = Container{bind<Initialized>().in<scope::Transient>()};
-
-  auto&& value = sut.template resolve<Initialized&&>();
-  EXPECT_EQ(initial_value, value.value);
-}
-
 // ----------------------------------------------------------------------------
 // Instance Scope Tests
 // ----------------------------------------------------------------------------
@@ -302,19 +430,59 @@ struct ContainerInstanceTest : ContainerTest {
   Sut sut = Container{bind<Instance>().to(external)};
 };
 
+// Resolution
+// ----------------------------------------------------------------------------
+
+TEST_F(ContainerInstanceTest, resolves_mutable_reference) {
+  auto& ref = sut.template resolve<Instance&>();
+  EXPECT_EQ(&external, &ref);
+}
+
+TEST_F(ContainerInstanceTest, resolves_const_reference) {
+  auto sut = Container{bind<Instance>().to(external)};
+
+  const auto& ref = sut.template resolve<const Instance&>();
+  EXPECT_EQ(&external, &ref);
+}
+
+TEST_F(ContainerInstanceTest, resolves_mutable_pointer) {
+  auto sut = Container{bind<Instance>().to(external)};
+
+  auto* ptr = sut.template resolve<Instance*>();
+  EXPECT_EQ(&external, ptr);
+}
+
+TEST_F(ContainerInstanceTest, resolves_const_pointer) {
+  auto sut = Container{bind<Instance>().to(external)};
+
+  const auto* ptr = sut.template resolve<const Instance*>();
+  EXPECT_EQ(&external, ptr);
+}
+
 TEST_F(ContainerInstanceTest, shared_ptr_wraps_external_instance) {
   // shared_ptr should wrap the external instance.
-  auto shared1 = sut.template resolve<std::shared_ptr<Instance>>();
-  auto shared2 = sut.template resolve<std::shared_ptr<Instance>>();
+  auto shared = sut.template resolve<std::shared_ptr<Instance>>();
   auto& ref = sut.template resolve<Instance&>();
 
-  EXPECT_EQ(&external, shared1.get());      // Points to external
-  EXPECT_EQ(shared1.get(), shared2.get());  // Same cached shared_ptr
-  EXPECT_EQ(3, shared1.use_count());        // canonical + shared1 + shared2
-
-  // Reference and pointer refer to same instance.
+  EXPECT_EQ(&external, shared.get());  // Points to external
   EXPECT_EQ(&external, &ref);
-  EXPECT_EQ(&ref, shared1.get());
+  EXPECT_EQ(&ref, shared.get());
+}
+
+TEST_F(ContainerInstanceTest, weak_ptr_tracks_external_instance) {
+  auto weak = sut.template resolve<std::weak_ptr<Instance>>();
+
+  EXPECT_FALSE(weak.expired());
+  EXPECT_EQ(&external, weak.lock().get());
+}
+
+// Uniqueness (Always Same Instance)
+// ----------------------------------------------------------------------------
+
+TEST_F(ContainerInstanceTest, resolves_same_mutable_reference) {
+  auto& ref1 = sut.template resolve<Instance&>();
+  auto& ref2 = sut.template resolve<Instance&>();
+  EXPECT_EQ(&ref1, &ref2);
 }
 
 TEST_F(ContainerInstanceTest, canonical_shared_ptr_reference) {
@@ -326,11 +494,13 @@ TEST_F(ContainerInstanceTest, canonical_shared_ptr_reference) {
   EXPECT_EQ(1, canonical1.use_count());    // Only canonical exists
 }
 
-TEST_F(ContainerInstanceTest, weak_ptr_tracks_external_instance) {
-  auto weak = sut.template resolve<std::weak_ptr<Instance>>();
+TEST_F(ContainerInstanceTest, shared_ptr_values_are_copies_of_same_pointer) {
+  auto shared1 = sut.template resolve<std::shared_ptr<Instance>>();
+  auto shared2 = sut.template resolve<std::shared_ptr<Instance>>();
 
-  EXPECT_FALSE(weak.expired());
-  EXPECT_EQ(&external, weak.lock().get());
+  EXPECT_EQ(&external, shared1.get());      // Points to external
+  EXPECT_EQ(shared1.get(), shared2.get());  // Same cached shared_ptr
+  EXPECT_EQ(3, shared1.use_count());        // canonical + shared1 + shared2
 }
 
 TEST_F(ContainerInstanceTest, weak_ptr_does_not_expire_while_instance_alive) {
@@ -355,104 +525,87 @@ TEST_F(ContainerInstanceTest, weak_ptr_expires_with_canonical_shared_ptr) {
   EXPECT_TRUE(weak.expired());
 }
 
+// Mutation & State
+// ----------------------------------------------------------------------------
+
+TEST_F(ContainerInstanceTest, mutations_through_reference_are_visible) {
+  auto& ref = sut.template resolve<Instance&>();
+  ref.value = kModifiedValue;
+  EXPECT_EQ(kModifiedValue, external.value);
+}
+
+TEST_F(ContainerInstanceTest, mutations_through_pointer_are_visible) {
+  auto* ptr = sut.template resolve<Instance*>();
+  ptr->value = kModifiedValue;
+  EXPECT_EQ(kModifiedValue, external.value);
+}
+
+TEST_F(ContainerInstanceTest,
+       mutations_to_external_instance_are_visible_in_reference) {
+  auto& ref = sut.template resolve<Instance&>();
+  external.value = kModifiedValue;
+  EXPECT_EQ(kModifiedValue, ref.value);
+}
+
+TEST_F(ContainerInstanceTest,
+       mutations_to_external_instance_are_visible_in_pointer) {
+  auto* ptr = sut.template resolve<Instance*>();
+  external.value = kModifiedValue;
+  EXPECT_EQ(kModifiedValue, ptr->value);
+}
+
+// Value & Copy Independence
+// ----------------------------------------------------------------------------
+
 TEST_F(ContainerInstanceTest, resolves_value_copy_of_external) {
-  external.value = modified_value;
+  external.value = kModifiedValue;
 
   auto copy = sut.template resolve<Instance>();
-  EXPECT_EQ(modified_value, copy.value);
+  EXPECT_EQ(kModifiedValue, copy.value);
 
   // Verify it's a copy, not the original.
   copy.value *= 2;
-  EXPECT_EQ(modified_value, external.value);
+  EXPECT_EQ(kModifiedValue, external.value);
 }
 
-TEST_F(ContainerInstanceTest, resolves_mutable_reference) {
-  auto& ref = sut.template resolve<Instance&>();
-  EXPECT_EQ(&external, &ref);
-
-  ref.value = modified_value;
-  EXPECT_EQ(modified_value, external.value);
+TEST_F(ContainerInstanceTest,
+       rvalue_reference_resolves_are_independent_copies_of_instance) {
+  auto&& value_copy = sut.template resolve<Instance&&>();
+  value_copy.value = kModifiedValue;
+  EXPECT_EQ(kInitialValue, external.value);
+  EXPECT_NE(kModifiedValue, external.value);
 }
 
-TEST_F(ContainerInstanceTest, resolves_const_reference) {
-  auto sut = Container{bind<Instance>().to(external)};
-
-  const auto& ref = sut.template resolve<const Instance&>();
-  EXPECT_EQ(&external, &ref);
-}
-
-TEST_F(ContainerInstanceTest, resolves_mutable_pointer) {
-  auto sut = Container{bind<Instance>().to(external)};
-
-  auto* ptr = sut.template resolve<Instance*>();
-  EXPECT_EQ(&external, ptr);
-
-  ptr->value = modified_value;
-  EXPECT_EQ(modified_value, external.value);
-}
-
-TEST_F(ContainerInstanceTest, resolves_const_pointer) {
-  auto sut = Container{bind<Instance>().to(external)};
-
-  const auto* ptr = sut.template resolve<const Instance*>();
-  EXPECT_EQ(&external, ptr);
+TEST_F(ContainerInstanceTest,
+       unique_ptr_resolves_are_independent_copies_of_instance) {
+  auto value_copy = sut.template resolve<std::unique_ptr<Instance>>();
+  value_copy->value = kModifiedValue;
+  EXPECT_EQ(kInitialValue, external.value);
+  EXPECT_NE(kModifiedValue, external.value);
 }
 
 // ----------------------------------------------------------------------------
-// Factory Binding Tests
+// Factory Provider Tests
 // ----------------------------------------------------------------------------
 
-struct ContainerFactoryTest : ContainerTest {
+struct ContainerFactoryProviderTest : ContainerTest {
   struct Factory {
-    auto operator()() const -> Product { return Product{initial_value}; }
+    auto operator()() const -> Product { return Product{kInitialValue}; }
   };
   Factory factory;
 };
 
-TEST_F(ContainerFactoryTest, resolves_with_factory) {
+// Resolution
+// ----------------------------------------------------------------------------
+
+TEST_F(ContainerFactoryProviderTest, resolves_with_factory) {
   auto sut = Container{bind<Product>().via(factory)};
 
   auto value = sut.template resolve<Product>();
-  EXPECT_EQ(initial_value, value.value);
+  EXPECT_EQ(kInitialValue, value.value);
 }
 
-TEST_F(ContainerFactoryTest, factory_with_singleton_scope) {
-  auto sut = Container{bind<Product>().via(factory).in<scope::Singleton>()};
-
-  auto& ref1 = sut.template resolve<Product&>();
-  auto& ref2 = sut.template resolve<Product&>();
-
-  EXPECT_EQ(&ref1, &ref2);
-  EXPECT_EQ(0, ref1.id);
-  EXPECT_EQ(1, Counted::num_instances);
-}
-
-TEST_F(ContainerFactoryTest, factory_with_transient_scope) {
-  auto sut = Container{bind<Product>().via(factory).in<scope::Transient>()};
-
-  auto value1 = sut.template resolve<Product>();
-  auto value2 = sut.template resolve<Product>();
-
-  EXPECT_EQ(0, value1.id);
-  EXPECT_EQ(1, value2.id);
-  EXPECT_EQ(2, Counted::num_instances);
-}
-
-TEST_F(ContainerFactoryTest, factory_with_default_transient_scope) {
-  auto sut = Container{bind<Product>().via(factory)};
-
-  auto value = sut.template resolve<Product>();
-  auto& ref = sut.template resolve<Product&>();
-
-  EXPECT_EQ(initial_value, value.value);
-  EXPECT_EQ(initial_value, ref.value);
-  EXPECT_NE(value.id, ref.id);
-  EXPECT_EQ(0, value.id);
-  EXPECT_EQ(1, ref.id);
-  EXPECT_EQ(2, Counted::num_instances);
-}
-
-TEST_F(ContainerFactoryTest, factory_with_parameters_from_container) {
+TEST_F(ContainerFactoryProviderTest, factory_with_parameters_from_container) {
   struct ProductWithDep {
     int_t combined_value;
     explicit ProductWithDep(Dependency dep) : combined_value{dep.value * 2} {}
@@ -463,7 +616,47 @@ TEST_F(ContainerFactoryTest, factory_with_parameters_from_container) {
   auto sut = Container{bind<Dependency>(), bind<ProductWithDep>().via(factory)};
 
   auto product = sut.template resolve<ProductWithDep>();
-  EXPECT_EQ(initial_value * 2, product.combined_value);
+  EXPECT_EQ(kInitialValue * 2, product.combined_value);
+}
+
+// Scope Interaction
+// ----------------------------------------------------------------------------
+
+TEST_F(ContainerFactoryProviderTest, factory_with_singleton_scope) {
+  auto sut = Container{bind<Product>().via(factory).in<scope::Singleton>()};
+
+  auto& ref1 = sut.template resolve<Product&>();
+  auto& ref2 = sut.template resolve<Product&>();
+
+  EXPECT_EQ(&ref1, &ref2);
+  EXPECT_EQ(0, ref1.id);
+  EXPECT_EQ(1, Counted::num_instances);
+}
+
+TEST_F(ContainerFactoryProviderTest, factory_with_transient_scope) {
+  auto sut = Container{bind<Product>().via(factory).in<scope::Transient>()};
+
+  auto value1 = sut.template resolve<Product>();
+  auto value2 = sut.template resolve<Product>();
+
+  EXPECT_EQ(0, value1.id);
+  EXPECT_EQ(1, value2.id);
+  EXPECT_EQ(2, Counted::num_instances);
+}
+
+TEST_F(ContainerFactoryProviderTest,
+       factory_with_transient_scope_and_promoted_ref) {
+  auto sut = Container{bind<Product>().via(factory)};
+
+  auto value = sut.template resolve<Product>();
+  auto& ref = sut.template resolve<Product&>();
+
+  EXPECT_EQ(kInitialValue, value.value);
+  EXPECT_EQ(kInitialValue, ref.value);
+  EXPECT_NE(value.id, ref.id);
+  EXPECT_EQ(0, value.id);
+  EXPECT_EQ(1, ref.id);
+  EXPECT_EQ(2, Counted::num_instances);
 }
 
 // ----------------------------------------------------------------------------
@@ -472,16 +665,34 @@ TEST_F(ContainerFactoryTest, factory_with_parameters_from_container) {
 
 struct ContainerInterfaceTest : ContainerTest {};
 
+// Resolution
+// ----------------------------------------------------------------------------
+
 TEST_F(ContainerInterfaceTest, binds_interface_to_implementation) {
   struct Service : IService {
-    int_t get_value() const override { return initial_value; }
+    int_t get_value() const override { return kInitialValue; }
   };
 
   auto sut = Container{bind<IService>().as<Service>()};
 
   auto& service = sut.template resolve<IService&>();
-  EXPECT_EQ(initial_value, service.get_value());
+  EXPECT_EQ(kInitialValue, service.get_value());
 }
+
+TEST_F(ContainerInterfaceTest, resolves_implementation_directly) {
+  struct Service : IService {
+    int_t get_value() const override { return kInitialValue; }
+  };
+
+  auto sut = Container{bind<IService>().as<Service>()};
+
+  // Can still resolve Service directly.
+  auto& impl = sut.template resolve<Service&>();
+  EXPECT_EQ(kInitialValue, impl.get_value());
+}
+
+// Scope Interaction
+// ----------------------------------------------------------------------------
 
 TEST_F(ContainerInterfaceTest, interface_binding_with_singleton_scope) {
   struct Service : IService, Counted {
@@ -497,6 +708,9 @@ TEST_F(ContainerInterfaceTest, interface_binding_with_singleton_scope) {
   EXPECT_EQ(0, ref1.get_value());
 }
 
+// Provider Interaction
+// ----------------------------------------------------------------------------
+
 TEST_F(ContainerInterfaceTest, interface_binding_with_factory) {
   struct Service : IService {
     int_t value;
@@ -504,25 +718,16 @@ TEST_F(ContainerInterfaceTest, interface_binding_with_factory) {
     int_t get_value() const override { return value; }
   };
 
-  auto factory = []() { return Service{modified_value}; };
+  auto factory = []() { return Service{kModifiedValue}; };
 
   auto sut = Container{bind<IService>().as<Service>().via(factory)};
 
   auto& service = sut.template resolve<IService&>();
-  EXPECT_EQ(modified_value, service.get_value());
+  EXPECT_EQ(kModifiedValue, service.get_value());
 }
 
-TEST_F(ContainerInterfaceTest, resolves_implementation_directly) {
-  struct Service : IService {
-    int_t get_value() const override { return initial_value; }
-  };
-
-  auto sut = Container{bind<IService>().as<Service>()};
-
-  // Can still resolve Service directly.
-  auto& impl = sut.template resolve<Service&>();
-  EXPECT_EQ(initial_value, impl.get_value());
-}
+// Multiple Bindings
+// ----------------------------------------------------------------------------
 
 TEST_F(ContainerInterfaceTest, multiple_interfaces_to_implementations) {
   struct IService2 {
@@ -548,11 +753,11 @@ TEST_F(ContainerInterfaceTest, multiple_interfaces_to_implementations) {
 }
 
 // ----------------------------------------------------------------------------
-// Multiple Inheritance Tests
+// Multiple Interface Binding Tests
 // ----------------------------------------------------------------------------
+
 // Caching is keyed on the To type, not the From type, so multiple interfaces
 // to the same type will return the same instance.
-
 struct ContainerMultipleInheritanceTest : ContainerTest {
   struct IService2 {
     virtual ~IService2() = default;
@@ -615,6 +820,9 @@ TEST_F(ContainerMultipleInheritanceTest,
 
 struct ContainerDependencyInjectionTest : ContainerTest {};
 
+// Simple Injection
+// ----------------------------------------------------------------------------
+
 TEST_F(ContainerDependencyInjectionTest, resolves_single_dependency) {
   struct Service {
     int_t result;
@@ -624,7 +832,7 @@ TEST_F(ContainerDependencyInjectionTest, resolves_single_dependency) {
   auto sut = Container{bind<Dependency>(), bind<Service>()};
 
   auto service = sut.template resolve<Service>();
-  EXPECT_EQ(initial_value * 2, service.result);
+  EXPECT_EQ(kInitialValue * 2, service.result);
 }
 
 TEST_F(ContainerDependencyInjectionTest, resolves_multiple_dependencies) {
@@ -661,6 +869,9 @@ TEST_F(ContainerDependencyInjectionTest, resolves_dependency_chain) {
   EXPECT_EQ(105, service.value);  // 3 * 5 * 7
 }
 
+// Value Category Injection
+// ----------------------------------------------------------------------------
+
 TEST_F(ContainerDependencyInjectionTest, resolves_dependency_as_reference) {
   struct Service {
     Dependency* dep_ptr;
@@ -674,7 +885,7 @@ TEST_F(ContainerDependencyInjectionTest, resolves_dependency_as_reference) {
   auto& dep = sut.template resolve<Dependency&>();
 
   EXPECT_EQ(&dep, service.dep_ptr);
-  EXPECT_EQ(initial_value, service.dep_ptr->value);
+  EXPECT_EQ(kInitialValue, service.dep_ptr->value);
 }
 
 TEST_F(ContainerDependencyInjectionTest,
@@ -687,7 +898,7 @@ TEST_F(ContainerDependencyInjectionTest,
   auto sut = Container{bind<Dependency>(), bind<Service>()};
 
   auto service = sut.template resolve<Service>();
-  EXPECT_EQ(initial_value, service.copied_value);
+  EXPECT_EQ(kInitialValue, service.copied_value);
 }
 
 TEST_F(ContainerDependencyInjectionTest, resolves_dependency_as_shared_ptr) {
@@ -700,7 +911,7 @@ TEST_F(ContainerDependencyInjectionTest, resolves_dependency_as_shared_ptr) {
       Container{bind<Dependency>().in<scope::Singleton>(), bind<Service>()};
 
   auto service = sut.template resolve<Service>();
-  EXPECT_EQ(initial_value, service.dep->value);
+  EXPECT_EQ(kInitialValue, service.dep->value);
   EXPECT_EQ(2, service.dep.use_count());  // canonical + service.dep
 }
 
@@ -714,7 +925,7 @@ TEST_F(ContainerDependencyInjectionTest, resolves_dependency_as_unique_ptr) {
       Container{bind<Dependency>().in<scope::Transient>(), bind<Service>()};
 
   auto service = sut.template resolve<Service>();
-  EXPECT_EQ(initial_value, service.dep->value);
+  EXPECT_EQ(kInitialValue, service.dep->value);
 }
 
 TEST_F(ContainerDependencyInjectionTest, resolves_dependency_as_pointer) {
@@ -730,7 +941,7 @@ TEST_F(ContainerDependencyInjectionTest, resolves_dependency_as_pointer) {
   auto* dep = sut.template resolve<Dependency*>();
 
   EXPECT_EQ(dep, service.dep);
-  EXPECT_EQ(initial_value, service.dep->value);
+  EXPECT_EQ(kInitialValue, service.dep->value);
 }
 
 TEST_F(ContainerDependencyInjectionTest, mixed_dependency_types) {
@@ -746,6 +957,9 @@ TEST_F(ContainerDependencyInjectionTest, mixed_dependency_types) {
   auto service = sut.template resolve<Service>();
   EXPECT_EQ(6, service.sum);  // 1 + 2 + 3
 }
+
+// Scope Interaction
+// ----------------------------------------------------------------------------
 
 TEST_F(ContainerDependencyInjectionTest,
        singleton_dependency_shared_across_services) {
@@ -785,7 +999,7 @@ TEST_F(ContainerDependencyInjectionTest,
                 bind<TransientType>().in<scope::Transient>(), bind<Service>()};
 
   auto service = sut.template resolve<Service>();
-  EXPECT_EQ(initial_value + initial_value, service.sum);
+  EXPECT_EQ(kInitialValue + kInitialValue, service.sum);
 }
 
 // ----------------------------------------------------------------------------
@@ -852,30 +1066,21 @@ TEST_F(ContainerCanonicalTest, shared_ptr_variations_resolve_same_binding) {
 }
 
 // ----------------------------------------------------------------------------
-// Edge Cases and Error Conditions
+// Edge Cases
 // ----------------------------------------------------------------------------
 
 struct ContainerEdgeCasesTest : ContainerTest {};
 
-TEST_F(ContainerEdgeCasesTest, empty_container_resolves_unbound_types) {
-  using Type = Initialized;
-
-  auto sut = Container{};
-
-  auto value = sut.template resolve<Type>();
-  EXPECT_EQ(initial_value, value.value);
-}
-
 TEST_F(ContainerEdgeCasesTest, zero_argument_constructor) {
   struct ZeroArgs {
-    int_t value = modified_value;
+    int_t value = kModifiedValue;
     ZeroArgs() = default;
   };
 
   auto sut = Container{bind<ZeroArgs>()};
 
   auto value = sut.template resolve<ZeroArgs>();
-  EXPECT_EQ(modified_value, value.value);
+  EXPECT_EQ(kModifiedValue, value.value);
 }
 
 TEST_F(ContainerEdgeCasesTest, multi_argument_constructor) {
@@ -901,7 +1106,7 @@ TEST_F(ContainerEdgeCasesTest, resolve_same_type_multiple_ways) {
   auto* ptr = sut.template resolve<Type*>();
   auto shared = sut.template resolve<std::shared_ptr<Type>>();
 
-  EXPECT_EQ(initial_value, value.value);
+  EXPECT_EQ(kInitialValue, value.value);
   EXPECT_EQ(value.value, ref.value);  // Value is a copy, but has same value.
   EXPECT_EQ(&ref, ptr);
   EXPECT_EQ(ptr, shared.get());
@@ -938,7 +1143,7 @@ TEST_F(ContainerEdgeCasesTest, deeply_nested_dependencies) {
 
 TEST_F(ContainerEdgeCasesTest, type_with_deleted_copy_constructor) {
   struct NoCopy {
-    int_t value = initial_value;
+    int_t value = kInitialValue;
     NoCopy() = default;
     NoCopy(const NoCopy&) = delete;
     NoCopy(NoCopy&&) = default;
@@ -948,11 +1153,11 @@ TEST_F(ContainerEdgeCasesTest, type_with_deleted_copy_constructor) {
 
   // Can't resolve by value, but can resolve by reference.
   auto& ref = sut.template resolve<NoCopy&>();
-  EXPECT_EQ(initial_value, ref.value);
+  EXPECT_EQ(kInitialValue, ref.value);
 
   // Can resolve as pointer.
   auto* ptr = sut.template resolve<NoCopy*>();
-  EXPECT_EQ(initial_value, ptr->value);
+  EXPECT_EQ(kInitialValue, ptr->value);
 }
 
 TEST_F(ContainerEdgeCasesTest, resolve_from_multiple_containers) {
@@ -1027,12 +1232,16 @@ TEST_F(ContainerMixedScopesTest, all_scopes_coexist) {
 
 struct ContainerUnboundTypeTest : ContainerTest {};
 
-TEST_F(ContainerUnboundTypeTest, unbound_type_uses_transient_scope) {
-  struct Bound {};
-  struct Unbound {};
-  auto sut = Container{bind<Bound>()};
+// Resolution
+// ----------------------------------------------------------------------------
 
-  [[maybe_unused]] auto instance = sut.template resolve<Unbound>();
+TEST_F(ContainerUnboundTypeTest, empty_container_resolves_unbound_types) {
+  using Type = Initialized;
+
+  auto sut = Container{};
+
+  auto value = sut.template resolve<Type>();
+  EXPECT_EQ(kInitialValue, value.value);
 }
 
 TEST_F(ContainerUnboundTypeTest, unbound_type_with_dependencies) {
@@ -1044,10 +1253,13 @@ TEST_F(ContainerUnboundTypeTest, unbound_type_with_dependencies) {
   auto sut = Container{bind<Dependency>()};
 
   auto service = sut.template resolve<Service>();
-  EXPECT_EQ(initial_value * 2, service.result);
+  EXPECT_EQ(kInitialValue * 2, service.result);
 }
 
-TEST_F(ContainerUnboundTypeTest, unbound_type_normally_transient) {
+// Scope Behavior
+// ----------------------------------------------------------------------------
+
+TEST_F(ContainerUnboundTypeTest, unbound_value_is_transient) {
   struct Type : Counted {};
 
   auto sut = Container{};
@@ -1060,7 +1272,7 @@ TEST_F(ContainerUnboundTypeTest, unbound_type_normally_transient) {
   EXPECT_EQ(1, val2.id);
 }
 
-TEST_F(ContainerUnboundTypeTest, promoted_unbound_type_caches_references) {
+TEST_F(ContainerUnboundTypeTest, unbound_reference_is_promoted) {
   struct Type : Counted {};
 
   auto sut = Container{};
@@ -1075,26 +1287,6 @@ TEST_F(ContainerUnboundTypeTest, promoted_unbound_type_caches_references) {
 
 // ----------------------------------------------------------------------------
 // Promotion Tests (Transient -> Singleton-like behavior)
-// ----------------------------------------------------------------------------
-//
-// Promotion occurs when a type bound as Transient is requested in a way that
-// requires shared ownership or reference semantics:
-//
-// PROMOTED (Transient -> Singleton-like):
-// - References (T&, const T&) - must be stable across calls
-// - Pointers (T*, const T*) - must point to same instance
-// - weak_ptr<T> - requires a cached shared_ptr to track
-//
-// NOT PROMOTED (remains Transient):
-// - Values (T, T&&) - each call creates new instance
-// - unique_ptr<T> - exclusive ownership, each call creates new instance
-// - shared_ptr<T> - can create new instances in each shared_ptr
-//
-// Note: shared_ptr<T> from Transient creates new instances each time; it is
-// not promoted. This is intentional - transient shared_ptr means "give me a
-// new instance in a shared_ptr". Only weak_ptr requires promotion because it
-// needs a cached backing shared_ptr to track.
-//
 // ----------------------------------------------------------------------------
 
 struct ContainerPromotionTest : ContainerTest {};
@@ -1249,27 +1441,6 @@ TEST_F(ContainerPromotionTest, promotion_with_dependencies) {
 // ----------------------------------------------------------------------------
 // Relegation Tests (Singleton -> Transient-like behavior)
 // ----------------------------------------------------------------------------
-//
-// Relegation occurs when a type bound as Singleton is requested in a way that
-// requires exclusive ownership or value semantics:
-//
-// RELEGATED (Singleton -> Transient-like):
-// - Values (T) - creates copies of singleton value
-// - rvalue references (T&&) - creates copies of singleton value
-// - unique_ptr<T> - exclusive ownership, creates new instances initialized
-// with singleton value
-//
-// NOT RELEGATED (remains Singleton):
-// - References (T&, const T&) - returns reference to singleton
-// - Pointers (T*, const T*) - returns pointer to singleton
-// - shared_ptr<T> - wraps singleton via canonical shared_ptr
-// - weak_ptr<T> - tracks the canonical shared_ptr of singleton
-//
-// Note: Relegated instances are initialized with the value in the singleton at
-// the time of creation; they make copies. The singleton instance remains
-// unchanged and can still be accessed via references/pointers.
-//
-// ----------------------------------------------------------------------------
 
 struct ContainerRelegationTest : ContainerTest {};
 
@@ -1360,16 +1531,16 @@ TEST_F(ContainerRelegationTest,
 
   // Modify the singleton.
   auto& singleton = sut.template resolve<Type&>();
-  singleton.value = modified_value;
+  singleton.value = kModifiedValue;
 
   // shared_ptr should wrap the singleton, showing the modified value.
   auto shared = sut.template resolve<std::shared_ptr<Type>>();
-  EXPECT_EQ(modified_value, shared->value);
+  EXPECT_EQ(kModifiedValue, shared->value);
   EXPECT_EQ(&singleton, shared.get());
 
   // Values are copies of the singleton with the modified value.
   auto val = sut.template resolve<Type>();
-  EXPECT_EQ(modified_value, val.value);  // Copy of modified singleton
+  EXPECT_EQ(kModifiedValue, val.value);  // Copy of modified singleton
   EXPECT_NE(&singleton, &val);           // But different address
 
   EXPECT_EQ(1, Counted::num_instances);  // Only 1 singleton instance
@@ -1382,7 +1553,7 @@ TEST_F(ContainerRelegationTest,
 
   // Get singleton reference and modify it.
   auto& singleton = sut.template resolve<Type&>();
-  singleton.value = modified_value;
+  singleton.value = kModifiedValue;
 
   // Values are copies of the singleton. This creates copies of the
   // modified singleton, not fresh instances from the provider.
@@ -1390,8 +1561,8 @@ TEST_F(ContainerRelegationTest,
   auto val2 = sut.template resolve<Type>();
 
   // Copies of modified singleton, not default values from provider.
-  EXPECT_EQ(modified_value, val1.value);
-  EXPECT_EQ(modified_value, val2.value);
+  EXPECT_EQ(kModifiedValue, val1.value);
+  EXPECT_EQ(kModifiedValue, val2.value);
 
   // Copies are independent from each other and from singleton.
   EXPECT_NE(&singleton, &val1);
@@ -1399,7 +1570,7 @@ TEST_F(ContainerRelegationTest,
   EXPECT_NE(&val1, &val2);
 
   // Singleton itself is unchanged.
-  EXPECT_EQ(modified_value, singleton.value);
+  EXPECT_EQ(kModifiedValue, singleton.value);
 }
 
 TEST_F(ContainerRelegationTest, singleton_relegation_with_dependencies) {
@@ -1415,23 +1586,20 @@ TEST_F(ContainerRelegationTest, singleton_relegation_with_dependencies) {
   // Service value is a copy of the Service singleton.
   // The Service singleton contains a copy of the Dependency singleton.
   // Each value resolution creates independent copies.
-  auto service1 = sut.template resolve<ServiceType>();
-  auto service2 = sut.template resolve<ServiceType>();
+  const auto& service1 = sut.template resolve<ServiceType>();
+  const auto& service2 = sut.template resolve<ServiceType>();
 
   EXPECT_NE(&service1, &service2);          // Independent copies
   EXPECT_NE(&service1.dep, &service2.dep);  // Each copy has its own dep copy
 
-  // Singletons created: Dependency (id=0) then Service (id=1).
+  // Singletons created: Dependency, then Service.
   EXPECT_EQ(0, service1.dep.id);  // Copy of Dependency singleton
   EXPECT_EQ(1, service1.id);      // Copy of Service singleton
 
   // Both values are copies of the same singletons.
   EXPECT_EQ(0, service2.dep.id);  // Copy of same Dependency singleton
   EXPECT_EQ(1, service2.id);      // Copy of same Service singleton
-
-  EXPECT_EQ(
-      2,
-      Counted::num_instances);  // 1 Service singleton + 1 Dependency singleton
+  EXPECT_EQ(2, Counted::num_instances);  // 1 Service + 1 Dependency
 }
 
 // ----------------------------------------------------------------------------
@@ -1447,12 +1615,12 @@ TEST_F(ContainerHierarchyTest, child_finds_binding_in_parent) {
   auto child = Container{parent};
 
   auto result = child.template resolve<Type>();
-  EXPECT_EQ(initial_value, result.value);
+  EXPECT_EQ(kInitialValue, result.value);
 }
 
 TEST_F(ContainerHierarchyTest, child_overrides_parent_binding) {
-  auto parent_factory = []() { return Product{initial_value}; };
-  auto child_factory = []() { return Product{modified_value}; };
+  auto parent_factory = []() { return Product{kInitialValue}; };
+  auto child_factory = []() { return Product{kModifiedValue}; };
 
   auto parent = Container{bind<Product>().via(parent_factory)};
   auto child = Container{parent, bind<Product>().via(child_factory)};
@@ -1460,8 +1628,8 @@ TEST_F(ContainerHierarchyTest, child_overrides_parent_binding) {
   auto parent_result = parent.template resolve<Product>();
   auto child_result = child.template resolve<Product>();
 
-  EXPECT_EQ(initial_value, parent_result.value);
-  EXPECT_EQ(modified_value, child_result.value);
+  EXPECT_EQ(kInitialValue, parent_result.value);
+  EXPECT_EQ(kModifiedValue, child_result.value);
 }
 
 TEST_F(ContainerHierarchyTest, multi_level_hierarchy) {
@@ -1482,7 +1650,7 @@ TEST_F(ContainerHierarchyTest, multi_level_hierarchy) {
   auto parent = Container{grandparent, bind<Parent>()};
   auto child = Container{parent, bind<Child>()};
 
-  // Child can resolve from all levels
+  // Child can resolve from all levels.
   auto grandparent_result = child.template resolve<Grandparent>();
   auto parent_result = child.template resolve<Parent>();
   auto child_result = child.template resolve<Child>();
@@ -1492,8 +1660,7 @@ TEST_F(ContainerHierarchyTest, multi_level_hierarchy) {
   EXPECT_EQ(3, child_result.value);
 }
 
-TEST_F(ContainerHierarchyTest,
-       child_overrides_parent_in_multi_level_hierarchy) {
+TEST_F(ContainerHierarchyTest, multi_level_hierarchy_via_factories) {
   auto grandparent_factory = []() { return Product{1}; };
   auto parent_factory = []() { return Product{2}; };
   auto child_factory = []() { return Product{3}; };
@@ -1515,9 +1682,9 @@ TEST_F(ContainerHierarchyTest, unbound_type_uses_fallback_in_hierarchy) {
   auto parent = Container{};
   auto child = Container{parent};
 
-  // Should use fallback binding at the root level (for 'Type')
+  // Uses fallback binding at the root level.
   auto result = child.template resolve<Type>();
-  EXPECT_EQ(initial_value, result.value);
+  EXPECT_EQ(kInitialValue, result.value);
 }
 
 // ----------------------------------------------------------------------------
@@ -1597,8 +1764,6 @@ TEST_F(ContainerHierarchySingletonTest,
 // ----------------------------------------------------------------------------
 
 struct ContainerHierarchyTransientTest : ContainerTest {
-  // This type is only used for transient/value resolution,
-  // so it can be shared by all tests in this fixture.
   struct Type : Initialized {};
 };
 
@@ -1636,9 +1801,6 @@ TEST_F(ContainerHierarchyTransientTest,
 // ----------------------------------------------------------------------------
 // Hierarchical Container Tests - Promotion in Hierarchy
 // ----------------------------------------------------------------------------
-//
-// These tests require unique local types for promoted instances.
-//
 
 struct ContainerHierarchyPromotionTest : ContainerTest {};
 
@@ -1828,25 +1990,23 @@ TEST_F(ContainerHierarchyComplexTest, mixed_scopes_across_hierarchy) {
 TEST_F(ContainerHierarchyComplexTest, dependency_chain_across_hierarchy) {
   struct GrandparentDep : Singleton {};
   struct ParentDep : Initialized {
-    GrandparentDep* dep;
-    explicit ParentDep(GrandparentDep& d) : dep{&d} {}
+    GrandparentDep* grandparent_dep;
+    explicit ParentDep(GrandparentDep& d) : grandparent_dep{&d} {}
   };
   struct ChildService : Singleton {
-    ParentDep* dep;
-    explicit ChildService(ParentDep& d) : dep{&d} {}
+    ParentDep* parent_dep;
+    explicit ChildService(ParentDep& d) : parent_dep{&d} {}
   };
 
   auto grandparent = Container{bind<GrandparentDep>().in<scope::Singleton>()};
-  // ParentDep is unbound, will be promoted.
-  auto parent = Container{grandparent, bind<ParentDep>()};
-  // ChildService is unbound, will be promoted.
-  auto child = Container{parent, bind<ChildService>()};
+  auto parent = Container{grandparent};  // Unbound, will be promoted.
+  auto child = Container{parent};        // Unbound, will be promoted.
 
   auto& service = child.template resolve<ChildService&>();
 
-  EXPECT_EQ(0, service.dep->dep->id);  // GrandparentDep (singleton)
-  EXPECT_EQ(1, service.dep->id);       // ParentDep (promoted in parent)
-  EXPECT_EQ(2, service.id);            // ChildService (promoted in child)
+  EXPECT_EQ(0, service.parent_dep->grandparent_dep->id);  // singleton
+  EXPECT_EQ(1, service.parent_dep->id);                   // promoted in parent
+  EXPECT_EQ(2, service.id);                               // promoted in child
   EXPECT_EQ(3, Counted::num_instances);
 }
 
@@ -1871,11 +2031,10 @@ TEST_F(ContainerHierarchyComplexTest,
   auto child_val1 = child.template resolve<Type>();
   auto child_val2 = child.template resolve<Type>();
   EXPECT_NE(&child_val1, &child_val2);  // Different copies
-  EXPECT_EQ(1, child_val1.id);          // Both copies of child singleton (id 1)
-  EXPECT_EQ(1, child_val2.id);          // Both copies of child singleton (id 1)
+  EXPECT_EQ(1, child_val1.id);          // copy of child singleton
+  EXPECT_EQ(1, child_val2.id);          // copy of child singleton
 
-  EXPECT_EQ(2,
-            Counted::num_instances);  // 1 parent (promoted) + 1 child singleton
+  EXPECT_EQ(2, Counted::num_instances);  // 1 parent (promoted) + 1 child
 }
 
 TEST_F(ContainerHierarchyComplexTest,
@@ -1898,8 +2057,9 @@ TEST_F(ContainerHierarchyComplexTest,
 // This test shows a surprising result that can't be avoided.
 //
 // Two containers with the same type cache the same singletons. This is because
-// they are cached in Meyers singletons keyed on container and provider. When
-// they are the same, the same singletons are found. The solution is found in
+// they are cached in literal Meyers singletons keyed on container and
+// provider. When they are the same type, the same singletons are found. A
+// solution can is found in
 // sibling_containers_using_macro_are_independent_with_own_bindings: use
 // dink_unique_container to distinguish between containers with the same
 // bindings.
@@ -1946,6 +2106,7 @@ TEST_F(ContainerHierarchyComplexTest,
   EXPECT_EQ(1, Counted::num_instances);
 }
 
+// One solution to the same type, same cache problem.
 TEST_F(ContainerHierarchyComplexTest,
        sibling_containers_using_macro_are_independent_with_own_bindings) {
   struct Type : Singleton {};
@@ -2021,4 +2182,4 @@ TEST_F(ContainerHierarchyComplexTest, deep_hierarchy_with_multiple_overrides) {
 }
 
 }  // namespace
-}  // namespace dink
+}  // namespace dink::container
