@@ -552,6 +552,68 @@ TEST_F(ContainerInterfaceTest, multiple_interfaces_to_implementations) {
 }
 
 // ----------------------------------------------------------------------------
+// Multiple Inheritance Tests
+// ----------------------------------------------------------------------------
+// Caching is keyed on the To type, not the From type, so multiple interfaces
+// to the same type will return the same instance.
+
+struct ContainerMultipleInheritanceTest : ContainerTest {
+  struct IService2 {
+    virtual ~IService2() = default;
+    virtual int_t get_value2() const = 0;
+  };
+
+  struct Service : IService, IService2 {
+    int_t get_value() const override { return 1; }
+    int_t get_value2() const override { return 2; }
+  };
+};
+
+TEST_F(ContainerMultipleInheritanceTest, same_impl_same_instance_singleton) {
+  auto sut = Container{bind<IService>().as<Service>().in<scope::Singleton>(),
+                       bind<IService2>().as<Service>().in<scope::Singleton>()};
+
+  auto& service1 = sut.template resolve<IService&>();
+  auto& service2 = sut.template resolve<IService2&>();
+
+  ASSERT_EQ(dynamic_cast<Service*>(&service1),
+            dynamic_cast<Service*>(&service2));
+
+  EXPECT_EQ(1, service1.get_value());
+  EXPECT_EQ(2, service2.get_value2());
+}
+
+TEST_F(ContainerMultipleInheritanceTest,
+       same_impl_same_instance_transient_promotion) {
+  auto sut = Container{bind<IService>().as<Service>(),
+                       bind<IService2>().as<Service>()};
+
+  auto& service1 = sut.template resolve<IService&>();
+  auto& service2 = sut.template resolve<IService2&>();
+
+  ASSERT_EQ(dynamic_cast<Service*>(&service1),
+            dynamic_cast<Service*>(&service2));
+
+  EXPECT_EQ(1, service1.get_value());
+  EXPECT_EQ(2, service2.get_value2());
+}
+
+TEST_F(ContainerMultipleInheritanceTest,
+       same_impl_same_instance_mixed_singleton_and_transient_promotion) {
+  auto sut = Container{bind<IService>().as<Service>().in<scope::Singleton>(),
+                       bind<IService2>().as<Service>().in<scope::Transient>()};
+
+  auto& service1 = sut.template resolve<IService&>();
+  auto& service2 = sut.template resolve<IService2&>();
+
+  ASSERT_EQ(dynamic_cast<Service*>(&service1),
+            dynamic_cast<Service*>(&service2));
+
+  EXPECT_EQ(1, service1.get_value());
+  EXPECT_EQ(2, service2.get_value2());
+}
+
+// ----------------------------------------------------------------------------
 // Dependency Injection Tests
 // ----------------------------------------------------------------------------
 
