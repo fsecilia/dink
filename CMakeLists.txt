@@ -165,6 +165,10 @@ if (Doxygen_FOUND)
   set(DOXYGEN_INPUT_DIR "${PROJECT_SOURCE_DIR}/src")
   set(DOXYGEN_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/doxygen")
 
+  # Use clang's parser.
+  set(DOXYGEN_CLANG_ASSISTED_PARSING "YES")
+  set(DOXYGEN_CLANG_OPTIONS "-I${PROJECT_SOURCE_DIR}/src -std=c++20")
+  set(DOXYGEN_CLANG_DATABASE_PATH "${CMAKE_CURRENT_BINARY_DIR}")
 
   # Generate the actual Doxygen config file from our template.
   configure_file(
