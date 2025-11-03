@@ -4,6 +4,9 @@
 cmake_minimum_required(VERSION 4.0.2)
 project(dink VERSION 0.1.0)
 
+# Suppress cmake's "Up-to-date" message for every installed file.
+set(CMAKE_INSTALL_MESSAGE NEVER)
+
 # -----------------------------------------------------------------------------
 # ccache
 # -----------------------------------------------------------------------------
@@ -147,6 +150,70 @@ function(dink_configure_test_target_warnings target)
     )
   endif()
 endfunction()
+
+# -----------------------------------------------------------------------------
+# Documentation
+# -----------------------------------------------------------------------------
+
+# find doxygen and optionally dot
+find_package(Doxygen OPTIONAL_COMPONENTS dot QUIET)
+
+if (Doxygen_FOUND)
+  set(DOXYGEN_WARN_LOGFILE "${CMAKE_CURRENT_BINARY_DIR}/doxygen-warnings.log")
+
+  # Specify paths.
+  set(DOXYGEN_INPUT_DIR "${PROJECT_SOURCE_DIR}/src")
+  set(DOXYGEN_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/doxygen")
+
+  # Use dot, if found.
+  if(DOXYGEN_HAVE_DOT)
+    set(DOXYGEN_CALL_GRAPH "YES")
+    set(DOXYGEN_CALLER_GRAPH "YES")
+  else()
+    set(DOXYGEN_CALL_GRAPH "NO")
+    set(DOXYGEN_CALLER_GRAPH "NO")
+  endif()
+
+  # Generate the actual Doxygen config file from our template.
+  configure_file(
+    "${PROJECT_SOURCE_DIR}/Doxyfile.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/Doxyfile"
+    @ONLY
+  )
+
+  # Add target named doc.
+  doxygen_add_docs(
+    doc
+    [QUIET]
+    ${DOXYGEN_INPUT_DIR}
+    CONFIG_FILE "${CMAKE_CURRENT_BINARY_DIR}/Doxyfile"
+    COMMENT "Generating API documentation with Doxygen."
+  )
+
+  # Add a pre-install step to build the 'doc' target This runs *during* the
+  # install step, ensuring the 'doc' target is built before the
+  # 'install(DIRECTORY...)' command runs.
+  install(CODE "
+    message(STATUS \"Building documentation before install...\")
+    execute_process(
+      COMMAND \"${CMAKE_COMMAND}\" --build \"${CMAKE_BINARY_DIR}\" --target doc
+      WORKING_DIRECTORY \"${CMAKE_BINARY_DIR}\"
+      RESULT_VARIABLE result
+    )
+    if(NOT result EQUAL 0)
+      message(FATAL_ERROR \"Failed to build 'doc' target during install.\")
+    endif()
+  ")
+
+
+  # Add doxygen output to install.
+  install(
+    DIRECTORY "${DOXYGEN_OUTPUT_DIR}/html"
+    DESTINATION "share/doc/${PROJECT_NAME}"
+  )
+else()
+  message(STATUS "Doxygen not found. Documentation will not be generated.")
+endif()
 
 # -----------------------------------------------------------------------------
 # project subdirectories

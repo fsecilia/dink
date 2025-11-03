@@ -12,17 +12,19 @@
 
 namespace dink {
 
-//! Binding triple.
-//
-// Binding triples are combinations of a type and 2 instances,
-// <From, Scope, Provider>:
-// \tparam From defines what type the binding matches
-// \tparam Scope defines how the instances of the type are stored
-// \tparam Provider defines how the instances are created or obtained
-//
-// Since all 3 types can vary, each binding tends to be a unique type.
-//
-// This is the final type produced by the bind DSL. It is stored in Config.
+/*!
+  Binding triple.
+
+  Binding triples are combinations of a type and 2 instances,
+  <From, Scope, Provider>:
+  \tparam From defines what type the binding matches
+  \tparam Scope defines how the instances of the type are stored
+  \tparam Provider defines how the instances are created or obtained
+
+  Since all 3 types can vary, each binding tends to be a unique type.
+
+  This is the final type produced by the bind DSL. It is stored in Config.
+*/
 template <typename From, typename Scope, typename Provider>
 struct Binding {
   using FromType = From;
