@@ -9,6 +9,7 @@
 #include <dink/config.gen.hpp>
 #include <cstdint>
 
+//!
 namespace dink {
 
 // ----------------------------------------------------------------------------
