@@ -6,9 +6,9 @@
 
 // clang-format off
 
-#define dink_version_major ${dink_version_major}
-#define dink_version_minor ${dink_version_minor}
-#define dink_version_patch ${dink_version_patch}
-#define dink_version       "${dink_version}"
+#define dink_version_major ${CMAKE_PROJECT_VERSION_MAJOR}
+#define dink_version_minor ${CMAKE_PROJECT_VERSION_MINOR}
+#define dink_version_patch ${CMAKE_PROJECT_VERSION_PATCH}
+#define dink_version       "${CMAKE_PROJECT_VERSION}"
 
 // clang-format on
