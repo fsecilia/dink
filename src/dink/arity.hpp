@@ -1,8 +1,10 @@
-// \file
-// Copyright (c) 2025 Frank Secilia
-// SPDX-License-Identifier: MIT
-//
-// \brief Finds greediest arity of a factory or ctor producing a specific type.
+/*!
+  \file
+  \brief Finds greediest arity of a factory or ctor producing a specific type.
+
+  \copyright Copyright (c) 2025 Frank Secilia \n
+  SPDX-License-Identifier: MIT
+*/
 
 #pragma once
 
@@ -11,18 +13,22 @@
 #include <concepts>
 #include <utility>
 
+//! Controls the maximum arity (number of arguments) to check.
 #if !defined dink_max_deduced_arity
 #define dink_max_deduced_arity 16
 #endif
 
 namespace dink {
+
 namespace detail::arity {
 
-// ----------------------------------------------------------------------------
-// Probes
-// ----------------------------------------------------------------------------
-// Probes are lightweight, match-any types passed as arguments to ctors and
-// call operators to determine how many are needed to form a valid invocation.
+/*
+  ------------------------------------------------------------------------------
+  Probes
+  ------------------------------------------------------------------------------
+  Probes are lightweight, match-any types passed as arguments to ctors and
+  call operators to determine how many are needed to form a valid invocation.
+*/
 
 //! Probes individual constructor/function arguments.
 struct Probe {
@@ -33,11 +39,13 @@ struct Probe {
   operator Deduced&() const;
 };
 
-//! Probe for single-argument construction; doesn't match move or copy ctors.
-//
-// Trying to match one Probe against a ctor will match copy and move ctors.
-// Trying to match one SingleProbe<Constructed> will not match copy and move
-// ctors for Constructed.
+/*!
+  Probe for single-argument construction; doesn't match move or copy ctors.
+
+  Trying to match one Probe against a ctor will match copy and move ctors.
+  Trying to match one SingleProbe<Constructed> will not match copy and move
+  ctors for Constructed.
+*/
 template <typename Constructed>
 struct SingleProbe {
   template <meta::DifferentUnqualifiedType<Constructed> Deduced>
@@ -56,9 +64,11 @@ template <typename Constructed, bool invoking_ctor, std::size_t arity>
 using InitialProbe = std::conditional_t<invoking_ctor && arity == 1,
                                         SingleProbe<Constructed>, Probe>;
 
-// ----------------------------------------------------------------------------
-// Match
-// ----------------------------------------------------------------------------
+/*
+  -----------------------------------------------------------------------------
+  Match
+  -----------------------------------------------------------------------------
+*/
 
 //! Checks if Factory(Probes...) produces Constructed.
 template <typename Constructed, typename Factory, typename... Probes>
@@ -83,34 +93,42 @@ struct Match<Constructed, void, Probes...> {
 template <typename Constructed, typename Factory, typename... Probes>
 inline constexpr auto match = Match<Constructed, Factory, Probes...>::value;
 
-// ----------------------------------------------------------------------------
-// Search
-// ----------------------------------------------------------------------------
+/*
+  -----------------------------------------------------------------------------
+  Search
+  -----------------------------------------------------------------------------
+*/
 
-//! Searches by decreasing arity for matching invocation.
-//
-// Search uses Match to find the greediest invocation of either Factory's call
-// operator or Constructed's ctor. It tests by arity, decrements arity and
-// slices the index sequence, then tries again. The search stops when a
-// matching invocation is found, or after arity 0 is tested.
+/*!
+  Searches by decreasing arity for matching invocation.
+
+  Search uses Match to find the greediest invocation of either Factory's call
+  operator or Constructed's ctor. It tests by arity, decrements arity and
+  slices the index sequence, then tries again. The search stops when a
+  matching invocation is found, or after arity 0 is tested.
+*/
 template <typename Constructed, typename Factory, bool invoking_ctor,
           std::size_t arity, typename IndexSequence>
 struct Search;
 
-//! Base Case: match found
-//
-// The recursive Search is short circuted when a match is found by
-// instantiating a Found at the next level instead of another Search. This
-// effectively chops the recursive tail instead of always recursing to arity 0.
+/*!
+  Base Case: match found
+
+  The recursive Search is short circuted when a match is found by
+  instantiating a Found at the next level instead of another Search. This
+  effectively chops the recursive tail instead of always recursing to arity 0.
+*/
 template <std::size_t arity>
 struct Found {
   static constexpr auto value = arity;
 };
 
-//! Base Case: match not found
-//
-// If the recursive chain of Search instantiations runs past 0 without finding
-// a match, the next level instantiates a NotFound instead of another Search.
+/*!
+  Base Case: match not found
+
+  If the recursive chain of Search instantiations runs past 0 without finding
+  a match, the next level instantiates a NotFound instead of another Search.
+*/
 struct NotFound {
   static constexpr auto value = std::size_t(-1);
 };
@@ -134,19 +152,23 @@ template <typename Constructed, typename Factory, bool invoking_ctor>
 struct Search<Constructed, Factory, invoking_ctor, 0, std::index_sequence<>>
     : std::conditional_t<match<Constructed, Factory>, Found<0>, NotFound> {};
 
-//! Arity of greediest factory or ctor call to produce Constructed.
-//
-// If factory is void, Constructed's ctor is investigated. If no matching
-// ctor or call operator is found, the result is not_found.
+/*!
+  Arity of greediest factory or ctor call to produce Constructed.
+
+  If factory is void, Constructed's ctor is investigated. If no matching
+  ctor or call operator is found, the result is not_found.
+*/
 template <typename Constructed, typename Factory>
 inline constexpr std::size_t search =
     Search<Constructed, Factory, std::same_as<Factory, void>,
            dink_max_deduced_arity,
            std::make_index_sequence<dink_max_deduced_arity>>::value;
 
-// ----------------------------------------------------------------------------
-// Arity
-// ----------------------------------------------------------------------------
+/*
+  -----------------------------------------------------------------------------
+  Arity
+  -----------------------------------------------------------------------------
+*/
 
 //! Successfully calculates ctor or factory arity or asserts.
 template <typename Constructed, typename Factory>
@@ -158,13 +180,13 @@ struct AssertedArity {
 }  // namespace detail::arity
 
 /*!
-    Finds largest arity that constructs or produces Constructed.
+  Contains largest arity that constructs or produces Constructed.
 
-    If Factory is callable, searches for largest arity call operator returning
-    Constructed. If Factory is void, searches Constructed's constructors
-    directly.
+  If Factory is callable, this value contains the arity of its largest-arity
+  call operator returning Constructed. If Factory is void, this value contains
+  the arity of Constructed's largest-arity constructors.
 
-    Triggers compile error if no matching arity found.
+  A compile error is triggered if no matching arity found.
 */
 template <typename Constructed, typename Factory = void>
 inline constexpr std::size_t arity =
