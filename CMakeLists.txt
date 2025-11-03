@@ -165,14 +165,6 @@ if (Doxygen_FOUND)
   set(DOXYGEN_INPUT_DIR "${PROJECT_SOURCE_DIR}/src")
   set(DOXYGEN_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/doxygen")
 
-  # Use dot, if found.
-  if(DOXYGEN_HAVE_DOT)
-    set(DOXYGEN_CALL_GRAPH "YES")
-    set(DOXYGEN_CALLER_GRAPH "YES")
-  else()
-    set(DOXYGEN_CALL_GRAPH "NO")
-    set(DOXYGEN_CALLER_GRAPH "NO")
-  endif()
 
   # Generate the actual Doxygen config file from our template.
   configure_file(
