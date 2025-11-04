@@ -178,8 +178,6 @@ install(
 # -----------------------------------------------------------------------------
 
 if (dink_enable_testing)
-  # dink_test
-  # ---------------------------------------------------------------------------
   add_executable(dink_test ${dink_test_files})
   target_link_libraries(dink_test PUBLIC
     dink

@@ -20,8 +20,6 @@ list(APPEND dink_integration_test_files
 # -----------------------------------------------------------------------------
 
 if (dink_enable_testing)
-  # dink_integration_test
-  # ---------------------------------------------------------------------------
   add_executable(dink_integration_test ${dink_integration_test_files})
   target_link_libraries(dink_integration_test PUBLIC
     dink
