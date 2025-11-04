@@ -689,6 +689,7 @@ TEST_F(ContainerInstanceTest, resolves_const_reference) {
   auto sut = Container{bind<Instance>().to(external)};
 
   const auto& ref = sut.template resolve<const Instance&>();
+
   EXPECT_EQ(&external, &ref);
 }
 
@@ -696,6 +697,7 @@ TEST_F(ContainerInstanceTest, resolves_mutable_pointer) {
   auto sut = Container{bind<Instance>().to(external)};
 
   auto* ptr = sut.template resolve<Instance*>();
+
   EXPECT_EQ(&external, ptr);
 }
 
@@ -703,6 +705,7 @@ TEST_F(ContainerInstanceTest, resolves_const_pointer) {
   auto sut = Container{bind<Instance>().to(external)};
 
   const auto* ptr = sut.template resolve<const Instance*>();
+
   EXPECT_EQ(&external, ptr);
 }
 
@@ -729,6 +732,7 @@ TEST_F(ContainerInstanceTest, weak_ptr_tracks_external_instance) {
 TEST_F(ContainerInstanceTest, resolves_same_mutable_reference) {
   auto& ref1 = sut.template resolve<Instance&>();
   auto& ref2 = sut.template resolve<Instance&>();
+
   EXPECT_EQ(&ref1, &ref2);
 }
 
