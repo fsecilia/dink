@@ -60,8 +60,7 @@ class Singleton {
       return &cached_instance(container, provider);
     } else if constexpr (meta::IsUniquePtr<Requested>) {
       // unique_ptr
-      return std::unique_ptr<Provided>{
-          new Provided{cached_instance(container, provider)}};
+      return std::make_unique<Provided>(cached_instance(container, provider));
     } else {
       static_assert(meta::kDependentFalse<Requested>,
                     "Singleton scope: unsupported type conversion.");
@@ -104,7 +103,7 @@ class Instance {
       return &instance;
     } else if constexpr (meta::IsUniquePtr<Requested>) {
       // unique_ptr
-      return std::unique_ptr<Provided>{new Provided{instance}};
+      return std::make_unique<Provided>(instance);
     } else {
       static_assert(meta::kDependentFalse<Requested>,
                     "Instance scope: unsupported type conversion.");
