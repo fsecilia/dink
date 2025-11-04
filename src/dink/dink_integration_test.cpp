@@ -136,14 +136,15 @@ TEST_F(ContainerTransientTest, creates_new_unique_ptr_per_resolve) {
 
 struct ContainerSingletonTest : ContainerTest {};
 
-// Resolution
+// Resolved Value
 // ----------------------------------------------------------------------------
 
-TEST_F(ContainerSingletonTest, resolves_mutable_reference) {
+TEST_F(ContainerSingletonTest, resolves_reference) {
   struct Type : Singleton {};
   auto sut = Container{bind<Type>().in<scope::Singleton>()};
 
   auto& ref = sut.template resolve<Type&>();
+
   EXPECT_EQ(kInitialValue, ref.value);
 }
 
@@ -152,14 +153,16 @@ TEST_F(ContainerSingletonTest, resolves_const_reference) {
   auto sut = Container{bind<Type>().in<scope::Singleton>()};
 
   const auto& ref = sut.template resolve<const Type&>();
+
   EXPECT_EQ(kInitialValue, ref.value);
 }
 
-TEST_F(ContainerSingletonTest, resolves_mutable_pointer) {
+TEST_F(ContainerSingletonTest, resolves_pointer) {
   struct Type : Singleton {};
   auto sut = Container{bind<Type>().in<scope::Singleton>()};
 
   auto* ptr = sut.template resolve<Type*>();
+
   EXPECT_EQ(kInitialValue, ptr->value);
 }
 
@@ -168,44 +171,230 @@ TEST_F(ContainerSingletonTest, resolves_const_pointer) {
   auto sut = Container{bind<Type>().in<scope::Singleton>()};
 
   const auto* ptr = sut.template resolve<const Type*>();
+
   EXPECT_EQ(kInitialValue, ptr->value);
 }
 
-TEST_F(ContainerSingletonTest, canonical_shared_wraps_instance) {
+TEST_F(ContainerSingletonTest, resolves_shared_pointer) {
   struct Type : Singleton {};
   auto sut = Container{bind<Type>().in<scope::Singleton>()};
 
-  const auto shared = sut.template resolve<std::shared_ptr<Type>>();
-  auto& instance = sut.template resolve<Type&>();
+  const auto shared_ptr = sut.template resolve<std::shared_ptr<Type>>();
 
-  ASSERT_EQ(&instance, shared.get());
+  EXPECT_EQ(kInitialValue, shared_ptr->value);
 }
 
-TEST_F(ContainerSingletonTest, const_shared_ptr) {
+TEST_F(ContainerSingletonTest, resolves_const_shared_pointer) {
   struct Type : Singleton {};
   auto sut = Container{bind<Type>().in<scope::Singleton>()};
 
-  auto shared = sut.template resolve<std::shared_ptr<const Type>>();
-  auto& instance = sut.template resolve<Type&>();
+  const auto shared_ptr = sut.template resolve<const std::shared_ptr<Type>>();
 
-  EXPECT_EQ(&instance, shared.get());
+  EXPECT_EQ(kInitialValue, shared_ptr->value);
 }
 
-TEST_F(ContainerSingletonTest, weak_pointers_lock_to_same_value) {
+TEST_F(ContainerSingletonTest, resolves_shared_pointer_to_const) {
   struct Type : Singleton {};
   auto sut = Container{bind<Type>().in<scope::Singleton>()};
 
-  auto weak1 = sut.template resolve<std::weak_ptr<Type>>();
-  auto weak2 = sut.template resolve<std::weak_ptr<Type>>();
+  const auto shared_ptr = sut.template resolve<std::shared_ptr<const Type>>();
 
-  EXPECT_FALSE(weak1.expired());
-  EXPECT_EQ(weak1.lock(), weak2.lock());
+  EXPECT_EQ(kInitialValue, shared_ptr->value);
 }
 
-// Uniqueness (Per Binding)
+TEST_F(ContainerSingletonTest, resolves_const_shared_pointer_to_const) {
+  struct Type : Singleton {};
+  auto sut = Container{bind<Type>().in<scope::Singleton>()};
+
+  const auto shared_ptr =
+      sut.template resolve<const std::shared_ptr<const Type>>();
+
+  EXPECT_EQ(kInitialValue, shared_ptr->value);
+}
+
+TEST_F(ContainerSingletonTest, resolves_weak_pointer) {
+  struct Type : Singleton {};
+  auto sut = Container{bind<Type>().in<scope::Singleton>()};
+
+  const auto weak_ptr = sut.template resolve<std::weak_ptr<Type>>();
+
+  EXPECT_EQ(kInitialValue, weak_ptr.lock()->value);
+}
+
+TEST_F(ContainerSingletonTest, resolves_const_weak_pointer) {
+  struct Type : Singleton {};
+  auto sut = Container{bind<Type>().in<scope::Singleton>()};
+
+  const auto weak_ptr = sut.template resolve<const std::weak_ptr<Type>>();
+
+  EXPECT_EQ(kInitialValue, weak_ptr.lock()->value);
+}
+
+TEST_F(ContainerSingletonTest, resolves_weak_pointer_to_const) {
+  struct Type : Singleton {};
+  auto sut = Container{bind<Type>().in<scope::Singleton>()};
+
+  const auto weak_ptr = sut.template resolve<std::weak_ptr<const Type>>();
+
+  EXPECT_EQ(kInitialValue, weak_ptr.lock()->value);
+}
+
+TEST_F(ContainerSingletonTest, resolves_const_weak_pointer_to_const) {
+  struct Type : Singleton {};
+  auto sut = Container{bind<Type>().in<scope::Singleton>()};
+
+  const auto weak_ptr = sut.template resolve<const std::weak_ptr<const Type>>();
+
+  EXPECT_EQ(kInitialValue, weak_ptr.lock()->value);
+}
+
+// Resolved Identity
 // ----------------------------------------------------------------------------
 
-TEST_F(ContainerSingletonTest, resolves_same_mutable_reference) {
+TEST_F(ContainerSingletonTest, const_reference_is_same_as_reference) {
+  struct Type : Singleton {};
+  auto sut = Container{bind<Type>().in<scope::Singleton>()};
+
+  const auto& ref = sut.template resolve<Type&>();
+  const auto& const_ref = sut.template resolve<const Type&>();
+
+  EXPECT_EQ(&ref, &const_ref);
+}
+
+TEST_F(ContainerSingletonTest, pointer_is_same_as_reference) {
+  struct Type : Singleton {};
+  auto sut = Container{bind<Type>().in<scope::Singleton>()};
+
+  const auto& ref = sut.template resolve<Type&>();
+  auto* ptr = sut.template resolve<Type*>();
+
+  EXPECT_EQ(&ref, ptr);
+}
+
+TEST_F(ContainerSingletonTest, const_pointer_is_same_as_reference) {
+  struct Type : Singleton {};
+  auto sut = Container{bind<Type>().in<scope::Singleton>()};
+
+  const auto& ref = sut.template resolve<Type&>();
+  const auto* ptr = sut.template resolve<const Type*>();
+
+  EXPECT_EQ(&ref, ptr);
+}
+
+TEST_F(ContainerSingletonTest, shared_ptr_is_same_as_reference) {
+  struct Type : Singleton {};
+  auto sut = Container{bind<Type>().in<scope::Singleton>()};
+
+  const auto& ref = sut.template resolve<Type&>();
+  const auto shared_ptr = sut.template resolve<std::shared_ptr<Type>>();
+
+  EXPECT_EQ(&ref, shared_ptr.get());
+}
+
+TEST_F(ContainerSingletonTest, const_shared_pointer_is_same_as_reference) {
+  struct Type : Singleton {};
+  auto sut = Container{bind<Type>().in<scope::Singleton>()};
+
+  const auto& ref = sut.template resolve<Type&>();
+  const auto shared_ptr = sut.template resolve<const std::shared_ptr<Type>>();
+
+  EXPECT_EQ(&ref, shared_ptr.get());
+}
+
+TEST_F(ContainerSingletonTest, shared_pointer_to_const_is_same_as_reference) {
+  struct Type : Singleton {};
+  auto sut = Container{bind<Type>().in<scope::Singleton>()};
+
+  const auto& ref = sut.template resolve<Type&>();
+  const auto shared_ptr = sut.template resolve<std::shared_ptr<const Type>>();
+
+  EXPECT_EQ(&ref, shared_ptr.get());
+}
+
+TEST_F(ContainerSingletonTest,
+       const_shared_pointer_to_const_is_same_as_reference) {
+  struct Type : Singleton {};
+  auto sut = Container{bind<Type>().in<scope::Singleton>()};
+
+  const auto& ref = sut.template resolve<Type&>();
+  const auto shared_ptr =
+      sut.template resolve<const std::shared_ptr<const Type>>();
+
+  EXPECT_EQ(&ref, shared_ptr.get());
+}
+
+TEST_F(ContainerSingletonTest, weak_pointer_is_same_as_reference) {
+  struct Type : Singleton {};
+  auto sut = Container{bind<Type>().in<scope::Singleton>()};
+
+  const auto& ref = sut.template resolve<Type&>();
+  const auto weak_ptr = sut.template resolve<std::weak_ptr<Type>>();
+
+  EXPECT_EQ(&ref, weak_ptr.lock().get());
+}
+
+TEST_F(ContainerSingletonTest, const_weak_pointer_is_same_as_reference) {
+  struct Type : Singleton {};
+  auto sut = Container{bind<Type>().in<scope::Singleton>()};
+
+  const auto& ref = sut.template resolve<Type&>();
+  const auto weak_ptr = sut.template resolve<const std::weak_ptr<Type>>();
+
+  EXPECT_EQ(&ref, weak_ptr.lock().get());
+}
+
+TEST_F(ContainerSingletonTest, weak_pointer_to_const_is_same_as_reference) {
+  struct Type : Singleton {};
+  auto sut = Container{bind<Type>().in<scope::Singleton>()};
+
+  const auto& ref = sut.template resolve<Type&>();
+  const auto weak_ptr = sut.template resolve<std::weak_ptr<const Type>>();
+
+  EXPECT_EQ(&ref, weak_ptr.lock().get());
+}
+
+TEST_F(ContainerSingletonTest,
+       const_weak_pointer_to_const_is_same_as_reference) {
+  struct Type : Singleton {};
+  auto sut = Container{bind<Type>().in<scope::Singleton>()};
+
+  const auto& ref = sut.template resolve<Type&>();
+  const auto weak_ptr = sut.template resolve<const std::weak_ptr<const Type>>();
+
+  EXPECT_EQ(&ref, weak_ptr.lock().get());
+}
+
+TEST_F(ContainerSingletonTest, weak_pointer_survives_without_shared) {
+  struct Type : Singleton {};
+  auto sut = Container{bind<Type>().in<scope::Singleton>()};
+
+  const auto& weak = sut.template resolve<std::weak_ptr<Type>>();
+
+  // Even with no shared_ptr in scope, weak_ptr should not expire because it
+  // tracks the a cached shared_ptr to the instance.
+  EXPECT_FALSE(weak.expired());
+
+  auto shared = weak.lock();
+  EXPECT_NE(nullptr, shared);
+}
+
+TEST_F(ContainerSingletonTest, weak_ptr_expires_with_canonical_shared_ptr) {
+  struct Type : Singleton {};
+  auto sut = Container{bind<Type>().in<scope::Singleton>()};
+
+  // Resolve reference directly to canonical shared_ptr.
+  auto& canonical_shared_ptr = sut.template resolve<std::shared_ptr<Type>&>();
+  const auto weak = sut.template resolve<std::weak_ptr<Type>>();
+
+  EXPECT_FALSE(weak.expired());
+  canonical_shared_ptr.reset();
+  EXPECT_TRUE(weak.expired());
+}
+
+// Uniqueness
+// ----------------------------------------------------------------------------
+
+TEST_F(ContainerSingletonTest, resolves_same_reference) {
   struct Type : Singleton {};
   auto sut = Container{bind<Type>().in<scope::Singleton>()};
 
@@ -225,7 +414,7 @@ TEST_F(ContainerSingletonTest, resolves_same_const_reference) {
   EXPECT_EQ(&ref1, &ref2);
 }
 
-TEST_F(ContainerSingletonTest, resolves_same_mutable_pointer) {
+TEST_F(ContainerSingletonTest, resolves_same_pointer) {
   struct Type : Singleton {};
   auto sut = Container{bind<Type>().in<scope::Singleton>()};
 
@@ -245,31 +434,105 @@ TEST_F(ContainerSingletonTest, resolves_same_const_pointer) {
   EXPECT_EQ(ptr1, ptr2);
 }
 
-TEST_F(ContainerSingletonTest, reference_and_pointer_point_to_same_instance) {
+TEST_F(ContainerSingletonTest, resolves_same_shared_ptr) {
   struct Type : Singleton {};
   auto sut = Container{bind<Type>().in<scope::Singleton>()};
 
-  auto& ref = sut.template resolve<Type&>();
-  auto* ptr = sut.template resolve<Type*>();
-
-  EXPECT_EQ(&ref, ptr);
-}
-
-TEST_F(ContainerSingletonTest, canonical_shared_ptr_value) {
-  struct Type : Singleton {};
-  auto sut = Container{bind<Type>().in<scope::Singleton>()};
-
-  const auto result1 = sut.template resolve<std::shared_ptr<Type>>();
-  const auto result2 = sut.template resolve<std::shared_ptr<Type>>();
-  auto& instance = sut.template resolve<Type&>();
+  const auto& result1 = sut.template resolve<std::shared_ptr<Type>>();
+  const auto& result2 = sut.template resolve<std::shared_ptr<Type>>();
 
   ASSERT_EQ(result1, result2);
   ASSERT_EQ(result1.use_count(), result2.use_count());
-  ASSERT_EQ(result1.use_count(), 3);  // result1 + result2 + canonical
-  ASSERT_EQ(&instance, result1.get());
+  ASSERT_EQ(result1.use_count(), 3);
 }
 
-TEST_F(ContainerSingletonTest, canonical_shared_ptr_identity) {
+TEST_F(ContainerSingletonTest, resolves_same_const_shared_ptr) {
+  struct Type : Singleton {};
+  auto sut = Container{bind<Type>().in<scope::Singleton>()};
+
+  const auto& result1 = sut.template resolve<const std::shared_ptr<Type>>();
+  const auto& result2 = sut.template resolve<const std::shared_ptr<Type>>();
+
+  ASSERT_EQ(result1, result2);
+  ASSERT_EQ(result1.use_count(), result2.use_count());
+  ASSERT_EQ(result1.use_count(), 3);
+}
+
+TEST_F(ContainerSingletonTest, resolves_same_shared_ptr_to_const) {
+  struct Type : Singleton {};
+  auto sut = Container{bind<Type>().in<scope::Singleton>()};
+
+  const auto& result1 = sut.template resolve<std::shared_ptr<const Type>>();
+  const auto& result2 = sut.template resolve<std::shared_ptr<const Type>>();
+
+  ASSERT_EQ(result1, result2);
+  ASSERT_EQ(result1.use_count(), result2.use_count());
+  ASSERT_EQ(result1.use_count(), 3);
+}
+
+TEST_F(ContainerSingletonTest, resolves_same_const_shared_ptr_to_const) {
+  struct Type : Singleton {};
+  auto sut = Container{bind<Type>().in<scope::Singleton>()};
+
+  const auto& result1 =
+      sut.template resolve<const std::shared_ptr<const Type>>();
+  const auto& result2 =
+      sut.template resolve<const std::shared_ptr<const Type>>();
+
+  ASSERT_EQ(result1, result2);
+  ASSERT_EQ(result1.use_count(), result2.use_count());
+  ASSERT_EQ(result1.use_count(), 3);
+}
+
+TEST_F(ContainerSingletonTest, resolves_same_weak_ptr) {
+  struct Type : Singleton {};
+  auto sut = Container{bind<Type>().in<scope::Singleton>()};
+
+  const auto& result1 = sut.template resolve<std::weak_ptr<Type>>();
+  const auto& result2 = sut.template resolve<std::weak_ptr<Type>>();
+
+  ASSERT_EQ(result1.use_count(), result2.use_count());
+  ASSERT_EQ(result1.use_count(), 1);
+  ASSERT_EQ(result1.lock(), result2.lock());
+}
+
+TEST_F(ContainerSingletonTest, resolves_same_const_weak_ptr) {
+  struct Type : Singleton {};
+  auto sut = Container{bind<Type>().in<scope::Singleton>()};
+
+  const auto& result1 = sut.template resolve<const std::weak_ptr<Type>>();
+  const auto& result2 = sut.template resolve<const std::weak_ptr<Type>>();
+
+  ASSERT_EQ(result1.use_count(), result2.use_count());
+  ASSERT_EQ(result1.use_count(), 1);
+  ASSERT_EQ(result1.lock(), result2.lock());
+}
+
+TEST_F(ContainerSingletonTest, resolves_same_weak_ptr_to_const) {
+  struct Type : Singleton {};
+  auto sut = Container{bind<Type>().in<scope::Singleton>()};
+
+  const auto& result1 = sut.template resolve<std::weak_ptr<const Type>>();
+  const auto& result2 = sut.template resolve<std::weak_ptr<const Type>>();
+
+  ASSERT_EQ(result1.use_count(), result2.use_count());
+  ASSERT_EQ(result1.use_count(), 1);
+  ASSERT_EQ(result1.lock(), result2.lock());
+}
+
+TEST_F(ContainerSingletonTest, resolves_same_const_weak_ptr_to_const) {
+  struct Type : Singleton {};
+  auto sut = Container{bind<Type>().in<scope::Singleton>()};
+
+  const auto& result1 = sut.template resolve<const std::weak_ptr<const Type>>();
+  const auto& result2 = sut.template resolve<const std::weak_ptr<const Type>>();
+
+  ASSERT_EQ(result1.use_count(), result2.use_count());
+  ASSERT_EQ(result1.use_count(), 1);
+  ASSERT_EQ(result1.lock(), result2.lock());
+}
+
+TEST_F(ContainerSingletonTest, resolves_same_reference_to_shared_ptr) {
   struct Type : Singleton {};
   auto sut = Container{bind<Type>().in<scope::Singleton>()};
 
@@ -281,31 +544,16 @@ TEST_F(ContainerSingletonTest, canonical_shared_ptr_identity) {
   ASSERT_EQ(result1.use_count(), 1);
 }
 
-TEST_F(ContainerSingletonTest, weak_pointer_survives_without_shared) {
+TEST_F(ContainerSingletonTest, resolves_same_reference_to_const_shared_ptr) {
   struct Type : Singleton {};
   auto sut = Container{bind<Type>().in<scope::Singleton>()};
 
-  const auto& weak = sut.template resolve<std::weak_ptr<Type>>();
+  const auto& result1 = sut.template resolve<const std::shared_ptr<Type>&>();
+  const auto& result2 = sut.template resolve<const std::shared_ptr<Type>&>();
 
-  // Even with no shared_ptr in scope, weak_ptr should not expire because it
-  // tracks the canonical shared_ptr to the instance.
-  EXPECT_FALSE(weak.expired());
-
-  auto shared = weak.lock();
-  EXPECT_NE(nullptr, shared);
-}
-
-TEST_F(ContainerSingletonTest, weak_ptr_expires_with_canonical_shared_ptr) {
-  struct Type : Singleton {};
-  auto sut = Container{bind<Type>().in<scope::Singleton>()};
-
-  // Resolve reference directly to canonical shared_ptr.
-  auto& canonical_shared_ptr = sut.template resolve<std::shared_ptr<Type>&>();
-  const auto weak = sut.template resolve<std::weak_ptr<Type>>();
-
-  EXPECT_FALSE(weak.expired());
-  canonical_shared_ptr.reset();
-  EXPECT_TRUE(weak.expired());
+  ASSERT_EQ(&result1, &result2);
+  ASSERT_EQ(result1.use_count(), result2.use_count());
+  ASSERT_EQ(result1.use_count(), 1);
 }
 
 // Mutation & State
@@ -340,8 +588,7 @@ TEST_F(ContainerSingletonTest, mutations_through_pointer_are_visible) {
 // Value & Copy Independence
 // ----------------------------------------------------------------------------
 
-TEST_F(ContainerSingletonTest,
-       value_resolves_are_independent_copies_of_instance) {
+TEST_F(ContainerSingletonTest, value_resolves_independent_copies_of_instance) {
   struct Type : Singleton {};
   auto sut = Container{bind<Type>().in<scope::Singleton>()};
 
@@ -361,7 +608,7 @@ TEST_F(ContainerSingletonTest,
 }
 
 TEST_F(ContainerSingletonTest,
-       rvalue_reference_resolves_are_independent_copies_of_instance) {
+       rvalue_reference_resolves_independent_copies_of_instance) {
   struct Type : Singleton {};
   auto sut = Container{bind<Type>().in<scope::Singleton>()};
 
@@ -381,7 +628,7 @@ TEST_F(ContainerSingletonTest,
 }
 
 TEST_F(ContainerSingletonTest,
-       unique_ptr_resolves_are_independent_copies_of_instance) {
+       unique_ptr_resolves_independent_copies_of_instance) {
   struct Type : Singleton {};
   auto sut = Container{bind<Type>().in<scope::Singleton>()};
 
@@ -410,11 +657,11 @@ TEST_F(ContainerSingletonTest, multiple_singleton_types) {
   auto sut = Container{bind<Type1>().in<scope::Singleton>(),
                        bind<Type2>().in<scope::Singleton>()};
 
-  auto shared_1 = sut.template resolve<std::shared_ptr<Type1>>();
-  auto shared_2 = sut.template resolve<std::shared_ptr<Type2>>();
+  auto shared1 = sut.template resolve<std::shared_ptr<Type1>>();
+  auto shared2 = sut.template resolve<std::shared_ptr<Type2>>();
 
-  EXPECT_NE(shared_1.get(), nullptr);
-  EXPECT_NE(shared_2.get(), nullptr);
+  EXPECT_NE(shared1.get(), nullptr);
+  EXPECT_NE(shared2.get(), nullptr);
 }
 
 // ----------------------------------------------------------------------------
