@@ -50,16 +50,16 @@ class Singleton {
     if constexpr (std::is_same_v<std::remove_cvref_t<Requested>, Provided> ||
                   std::is_lvalue_reference_v<Requested> ||
                   meta::IsSharedPtr<Requested> || meta::IsWeakPtr<Requested>) {
-      // Values, lvalue references (mutable or const), and shared/weak pointers.
+      // Values, lvalue references, and shared/weak pointers.
       static_assert(
           !meta::IsWeakPtr<Requested> || meta::IsSharedPtr<Provided>,
           "Request for weak_ptr must be satisfied by cached shared_ptr.");
       return cached_instance(container, provider);
     } else if constexpr (std::is_pointer_v<Requested>) {
-      // Pointers (mutable or const).
+      // Pointers.
       return &cached_instance(container, provider);
     } else if constexpr (meta::IsUniquePtr<Requested>) {
-      // unique_ptr
+      // unique_ptr.
       return std::make_unique<Provided>(cached_instance(container, provider));
     } else {
       static_assert(meta::kDependentFalse<Requested>,
@@ -93,16 +93,16 @@ class Instance {
     if constexpr (std::is_same_v<std::remove_cvref_t<Requested>, Provided> ||
                   std::is_lvalue_reference_v<Requested> ||
                   meta::IsSharedPtr<Requested> || meta::IsWeakPtr<Requested>) {
-      // Values and Lvalue reference (mutable or const).
+      // Values, lvalue references, and shared/weak pointers.
       static_assert(
           !meta::IsWeakPtr<Requested> || meta::IsSharedPtr<Provided>,
           "Request for weak_ptr must be satisfied by cached shared_ptr.");
       return instance;
     } else if constexpr (std::is_pointer_v<Requested>) {
-      // Pointers (mutable or const).
+      // Pointers.
       return &instance;
     } else if constexpr (meta::IsUniquePtr<Requested>) {
-      // unique_ptr
+      // unique_ptr.
       return std::make_unique<Provided>(instance);
     } else {
       static_assert(meta::kDependentFalse<Requested>,
