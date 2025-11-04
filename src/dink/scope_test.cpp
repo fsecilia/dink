@@ -417,16 +417,16 @@ TEST_F(ScopeTestSingleton,
 // ----------------------------------------------------------------------------
 
 struct ScopeTestSingletonSharedPtr : ScopeTest {
-  // This needs to specialize on shared_ptr to have a matching Provided because
+  // This must specialize on shared_ptr to have a matching Provided because
   // Singleton::cached_instance() returns that verbatim.
-  using Provider = EchoProvider<std::shared_ptr<Resolved>>;
+  using SharedPtrProvider = EchoProvider<std::shared_ptr<Resolved>>;
 
   using Sut = Singleton;
   Sut sut{};
 };
 
 TEST_F(ScopeTestSingletonSharedPtr, resolves_shared_ptr) {
-  struct UniqueProvider : Provider {};
+  struct UniqueProvider : SharedPtrProvider {};
   auto provider = UniqueProvider{};
   const auto result =
       sut.resolve<std::shared_ptr<Resolved>>(container, provider);
@@ -434,7 +434,7 @@ TEST_F(ScopeTestSingletonSharedPtr, resolves_shared_ptr) {
 }
 
 TEST_F(ScopeTestSingletonSharedPtr, resolves_const_shared_ptr) {
-  struct UniqueProvider : Provider {};
+  struct UniqueProvider : SharedPtrProvider {};
   auto provider = UniqueProvider{};
   const auto result =
       sut.resolve<std::shared_ptr<const Resolved>>(container, provider);
@@ -442,14 +442,14 @@ TEST_F(ScopeTestSingletonSharedPtr, resolves_const_shared_ptr) {
 }
 
 TEST_F(ScopeTestSingletonSharedPtr, resolves_weak_ptr) {
-  struct UniqueProvider : Provider {};
+  struct UniqueProvider : SharedPtrProvider {};
   auto provider = UniqueProvider{};
   const auto result = sut.resolve<std::weak_ptr<Resolved>>(container, provider);
   ASSERT_EQ(&container, result.lock()->container);
 }
 
 TEST_F(ScopeTestSingletonSharedPtr, resolves_const_weak_ptr) {
-  struct UniqueProvider : Provider {};
+  struct UniqueProvider : SharedPtrProvider {};
   auto provider = UniqueProvider{};
   const auto result =
       sut.resolve<std::weak_ptr<const Resolved>>(container, provider);
@@ -457,7 +457,7 @@ TEST_F(ScopeTestSingletonSharedPtr, resolves_const_weak_ptr) {
 }
 
 TEST_F(ScopeTestSingletonSharedPtr, resolves_same_shared_ptr_per_provider) {
-  struct UniqueProvider : Provider {};
+  struct UniqueProvider : SharedPtrProvider {};
   auto provider = UniqueProvider{};
   const auto result1 =
       sut.resolve<std::shared_ptr<Resolved>>(container, provider);
@@ -468,7 +468,7 @@ TEST_F(ScopeTestSingletonSharedPtr, resolves_same_shared_ptr_per_provider) {
 
 TEST_F(ScopeTestSingletonSharedPtr,
        resolves_same_const_shared_ptr_per_provider) {
-  struct UniqueProvider : Provider {};
+  struct UniqueProvider : SharedPtrProvider {};
   auto provider = UniqueProvider{};
   const auto result1 =
       sut.resolve<std::shared_ptr<const Resolved>>(container, provider);
@@ -479,7 +479,7 @@ TEST_F(ScopeTestSingletonSharedPtr,
 
 TEST_F(ScopeTestSingletonSharedPtr,
        resolves_same_instance_for_const_and_non_const_shared_ptr) {
-  struct UniqueProvider : Provider {};
+  struct UniqueProvider : SharedPtrProvider {};
   auto provider = UniqueProvider{};
   const auto pointer =
       sut.resolve<std::shared_ptr<Resolved>>(container, provider);
@@ -490,7 +490,7 @@ TEST_F(ScopeTestSingletonSharedPtr,
 
 TEST_F(ScopeTestSingletonSharedPtr,
        resolves_same_instance_for_shared_ptr_and_weak_ptr) {
-  struct UniqueProvider : Provider {};
+  struct UniqueProvider : SharedPtrProvider {};
   auto provider = UniqueProvider{};
   const auto shared =
       sut.resolve<std::shared_ptr<Resolved>>(container, provider);
@@ -500,7 +500,7 @@ TEST_F(ScopeTestSingletonSharedPtr,
 
 TEST_F(ScopeTestSingletonSharedPtr,
        shared_ptr_value_resolves_are_copies_of_same_smart_pointer) {
-  struct UniqueProvider : Provider {};
+  struct UniqueProvider : SharedPtrProvider {};
   auto provider = UniqueProvider{};
 
   const auto& val1 =
@@ -517,7 +517,7 @@ TEST_F(ScopeTestSingletonSharedPtr,
 
 TEST_F(ScopeTestSingletonSharedPtr,
        shared_ptr_reference_resolves_are_references_to_same_smart_pointer) {
-  struct UniqueProvider : Provider {};
+  struct UniqueProvider : SharedPtrProvider {};
   auto provider = UniqueProvider{};
 
   const auto& val1 =
@@ -794,7 +794,7 @@ struct ScopeTestInstanceSharedPtr : ScopeTest {
       Resolved{.container = &container, .value = kInitialValue});
 
   template <typename Instance>
-  struct ReferenceProvider {
+  struct SharedPtrProvider {
     using Provided = Instance;
     Provided& provided;
     template <typename>
@@ -802,7 +802,10 @@ struct ScopeTestInstanceSharedPtr : ScopeTest {
       return provided;
     }
   };
-  ReferenceProvider<std::shared_ptr<Resolved>> provider{external_instance};
+
+  // This must specialize on shared_ptr to have a matching Provided because
+  // Singleton::cached_instance() returns that verbatim.
+  SharedPtrProvider<std::shared_ptr<Resolved>> provider{external_instance};
 
   using Sut = Instance;
   Sut sut{};
