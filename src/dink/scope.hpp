@@ -51,6 +51,9 @@ class Singleton {
                   std::is_lvalue_reference_v<Requested> ||
                   meta::IsSharedPtr<Requested> || meta::IsWeakPtr<Requested>) {
       // Values, lvalue references (mutable or const), and shared/weak pointers.
+      static_assert(
+          !meta::IsWeakPtr<Requested> || meta::IsSharedPtr<Provided>,
+          "Request for weak_ptr must be satisfied by cached shared_ptr.");
       return cached_instance(container, provider);
     } else if constexpr (std::is_pointer_v<Requested>) {
       // Pointers (mutable or const).
@@ -92,6 +95,9 @@ class Instance {
                   std::is_lvalue_reference_v<Requested> ||
                   meta::IsSharedPtr<Requested> || meta::IsWeakPtr<Requested>) {
       // Values and Lvalue reference (mutable or const).
+      static_assert(
+          !meta::IsWeakPtr<Requested> || meta::IsSharedPtr<Provided>,
+          "Request for weak_ptr must be satisfied by cached shared_ptr.");
       return instance;
     } else if constexpr (std::is_pointer_v<Requested>) {
       // Pointers (mutable or const).
