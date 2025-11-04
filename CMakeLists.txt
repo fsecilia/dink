@@ -4,9 +4,6 @@
 cmake_minimum_required(VERSION 4.0.2)
 project(dink VERSION 0.1.0)
 
-# Suppress cmake's "Up-to-date" message for every installed file.
-set(CMAKE_INSTALL_MESSAGE NEVER)
-
 # -----------------------------------------------------------------------------
 # ccache
 # -----------------------------------------------------------------------------

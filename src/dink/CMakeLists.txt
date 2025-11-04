@@ -80,6 +80,9 @@ set_target_properties(dink
 
 include(GNUInstallDirs)
 
+# Suppress cmake's "Up-to-date" message for every installed file.
+set(CMAKE_INSTALL_MESSAGE NEVER)
+
 # Install library and headers.
 # -----------------------------------------------------------------------------
 
