@@ -19,88 +19,138 @@ struct ContainerCtorTest {
   static auto constexpr binding1 = Binding1{};
   static auto constexpr binding2 = Binding2{};
 
+  // These have to use live types to match the deduction guides.
+  using Cache = cache::Type;
   using Dispatcher = Dispatcher<>;
-  using Parent = Container<Config<>, Dispatcher, void>;
+
+  using Parent = Container<Config<>, Cache, Dispatcher, void>;
   Parent parent;
 
   struct Tag {};
 
-  // Empty ctors.
+  // Ctors producing empty config.
 
-  static_assert(std::same_as<Container<Config<>, Dispatcher, void>,
+  static_assert(std::same_as<Container<Config<>, Cache, Dispatcher, void>,
                              decltype(Container{})>,
                 "empty args should produce empty Config");
 
-  static_assert(std::same_as<Container<Config<>, Dispatcher, void, Tag>,
+  static_assert(std::same_as<Container<Config<>, Cache, Dispatcher, void, Tag>,
                              decltype(Container{Tag{}})>,
                 "tag should produce empty Config");
 
-  static_assert(std::same_as<Container<Config<>, Dispatcher, Parent, void>,
-                             decltype(Container{parent})>,
-                "parent should produce empty Config");
+  static_assert(
+      std::same_as<Container<Config<>, Cache, Dispatcher, Parent, void>,
+                   decltype(Container{parent})>,
+      "parent should produce empty Config");
 
-  static_assert(std::same_as<Container<Config<>, Dispatcher, Parent, Tag>,
-                             decltype(Container{Tag{}, parent})>,
-                "tag and parent should produce empty Config");
+  static_assert(
+      std::same_as<Container<Config<>, Cache, Dispatcher, Parent, void>,
+                   decltype(Container{parent, Cache{}})>,
+      "parent and cache should produce empty Config");
+
+  static_assert(
+      std::same_as<Container<Config<>, Cache, Dispatcher, Parent, Tag>,
+                   decltype(Container{Tag{}, parent})>,
+      "tag and parent should produce empty Config");
+
+  static_assert(
+      std::same_as<Container<Config<>, Cache, Dispatcher, Parent, Tag>,
+                   decltype(Container{Tag{}, parent, Cache{}})>,
+      "tag, parent, and cache should produce empty Config");
 
   // Single-element ctors.
 
-  static_assert(std::same_as<Container<Config<Binding0>, Dispatcher, void>,
-                             decltype(Container{binding0})>,
-                "single arg should produce single-element Config");
-
-  static_assert(std::same_as<Container<Config<Binding0>, Dispatcher, void, Tag>,
-                             decltype(Container{Tag{}, binding0})>,
-                "tag and single arg should produce single-element Config");
+  static_assert(
+      std::same_as<Container<Config<Binding0>, Cache, Dispatcher, void>,
+                   decltype(Container{binding0})>,
+      "single arg should produce single-element Config");
 
   static_assert(
-      std::same_as<Container<Config<Binding0>, Dispatcher, Parent, void>,
+      std::same_as<Container<Config<Binding0>, Cache, Dispatcher, void, Tag>,
+                   decltype(Container{Tag{}, binding0})>,
+      "tag and single arg should produce single-element Config");
+
+  static_assert(
+      std::same_as<Container<Config<Binding0>, Cache, Dispatcher, Parent, void>,
                    decltype(Container{parent, binding0})>,
       "parent and arg should produce single-element Config");
 
   static_assert(
-      std::same_as<Container<Config<Binding0>, Dispatcher, Parent, Tag>,
+      std::same_as<Container<Config<Binding0>, Cache, Dispatcher, Parent, void>,
+                   decltype(Container{parent, Cache{}, binding0})>,
+      "parent, cach, and arg should produce single-element Config");
+
+  static_assert(
+      std::same_as<Container<Config<Binding0>, Cache, Dispatcher, Parent, Tag>,
                    decltype(Container{Tag{}, parent, binding0})>,
       "tag, parent, and arg should produce single-element Config");
+
+  static_assert(
+      std::same_as<Container<Config<Binding0>, Cache, Dispatcher, Parent, Tag>,
+                   decltype(Container{Tag{}, parent, Cache{}, binding0})>,
+      "tag, parent, cache, and arg should produce single-element Config");
 
   // Multiple-element ctors.
 
   static_assert(std::same_as<Container<Config<Binding0, Binding1, Binding2>,
-                                       Dispatcher, void>,
+                                       Cache, Dispatcher, void>,
                              decltype(Container{binding0, binding1, binding2})>,
                 "multiple args should produce multiple-element Config");
 
   static_assert(
-      std::same_as<Container<Config<Binding0, Binding1, Binding2>, Dispatcher,
-                             void, Tag>,
+      std::same_as<Container<Config<Binding0, Binding1, Binding2>, Cache,
+                             Dispatcher, void, Tag>,
                    decltype(Container{Tag{}, binding0, binding1, binding2})>,
       "tag and args should produce multiple-element Config");
 
   static_assert(
-      std::same_as<Container<Config<Binding0, Binding1, Binding2>, Dispatcher,
-                             Parent, void>,
+      std::same_as<Container<Config<Binding0, Binding1, Binding2>, Cache,
+                             Dispatcher, Parent, void>,
                    decltype(Container{parent, binding0, binding1, binding2})>,
       "parent and args should produce multiple-element Config");
 
+  static_assert(
+      std::same_as<Container<Config<Binding0, Binding1, Binding2>, Cache,
+                             Dispatcher, Parent, void>,
+                   decltype(Container{parent, Cache{}, binding0, binding1,
+                                      binding2})>,
+      "parent, cache, and args should produce multiple-element Config");
+
   static_assert(std::same_as<Container<Config<Binding0, Binding1, Binding2>,
-                                       Dispatcher, Parent, Tag>,
+                                       Cache, Dispatcher, Parent, Tag>,
                              decltype(Container{Tag{}, parent, binding0,
                                                 binding1, binding2})>,
                 "tag, parent, and args should produce multiple-element Config");
 
+  static_assert(
+      std::same_as<Container<Config<Binding0, Binding1, Binding2>, Cache,
+                             Dispatcher, Parent, Tag>,
+                   decltype(Container{Tag{}, parent, Cache{}, binding0,
+                                      binding1, binding2})>,
+      "tag, parent, cache, and args should produce multiple-element Config");
+
   // Type uniqueness.
 
-  static_assert(!std::same_as<Container<Config<Binding0>, Dispatcher, void>,
-                              Container<Config<Binding1>, Dispatcher, void>>,
-                "different bindings should produce different containers");
-
-  static_assert(!std::same_as<Container<Config<Binding0>, Dispatcher, void>,
-                              Container<Config<Binding0>, Dispatcher, Parent>>,
-                "different nesting levels should produce different containers");
+  static_assert(
+      !std::same_as<Container<Config<Binding0>, Cache, Dispatcher, void>,
+                    Container<Config<Binding1>, Cache, Dispatcher, void>>,
+      "different bindings should produce different containers");
 
   static_assert(
-      !std::same_as<Container<Config<Binding0>, Dispatcher, void, int_t>,
-                    Container<Config<Binding0>, Dispatcher, void, uint_t>>,
+      !std::same_as<
+          Container<Config<Binding0>, Cache, Dispatcher, void>,
+          Container<Config<Binding1>, cache::Instance, Dispatcher, void>>,
+      "different caches should produce different containers");
+
+  static_assert(
+      !std::same_as<Container<Config<Binding0>, Cache, Dispatcher, void>,
+                    Container<Config<Binding0>, Cache, Dispatcher, Parent>>,
+      "different nesting levels should produce different containers");
+
+  static_assert(
+      !std::same_as<
+          Container<Config<Binding0>, Cache, Dispatcher, void, int_t>,
+          Container<Config<Binding0>, Cache, Dispatcher, void, uint_t>>,
       "different tags should produce different containers");
 
   // Instance uniqueness.
@@ -136,6 +186,8 @@ struct ContainerTest : Test {
   };
   Requested requested;
 
+  struct Cache {};
+
   struct MockDispatcher;
   struct Dispatcher {
     MockDispatcher* mock = nullptr;
@@ -162,8 +214,8 @@ struct ContainerTest : Test {
 
   using ParentConfig = Config<ParentBinding>;
   using ChildConfig = Config<ChildBinding>;
-  using Parent = Container<ParentConfig, Dispatcher>;
-  using Child = Container<ChildConfig, Dispatcher, Parent>;
+  using Parent = Container<ParentConfig, Cache, Dispatcher>;
+  using Child = Container<ChildConfig, Cache, Dispatcher, Parent>;
 
   struct MockDispatcher {
     MOCK_METHOD(Requested, resolve_value,
@@ -179,9 +231,13 @@ struct ContainerTest : Test {
   };
   StrictMock<MockDispatcher> mock_dispatcher;
 
-  Parent parent{ParentConfig{ParentBinding{}}, Dispatcher{&mock_dispatcher}};
-  Child child{parent, ChildConfig{ChildBinding{}},
-              Dispatcher{&mock_dispatcher}};
+  Parent parent{
+      Cache{},
+      Dispatcher{&mock_dispatcher},
+      ParentConfig{ParentBinding{}},
+  };
+  Child child{parent, Cache{}, Dispatcher{&mock_dispatcher},
+              ChildConfig{ChildBinding{}}};
 };
 
 TEST_F(ContainerTest, resolve_value) {

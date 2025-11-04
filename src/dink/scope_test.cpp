@@ -12,13 +12,23 @@ struct ScopeTest : Test {
   static constexpr auto kInitialValue = int_t{15132};  // Arbitrary.
   static constexpr auto kModifiedValue = int_t{7486};  // Arbitrary.
 
-  struct Container {};
-  Container container;
+  struct Container;
 
   struct Resolved {
     Container* container;
     int_t value = kInitialValue;
   };
+
+  struct Container {
+    template <typename Provider>
+    auto get_or_create(Provider& provider) -> Provider::Provided& {
+      static auto result =
+          provider.template create<typename Provider::Provided>(*this);
+      return result;
+    }
+  };
+
+  Container container;
 
   // Returns given container through Requested::container.
   template <typename Constructed>

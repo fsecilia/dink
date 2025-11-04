@@ -68,11 +68,9 @@ class Singleton {
  private:
   //! Gets or creates cached instance.
   template <typename Container, typename Provider>
-  static auto cached_instance(Container& container, Provider& provider) ->
-      typename Provider::Provided& {
-    using Provided = typename Provider::Provided;
-    static auto instance = provider.template create<Provided>(container);
-    return instance;
+  static auto cached_instance(Container& container, Provider& provider)
+      -> Provider::Provided& {
+    return container.get_or_create(provider);
   }
 };
 

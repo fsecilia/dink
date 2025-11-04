@@ -10,6 +10,7 @@ list(APPEND dink_library_files
   arity.hpp
   binding.hpp
   binding_dsl.hpp
+  cache.hpp
   canonical.hpp
   config.hpp
   container.hpp
@@ -28,6 +29,7 @@ list(APPEND dink_library_files
 list(APPEND dink_test_files
   arity_test.cpp
   binding_dsl_test.cpp
+  cache_test.cpp
   canonical_test.cpp
   config_test.cpp
   container_test.cpp

@@ -8,6 +8,7 @@
 
 #include <dink/lib.hpp>
 #include <dink/binding.hpp>
+#include <dink/cache.hpp>
 #include <dink/config.hpp>
 #include <dink/dispatcher.hpp>
 #include <dink/meta.hpp>
@@ -83,34 +84,51 @@ concept IsTagArg = IsTag<Tag> && !std::same_as<Tag, void>;
 // Generally, if you need a tag, the specific tag type is unimportant as long
 // as it is unique. In this case, you can use meta::UniqueType<>.
 // dink_unique_container() simplifies this definition.
-template <IsConfig Config = Config<>, typename Dispatcher = Dispatcher<>,
-          IsParentContainer Parent = void, IsTag Tag = void>
+template <IsConfig Config = Config<>, typename Cache = cache::Type,
+          typename Dispatcher = Dispatcher<>, IsParentContainer Parent = void,
+          IsTag Tag = void>
+  requires(!IsConvertibleToBinding<Cache>)
 class Container;
 
 //! Partial specialization where Parent = void produces a root container.
-template <IsConfig Config, typename Dispatcher, IsTag Tag>
-class Container<Config, Dispatcher, void, Tag> {
+template <IsConfig Config, typename Cache, typename Dispatcher, IsTag Tag>
+  requires(!IsConvertibleToBinding<Cache>)
+class Container<Config, Cache, Dispatcher, void, Tag> {
  public:
   Container() noexcept = default;
 
   //! Construct from bindings.
   template <IsConvertibleToBinding... Bindings>
   explicit Container(Bindings&&... bindings) noexcept
-      : Container{Config{std::forward<Bindings>(bindings)...}, Dispatcher{}} {}
+      : Container{Cache{}, std::forward<Bindings>(bindings)...} {}
 
-  //! Construct from bindings.
-  template <IsTagArg ActualTag, IsConvertibleToBinding... Bindings>
-  explicit Container(ActualTag, Bindings&&... bindings) noexcept
-      : Container{Config{std::forward<Bindings>(bindings)...}, Dispatcher{}} {}
+  //! Construct from cache and bindings.
+  template <IsConvertibleToBinding... Bindings>
+  explicit Container(Cache cache, Bindings&&... bindings) noexcept
+      : Container{std::move(cache), Dispatcher{},
+                  Config{std::forward<Bindings>(bindings)...}} {}
 
   //! Construct from components.
-  Container(Config config, Dispatcher dispatcher) noexcept
-      : dispatcher_{std::move(dispatcher)}, config_{std::move(config)} {}
+  Container(Cache cache, Dispatcher dispatcher, Config config) noexcept
+      : cache_{std::move(cache)},
+        dispatcher_{std::move(dispatcher)},
+        config_{std::move(config)} {}
 
-  //! Construct from components with tag.
+  //! Construct from bindings with tag.
+  template <IsTagArg ActualTag, IsConvertibleToBinding... Bindings>
+  explicit Container(ActualTag, Bindings&&... bindings) noexcept
+      : Container{std::forward<Bindings>(bindings)...} {}
+
+  //! Construct from tag, cache, and bindings.
+  template <IsTagArg ActualTag, IsConvertibleToBinding... Bindings>
+  explicit Container(ActualTag, Cache cache, Bindings&&... bindings) noexcept
+      : Container{std::move(cache), std::forward<Bindings>(bindings)...} {}
+
+  //! Construct from tag and components.
   template <IsTagArg ActualTag>
-  Container(ActualTag, Config config, Dispatcher dispatcher) noexcept
-      : Container{std::move(config), std::move(dispatcher)} {}
+  Container(ActualTag, Cache cache, Dispatcher dispatcher,
+            Config config) noexcept
+      : Container{std::move(cache), std::move(dispatcher), std::move(config)} {}
 
   Container(const Container&) = delete;
   auto operator=(const Container&) const -> Container& = delete;
@@ -123,43 +141,65 @@ class Container<Config, Dispatcher, void, Tag> {
     return dispatcher_.template resolve<Requested>(*this, config_, nullptr);
   }
 
+  //! Get or create cached entry.
+  template <typename Provider>
+  auto get_or_create(Provider& provider) -> Provider::Provided& {
+    return cache_.get_or_create(*this, provider);
+  }
+
  private:
+  [[dink_no_unique_address]] Cache cache_{};
   [[dink_no_unique_address]] Dispatcher dispatcher_{};
   Config config_{};
 };
 
 //! No specialization produces a child container.
-template <IsConfig Config, typename Dispatcher, IsParentContainer Parent,
-          IsTag Tag>
+template <IsConfig Config, typename Cache, typename Dispatcher,
+          IsParentContainer Parent, IsTag Tag>
+  requires(!IsConvertibleToBinding<Cache>)
 class Container {
  public:
   //! Construct from parent only.
-  explicit Container(Parent& parent) noexcept
-      : Container{parent, Config{}, Dispatcher{}} {}
+  explicit Container(Parent& parent) noexcept : Container{parent, Cache{}} {}
 
-  //! Construct from parent and bindings.
+  //! Construct from bindings.
   template <IsConvertibleToBinding... Bindings>
   explicit Container(Parent& parent, Bindings&&... bindings) noexcept
-      : Container{parent, Config{std::forward<Bindings>(bindings)...},
-                  Dispatcher{}} {}
+      : Container{parent, Cache{}, std::forward<Bindings>(bindings)...} {}
 
-  //! Construct from parent and bindings with tag.
-  template <IsTagArg ActualTag, IsConvertibleToBinding... Bindings>
-  explicit Container(ActualTag, Parent& parent, Bindings&&... bindings) noexcept
-      : Container{parent, Config{std::forward<Bindings>(bindings)...},
-                  Dispatcher{}} {}
+  //! Construct from cache and bindings.
+  template <IsConvertibleToBinding... Bindings>
+  explicit Container(Parent& parent, Cache cache,
+                     Bindings&&... bindings) noexcept
+      : Container{parent, std::move(cache), Dispatcher{},
+                  Config{std::forward<Bindings>(bindings)...}} {}
 
-  //! Construct from parent and components.
-  Container(Parent& parent, Config config, Dispatcher dispatcher) noexcept
-      : dispatcher_{std::move(dispatcher)},
+  //! Construct from components.
+  Container(Parent& parent, Cache cache, Dispatcher dispatcher,
+            Config config) noexcept
+      : cache_{std::move(cache)},
+        dispatcher_{std::move(dispatcher)},
         config_{std::move(config)},
         parent_{&parent} {}
 
-  //! Construct from parent and components with tag.
+  //! Construct from tag and bindings.
+  template <IsTagArg ActualTag, IsConvertibleToBinding... Bindings>
+  explicit Container(ActualTag, Parent& parent, Bindings&&... bindings) noexcept
+      : Container{parent, std::forward<Bindings>(bindings)...} {}
+
+  //! Construct from tag, cache, and bindings.
+  template <IsTagArg ActualTag, IsConvertibleToBinding... Bindings>
+  explicit Container(ActualTag, Parent& parent, Cache cache,
+                     Bindings&&... bindings) noexcept
+      : Container{parent, std::move(cache),
+                  std::forward<Bindings>(bindings)...} {}
+
+  //! Construct from tag and components.
   template <IsTagArg ActualTag>
-  Container(ActualTag, Parent& parent, Config config,
-            Dispatcher dispatcher) noexcept
-      : Container{parent, std::move(config), std::move(dispatcher)} {}
+  Container(ActualTag, Parent& parent, Cache cache, Dispatcher dispatcher,
+            Config config) noexcept
+      : Container{parent, std::move(cache), std::move(dispatcher),
+                  std::move(config)} {}
 
   Container(const Container&) = delete;
   auto operator=(const Container&) const -> Container& = delete;
@@ -172,7 +212,14 @@ class Container {
     return dispatcher_.template resolve<Requested>(*this, config_, parent_);
   }
 
+  //! Get or create cached entry.
+  template <typename Provider>
+  auto get_or_create(Provider& provider) -> Provider::Provided& {
+    return cache_.get_or_create(*this, provider);
+  }
+
  private:
+  [[dink_no_unique_address]] Cache cache_{};
   [[dink_no_unique_address]] Dispatcher dispatcher_{};
   Config config_{};
   Parent* parent_{};
@@ -185,46 +232,63 @@ class Container {
 //! Intercepted copy constructor.
 //
 // Containers are move-only. Trying to copy a container creates a child.
-template <IsConfig Config, typename Dispatcher, IsParentContainer Parent,
-          IsTag Tag>
-Container(Container<Config, Dispatcher, Parent, Tag>&)
-    -> Container<dink::Config<>, dink::Dispatcher<>,
-                 Container<Config, Dispatcher, Parent, Tag>, Tag>;
+template <IsConfig Config, typename Cache, typename Dispatcher,
+          IsParentContainer Parent, IsTag Tag>
+  requires(!IsConvertibleToBinding<Cache>)
+Container(Container<Config, Cache, Dispatcher, Parent, Tag>&)
+    -> Container<dink::Config<>, cache::Type, dink::Dispatcher<>,
+                 Container<Config, Cache, Dispatcher, Parent, Tag>, Tag>;
 
-//! Root container from builders.
-template <IsConvertibleToBinding... Builders>
-Container(Builders&&...)
-    -> Container<decltype(Config{std::declval<Builders>()...}), Dispatcher<>,
-                 void, void>;
+//! Root container from bindings.
+template <IsConvertibleToBinding... Bindings>
+Container(Bindings&&...)
+    -> Container<decltype(Config{std::declval<Bindings>()...}), cache::Type,
+                 Dispatcher<>, void, void>;
 
-//! Root container from builders with tag.
-template <IsTagArg Tag, IsConvertibleToBinding... Builders>
-Container(Tag, Builders&&...)
-    -> Container<decltype(Config{std::declval<Builders>()...}), Dispatcher<>,
-                 void, Tag>;
+//! Root container from bindings with tag.
+template <IsTagArg Tag, IsConvertibleToBinding... Bindings>
+Container(Tag, Bindings&&...)
+    -> Container<decltype(Config{std::declval<Bindings>()...}), cache::Type,
+                 Dispatcher<>, void, Tag>;
 
 //! Child container from parent.
 template <IsParentContainer Parent>
-Container(Parent& parent)
-    -> Container<Config<>, Dispatcher<>, std::remove_cvref_t<Parent>, void>;
+Container(Parent& parent) -> Container<Config<>, cache::Type, Dispatcher<>,
+                                       std::remove_cvref_t<Parent>, void>;
+
+//! Child container from parent and bindings.
+template <IsParentContainer Parent, IsConvertibleToBinding... Bindings>
+Container(Parent& parent, Bindings&&...)
+    -> Container<decltype(Config{std::declval<Bindings>()...}), cache::Type,
+                 Dispatcher<>, std::remove_cvref_t<Parent>, void>;
+
+//! Child container from parent, cache, and bindings.
+template <IsParentContainer Parent, typename Cache,
+          IsConvertibleToBinding... Bindings>
+  requires(!IsConvertibleToBinding<Cache>)
+Container(Parent& parent, Cache cache, Bindings&&...)
+    -> Container<decltype(Config{std::declval<Bindings>()...}), Cache,
+                 Dispatcher<>, std::remove_cvref_t<Parent>, void>;
 
 //! Child container from parent with tag.
 template <IsTagArg Tag, IsParentContainer Parent>
-Container(Tag, Parent& parent)
-    -> Container<Config<>, Dispatcher<>, std::remove_cvref_t<Parent>, Tag>;
-
-//! Child container from parent and bindings.
-template <IsParentContainer Parent, IsConvertibleToBinding... Builders>
-Container(Parent& parent, Builders&&...)
-    -> Container<decltype(Config{std::declval<Builders>()...}), Dispatcher<>,
-                 std::remove_cvref_t<Parent>, void>;
+Container(Tag, Parent& parent) -> Container<Config<>, cache::Type, Dispatcher<>,
+                                            std::remove_cvref_t<Parent>, Tag>;
 
 //! Child container from parent and bindings with tag.
 template <IsTagArg Tag, IsParentContainer Parent,
-          IsConvertibleToBinding... Builders>
-Container(Tag, Parent& parent, Builders&&...)
-    -> Container<decltype(Config{std::declval<Builders>()...}), Dispatcher<>,
-                 std::remove_cvref_t<Parent>, Tag>;
+          IsConvertibleToBinding... Bindings>
+Container(Tag, Parent& parent, Bindings&&...)
+    -> Container<decltype(Config{std::declval<Bindings>()...}), cache::Type,
+                 Dispatcher<>, std::remove_cvref_t<Parent>, Tag>;
+
+//! Child container from parent, cache, and bindings with tag.
+template <IsTagArg Tag, IsParentContainer Parent, typename Cache,
+          IsConvertibleToBinding... Bindings>
+  requires(!IsConvertibleToBinding<Cache>)
+Container(Tag, Parent& parent, Cache cache, Bindings&&...)
+    -> Container<decltype(Config{std::declval<Bindings>()...}), Cache,
+                 Dispatcher<>, std::remove_cvref_t<Parent>, Tag>;
 
 // ----------------------------------------------------------------------------
 // Factory Functions

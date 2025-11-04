@@ -135,8 +135,8 @@ Config(Args&&...)
 //! Identifies valid configuration types.
 //
 // A config must support finding bindings by resolved type.
-template <typename config_t>
-concept IsConfig = requires(config_t& config) {
+template <typename Config>
+concept IsConfig = requires(Config& config) {
   config.template find_binding<meta::ConceptProbe>();
 };
 
