@@ -138,7 +138,6 @@ function(dink_configure_test_target_warnings target)
       -Wno-unneeded-member-function
       -Wno-unused-member-function
       -Wno-unused-template
-      -Wno-weak-vtables
     )
   endif()
 
