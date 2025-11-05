@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 # -----------------------------------------------------------------------------
-# project files
+# Project Files
 # -----------------------------------------------------------------------------
 
 list(APPEND dink_library_files
@@ -45,7 +45,7 @@ list(APPEND dink_test_files
 )
 
 # -----------------------------------------------------------------------------
-# generated configuration
+# Generated Configuration
 # -----------------------------------------------------------------------------
 
 set(dink_config_template_file config.template.hpp)
@@ -56,7 +56,7 @@ set(dink_config_gen_file
 configure_file("${dink_config_template_file}" "${dink_config_gen_file}")
 
 # -----------------------------------------------------------------------------
-# project definition
+# Project Definition
 # -----------------------------------------------------------------------------
 
 add_library(dink INTERFACE
@@ -75,12 +75,12 @@ set_target_properties(dink
 )
 
 # -----------------------------------------------------------------------------
-# installation
+# Installation
 # -----------------------------------------------------------------------------
 
 include(GNUInstallDirs)
 
-# Suppress cmake's "Up-to-date" message for every installed file.
+# Suppress "Up-to-date" message cmake prints for every installed file.
 set(CMAKE_INSTALL_MESSAGE NEVER)
 
 # Install library and headers.
@@ -174,7 +174,7 @@ install(
 )
 
 # -----------------------------------------------------------------------------
-# test projects
+# Test Projects
 # -----------------------------------------------------------------------------
 
 if (dink_enable_testing)

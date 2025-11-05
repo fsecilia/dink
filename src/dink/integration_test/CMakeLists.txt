@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 # -----------------------------------------------------------------------------
-# project files
+# Project Files
 # -----------------------------------------------------------------------------
 
 list(APPEND dink_integration_test_files
@@ -16,7 +16,7 @@ list(APPEND dink_integration_test_files
 )
 
 # -----------------------------------------------------------------------------
-# test projects
+# Test Projects
 # -----------------------------------------------------------------------------
 
 if (dink_enable_testing)
