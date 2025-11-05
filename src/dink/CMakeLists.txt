@@ -70,8 +70,8 @@ target_include_directories(dink INTERFACE
 )
 set_target_properties(dink
   PROPERTIES
-  VERSION ${dink_major} ${dink_minor} ${dink_patch}
-  SOVERSION ${dink_major} ${dink_minor}
+  VERSION ${PROJECT_VERSION}
+  SOVERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}"
 )
 
 # -----------------------------------------------------------------------------
