@@ -25,7 +25,7 @@ endif()
 set(THREADS_PREFER_PTHREAD_FLAG True)
 find_package(Threads REQUIRED)
 
-# Find googletest.
+# Find gtest and enable testing if found.
 find_package(GTest)
 if (GTEST_FOUND)
   set(dink_enable_testing True)
