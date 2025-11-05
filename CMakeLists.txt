@@ -8,7 +8,7 @@ project(dink VERSION 0.1.0)
 # ccache
 # -----------------------------------------------------------------------------
 
-# use ccache, if available
+# Use ccache, if available.
 find_program(ccache ccache)
 if (ccache)
   set(CMAKE_C_COMPILER_LAUNCHER "${ccache}")
@@ -18,21 +18,21 @@ if (ccache)
 endif()
 
 # -----------------------------------------------------------------------------
-# dependencies
+# Dependencies
 # -----------------------------------------------------------------------------
 
-# find system threading library
+# Find system threading library.
 set(THREADS_PREFER_PTHREAD_FLAG True)
 find_package(Threads REQUIRED)
 
-# find googletest
+# Find googletest.
 find_package(GTest)
 if (GTEST_FOUND)
   set(dink_enable_testing True)
 endif()
 
 # -----------------------------------------------------------------------------
-# enable warnings
+# Warnings
 # -----------------------------------------------------------------------------
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
@@ -67,7 +67,7 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 endif()
 
 # -----------------------------------------------------------------------------
-# compiler settings
+# Compiler
 # -----------------------------------------------------------------------------
 
 set(CMAKE_CXX_EXTENSIONS FALSE)
@@ -97,10 +97,10 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 endif()
 
 # -----------------------------------------------------------------------------
-# project functions
+# Project Functions
 # -----------------------------------------------------------------------------
 
-# sets up build tree for running an executable
+# Sets up build tree for running an executable.
 #
 # Shared objects must be located when running from the build tree. Most
 # platforms use RPATH. Windows does not, but when locating dlls for an
@@ -123,7 +123,7 @@ function(dink_enable_running_from_build_tree target)
   endif()
 endfunction()
 
-# disables a few warnings generated when using gtest
+# Disables a few warnings generated when using gtest.
 function(dink_configure_test_target_warnings target)
   if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     target_compile_options(${target} PUBLIC
@@ -151,7 +151,7 @@ endfunction()
 # Documentation
 # -----------------------------------------------------------------------------
 
-# find doxygen and optionally dot
+# Find doxygen and optionally dot.
 find_package(Doxygen OPTIONAL_COMPONENTS dot QUIET)
 
 if (Doxygen_FOUND)
@@ -216,7 +216,7 @@ else()
 endif()
 
 # -----------------------------------------------------------------------------
-# project subdirectories
+# Project Subdirectories
 # -----------------------------------------------------------------------------
 
 add_subdirectory(src/dink)
