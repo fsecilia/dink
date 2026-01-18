@@ -5,6 +5,13 @@ cmake_minimum_required(VERSION 4.0.2)
 project(dink VERSION 0.1.0)
 
 # -----------------------------------------------------------------------------
+# Configuration
+# -----------------------------------------------------------------------------
+
+# Disable this when using add_subdirectory, but don't want Dink to install.
+option(DINK_INSTALL "Enable installation of dink" ON)
+
+# -----------------------------------------------------------------------------
 # ccache
 # -----------------------------------------------------------------------------
 
@@ -151,68 +158,70 @@ endfunction()
 # Documentation
 # -----------------------------------------------------------------------------
 
-# Find doxygen and optionally dot.
-find_package(Doxygen OPTIONAL_COMPONENTS dot QUIET)
+if (DINK_INSTALL)
+    # Find doxygen and optionally dot.
+    find_package(Doxygen OPTIONAL_COMPONENTS dot QUIET)
 
-if (Doxygen_FOUND)
-  set(DOXYGEN_WARN_LOGFILE "${CMAKE_CURRENT_BINARY_DIR}/doxygen-warnings.log")
+    if (Doxygen_FOUND)
+      set(DOXYGEN_WARN_LOGFILE "${CMAKE_CURRENT_BINARY_DIR}/doxygen-warnings.log")
 
-  # Specify paths.
-  set(DOXYGEN_INPUT_DIR "${PROJECT_SOURCE_DIR}/src")
-  set(DOXYGEN_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/doxygen")
+      # Specify paths.
+      set(DOXYGEN_INPUT_DIR "${PROJECT_SOURCE_DIR}/src")
+      set(DOXYGEN_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/doxygen")
 
-  # Use clang's parser.
-  set(DOXYGEN_CLANG_ASSISTED_PARSING "YES")
-  set(DOXYGEN_CLANG_OPTIONS "-I${PROJECT_SOURCE_DIR}/src -std=c++20")
-  set(DOXYGEN_CLANG_DATABASE_PATH "${CMAKE_CURRENT_BINARY_DIR}")
+      # Use clang's parser.
+      set(DOXYGEN_CLANG_ASSISTED_PARSING "YES")
+      set(DOXYGEN_CLANG_OPTIONS "-I${PROJECT_SOURCE_DIR}/src -std=c++20")
+      set(DOXYGEN_CLANG_DATABASE_PATH "${CMAKE_CURRENT_BINARY_DIR}")
 
-  # Generate the actual Doxygen config file from template.
-  configure_file(
-    "${PROJECT_SOURCE_DIR}/Doxyfile.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/Doxyfile"
-    @ONLY
-  )
+      # Generate the actual Doxygen config file from template.
+      configure_file(
+        "${PROJECT_SOURCE_DIR}/Doxyfile.in"
+        "${CMAKE_CURRENT_BINARY_DIR}/Doxyfile"
+        @ONLY
+      )
 
-  # Add target named doc to invoke doxygen.
-  doxygen_add_docs(
-    doc
-    [QUIET]
-    "${DOXYGEN_INPUT_DIR}"
-    CONFIG_FILE "${CMAKE_CURRENT_BINARY_DIR}/Doxyfile"
-    COMMENT "Generating API documentation with Doxygen."
-  )
+      # Add target named doc to invoke doxygen.
+      doxygen_add_docs(
+        doc
+        [QUIET]
+        "${DOXYGEN_INPUT_DIR}"
+        CONFIG_FILE "${CMAKE_CURRENT_BINARY_DIR}/Doxyfile"
+        COMMENT "Generating API documentation with Doxygen."
+      )
 
-  # Add a target named doc_clean that clears the output directory.
-  add_custom_target(doc_clean
-    COMMAND "${CMAKE_COMMAND}" -E remove_directory "${DOXYGEN_OUTPUT_DIR}"
-    COMMENT "Cleaning old Doxygen output..."
-  )
+      # Add a target named doc_clean that clears the output directory.
+      add_custom_target(doc_clean
+        COMMAND "${CMAKE_COMMAND}" -E remove_directory "${DOXYGEN_OUTPUT_DIR}"
+        COMMENT "Cleaning old Doxygen output..."
+      )
 
-  # Make doc depend on doc_clean so the directory is always removed before
-  # regenerating it. This prevents stale files from sticking around if they're
-  # no longer being generated.
-  add_dependencies(doc doc_clean)
+      # Make doc depend on doc_clean so the directory is always removed before
+      # regenerating it. This prevents stale files from sticking around if they're
+      # no longer being generated.
+      add_dependencies(doc doc_clean)
 
-  # Add a pre-install step to build the 'doc' target before install.
-  install(CODE "
-    message(STATUS \"Building documentation...\")
-    execute_process(
-      COMMAND \"${CMAKE_COMMAND}\" --build \"${CMAKE_BINARY_DIR}\" --target doc
-      WORKING_DIRECTORY \"${CMAKE_BINARY_DIR}\"
-      RESULT_VARIABLE result
-    )
-    if(NOT result EQUAL 0)
-      message(FATAL_ERROR \"Failed to build 'doc' target during install.\")
+      # Add a pre-install step to build the 'doc' target before install.
+      install(CODE "
+        message(STATUS \"Building documentation...\")
+        execute_process(
+          COMMAND \"${CMAKE_COMMAND}\" --build \"${CMAKE_BINARY_DIR}\" --target doc
+          WORKING_DIRECTORY \"${CMAKE_BINARY_DIR}\"
+          RESULT_VARIABLE result
+        )
+        if(NOT result EQUAL 0)
+          message(FATAL_ERROR \"Failed to build 'doc' target during install.\")
+        endif()
+      ")
+
+      # Add doxygen output to install.
+      install(
+        DIRECTORY "${DOXYGEN_OUTPUT_DIR}/html"
+        DESTINATION "share/doc/${PROJECT_NAME}"
+      )
+    else()
+      message(STATUS "Doxygen not found. Documentation will not be generated.")
     endif()
-  ")
-
-  # Add doxygen output to install.
-  install(
-    DIRECTORY "${DOXYGEN_OUTPUT_DIR}/html"
-    DESTINATION "share/doc/${PROJECT_NAME}"
-  )
-else()
-  message(STATUS "Doxygen not found. Documentation will not be generated.")
 endif()
 
 # -----------------------------------------------------------------------------
