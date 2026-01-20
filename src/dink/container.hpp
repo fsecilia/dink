@@ -131,9 +131,9 @@ class Container<Config, Cache, Dispatcher, void, Tag> {
       : Container{std::move(cache), std::move(dispatcher), std::move(config)} {}
 
   Container(const Container&) = delete;
-  auto operator=(const Container&) const -> Container& = delete;
+  auto operator=(const Container&) -> Container& = delete;
   Container(Container&&) = default;
-  auto operator=(Container&&) const -> Container& = default;
+  auto operator=(Container&&) -> Container& = default;
 
   //! Resolve a dependency.
   template <typename Requested>
@@ -202,9 +202,9 @@ class Container {
                   std::move(config)} {}
 
   Container(const Container&) = delete;
-  auto operator=(const Container&) const -> Container& = delete;
+  auto operator=(const Container&) -> Container& = delete;
   Container(Container&&) = default;
-  auto operator=(Container&&) const -> Container& = default;
+  auto operator=(Container&&) -> Container& = default;
 
   //! Resolve a dependency.
   template <typename Requested>
