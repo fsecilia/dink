@@ -1,7 +1,7 @@
 # copyright (c) 2025 Frank Secilia
 # SPDX-License-Identifier: MIT
 
-cmake_minimum_required(VERSION 4.0.2)
+cmake_minimum_required(VERSION 3.31)
 project(dink VERSION 0.1.0)
 
 # -----------------------------------------------------------------------------
