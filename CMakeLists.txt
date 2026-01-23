@@ -9,7 +9,7 @@ project(dink VERSION 0.1.0)
 # -----------------------------------------------------------------------------
 
 # Disable this when using add_subdirectory, but don't want Dink to install.
-option(DINK_INSTALL "Enable installation of dink" ON)
+option(dink_INSTALL "Enable installation of dink" ON)
 
 # -----------------------------------------------------------------------------
 # ccache
